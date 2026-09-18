@@ -12,7 +12,14 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 .files code{display:inline-block;margin:2px 0}
 </style></head><body><div class="w">
 <h1>OmniLife<b>ONE</b> — passo a passo</h1>
-<p>Versão 1.0.1 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e muito mais).</p>
+<p>Versão 1.1.0 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e muito mais).</p>
+<p><b>Novidade da 1.1.0 — anúncios, conforme as diretrizes:</b></p>
+<ul>
+<li><b>Faixa do topo:</b> tem o botão PT | EN, a palavra ANÚNCIO na vertical, o carrossel e o ×. O botão de idioma saiu do cabeçalho e foi para a faixa.</li>
+<li><b>Carrossel:</b> anda para a esquerda sem parar, com imagem ao lado do texto. Pausa quando você toca ou passa o mouse. O clique abre em outra aba.</li>
+<li><b>Pop-ups:</b> um antes do login e outro depois, com contagem 3, 2, 1 antes de liberar o ×. Fecham no ×, no Esc ou tocando fora.</li>
+<li><b>Premium:</b> em Ajustes → Geral → Plano da família, marque a família como Premium e ela não vê anúncio nenhum.</li>
+</ul>
 <p><b>Novidade da 1.0.1:</b> novo ícone (casa com coração em neon lilás) e arte de fundo com ícones em neon — versão deitada no computador e em pé no celular. Dá para desligar a arte em Ajustes → Geral.</p>
 
 <h2>1. O que tem neste zip</h2>
@@ -20,7 +27,7 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <p><b>Para subir no GitHub (7 arquivos):</b><br>
 <code>index.html</code> (o app inteiro, já com a arte de fundo) · <code>sw.js</code> (avisos e modo offline) · <code>manifest.webmanifest</code> (instalar como aplicativo) · <code>icon-192.png</code> · <code>icon-512.png</code> · <code>icon-maskable-512.png</code> (ícone do Android) · <code>apple-touch-icon.png</code> (ícone do iPhone)</p>
 <p><b>Só para você ler (não precisa subir):</b><br>
-<code>LEIA-ME-OmniLifeONE.html</code> (este guia) · <code>regras-firestore-OmniLifeONE.txt</code> (regras de segurança do Firebase) · <code>para-o-chat-do-MoneyTrio-integracao-OmniLifeONE.txt</code> (texto para colar no chat do MoneyTrio)</p>
+<code>LEIA-ME-OmniLifeONE.html</code> (este guia) · <code>anuncios-MODELO-OmniLifeONE.json</code> (modelo opcional de anúncios próprios) · <code>regras-firestore-OmniLifeONE.txt</code> (regras de segurança do Firebase) · <code>para-o-chat-do-MoneyTrio-integracao-OmniLifeONE.txt</code> (texto para colar no chat do MoneyTrio)</p>
 </div>
 
 <h2>2. Publicar no GitHub</h2>
@@ -68,10 +75,26 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <li><b>Backup no Google Drive:</b> Ajustes → Integrações. Se aparecer erro 403, ative a <b>Google Drive API</b> no Google Cloud do projeto.</li>
 </ul></div>
 
-<h2>6. MoneyTrio</h2>
+<h2>6. Anúncios</h2>
+<div class="card"><ul>
+<li><b>Quem vê:</b> o visitante e quem entra com conta (Membro). A família marcada como Premium não vê nada, nem a faixa nem os pop-ups. O anunciante vê só o painel dele.</li>
+<li><b>O ×:</b> fecha a faixa até o fim da sessão. Ela fica fininha, só com o PT | EN, e volta no próximo login.</li>
+<li><b>Os pop-ups:</b> cada momento (antes e depois do login) aparece no máximo uma vez por sessão. Também respeitam um intervalo mínimo, que é de 30 minutos no padrão. Nunca aparecem por cima de uma tela cheia (SOS, cofre, janelas abertas) e não repetem o mesmo app duas vezes seguidas.</li>
+<li><b>O que é anunciado:</b> sem arquivo nenhum, aparecem os outros apps do portal (MoneyTRIO, RiseONE, Eleições 2026, Contador de Histórias e Cifras e Acordes), com a arte do portal. O OmniLifeONE nunca anuncia ele mesmo.</li>
+<li><b>Anúncios próprios, para todo mundo:</b> renomeie <code>anuncios-MODELO-OmniLifeONE.json</code> para <code>anuncios.json</code>, edite e suba:
+<ul><li>no repositório <code>omnilife-one</code>, se for só para este app;</li>
+<li>no <code>marceloneco.github.io</code>, se for para todos os apps.</li></ul></li>
+<li><b>Área do anunciante</b> (na tela de entrada, escolha Anunciante):
+<ul><li>veja as exibições e os cliques de cada anúncio;</li>
+<li>crie anúncios de teste, que valem só neste aparelho;</li>
+<li>ajuste a frequência e a velocidade;</li>
+<li>abra um pop-up de exemplo.</li></ul></li>
+</ul></div>
+
+<h2>7. MoneyTrio</h2>
 <div class="card">Quando você finaliza uma compra, ou registra uma manutenção com custo, o OmniLifeONE deixa o gasto e os preços numa “ponte” no navegador. Para o MoneyTrio passar a importar esses lançamentos, cole o texto do arquivo <code>para-o-chat-do-MoneyTrio-integracao-OmniLifeONE.txt</code> no chat do MoneyTrio. Os repositórios continuam separados.</div>
 
-<h2>7. O que já funciona e o que ficou com a estrutura pronta</h2>
+<h2>8. O que já funciona e o que ficou com a estrutura pronta</h2>
 <div class="card"><p><b>Funciona:</b></p>
 <ul>
 <li>lista de compras por voz;</li>

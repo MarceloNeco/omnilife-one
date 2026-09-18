@@ -1,0 +1,32 @@
+{
+  "_leia": "MODELO (opcional). Sem este arquivo, a faixa e os pop-ups mostram os apps do portal. Para usar anúncios próprios: renomeie para anuncios.json e suba na raiz do repositório omnilife-one (vale só para este app) ou do marceloneco.github.io (vale para todos os apps). 'onde' aceita \"faixa\" e/ou \"popup\". O app nunca mostra anúncio dele mesmo.",
+  "config": {
+    "velocidade": 40,
+    "popupAntesDoLogin": true,
+    "popupDepoisDoLogin": true,
+    "segundosParaFechar": 3,
+    "intervaloMinutos": 30
+  },
+  "anuncios": [
+    {
+      "id": "moneytrio",
+      "titulo": { "pt": "MoneyTRIO", "en": "MoneyTRIO" },
+      "texto": { "pt": "Finanças pessoais: orçamento, investimentos e imposto de renda", "en": "Personal finance: budget, investments and income tax" },
+      "provocacao": { "pt": "Você sabe para onde foi o seu dinheiro este mês?", "en": "Do you know where your money went this month?" },
+      "imagem": "https://marceloneco.github.io/investify-me/icone-512.png",
+      "link": "https://marceloneco.github.io/investify-me/",
+      "onde": ["faixa", "popup"],
+      "ativo": true
+    },
+    {
+      "id": "padaria-exemplo",
+      "titulo": "Padaria do Bairro",
+      "texto": "Pão quentinho às 7h, entrega no condomínio",
+      "provocacao": "O pão acabou de novo no café da manhã?",
+      "imagem": "https://exemplo.com/foto-da-padaria.jpg",
+      "link": "https://exemplo.com/padaria",
+      "onde": ["faixa"],
+      "ativo": false
+    }
+  ]
+}

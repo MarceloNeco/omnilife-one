@@ -1,5 +1,5 @@
 /* OmniLifeONE — service worker (avisos e funcionamento offline) */
-const CACHE = "omnilife-one-v2";
+const CACHE = "omnilife-one-v3"; /* VERSAO: suba este número a cada versão nova */
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"]).catch(() => {})));
@@ -13,7 +13,7 @@ self.addEventListener("fetch", (e) => {
   const u = new URL(r.url);
   if (u.origin !== location.origin) return;
   e.respondWith(
-    fetch(r).then((res) => { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(r, cp)).catch(() => {}); return res; })
+    fetch(r).then((res) => { if (res.ok) { const cp = res.clone(); caches.open(CACHE).then((c) => c.put(r, cp)).catch(() => {}); } return res; })
       .catch(() => caches.match(r).then((m) => m || caches.match("./index.html")))
   );
 });
