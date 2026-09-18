@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OmniLifeONE — Leia-me</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f6fb;color:#15131f;margin:0;line-height:1.55}
+.w{max-width:820px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:1.6rem;margin:.2em 0}h1 b{color:#6a50e6}
+h2{font-size:1.15rem;margin:28px 0 8px;padding-top:10px;border-top:1px solid #dedbee}
+.card{background:#fff;border:1px solid #dedbee;border-radius:14px;padding:14px 16px;margin:10px 0}
+.tip{background:#eef6ff;border-color:#b9d8ff}.warn{background:#fff6e5;border-color:#ffd48a}
+ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1px 6px;font-size:.92em}
+.files code{display:inline-block;margin:2px 0}
+</style></head><body><div class="w">
+<h1>OmniLife<b>ONE</b> — passo a passo</h1>
+<p>Versão 1.0.0 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e muito mais).</p>
+
+<h2>1. O que tem neste zip</h2>
+<div class="card files">
+<p><b>Para subir no GitHub (5 arquivos):</b><br>
+<code>index.html</code> (o app inteiro) · <code>sw.js</code> (avisos e modo offline) · <code>manifest.webmanifest</code> (instalar como aplicativo) · <code>icon-192.png</code> · <code>icon-512.png</code></p>
+<p><b>Só para você ler (não precisa subir):</b><br>
+<code>LEIA-ME-OmniLifeONE.html</code> (este guia) · <code>regras-firestore-OmniLifeONE.txt</code> (regras de segurança do Firebase) · <code>para-o-chat-do-MoneyTrio-integracao-OmniLifeONE.txt</code> (texto para colar no chat do MoneyTrio)</p>
+</div>
+
+<h2>2. Publicar no GitHub</h2>
+<div class="card"><ol>
+<li>Abra <b>github.com/MarceloNeco/omnilife-one</b>.</li>
+<li>Clique em <b>Add file</b> → <b>Upload files</b>.</li>
+<li>Arraste os <b>5 arquivos</b> da lista acima (soltos, sem pasta).</li>
+<li>Lá embaixo, clique no botão verde <b>Commit changes</b>.</li>
+<li>Espere 1 a 2 minutos (a aba <b>Actions</b> mostra uma bolinha amarela e depois um ✓ verde).</li>
+<li>Abra <b>marceloneco.github.io/omnilife-one</b>.</li>
+</ol>
+<p>Nas próximas versões é igual: suba os arquivos novos por cima (o GitHub substitui os antigos).</p></div>
+<div class="card warn">Se a página der erro 404: confira em <b>Settings → Pages</b> se a fonte está em <b>GitHub Actions</b> (igual ao RiseONE). Não apague a pasta <code>.github</code>.</div>
+
+<h2>3. Ligar a nuvem (Firebase) — para cada um usar o próprio celular</h2>
+<div class="card"><ol>
+<li>No <b>console.firebase.google.com</b>, abra o projeto <b>OmniLifeONE</b>.</li>
+<li>Vá em <b>Firestore Database</b> → aba <b>Regras</b>. Apague tudo o que estiver lá, cole o conteúdo do arquivo <code>regras-firestore-OmniLifeONE.txt</code> e clique em <b>Publicar</b>.</li>
+<li>Confira em <b>Authentication</b> → <b>Método de login</b> se <b>Google</b> e <b>E-mail/senha</b> estão ativados, e em <b>Configurações</b> → <b>Domínios autorizados</b> se <code>marceloneco.github.io</code> está na lista.</li>
+<li>A configuração do app (o bloco <code>firebaseConfig</code>) pode entrar de duas formas:
+<ul><li><b>Melhor:</b> cole o bloco no chat do Claude. Ele embute no <code>index.html</code> e toda a família já abre o site conectado.</li>
+<li><b>Ou:</b> no app, vá em <b>Ajustes → Nuvem</b>, cole o bloco e toque em <b>Salvar e conectar</b>. Quem entrar pelo seu link de convite recebe a configuração junto.</li></ul></li>
+</ol></div>
+
+<h2>4. Primeiro uso</h2>
+<div class="card"><ol>
+<li>Abra o site e escolha <b>Família — entrar com Google</b>.</li>
+<li>Crie a família: dê o nome e o seu nome. Você vira o <b>administrador</b>.</li>
+<li>Em <b>Família</b>, cadastre as pessoas e os pets (nascimento, celular, ícone). Em cada criança você define o <b>controle parental</b>.</li>
+<li>Toque em <b>Enviar convite</b> (WhatsApp) ou mostre o <b>QR code</b>. A pessoa entra com Google ou e-mail e aparece em <b>Pedidos de entrada</b>. Aprove, escolha o papel dela e diga qual pessoa da família ela é:
+<ul><li><b>Responsável</b>: vê tudo, aprova os pedidos, acessa o cofre.</li>
+<li><b>Membro</b>: adulto que usa tudo, menos o cofre e as aprovações.</li>
+<li><b>Criança/Jovem</b>: faz pedidos, marca tarefas e ganha pontos, e só vê o que o controle parental permitir.</li></ul></li>
+<li>Siga o quadro <b>“Deixe o OmniLifeONE pronto”</b> na tela de Início: carteira vital, CEP, contatos, rotina, mapa da casa e documentos.</li>
+</ol></div>
+<div class="card tip">Não quer nuvem agora? Escolha <b>Só neste aparelho</b>: cada pessoa entra no próprio perfil com PIN, no mesmo celular. Depois dá para levar tudo para a nuvem (Ajustes → Nuvem).</div>
+
+<h2>5. Opcionais (recomendados)</h2>
+<div class="card"><ul>
+<li><b>Instalar como aplicativo no Android:</b> abra o site no Chrome → menu ⋮ → <b>Adicionar à tela inicial</b> / <b>Instalar app</b>.</li>
+<li><b>Avisos:</b> Ajustes → Avisos → <b>Ligar avisos</b>. Eles cobrem compromissos, remédios, o que está acabando, manutenções e documentos vencendo.</li>
+<li><b>Aviso mesmo com o app fechado:</b> instale o app gratuito <b>ntfy</b>. Em Ajustes → Avisos, toque em <b>Gerar tópico</b> e depois em <b>Salvar</b>. No ntfy, toque em <b>+</b> e digite o mesmo tópico. Faça isso no celular de cada responsável.</li>
+<li><b>IA (Gemini, grátis):</b> em <b>aistudio.google.com/app/apikey</b>, clique em <b>Create API key</b>. Cole a chave em Ajustes → IA. Com ela, a leitura de e-mails e bilhetes, a foto da geladeira e as etiquetas das gavetas ficam muito melhores. A chave fica guardada junto com as do MoneyTrio.</li>
+<li><b>Biometria:</b> Ajustes → Geral → Segurança, para travar o app com a digital. No cofre (Casa → Cofre) tem o botão <b>“Liberar por biometria”</b>.</li>
+<li><b>Backup no Google Drive:</b> Ajustes → Integrações. Se aparecer erro 403, ative a <b>Google Drive API</b> no Google Cloud do projeto.</li>
+</ul></div>
+
+<h2>6. MoneyTrio</h2>
+<div class="card">Quando você finaliza uma compra, ou registra uma manutenção com custo, o OmniLifeONE deixa o gasto e os preços numa “ponte” no navegador. Para o MoneyTrio passar a importar esses lançamentos, cole o texto do arquivo <code>para-o-chat-do-MoneyTrio-integracao-OmniLifeONE.txt</code> no chat do MoneyTrio. Os repositórios continuam separados.</div>
+
+<h2>7. O que já funciona e o que ficou com a estrutura pronta</h2>
+<div class="card"><p><b>Funciona:</b></p>
+<ul>
+<li>lista de compras por voz;</li>
+<li>previsão de quando cada coisa acaba;</li>
+<li>pedidos dos filhos com aprovação e metas por pontos;</li>
+<li>foto da geladeira e receitas;</li>
+<li>comparação de preços por mercado;</li>
+<li>agenda, rotina, tarefas, Delegômetro e “Assume a Casa” (WhatsApp/PDF);</li>
+<li>contatos públicos e privados, importação do celular/.vcf e “Colar &amp; organizar” (texto, foto e OCR);</li>
+<li>serviços pelo CEP (UPA, hospitais, polícia, bombeiros, farmácias, concessionárias);</li>
+<li>carteira vital e cartão de emergência em PDF;</li>
+<li>“Onde está?” com planta da casa, fotos etiquetadas e busca por voz;</li>
+<li>manutenções, cofre criptografado, guias para babá/cuidador/pet e documentos com anexos e validade;</li>
+<li>PT/EN, login Google/e-mail/PIN e visitante com anúncio.</li>
+</ul>
+<p><b>Estrutura pronta, esperando serviço externo:</b></p>
+<ul>
+<li>skill da Alexa (precisa de servidor e publicação na Amazon);</li>
+<li>alerta automático de AirTag/SmartTag/Tile (os fabricantes não têm API aberta);</li>
+<li>carrinho automático em mercados parceiros;</li>
+<li>pagamento de assinantes e anunciantes;</li>
+<li>push pelo Firebase sem o app aberto (precisa do plano pago; por enquanto use o ntfy).</li>
+</ul></div>
+<p style="color:#8a869c;font-size:.85rem">Uso pessoal/familiar e para fins de pesquisa, sem garantias. Dados sensíveis (saúde, documentos): compartilhe a família só com quem você confia.</p>
+</div></body></html>

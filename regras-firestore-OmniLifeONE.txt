@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function fam(fid) { return get(/databases/$(database)/documents/families/$(fid)).data; }
+    function isMember(fid) { return signedIn() && request.auth.uid in fam(fid).members; }
+    function myRole(fid) { return fam(fid).members[request.auth.uid].role; }
+    function isGuardian(fid) { return isMember(fid) && myRole(fid) in ['admin', 'responsavel']; }
+    function isAdult(fid) { return isMember(fid) && myRole(fid) in ['admin', 'responsavel', 'membro']; }
+    function visOk(fid, data) { return isGuardian(fid) || data.vis != 'restrito'; }
+
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+    match /families/{fid} {
+      allow read: if isMember(fid);
+      allow create: if signedIn()
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.members.keys().hasOnly([request.auth.uid])
+        && request.resource.data.members[request.auth.uid].role == 'admin';
+      allow update: if isGuardian(fid) && request.resource.data.owner == resource.data.owner;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
+
+      match /joinRequests/{uid} {
+        allow create, update: if signedIn() && request.auth.uid == uid;
+        allow read, delete: if (signedIn() && request.auth.uid == uid) || isGuardian(fid);
+      }
+      match /vault/{id} {
+        allow read, write: if isGuardian(fid);
+      }
+      match /requests/{id} {
+        allow read: if isMember(fid) && visOk(fid, resource.data);
+        allow create: if isMember(fid) && request.resource.data.byUid == request.auth.uid;
+        allow update: if isGuardian(fid) || (isMember(fid) && resource.data.byUid == request.auth.uid)
+          || (isAdult(fid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'boughtAt', 'updatedAt', 'updatedBy']));
+        allow delete: if isGuardian(fid) || (isMember(fid) && resource.data.byUid == request.auth.uid);
+      }
+      match /files/{fileId}/chunks/{n} {
+        allow read: if isMember(fid) && visOk(fid, resource.data);
+        allow write: if isMember(fid);
+      }
+      match /{col}/{id} {
+        allow read: if !(col in ['vault', 'joinRequests']) && isMember(fid) && visOk(fid, resource.data);
+        allow create, update: if !(col in ['vault', 'requests', 'joinRequests'])
+          && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items']));
+        allow delete: if !(col in ['vault', 'requests', 'joinRequests']) && isAdult(fid);
+      }
+    }
+  }
+}

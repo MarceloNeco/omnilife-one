@@ -1,0 +1,49 @@
+INTEGRAÇÃO OmniLifeONE → MoneyTrio (cole este texto no chat do MoneyTrio)
+===========================================================================
+
+Criei o app OmniLifeONE (repositório separado: marceloneco.github.io/omnilife-one).
+Ele roda no mesmo endereço (marceloneco.github.io), então os dois apps enxergam o
+mesmo armazenamento do navegador (localStorage). Quero que o MoneyTrio / BudgetONE
+passe a importar o que o OmniLifeONE manda.
+
+1) PONTE DE MENSAGENS
+   Chave do localStorage: "ecossistema.ponte.v1"
+   Formato:
+   {
+     "v": 1,
+     "msgs": [
+       { "id": "m...", "de": "omnilife-one", "para": "moneytrio",
+         "tipo": "gasto" | "preco",
+         "criadoEm": "2026-09-18T10:00:00.000Z",
+         "lidoEm": null,
+         "dados": { ... } }
+     ]
+   }
+
+   tipo "gasto" → dados no formato do livro do BudgetONE:
+     { "valor": 312.40, "grupo": "HABITACAO", "sub": "Supermercado",
+       "desc": "Mercado — Supermercado Central (OmniLifeONE)", "data": "2026-09-18",
+       "per": "Pontual", "quem": "", "forma": "Credito", "conta": "", "irpf": false,
+       "origem": "omnilife-one", "ref": "id-da-compra" }
+     (manutenções com custo chegam com grupo HABITACAO ou VEICULO e sub "Manutenção")
+
+   tipo "preco" → dados no formato dos preços de referência:
+     { "item": "Leite", "unidade": "L", "valor": 4.99, "data": "2026-09-18",
+       "onde": "Supermercado Central", "obs": "OmniLifeONE" }
+
+2) O QUE PEÇO NO MoneyTrio
+   - Ao abrir o BudgetONE, ler a ponte e, se houver mensagens com para="moneytrio"
+     e lidoEm=null, mostrar um aviso "N lançamentos do OmniLifeONE" com botão
+     Revisar/Importar.
+   - Importar "gasto" com Gasto.add(dados) e "preco" com addPreco(dados).
+   - Depois de importar, preencher lidoEm com a data/hora (não apagar as mensagens;
+     nunca mexer em mensagens de outros apps).
+   - Evitar duplicar: ignorar mensagem cujo id já foi importado.
+
+3) OUTRAS LIGAÇÕES QUE O OmniLifeONE JÁ FAZ
+   - Lê (só leitura) "investifyme.dados.v1" → lista "precos", para mostrar o preço de
+     referência dos itens na lista de compras.
+   - Guarda a chave de IA "gemini" dentro de "investifyme.chaves.v1" (quando o cofre
+     não está criptografado), junto com brapi/twelve/finnhub/alpha/rss2json.
+     O Cofre do MoneyTrio deve continuar preservando chaves extras ao salvar.
+   - Usa "portal-lang" para o idioma compartilhado.
