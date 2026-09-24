@@ -1,5 +1,5 @@
 /* OmniLifeONE — service worker (avisos e funcionamento offline) */
-const CACHE = "omnilife-one-v4"; /* VERSAO: suba este número a cada versão nova */
+const CACHE = "omnilife-one-v5"; /* VERSAO: suba este número a cada versão nova */
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"]).catch(() => {})));

@@ -115,8 +115,8 @@ header.app{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--b
 }
 @media(max-width:400px){ .whoami .nm{display:none} #sosbtn .t{display:none} }
 /* ⚡ e 📨 entraram no cabeçalho: no celular estreito o tema fica só em Ajustes → Geral */
-@media(max-width:480px){ #themebtn{display:none} .hrow{gap:4px} }
-@media(max-width:380px){ .brand > span{display:none} }
+@media(max-width:480px){ #themebtn{display:none} .hrow{gap:4px} .whoami .nm{display:none} }
+@media(max-width:390px){ .brand > span{display:none} }
 
 /* ============ NAV ============ */
 nav.tabs{max-width:1100px;margin:0 auto;display:flex;gap:4px;padding:0 10px 8px;overflow-x:auto;scrollbar-width:none}
@@ -347,6 +347,31 @@ footer.app a{color:var(--text2)}
 .vigiapip video{display:block;width:100%;height:auto;background:#000}
 .vigiapip .vt{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 6px;font-size:.72rem;font-weight:700}
 @media(min-width:821px){.vigiapip{bottom:16px}}
+/* ============ MENUS QUE ABREM: movimento rápido e suave ============
+   Gaveta lateral (☰), menus suspensos e janelas abrem deslizando/crescendo em ~0,2 s.
+   Quem pediu menos movimento no aparelho (prefers-reduced-motion) vê só aparecer. */
+.hamb{font-size:18px}
+#drawer .mark{width:30px;height:30px;flex-shrink:0;border-radius:8px}
+#drawerback{position:fixed;inset:0;z-index:160;background:rgba(5,5,12,.55);opacity:0;transition:opacity .2s ease}
+#drawerback.open{opacity:1}
+#drawer{position:fixed;top:0;left:0;bottom:0;z-index:170;width:min(320px,86vw);background:var(--surface);border-right:1px solid var(--border);box-shadow:var(--shadow);overflow-y:auto;padding:12px 10px calc(16px + env(safe-area-inset-bottom));transform:translateX(-105%);transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+#drawer.open{transform:none}
+#drawer .dhead{display:flex;align-items:center;gap:10px;padding:4px 6px 12px;border-bottom:1px solid var(--border);margin-bottom:8px}
+#drawer .dhead b{flex:1;font-size:1.05rem}
+#drawer .dsec{font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);font-weight:700;padding:10px 10px 4px}
+#drawer .ditem{display:flex;align-items:center;gap:12px;width:100%;background:none;border:0;color:var(--text);padding:10px;min-height:44px;border-radius:10px;cursor:pointer;font-size:.95rem;font-weight:600;text-align:left}
+#drawer .ditem:hover,#drawer .ditem:focus-visible{background:var(--surface2)}
+#drawer .ditem.active{background:var(--accent-soft);color:var(--accent)}
+#drawer .ditem .ic{width:26px;text-align:center;font-size:1.15rem}
+#drawer .ditem .nbadge{margin-left:auto}
+#drawer .dsub{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 6px 48px}
+#drawer .dsub button{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:4px 10px;font-size:.76rem;cursor:pointer;min-height:28px}
+.menu{transform-origin:top right;animation:menuin .16s cubic-bezier(.2,.8,.2,1)}
+@keyframes menuin{from{opacity:0;transform:scale(.94) translateY(-4px)}}
+.mback .modal{animation:modalin .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes modalin{from{opacity:0;transform:translateY(12px) scale(.98)}}
+@media(max-width:600px){ .mback .modal{animation:sheetin .24s cubic-bezier(.2,.8,.2,1)} @keyframes sheetin{from{transform:translateY(100%)}} }
+@media (prefers-reduced-motion:reduce){ #drawer,#drawerback{transition:none} .menu,.mback,.mback .modal{animation:none} }
 @media print{ header.app,#adbar,#bottombar,footer.app,.noprint{display:none !important} body{background:#fff;color:#000} body::before,body::after{display:none} }
 </style>
 </head>
@@ -368,6 +393,7 @@ footer.app a{color:var(--text2)}
 <!-- ===== CABECALHO ===== -->
 <header class="app">
   <div class="hrow">
+    <button class="iconbtn hamb" id="hambbtn" type="button" title="Menu" aria-label="Menu" aria-expanded="false" aria-controls="drawer">☰</button>
     <button class="brand" id="brandbtn" title="OmniLifeONE">
       <svg class="mark" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="13.8" fill="#0d1019"/><g fill="none" stroke="#b7a1f6" color="#b7a1f6" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8.9 34.3L32 13.95l23.1 20.35"/><path d="M15.1 28.8V49.4H32"/><path d="M37 49.4h11.9V28.8"/><path d="M32 49.2C27.2 45 20.3 40.2 20.3 33.9A6.3 6.3 0 0 1 32 30.66A6.3 6.3 0 0 1 43.7 33.9C43.7 40.2 36.8 45 32.9 48.4"/><circle cx="32" cy="38.4" r="1.55" fill="currentColor" stroke="none"/></g></svg>
       <span>OmniLife<span class="one">ONE</span></span>
@@ -397,6 +423,8 @@ footer.app a{color:var(--text2)}
 </footer>
 
 <nav id="bottombar"></nav>
+<div id="drawerback" class="hidden"></div>
+<nav id="drawer" class="hidden" aria-label="Menu"></nav>
 <div id="toasts"></div>
 <div id="layer"></div>
 <script>
@@ -407,7 +435,7 @@ footer.app a{color:var(--text2)}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1687,16 +1715,60 @@ function tabBadge(id) {
 function renderNav() {
   const tabs = visibleTabs();
   $("#tabs").innerHTML = tabs.map((t) => { const b = tabBadge(t.id); return '<button class="' + (S.route.tab === t.id ? "active" : "") + '" data-act="go" data-tab="' + t.id + '"><span class="ic">' + t.ic + "</span>" + esc(t.t) + (b ? ' <span class="nbadge">' + b + "</span>" : "") + "</button>"; }).join("");
-  let pick = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : ["home", "shop", "agenda", "house"];
-  pick = pick.filter((id) => tabs.some((t) => t.id === id)).slice(0, 4);
+  /* barra de baixo: só os favoritos escolhidos em Ajustes → Geral; todas as funções ficam no ☰ do topo */
+  const pick = bottomPick().filter((id) => tabs.some((t) => t.id === id));
   const bb = pick.map((id) => tabs.find((t) => t.id === id)).filter(Boolean);
-  const moreActive = !pick.includes(S.route.tab);
-  $("#bottombar").innerHTML = bb.map((t) => { const b = tabBadge(t.id); return '<button class="' + (S.route.tab === t.id ? "active" : "") + '" data-act="go" data-tab="' + t.id + '"><span class="ic">' + t.ic + '</span><span class="lb">' + esc(t.t) + "</span>" + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>"; }).join("") +
-    (tabs.length > bb.length ? '<button class="' + (moreActive ? "active" : "") + '" data-act="more"><span class="ic">☰</span><span class="lb">' + tt("Mais", "More") + "</span></button>" : "");
+  $("#bottombar").innerHTML = bb.map((t) => { const b = tabBadge(t.id); return '<button class="' + (S.route.tab === t.id ? "active" : "") + '" data-act="go" data-tab="' + t.id + '"><span class="ic">' + t.ic + '</span><span class="lb">' + esc(t.t) + "</span>" + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>"; }).join("");
+  if ($("#drawer").classList.contains("open")) Drawer.fill();
 }
-ACT.more = (d, b) => {
-  const tabs = visibleTabs(); const pick = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : ["home", "shop", "agenda", "house"];
-  popMenu(b, tabs.filter((t) => !pick.includes(t.id)).map((t) => ({ ic: t.ic, t: t.t, fn: () => go(t.id) })));
+const BOTTOM_DEFAULT = ["home", "inbox", "shop", "agenda", "house"];
+function bottomPick() { const p = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom.slice(0, 5) : BOTTOM_DEFAULT.slice(); return [...new Set(p.filter(Boolean))]; }
+
+/* ---------- menu ☰ (gaveta lateral com todas as funções) ---------- */
+const DRAWER_SUBS = () => ({
+  inbox: [["in", tt("Recebidos", "Inbox")], ["out", tt("Enviados", "Sent")]],
+  shop: [["list", tt("Lista", "List")], ["pantry", tt("Despensa", "Pantry")], ["requests", tt("Pedidos", "Requests")], ["scan", tt("Geladeira", "Fridge scan")], ["stores", tt("Onde comprar", "Where to buy")], ["history", tt("Histórico", "History")]],
+  agenda: [["cal", tt("Calendário", "Calendar")], ["tasks", tt("Tarefas", "Tasks")], ["reminders", tt("Lembretes", "Reminders")], ["routine", tt("Rotina", "Routine")], ["load", tt("Delegômetro", "Load meter")], ["handover", tt("Assume a Casa", "Handover")]],
+  health: [["vigia", "👁 " + tt("Modo Vigilante", "Watch mode")]],
+  house: [["where", tt("Onde está?", "Where is it?")], ["maint", tt("Manutenção", "Maintenance")], ["vault", tt("Cofre", "Vault")], ["guides", tt("Guias", "Guides")]],
+  settings: [["general", tt("Geral", "General")], ["cloud", tt("Nuvem", "Cloud")], ["alerts", tt("Avisos", "Alerts")], ["data", tt("Dados", "Data")]]
+});
+const Drawer = {
+  fill() {
+    const tabs = S.booted ? visibleTabs() : [];
+    const subs = DRAWER_SUBS();
+    const quick = S.booted && S.mode !== "advertiser" ? [["⚡", tt("Lembrete rápido", "Quick reminder"), "rem.new"], ["📨", tt("Novo recado", "New message"), "msg.new"], ["✅", tt("Nova tarefa", "New task"), "task.new"], ["🚨", tt("Emergência", "Emergency"), "sos"]] : [];
+    $("#drawer").innerHTML = '<div class="dhead">' + ART.mark() + "<b>OmniLife<span style=\"color:var(--accent)\">ONE</span></b><button class=\"xbtn\" type=\"button\" data-dclose aria-label=\"" + tt("Fechar menu", "Close menu") + '">×</button></div>' +
+      (quick.length ? '<div class="dsec">' + tt("Atalhos", "Shortcuts") + "</div>" + quick.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + q[0] + "</span>" + esc(q[1]) + "</button>").join("") : "") +
+      (tabs.length ? '<div class="dsec">' + tt("Todas as funções", "Everything") + "</div>" : "") +
+      tabs.map((t) => { const b = tabBadge(t.id); const sb = (subs[t.id] || []); return '<button class="ditem' + (S.route.tab === t.id ? " active" : "") + '" type="button" data-dtab="' + t.id + '"><span class="ic">' + t.ic + "</span>" + esc(t.t) + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>" + (sb.length ? '<div class="dsub">' + sb.map((x) => '<button type="button" data-dtab="' + t.id + '" data-dsub="' + x[0] + '">' + esc(x[1]) + "</button>").join("") + "</div>" : ""); }).join("") +
+      (!S.booted ? '<div class="dsec">' + tt("Entre para ver as funções", "Sign in to see everything") + "</div>" : "");
+  },
+  open() {
+    this.fill();
+    const d = $("#drawer"), bk = $("#drawerback");
+    d.classList.remove("hidden"); bk.classList.remove("hidden");
+    requestAnimationFrame(() => { d.classList.add("open"); bk.classList.add("open"); });
+    $("#hambbtn").setAttribute("aria-expanded", "true");
+    setTimeout(() => { const f = d.querySelector(".ditem.active") || d.querySelector(".ditem"); if (f) f.focus(); }, 60);
+  },
+  close() {
+    const d = $("#drawer"), bk = $("#drawerback"); if (!d.classList.contains("open")) return;
+    d.classList.remove("open"); bk.classList.remove("open"); $("#hambbtn").setAttribute("aria-expanded", "false");
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => { if (!d.classList.contains("open")) { d.classList.add("hidden"); bk.classList.add("hidden"); } }, reduce ? 0 : 230);
+    $("#hambbtn").focus();
+  },
+  wire() {
+    $("#hambbtn").onclick = () => ($("#drawer").classList.contains("open") ? this.close() : this.open());
+    $("#drawerback").onclick = () => this.close();
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#drawer").classList.contains("open")) this.close(); });
+    $("#drawer").addEventListener("click", (e) => {
+      if (e.target.closest("[data-dclose]")) return this.close();
+      const t = e.target.closest("[data-dtab]"); if (t) { this.close(); return go(t.dataset.dtab, t.dataset.dsub || null); }
+      const a = e.target.closest("[data-dact]"); if (a) { this.close(); const fn = ACT[a.dataset.dact]; if (fn) fn({}, a); }
+    });
+  }
 };
 function go(tab, sub, arg) {
   const h = "#/" + tab + (sub ? "/" + sub : "") + (arg ? "/" + encodeURIComponent(arg) : "");
@@ -2059,6 +2131,7 @@ function wireHeader() {
   $("#themebtn").onclick = () => { S.theme = S.theme === "light" ? "dark" : "light"; S.prefs.theme = S.theme; savePrefs(); applyTheme(); staticTexts(); };
   $("#adclose").onclick = () => { ssSet("omnilife.adclosed", "1"); Ads.bar(); };
   $("#quickbtn").onclick = () => Reminders.quick();
+  Drawer.wire();
   $("#inboxbtn").onclick = () => go("inbox");
   /* no celular, um toque pausa o carrossel e outro solta */
   $("#adview").addEventListener("touchstart", (e) => { if (!e.target.closest("a")) $("#adview").classList.toggle("paused"); }, { passive: true });
@@ -4178,14 +4251,14 @@ SCREENS.settings = {
 };
 const SetViews = {
   general() {
-    const tabs = TABS(); const pick = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : ["home", "shop", "agenda", "house"];
+    const tabs = TABS(); const pick = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : BOTTOM_DEFAULT;
     let h = '<div class="card"><h3>🌐 ' + tt("Idioma e aparência", "Language & look") + '</h3><div class="row"><button class="btn ' + (S.lang === "pt" ? "" : "ghost") + '" data-act="set.lang" data-v="pt">🇧🇷 Português</button><button class="btn ' + (S.lang === "en" ? "" : "ghost") + '" data-act="set.lang" data-v="en">🇺🇸 English</button><button class="btn ghost" data-act="set.theme">' + (S.theme === "dark" ? "☀️ " + tt("Tema claro", "Light theme") : "🌙 " + tt("Tema escuro", "Dark theme")) + '</button></div><label class="check" style="margin-top:10px"><input type="checkbox" data-chg="set.bgart"' + (S.prefs.bgArt !== false ? " checked" : "") + "> 🎨 " + tt("Arte de fundo (ícones em neon)", "Background art (neon icons)") + '</label><p class="tiny faint" style="margin-top:8px">' + tt("Datas: ", "Dates: ") + fmtDate(today()) + " · " + tt("O idioma também vale para o portal e os outros apps.", "Language is shared with the portal and the other apps.") + "</p></div>";
     if (S.mode === "advertiser") return h + '<div class="card"><button class="btn ghost" data-act="signout">🚪 ' + tt("Sair", "Sign out") + "</button></div>";
     h += '<div class="card"><h3>👤 ' + tt("Conta e família", "Account & family") + '</h3><p class="small">' + ({ visitor: tt("Modo visitante (nada é salvo, com anúncios).", "Visitor mode (nothing saved, with ads)."), local: tt("Dados guardados só neste aparelho.", "Data kept on this device only."), cloud: tt("Conectado à nuvem: ", "Connected to the cloud: ") + esc((S.user && S.user.email) || "") }[S.mode] || "") + (S.role ? " · " + roleName(S.role) : "") + "</p>" +
       (isGuardian() ? '<label class="fld" style="max-width:360px"><span>' + tt("Nome da família", "Family name") + '</span><input type="text" id="famname" value="' + esc((S.family && S.family.name) || DB.setting().familyName || "") + '"></label><button class="btn ghost sm" style="margin-top:8px" data-act="set.famname">' + tt("Salvar nome", "Save name") + "</button>" : "") +
       '<div class="row" style="margin-top:10px"><button class="btn ghost" data-act="signout">🚪 ' + tt("Sair", "Sign out") + "</button></div></div>";
     if (S.mode !== "visitor") h += Plan.card();
-    h += '<div class="card"><h3>📱 ' + tt("Barra de baixo (celular)", "Bottom bar (phone)") + '</h3><p class="small muted">' + tt("Escolha os 4 atalhos fixos; o resto fica em “Mais”.", "Pick the 4 fixed shortcuts; the rest go under “More”.") + '</p><div class="grid g4">' + [0, 1, 2, 3].map((i) => '<select data-chg="set.bottom" data-i="' + i + '">' + tabs.map((t) => '<option value="' + t.id + '"' + (pick[i] === t.id ? " selected" : "") + ">" + t.ic + " " + esc(t.t) + "</option>").join("") + "</select>").join("") + "</div></div>";
+    h += '<div class="card"><h3>📱 ' + tt("Barra de baixo (celular)", "Bottom bar (phone)") + '</h3><p class="small muted">' + tt("Escolha até 5 favoritos para a barra de baixo. Todas as funções ficam sempre no menu ☰ do topo.", "Pick up to 5 favorites for the bottom bar. Everything is always in the ☰ menu at the top.") + '</p><div class="grid g4">' + [0, 1, 2, 3, 4].map((i) => '<select data-chg="set.bottom" data-i="' + i + '" aria-label="' + tt("Favorito ", "Favorite ") + (i + 1) + '"><option value="">— ' + tt("vazio", "empty") + " —</option>" + tabs.map((t) => '<option value="' + t.id + '"' + (pick[i] === t.id ? " selected" : "") + ">" + t.ic + " " + esc(t.t) + "</option>").join("") + "</select>").join("") + "</div></div>";
     h += '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + '</h3><label class="check"><input type="checkbox" data-chg="set.biolock"' + (S.prefs.bioLock && Bio.cred() ? " checked" : "") + "> 👆 " + tt("Pedir digital/rosto para abrir o app neste aparelho", "Require fingerprint/face to open the app on this device") + '</label><p class="tiny faint" style="margin-top:6px">' + tt("O cofre tem senha própria e também pode ser liberado por biometria (Casa → Cofre).", "The vault has its own password and can also be unlocked by biometrics (House → Vault).") + "</p></div>";
     h += '<div class="card"><h3>🥫 ' + tt("Compras", "Shopping") + '</h3><label class="check"><input type="checkbox" data-chg="set.autoadd"' + (DB.setting().autoAdd !== false ? " checked" : "") + "> " + tt("Quando marcar que algo acabou, pôr na lista automaticamente", "When something runs out, add it to the list automatically") + "</label></div>";
     return h;
@@ -4228,7 +4301,7 @@ ACT["set.bgart"] = (d, el) => { S.prefs.bgArt = el.checked; savePrefs(); ART.app
 ACT.signout = () => signOut();
 ACT.legal = () => legal();
 ACT["set.famname"] = async () => { const n = $("#famname").value.trim(); if (!n) return; if (S.mode === "cloud") { try { await FB.F.updateDoc(FB.ref("families", S.family.id), { name: n }); } catch (e) { toast(Cloud.errMsg(e)); } } await DB.saveSetting({ familyName: n }); toast("✓"); };
-ACT["set.bottom"] = (d, el) => { const pick = (S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : ["home", "shop", "agenda", "house"]).slice(); pick[+d.i] = el.value; S.prefs.bottom = pick; savePrefs(); renderNav(); };
+ACT["set.bottom"] = (d, el) => { const pick = (S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : BOTTOM_DEFAULT).slice(0, 5); while (pick.length < 5) pick.push(""); pick[+d.i] = el.value; S.prefs.bottom = pick; savePrefs(); renderNav(); };
 ACT["set.biolock"] = async (d, el) => { if (el.checked) { if (!(await Bio.available())) { el.checked = false; return toast(tt("Este aparelho não tem biometria disponível para o navegador.", "No biometrics available to the browser.")); } try { await Bio.register(); S.prefs.bioLock = true; savePrefs(); toast(tt("Trava por biometria ligada ✓", "Biometric lock on ✓")); } catch (e) { el.checked = false; toast(e.message); } } else { S.prefs.bioLock = false; savePrefs(); } };
 ACT["set.autoadd"] = (d, el) => DB.saveSetting({ autoAdd: el.checked });
 ACT["set.medremind"] = (d, el) => DB.saveSetting({ medRemind: el.checked });
