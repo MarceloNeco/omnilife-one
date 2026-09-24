@@ -365,13 +365,17 @@ footer.app a{color:var(--text2)}
 #drawer .ditem .ic{width:26px;text-align:center;font-size:1.15rem}
 #drawer .ditem .nbadge{margin-left:auto}
 #drawer .dsub{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 6px 48px}
+#drawer .morehint{position:sticky;bottom:0;display:none;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:-44px;padding:22px 10px 10px;border:0;cursor:pointer;font-weight:800;font-size:.84rem;color:var(--accent);background:linear-gradient(transparent,var(--surface) 55%)}
+#drawer .morehint.show{display:flex}
+#drawer .morehint.show{animation:bob 1.6s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(3px)}}
 #drawer .dsub button{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:4px 10px;font-size:.76rem;cursor:pointer;min-height:28px}
 .menu{transform-origin:top right;animation:menuin .16s cubic-bezier(.2,.8,.2,1)}
 @keyframes menuin{from{opacity:0;transform:scale(.94) translateY(-4px)}}
 .mback .modal{animation:modalin .2s cubic-bezier(.2,.8,.2,1)}
 @keyframes modalin{from{opacity:0;transform:translateY(12px) scale(.98)}}
 @media(max-width:600px){ .mback .modal{animation:sheetin .24s cubic-bezier(.2,.8,.2,1)} @keyframes sheetin{from{transform:translateY(100%)}} }
-@media (prefers-reduced-motion:reduce){ #drawer,#drawerback{transition:none} .menu,.mback,.mback .modal{animation:none} }
+@media (prefers-reduced-motion:reduce){ #drawer .morehint.show{animation:none} #drawer,#drawerback{transition:none} .menu,.mback,.mback .modal{animation:none} }
 @media print{ header.app,#adbar,#bottombar,footer.app,.noprint{display:none !important} body{background:#fff;color:#000} body::before,body::after{display:none} }
 </style>
 </head>
@@ -424,7 +428,7 @@ footer.app a{color:var(--text2)}
 
 <nav id="bottombar"></nav>
 <div id="drawerback" class="hidden"></div>
-<nav id="drawer" class="hidden" aria-label="Menu"></nav>
+<nav id="drawer" class="hidden" aria-label="Menu"><div id="drawerin"></div><button type="button" id="drawermore" class="morehint">↓ <span></span></button></nav>
 <div id="toasts"></div>
 <div id="layer"></div>
 <script>
@@ -435,7 +439,7 @@ footer.app a{color:var(--text2)}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.2.1";
+const APP_VERSION = "1.2.2";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1378,17 +1382,22 @@ const Vault = {
 const Bio = {
   async available() { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; } },
   cred() { return lsGet(LS.webauthn, null); },
-  async register() {
+  async register() { const id = await this.create(); lsSet(LS.webauthn, { id }); return true; },
+  /* credencial do perfil (modo "só neste aparelho"): liga a digital/rosto ao perfil de quem ativou */
+  profId(pid) { return (lsGet("omnilife.bioProfiles.v1", {}) || {})[pid] || null; },
+  async enrollProfile(pid) { const id = await this.create(); const m = lsGet("omnilife.bioProfiles.v1", {}) || {}; m[pid] = id; lsSet("omnilife.bioProfiles.v1", m); return true; },
+  forgetProfile(pid) { const m = lsGet("omnilife.bioProfiles.v1", {}) || {}; delete m[pid]; lsSet("omnilife.bioProfiles.v1", m); },
+  async create() {
     const c = await navigator.credentials.create({ publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)), rp: { name: APP_NAME },
       user: { id: crypto.getRandomValues(new Uint8Array(16)), name: (S.user && S.user.email) || "omnilife", displayName: People.name(S.meId) || APP_NAME },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
       authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "preferred" }, timeout: 60000 } });
-    lsSet(LS.webauthn, { id: b64FromBuf(c.rawId) }); return true;
+    return b64FromBuf(c.rawId);
   },
-  async verify() {
-    const c = this.cred(); if (!c) return false;
-    try { const r = await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: "public-key", id: bufFromB64(c.id) }], userVerification: "required", timeout: 60000 } }); return !!r; }
+  async verify(id) {
+    if (!id) { const c = this.cred(); if (!c) return false; id = c.id; }
+    try { const r = await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{ type: "public-key", id: bufFromB64(id) }], userVerification: "required", timeout: 60000 } }); return !!r; }
     catch (e) { return false; }
   },
   forget() { lsDel(LS.webauthn); }
@@ -1738,17 +1747,22 @@ const Drawer = {
     const tabs = S.booted ? visibleTabs() : [];
     const subs = DRAWER_SUBS();
     const quick = S.booted && S.mode !== "advertiser" ? [["⚡", tt("Lembrete rápido", "Quick reminder"), "rem.new"], ["📨", tt("Novo recado", "New message"), "msg.new"], ["✅", tt("Nova tarefa", "New task"), "task.new"], ["🚨", tt("Emergência", "Emergency"), "sos"]] : [];
-    $("#drawer").innerHTML = '<div class="dhead">' + ART.mark() + "<b>OmniLife<span style=\"color:var(--accent)\">ONE</span></b><button class=\"xbtn\" type=\"button\" data-dclose aria-label=\"" + tt("Fechar menu", "Close menu") + '">×</button></div>' +
+    $("#drawerin").innerHTML = '<div class="dhead">' + ART.mark() + "<b>OmniLife<span style=\"color:var(--accent)\">ONE</span></b><button class=\"xbtn\" type=\"button\" data-dclose aria-label=\"" + tt("Fechar menu", "Close menu") + '">×</button></div>' +
       (quick.length ? '<div class="dsec">' + tt("Atalhos", "Shortcuts") + "</div>" + quick.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + q[0] + "</span>" + esc(q[1]) + "</button>").join("") : "") +
       (tabs.length ? '<div class="dsec">' + tt("Todas as funções", "Everything") + "</div>" : "") +
       tabs.map((t) => { const b = tabBadge(t.id); const sb = (subs[t.id] || []); return '<button class="ditem' + (S.route.tab === t.id ? " active" : "") + '" type="button" data-dtab="' + t.id + '"><span class="ic">' + t.ic + "</span>" + esc(t.t) + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>" + (sb.length ? '<div class="dsub">' + sb.map((x) => '<button type="button" data-dtab="' + t.id + '" data-dsub="' + x[0] + '">' + esc(x[1]) + "</button>").join("") + "</div>" : ""); }).join("") +
-      (!S.booted ? '<div class="dsec">' + tt("Entre para ver as funções", "Sign in to see everything") + "</div>" : "");
+      "";
+    $("#drawermore span").textContent = tt("Mais opções abaixo", "More options below");
+    this.hint();
   },
+  /* aviso "↓ Mais opções abaixo" enquanto houver itens escondidos lá embaixo */
+  hint() { const d = $("#drawer"); const more = d.scrollHeight - d.clientHeight - d.scrollTop > 24; $("#drawermore").classList.toggle("show", more); d.classList.toggle("hasmore", more); },
   open() {
     this.fill();
     const d = $("#drawer"), bk = $("#drawerback");
     d.classList.remove("hidden"); bk.classList.remove("hidden");
-    requestAnimationFrame(() => { d.classList.add("open"); bk.classList.add("open"); });
+    d.scrollTop = 0;
+    requestAnimationFrame(() => { d.classList.add("open"); bk.classList.add("open"); this.hint(); });
     $("#hambbtn").setAttribute("aria-expanded", "true");
     setTimeout(() => { const f = d.querySelector(".ditem.active") || d.querySelector(".ditem"); if (f) f.focus(); }, 60);
   },
@@ -1762,6 +1776,9 @@ const Drawer = {
   wire() {
     $("#hambbtn").onclick = () => ($("#drawer").classList.contains("open") ? this.close() : this.open());
     $("#drawerback").onclick = () => this.close();
+    $("#drawer").addEventListener("scroll", () => this.hint(), { passive: true });
+    window.addEventListener("resize", debounce(() => { if ($("#drawer").classList.contains("open")) this.hint(); }, 150));
+    $("#drawermore").onclick = () => { const d = $("#drawer"); d.scrollBy({ top: d.clientHeight * 0.7, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); };
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("#drawer").classList.contains("open")) this.close(); });
     $("#drawer").addEventListener("click", (e) => {
       if (e.target.closest("[data-dclose]")) return this.close();
@@ -1789,6 +1806,9 @@ function renderHeader() {
   $("#sosbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   $("#bellbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   $("#quickbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
+  /* o ☰ só aparece depois de entrar: antes disso não há funções para mostrar */
+  $("#hambbtn").classList.toggle("hidden", !S.booted);
+  if (!S.booted) Drawer.close();
   $("#inboxbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   Ads.bar();
 }
@@ -2025,7 +2045,7 @@ const GATES = {
   profiles: {
     html() {
       const ppl = People.list("humans");
-      return '<div class="card"><h2>' + tt("Quem está usando?", "Who's using?") + '</h2><div class="grid gauto sm">' + ppl.map((p) => '<button class="rolecard" data-act="gate.pick" data-id="' + p.id + '" style="flex-direction:column;align-items:center;text-align:center">' + People.av(p.id, "lg") + "<b>" + esc(p.nick || p.name) + "</b><small>" + (p.pinHash ? "🔒 PIN" : "") + "</small></button>").join("") + "</div></div>" +
+      return '<div class="card"><h2>' + tt("Quem está usando?", "Who's using?") + '</h2><div class="grid gauto sm">' + ppl.map((p) => '<button class="rolecard" data-act="gate.pick" data-id="' + p.id + '" style="flex-direction:column;align-items:center;text-align:center">' + People.av(p.id, "lg") + "<b>" + esc(p.nick || p.name) + "</b><small>" + (Bio.profId(p.id) && S.prefs.loginHow !== "pin" ? "👆 " + tt("digital", "fingerprint") : p.pinHash ? "🔒 PIN" : "") + "</small></button>").join("") + "</div></div>" +
         '<button class="linkbtn" data-act="gate.back">← ' + tt("Outro modo de entrada", "Other sign-in mode") + "</button>";
     }
   }
@@ -2052,11 +2072,23 @@ ACT["cloud.retry"] = async () => { if (!S.user) return setGate("welcome"); S.res
 
 async function selectProfile(id) {
   const p = People.get(id); if (!p) return false;
-  if (p.pinHash) {
+  /* digital/rosto primeiro (se ativada e se a pessoa não escolheu "sempre PIN"); se falhar, cai para o PIN.
+     Quem entrou pela digital não é perguntado de novo pela trava do app. */
+  const how = S.prefs.loginHow || "auto"; const bid = Bio.profId(p.id);
+  let byBio = false;
+  if (how !== "pin" && bid) byBio = await Bio.verify(bid);
+  if (p.pinHash && !byBio) {
     const pin = await pinPad(tt("PIN de ", "PIN for ") + (p.nick || p.name));
     if (pin == null) return false;
     if ((await sha256(pin + p.id)) !== p.pinHash) { toast(tt("PIN incorreto.", "Wrong PIN.")); return false; }
+    if (how !== "pin" && !bid && !(S.prefs.bioAsked || {})[p.id] && await Bio.available()) {
+      S.prefs.bioAsked = Object.assign({}, S.prefs.bioAsked, { [p.id]: 1 }); savePrefs();
+      if (await confirmBox("👆 " + tt("Entrar com a digital ou o rosto nas próximas vezes, em vez do PIN? (Dá para mudar em Ajustes → Geral → Segurança.)", "Sign in with fingerprint or face next time instead of the PIN? (You can change it in Settings → General → Security.)"), tt("Usar digital", "Use fingerprint"))) {
+        try { await Bio.enrollProfile(p.id); toast(tt("Pronto: da próxima vez é só a digital ✓", "Done: next time just use your fingerprint ✓")); } catch (e) { toast(tt("A digital não foi ativada neste aparelho.", "Fingerprint not enabled on this device.")); }
+      }
+    }
   }
+  if (byBio) S.unlocked = true;
   S.meId = id; S.role = localRole(p); lsSet(LS.localMe, id); return true;
 }
 function localRole(p) { if (!p) return "membro"; if (p.role === "responsavel") return p.isAdmin ? "admin" : "responsavel"; if (p.role === "crianca") return "crianca"; return "membro"; }
@@ -4259,7 +4291,10 @@ const SetViews = {
       '<div class="row" style="margin-top:10px"><button class="btn ghost" data-act="signout">🚪 ' + tt("Sair", "Sign out") + "</button></div></div>";
     if (S.mode !== "visitor") h += Plan.card();
     h += '<div class="card"><h3>📱 ' + tt("Barra de baixo (celular)", "Bottom bar (phone)") + '</h3><p class="small muted">' + tt("Escolha até 5 favoritos para a barra de baixo. Todas as funções ficam sempre no menu ☰ do topo.", "Pick up to 5 favorites for the bottom bar. Everything is always in the ☰ menu at the top.") + '</p><div class="grid g4">' + [0, 1, 2, 3, 4].map((i) => '<select data-chg="set.bottom" data-i="' + i + '" aria-label="' + tt("Favorito ", "Favorite ") + (i + 1) + '"><option value="">— ' + tt("vazio", "empty") + " —</option>" + tabs.map((t) => '<option value="' + t.id + '"' + (pick[i] === t.id ? " selected" : "") + ">" + t.ic + " " + esc(t.t) + "</option>").join("") + "</select>").join("") + "</div></div>";
-    h += '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + '</h3><label class="check"><input type="checkbox" data-chg="set.biolock"' + (S.prefs.bioLock && Bio.cred() ? " checked" : "") + "> 👆 " + tt("Pedir digital/rosto para abrir o app neste aparelho", "Require fingerprint/face to open the app on this device") + '</label><p class="tiny faint" style="margin-top:6px">' + tt("O cofre tem senha própria e também pode ser liberado por biometria (Casa → Cofre).", "The vault has its own password and can also be unlocked by biometrics (House → Vault).") + "</p></div>";
+    const how = S.prefs.loginHow || "auto", hasBioP = S.meId && Bio.profId(S.meId);
+    const loginCfg = S.mode === "local" ? '<label class="fld" style="max-width:420px;margin-bottom:10px"><span>' + tt("Para entrar no meu perfil neste aparelho", "To open my profile on this device") + '</span><select data-chg="set.loginhow"><option value="auto"' + (how === "auto" ? " selected" : "") + ">👆 " + tt("Digital/rosto (se falhar, PIN)", "Fingerprint/face (PIN if it fails)") + '</option><option value="pin"' + (how === "pin" ? " selected" : "") + ">🔢 " + tt("Sempre o PIN", "Always the PIN") + "</option></select></label>" +
+      '<div class="row" style="margin-bottom:10px">' + (hasBioP ? '<span class="badge ok">👆 ' + tt("Digital ativada para o seu perfil", "Fingerprint on for your profile") + '</span><button class="btn ghost xs" data-act="bio.prof.off">' + tt("Desativar", "Turn off") + "</button>" : '<button class="btn ghost sm" data-act="bio.prof.on">👆 ' + tt("Ativar digital/rosto para o meu perfil", "Turn on fingerprint/face for my profile") + "</button>") + "</div>" : "";
+    h += '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + "</h3>" + loginCfg + '<label class="check"><input type="checkbox" data-chg="set.biolock"' + (S.prefs.bioLock && Bio.cred() ? " checked" : "") + "> 👆 " + tt("Pedir digital/rosto para abrir o app neste aparelho", "Require fingerprint/face to open the app on this device") + '</label><p class="tiny faint" style="margin-top:6px">' + tt("O cofre tem senha própria e também pode ser liberado por biometria (Casa → Cofre).", "The vault has its own password and can also be unlocked by biometrics (House → Vault).") + "</p></div>";
     h += '<div class="card"><h3>🥫 ' + tt("Compras", "Shopping") + '</h3><label class="check"><input type="checkbox" data-chg="set.autoadd"' + (DB.setting().autoAdd !== false ? " checked" : "") + "> " + tt("Quando marcar que algo acabou, pôr na lista automaticamente", "When something runs out, add it to the list automatically") + "</label></div>";
     return h;
   },
@@ -4302,6 +4337,9 @@ ACT.signout = () => signOut();
 ACT.legal = () => legal();
 ACT["set.famname"] = async () => { const n = $("#famname").value.trim(); if (!n) return; if (S.mode === "cloud") { try { await FB.F.updateDoc(FB.ref("families", S.family.id), { name: n }); } catch (e) { toast(Cloud.errMsg(e)); } } await DB.saveSetting({ familyName: n }); toast("✓"); };
 ACT["set.bottom"] = (d, el) => { const pick = (S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : BOTTOM_DEFAULT).slice(0, 5); while (pick.length < 5) pick.push(""); pick[+d.i] = el.value; S.prefs.bottom = pick; savePrefs(); renderNav(); };
+ACT["set.loginhow"] = (d, el) => { S.prefs.loginHow = el.value; savePrefs(); render(); };
+ACT["bio.prof.on"] = async () => { if (!(await Bio.available())) return toast(tt("Este aparelho não tem digital/rosto disponível para o navegador.", "No fingerprint/face available to the browser.")); try { await Bio.enrollProfile(S.meId); toast(tt("Digital ativada ✓", "Fingerprint on ✓")); } catch (e) { toast(tt("A digital não foi ativada.", "Fingerprint not enabled.")); } render(); };
+ACT["bio.prof.off"] = () => { Bio.forgetProfile(S.meId); toast(tt("Digital desativada para o seu perfil.", "Fingerprint off for your profile.")); render(); };
 ACT["set.biolock"] = async (d, el) => { if (el.checked) { if (!(await Bio.available())) { el.checked = false; return toast(tt("Este aparelho não tem biometria disponível para o navegador.", "No biometrics available to the browser.")); } try { await Bio.register(); S.prefs.bioLock = true; savePrefs(); toast(tt("Trava por biometria ligada ✓", "Biometric lock on ✓")); } catch (e) { el.checked = false; toast(e.message); } } else { S.prefs.bioLock = false; savePrefs(); } };
 ACT["set.autoadd"] = (d, el) => DB.saveSetting({ autoAdd: el.checked });
 ACT["set.medremind"] = (d, el) => DB.saveSetting({ medRemind: el.checked });
