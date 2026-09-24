@@ -42,7 +42,7 @@ service cloud.firestore {
       match /{col}/{id} {
         allow read: if !(col in ['vault', 'joinRequests']) && isMember(fid) && visOk(fid, resource.data);
         allow create, update: if !(col in ['vault', 'requests', 'joinRequests'])
-          && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items']));
+          && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files']));
         allow delete: if !(col in ['vault', 'requests', 'joinRequests']) && isAdult(fid);
       }
     }

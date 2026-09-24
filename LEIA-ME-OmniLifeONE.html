@@ -12,14 +12,20 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 .files code{display:inline-block;margin:2px 0}
 </style></head><body><div class="w">
 <h1>OmniLife<b>ONE</b> — passo a passo</h1>
-<p>Versão 1.1.0 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e muito mais).</p>
-<p><b>Novidade da 1.1.0 — anúncios, conforme as diretrizes:</b></p>
+<p>Versão 1.2.0 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e muito mais).</p>
+<div class="card warn"><b>Esta entrega (1.2.0) substitui todas as anteriores.</b> Ela já inclui o que a 1.1.0 trazia — o index.html da 1.1.0 nunca chegou a ser enviado ao GitHub, por isso o site ainda mostrava a 1.0.1.</div>
+<p><b>Novidades da 1.2.0:</b></p>
 <ul>
-<li><b>Faixa do topo:</b> tem o botão PT | EN, a palavra ANÚNCIO na vertical, o carrossel e o ×. O botão de idioma saiu do cabeçalho e foi para a faixa.</li>
-<li><b>Carrossel:</b> anda para a esquerda sem parar, com imagem ao lado do texto. Pausa quando você toca ou passa o mouse. O clique abre em outra aba.</li>
-<li><b>Pop-ups:</b> um antes do login e outro depois, com contagem 3, 2, 1 antes de liberar o ×. Fecham no ×, no Esc ou tocando fora.</li>
-<li><b>Premium:</b> em Ajustes → Geral → Plano da família, marque a família como Premium e ela não vê anúncio nenhum.</li>
+<li><b>📨 Recados:</b> nova aba (e botão 📨 no topo) para mandar recado a uma pessoa ou para toda a família, com prioridade (🔴 urgente, 🟡 importante, 🔵 para saber), repetição (todo dia, semana ou mês), data para enviar e marcação de lido/não lido — quem manda vê quem já leu. Recado urgente também vai pelo ntfy, se estiver configurado.</li>
+<li><b>✅ Tarefas:</b> agora se encerram como <b>feita</b>, <b>postergada</b> (para amanhã, 3 dias, próxima semana ou uma data) ou <b>cancelada</b>, com observação. Dá para pedir <b>foto como evidência</b> e tirar a foto na hora (as crianças também). Quem pediu vê o 👁 “visto” e recebe aviso quando a tarefa é encerrada.</li>
+<li><b>⚡ Lembretes rápidos:</b> botão ⚡ no topo de qualquer tela. Favoritos ⭐, frequentes 🔁, onde/assunto (Mercado, Farmácia, Pet…) e quando: hoje, amanhã, esta semana, daqui a X dias, antes de uma data ou <b>na próxima ida</b> ao mercado — esse aparece em cima da lista de compras. Ficam em Agenda → Lembretes.</li>
+<li><b>👁 Modo Vigilante</b> (Saúde): o celular vigia pela câmera e toca um alarme se houver movimento; avisa pelo ntfy e deixa WhatsApp/SMS a um toque. Mantenha o app aberto e a tela ligada.</li>
+<li><b>🎂 Dados da família:</b> próximos aniversários com a idade que a pessoa vai fazer, e botão <b>Conferir</b> em cada cartão (ou pedir para a pessoa conferir por recado).</li>
+<li><b>💎 Plano da família:</b> uma assinatura vale para todos os membros da família, cada um com seu login.</li>
+<li><b>Correções:</b> item falado pelo 🎤 aparece na hora na lista; os quadros do Início levam para a página de cada um.</li>
+<li><b>Da 1.1.0:</b> faixa do topo com PT | EN, ANÚNCIO na vertical, carrossel e ×; pop-up antes e depois do login com contagem 3, 2, 1; família Premium sem anúncios (Ajustes → Geral → Plano da família).</li>
 </ul>
+<div class="card tip"><b>Importante se você usa a nuvem:</b> as regras do Firebase mudaram nesta versão (para as crianças poderem marcar recado como lido e mandar foto de tarefa). Repita o passo 3.2 abaixo: cole de novo o arquivo <code>regras-firestore-OmniLifeONE.txt</code> e clique em <b>Publicar</b>.</div>
 <p><b>Novidade da 1.0.1:</b> novo ícone (casa com coração em neon lilás) e arte de fundo com ícones em neon — versão deitada no computador e em pé no celular. Dá para desligar a arte em Ajustes → Geral.</p>
 
 <h2>1. O que tem neste zip</h2>

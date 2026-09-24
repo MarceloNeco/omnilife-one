@@ -59,11 +59,30 @@ p{margin:0 0 .7em}
 
 /* ============ AD BANNER ============ */
 #adbar{background:linear-gradient(90deg,var(--surface2),var(--surface3));border-bottom:1px solid var(--border);position:relative}
-#adbar .adinner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:8px 44px 8px 14px}
-#adbar a.adlink{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);flex:1;min-width:0}
-#adbar .adbox{flex:1;min-width:0;border:1px dashed var(--accent);border-radius:10px;padding:8px 12px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;letter-spacing:.04em;font-size:.85rem;color:var(--accent);text-align:center}
-#adbar .adtag{font-size:.65rem;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);flex-shrink:0}
-#adclose{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text2);width:28px;height:28px;border-radius:50%;cursor:pointer;line-height:1;font-size:15px}
+#adbar .adinner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:4px 10px;min-height:44px}
+.langsw{display:flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;flex-shrink:0}
+.langsw button{background:var(--surface);border:0;color:var(--text2);font-weight:800;font-size:.74rem;letter-spacing:.05em;padding:0 9px;min-height:30px;min-width:34px;cursor:pointer}
+.langsw button.on{background:var(--accent);color:var(--accent-ink)}
+.adzone{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.adzone.hidden{display:none}
+#adbar .adtag{writing-mode:vertical-rl;transform:rotate(180deg);font-size:.6rem;font-weight:800;letter-spacing:.14em;color:var(--text3);flex-shrink:0;line-height:1}
+.adview{flex:1;min-width:0;overflow:hidden;mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 4%,#000 96%,transparent)}
+.adtrack{display:flex;gap:26px;width:max-content;animation:adscroll var(--adsec,40s) linear infinite}
+.adview:hover .adtrack,.adview.paused .adtrack{animation-play-state:paused}
+@keyframes adscroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.adtrack{animation:none}.adview{overflow-x:auto}}
+.aditem{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text);white-space:nowrap;font-size:.8rem;padding:2px 4px;border-radius:8px}
+.aditem:hover{background:var(--accent-soft)}
+.aditem .aim{width:28px;height:28px;border-radius:7px;flex-shrink:0;object-fit:cover;background:var(--surface3);display:inline-flex;align-items:center;justify-content:center;font-size:16px}
+.aditem b{font-weight:800} .aditem span{color:var(--text2)}
+#adclose{background:var(--surface);border:1px solid var(--border);color:var(--text2);width:28px;height:28px;border-radius:50%;cursor:pointer;line-height:1;font-size:15px;flex-shrink:0}
+/* pop-up de anúncio: deitado no computador, em pé no celular */
+.adpop{max-width:640px}
+.adpop .apb{display:flex;gap:16px;align-items:center}
+.adpop .apimg{width:120px;height:120px;border-radius:22px;flex-shrink:0;object-fit:cover;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:52px}
+.adpop .apq{font-size:1.1rem;font-weight:800;margin-bottom:6px}
+.adcount{min-width:32px;height:32px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:var(--text2)}
+@media(max-width:600px){.adpop .apb{flex-direction:column;text-align:center}}
 
 /* ============ HEADER ============ */
 header.app{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--border)}
@@ -95,6 +114,9 @@ header.app{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--b
   .whoami .nm{font-size:.74rem}
 }
 @media(max-width:400px){ .whoami .nm{display:none} #sosbtn .t{display:none} }
+/* ⚡ e 📨 entraram no cabeçalho: no celular estreito o tema fica só em Ajustes → Geral */
+@media(max-width:480px){ #themebtn{display:none} .hrow{gap:4px} }
+@media(max-width:380px){ .brand > span{display:none} }
 
 /* ============ NAV ============ */
 nav.tabs{max-width:1100px;margin:0 auto;display:flex;gap:4px;padding:0 10px 8px;overflow-x:auto;scrollbar-width:none}
@@ -315,20 +337,32 @@ footer.app a{color:var(--text2)}
 .menu button:hover,.menu a:hover{background:var(--surface2)}
 .menu .mhd{font-size:.7rem;color:var(--text3);padding:6px 10px 2px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
 .kid [data-act="pl.new"],.kid [data-act="th.new"],.kid [data-act="pl.snap"],.kid [data-act="pl.plan"],.kid [data-act="ev.new"],.kid [data-act="rt.new"],.kid [data-act="mt.new"],.kid [data-act="mt.done"],.kid [data-act="guide.new"],.kid [data-act="pl.quick"],.kid [data-act="shop.finish"],.kid [data-act="pantry.new"]{display:none !important}
+/* recados, lembretes, vigilante, quadros clicáveis */
+.card.click,h3.click,.ti.click{cursor:pointer}
+.card.click:hover{border-color:var(--accent)}
+.ti.click:hover{background:var(--surface2);border-radius:10px}
+.li.unread .t{font-weight:800}
+.li.unread{background:linear-gradient(90deg,var(--accent-soft),transparent 60%);border-radius:10px}
+.vigiapip{position:fixed;left:10px;bottom:90px;z-index:140;width:170px;background:var(--surface);border:2px solid var(--warn);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.vigiapip video{display:block;width:100%;height:auto;background:#000}
+.vigiapip .vt{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 6px;font-size:.72rem;font-weight:700}
+@media(min-width:821px){.vigiapip{bottom:16px}}
 @media print{ header.app,#adbar,#bottombar,footer.app,.noprint{display:none !important} body{background:#fff;color:#000} body::before,body::after{display:none} }
 </style>
 </head>
 <body>
 
-<!-- ===== BANNER DE ANUNCIO (fecha na sessao, volta no proximo login) ===== -->
-<div id="adbar" class="hidden">
+<!-- ===== FAIXA DO TOPO: [PT|EN] · [ANÚNCIO] · [carrossel] · [×] =====
+     O × fecha só o anúncio até o fim da sessão; o botão de idioma fica sempre. -->
+<div id="adbar">
   <div class="adinner">
-    <span class="adtag" id="adtag">PUBLICIDADE</span>
-    <a class="adlink" id="adlink" href="https://marceloneco.github.io/" target="_blank" rel="noopener">
-      <span class="adbox" id="adbox">&lt;ANUNCIE AQUI&gt;</span>
-    </a>
+    <div class="langsw" id="langsw" role="group" aria-label="Idioma / Language"><button type="button" data-l="pt">PT</button><button type="button" data-l="en">EN</button></div>
+    <div class="adzone" id="adzone">
+      <span class="adtag" id="adtag">ANÚNCIO</span>
+      <div class="adview" id="adview"><div class="adtrack" id="adtrack"></div></div>
+      <button id="adclose" type="button" title="Fechar">&times;</button>
+    </div>
   </div>
-  <button id="adclose" title="Fechar">&times;</button>
 </div>
 
 <!-- ===== CABECALHO ===== -->
@@ -340,7 +374,8 @@ footer.app a{color:var(--text2)}
     </button>
     <span class="spacer"></span>
     <button class="iconbtn" id="sosbtn" title="Emergência"><span>🚨</span><span class="t">SOS</span></button>
-    <button class="iconbtn" id="langbtn" title="Idioma / Language"><span>🌐</span><span id="langlabel">PT</span></button>
+    <button class="iconbtn" id="quickbtn" title="Lembrete rápido">⚡</button>
+    <button class="iconbtn" id="inboxbtn" title="Recados">📨</button>
     <button class="iconbtn" id="bellbtn" title="Avisos">🔔</button>
     <button class="iconbtn" id="themebtn" title="Tema">🌙</button>
     <button class="iconbtn" id="appsbtn" title="Apps">▦</button>
@@ -372,7 +407,7 @@ footer.app a{color:var(--text2)}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.0.1";
+const APP_VERSION = "1.2.0";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -392,7 +427,7 @@ const LS = {
   mtKeys: "investifyme.chaves.v1",
   bridge: "ecossistema.ponte.v1"
 };
-const COLS = ["people","health","items","shop","requests","purchases","prices","events","routine","tasks","contacts","places","things","maint","vault","guides","docs","files","settings"];
+const COLS = ["people","health","items","shop","requests","purchases","prices","events","routine","tasks","contacts","places","things","maint","vault","guides","docs","files","settings","msgs","reminders"];
 const LIBS = {
   tesseract: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",
   tf: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
@@ -692,7 +727,7 @@ const LocalDriver = {
 };
 
 /* ---------- camada de dados ---------- */
-const KID_COLS = ["tasks", "shop", "items", "requests"];
+const KID_COLS = ["tasks", "shop", "items", "requests", "msgs", "reminders", "files"];
 const DB = {
   driver: MemoryDriver,
   col(c) { return S.data[c] || (S.data[c] = new Map()); },
@@ -723,6 +758,22 @@ const DB = {
     if (this.driver.name === "cloud") { try { Promise.resolve(this.driver.del(c, id)).catch(fail); } catch (e) { fail(e); } }
     else { try { await this.driver.del(c, id); } catch (e) { fail(e); } }
   },
+  /* muda só alguns campos (ex.: "readBy.p1"). Na nuvem vai como updateDoc, para duas pessoas
+     marcando "lido" ao mesmo tempo não apagarem a marcação uma da outra. undefined = apagar o campo. */
+  async patch(c, id, fields) {
+    if (isChild() && !KID_COLS.includes(c)) { toast(tt("Peça para um responsável fazer essa alteração 🙂", "Ask a guardian to make this change 🙂")); return; }
+    const cur = this.col(c).get(id); if (!cur) return;
+    const doc = JSON.parse(JSON.stringify(cur));
+    for (const k in fields) { const ks = k.split("."); let t = doc; ks.slice(0, -1).forEach((x) => { t = t[x] = t[x] || {}; }); if (fields[k] === undefined) delete t[ks[ks.length - 1]]; else t[ks[ks.length - 1]] = fields[k]; }
+    doc.updatedAt = new Date().toISOString(); doc.updatedBy = S.meId || null;
+    this.col(c).set(id, doc); scheduleRender(true);
+    const fail = (e) => { console.error(c, e); toast(tt("Não consegui salvar: ", "Could not save: ") + (typeof Cloud !== "undefined" && e.code ? Cloud.errMsg(e) : (e.message || e))); };
+    if (this.driver.name === "cloud") {
+      const up = { updatedAt: doc.updatedAt, updatedBy: doc.updatedBy };
+      for (const k in fields) up[k] = fields[k] === undefined ? FB.F.deleteField() : JSON.parse(JSON.stringify(fields[k]));
+      FB.F.updateDoc(FB.famRef(c, id), up).catch(fail);
+    } else { try { await this.driver.put(c, doc); } catch (e) { fail(e); } }
+  },
   setting() { return this.col("settings").get("config") || { id: "config", vis: "familia" }; },
   async saveSetting(patch) { const s = Object.assign({}, this.setting(), patch); return this.put("settings", s); }
 };
@@ -744,7 +795,7 @@ const Files = {
   },
   async save(file, opt) {
     opt = opt || {};
-    if (isChild()) { toast(tt("Peça para um responsável anexar arquivos 🙂", "Ask a guardian to attach files 🙂")); return null; }
+    if (isChild() && !opt.kid) { toast(tt("Peça para um responsável anexar arquivos 🙂", "Ask a guardian to attach files 🙂")); return null; }
     let f = opt.raw ? file : await this.compress(file, opt.max);
     let enc = null;
     if (opt.encrypt) { const r = await Vault.encryptBlob(f); f = r.blob; enc = { iv: r.iv, type: file.type || "application/octet-stream" }; }
@@ -1246,7 +1297,7 @@ service cloud.firestore {
       match /{col}/{id} {
         allow read: if !(col in ['vault', 'joinRequests']) && isMember(fid) && visOk(fid, resource.data);
         allow create, update: if !(col in ['vault', 'requests', 'joinRequests'])
-          && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items']));
+          && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files']));
         allow delete: if !(col in ['vault', 'requests', 'joinRequests']) && isAdult(fid);
       }
     }
@@ -1360,6 +1411,8 @@ const Notify = {
     if (col === "requests" && type === "added" && isGuardian() && d.status === "pendente" && d.by !== S.meId) this.show(tt("Novo pedido de ", "New request from ") + People.name(d.by), d.name, "req-" + d.id);
     if (col === "requests" && type === "modified" && d.by === S.meId && d.status !== "pendente") this.show(d.status === "recusado" ? tt("Pedido recusado", "Request declined") : tt("Pedido aprovado 🎉", "Request approved 🎉"), d.name, "reqd-" + d.id + d.status);
     if (col === "events" && type === "added" && (d.members || []).includes(S.meId) && d.createdBy !== S.meId) this.show(tt("Novo compromisso para você", "New event for you"), d.title + " · " + fmtDate(d.date), "ev-new-" + d.id);
+    if (col === "msgs" && type === "added" && Msgs.forMe(d) && Msgs.occ(d)) this.once("msg-" + d.id + "-" + Msgs.occ(d), "📨 " + Msgs.headline(d), d.body || "");
+    if (col === "tasks" && type === "modified" && d.createdBy === S.meId && d.updatedBy !== S.meId && Tasks.status(d) !== "aberta") this.once("tk-st-" + d.id + "-" + Tasks.status(d) + (d.due || ""), TASK_ST()[Tasks.status(d)][0] + " " + d.title, TASK_ST()[Tasks.status(d)][1] + " · " + People.name(d.updatedBy) + (d.closeNote ? " — " + d.closeNote : ""));
     if (col === "tasks" && type === "added" && d.assignee === S.meId && d.createdBy !== S.meId) this.show(tt("Nova tarefa para você", "New task for you"), d.title, "tk-new-" + d.id);
     if (col === "settings" && type === "modified" && d.handover && d.handover.active && d.handover.to === S.meId) this.once("ho-" + d.handover.since, tt("Você assumiu a casa", "You're now in charge"), tt("Veja o painel das próximas 48 horas.", "See the next-48-hours panel."));
   },
@@ -1374,6 +1427,10 @@ const Notify = {
         if (now >= start - lead && now < start) this.once("ev-" + o.id + "-" + o.date, "📅 " + o.title, (o.time ? fmtTime(o.time) + " · " : "") + relDay(o.date));
       }
     });
+    /* lembretes do dia (a partir das 8h) */
+    if (now.getHours() >= 8) Reminders.due(0).forEach((r) => this.once("rem-" + r.id + "-" + r.due + "-" + td, "📌 " + r.title, Reminders.whenTxt(r)));
+    /* recados que chegam hoje (agendados ou repetidos) */
+    Msgs.unread().forEach((m) => { const k = Msgs.occ(m); if (k === td || (m.repeat || "none") === "none" && Date.now() - new Date(m.createdAt) < 864e5) this.once("msg-" + m.id + "-" + k, "📨 " + Msgs.headline(m), m.body || ""); });
     /* remédios */
     if (DB.setting().medRemind !== false) {
       DB.all("health").forEach((h) => (h.meds || []).forEach((m) => (m.times || "").split(/[,;\s]+/).filter(Boolean).forEach((t) => {
@@ -1591,9 +1648,11 @@ function savePrefs() { lsSet(LS.prefs, S.prefs); }
 function applyTheme() { document.documentElement.dataset.theme = S.theme; const m = $('meta[name="theme-color"]'); if (m) m.content = S.theme === "light" ? "#f6f6fb" : "#0d1019"; try { ART.apply(true); } catch (e) { console.warn(e); } }
 function setLang(l) { S.lang = l; S.prefs.lang = l; savePrefs(); try { localStorage.setItem(LS.portalLang, l); } catch (e) {} document.documentElement.lang = l === "pt" ? "pt-BR" : "en"; if (S.booted) render(); else if (S.gate) setGate(S.gate, S.gateArg); staticTexts(); }
 function staticTexts() {
-  $("#langlabel").textContent = S.lang.toUpperCase();
-  $("#adtag").textContent = tt("PUBLICIDADE", "ADVERTISEMENT");
-  $("#adbox").textContent = tt("<ANUNCIE AQUI>", "<ADVERTISE HERE>");
+  $$("#langsw button").forEach((b) => b.classList.toggle("on", b.dataset.l === S.lang));
+  $("#adtag").textContent = tt("ANÚNCIO", "AD");
+  $("#adclose").title = tt("Fechar anúncio", "Close ad");
+  $("#quickbtn").title = tt("Lembrete rápido", "Quick reminder");
+  $("#inboxbtn").title = tt("Recados", "Messages");
   $("#legalbtn").textContent = tt("Aviso legal e privacidade", "Legal notice & privacy");
   $("#vertxt").textContent = "v" + APP_VERSION;
   $("#themebtn").textContent = S.theme === "light" ? "☀️" : "🌙";
@@ -1605,6 +1664,7 @@ function staticTexts() {
 /* ---------- abas ---------- */
 const TABS = () => [
   { id: "home", ic: "🏠", t: tt("Início", "Home") },
+  { id: "inbox", ic: "📨", t: tt("Recados", "Messages") },
   { id: "shop", ic: "🛒", t: tt("Compras", "Shopping") },
   { id: "agenda", ic: "📅", t: tt("Agenda", "Calendar") },
   { id: "contacts", ic: "📇", t: tt("Contatos", "Contacts") },
@@ -1620,6 +1680,7 @@ function visibleTabs() {
 }
 function tabBadge(id) {
   if (id === "shop") { const n = Shop.pendingRequests().length; return isGuardian() && n ? n : 0; }
+  if (id === "inbox") return Msgs.unread().length;
   if (id === "family" && S.joinRequests && S.joinRequests.length && isGuardian()) return S.joinRequests.length;
   return 0;
 }
@@ -1655,20 +1716,127 @@ function renderHeader() {
   $("#whonm").textContent = p ? (p.nick || p.name) : (S.mode === "visitor" ? tt("Visitante", "Visitor") : S.mode === "advertiser" ? tt("Anunciante", "Advertiser") : "—");
   $("#sosbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   $("#bellbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
-  showAds();
+  $("#quickbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
+  $("#inboxbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
+  Ads.bar();
 }
-function showAds() {
-  const show = (S.mode === "visitor" || !S.booted && S.gate === "welcome") && !ssGet("omnilife.adclosed");
-  $("#adbar").classList.toggle("hidden", !show);
-  const ad = S.mode === "visitor" ? pickAd() : null;
-  if (ad) { $("#adbox").textContent = ad.title + (ad.text ? " — " + ad.text : ""); $("#adlink").href = ad.link || AD_URL; }
-  else { $("#adbox").textContent = tt("<ANUNCIE AQUI>", "<ADVERTISE HERE>"); $("#adlink").href = AD_URL; }
-}
-function pickAd() { const ads = (lsGet(LS.ads, []) || []).filter((a) => a.active); return ads.length ? ads[Math.floor(Math.random() * ads.length)] : null; }
+
+/* ---------- anúncios: faixa em carrossel + pop-up antes e depois do login ----------
+   Lista: anuncios.json deste repositório → anuncios.json do portal → apps do portal.
+   O app nunca anuncia a si mesmo. Família Premium e anunciante não veem anúncio. */
+const ADS_DEFAULT = () => [
+  { id: "moneytrio", titulo: "MoneyTRIO", texto: tt("Finanças pessoais: orçamento, investimentos e IR", "Personal finance: budget, investments and taxes"), provocacao: tt("Você sabe para onde foi o seu dinheiro este mês?", "Do you know where your money went this month?"), emoji: "💰", link: "https://marceloneco.github.io/investify-me/" },
+  { id: "rise-one", titulo: "RiseONE", texto: tt("Treino, corrida e dieta, com metas e evolução", "Workouts, running and diet, with goals"), provocacao: tt("Quanto tempo faz que você não se exercita de verdade?", "How long since you really worked out?"), emoji: "🏋️", link: "https://marceloneco.github.io/rise-one/" },
+  { id: "eleicoes-2026", titulo: tt("Eleições 2026", "Elections 2026"), texto: tt("Dados públicos transformados em informação clara", "Public data turned into clear information"), provocacao: tt("Você já comparou o que cada candidato promete?", "Have you compared what each candidate promises?"), emoji: "🗳️", link: "https://marceloneco.github.io/planos-candidatos-2026/" },
+  { id: "contador-de-historias", titulo: tt("Contador de Histórias", "Storyteller"), texto: tt("Cria e narra histórias de dormir", "Creates and reads bedtime stories"), provocacao: tt("Qual vai ser a história de hoje à noite?", "What's tonight's story?"), emoji: "📖", link: "https://marceloneco.github.io/contador-de-historias/" },
+  { id: "cifras-violao", titulo: tt("Cifras e Acordes", "Chords"), texto: tt("Cifras, troca de tom e dicionário de acordes", "Chords, key change and chord dictionary"), provocacao: tt("Aquela música no violão: você lembra os acordes?", "That song on the guitar: remember the chords?"), emoji: "🎸", link: "https://marceloneco.github.io/cifras-violao/" }
+];
+const Ads = {
+  list: null, cfg: { velocidade: 40, popupAntesDoLogin: true, popupDepoisDoLogin: true, segundosParaFechar: 3, intervaloMinutos: 30 },
+  SELF: ["omnilife-one", "omnilife", "omnilifeone"],
+  async load() {
+    let j = null;
+    for (const u of ["anuncios.json", "/anuncios.json"]) {
+      try { const r = await fetch(u, { cache: "no-cache" }); if (r.ok) { j = await r.json(); if (j && Array.isArray(j.anuncios)) break; j = null; } } catch (e) { j = null; }
+    }
+    if (j) { Object.assign(this.cfg, j.config || {}); this.list = j.anuncios; }
+    this.bar();
+    if (!S.booted && S.gate === "welcome") this.popup("antes");
+  },
+  txt(v) { return v && typeof v === "object" ? (v[S.lang] || v.pt || v.en || "") : (v || ""); },
+  /* anúncios do anunciante local também entram na faixa */
+  all() {
+    const base = (this.list || ADS_DEFAULT()).filter((a) => a.ativo !== false && !this.SELF.includes(String(a.id || "").toLowerCase()) && !/omnilife-one/.test(a.link || ""));
+    const local = (lsGet(LS.ads, []) || []).filter((a) => a.active).map((a, i) => ({ id: "local" + i, titulo: a.title, texto: a.text, link: a.link || AD_URL, emoji: "📣", onde: ["faixa"] }));
+    return base.concat(local);
+  },
+  where(k) { return this.all().filter((a) => !a.onde || a.onde.includes(k)); },
+  premium() { return S.mode !== "visitor" && S.booted && Plan.isPremium(); },
+  shows() { return S.mode !== "advertiser" && !this.premium(); },
+  img(a, cls) { const e = esc(a.emoji || "✨"); return a.imagem ? '<img class="' + cls + '" src="' + esc(a.imagem) + '" alt="" loading="lazy" onerror="this.outerHTML=\'<span class=&quot;' + cls + '&quot;>' + e + '</span>\'">' : '<span class="' + cls + '" aria-hidden="true">' + e + "</span>"; },
+  bar() {
+    const zone = $("#adzone"); if (!zone) return;
+    const ads = this.where("faixa");
+    const show = this.shows() && !ssGet("omnilife.adclosed") && ads.length && !document.fullscreenElement;
+    zone.classList.toggle("hidden", !show);
+    if (!show) return;
+    const key = S.lang + ads.map((a) => a.id).join();
+    if (this._k === key) return; this._k = key;
+    const one = ads.map((a) => '<a class="aditem" href="' + esc(a.link || AD_URL) + '" target="_blank" rel="noopener" data-ad="' + esc(a.id) + '">' + this.img(a, "aim") + "<b>" + esc(this.txt(a.titulo)) + "</b><span>" + esc(this.txt(a.texto)) + "</span></a>").join("");
+    const tr = $("#adtrack"); tr.innerHTML = one + one.replace(/class="aditem"/g, 'class="aditem" aria-hidden="true" tabindex="-1"');
+    tr.style.setProperty("--adsec", Math.max(15, ads.length * (400 / (this.cfg.velocidade || 40)) * 2) + "s");
+    if (!tr._wired) { tr._wired = true; tr.addEventListener("click", (e) => { const a = e.target.closest("[data-ad]"); if (a) this.count(a.dataset.ad, "c"); }); }
+    ads.forEach((a) => this.count(a.id, "v"));
+  },
+  /* exibições (v) e cliques (c) por anúncio, neste aparelho */
+  count(id, k) { const s = lsGet("omnilife.adstats.v1", {}); s[id] = s[id] || { v: 0, c: 0 }; s[id][k]++; lsSet("omnilife.adstats.v1", s); },
+  popup(moment) {
+    if (!this.shows()) return;
+    if (moment === "antes" && (!this.cfg.popupAntesDoLogin || ssGet("omnilife.pop.antes"))) return;
+    if (moment === "depois") { if (!this.cfg.popupDepoisDoLogin) return; const last = +ssGet("omnilife.pop.depois") || 0; if (Date.now() - last < (this.cfg.intervaloMinutos || 30) * 60000) return; }
+    const pool = this.where("popup"); if (!pool.length) return;
+    const lastId = ssGet("omnilife.pop.last");
+    const cand = pool.filter((a) => a.id !== lastId); const a = (cand.length ? cand : pool)[Math.floor(Math.random() * (cand.length || pool.length))];
+    ssSet("omnilife.pop.last", a.id); ssSet(moment === "antes" ? "omnilife.pop.antes" : "omnilife.pop.depois", String(Date.now()));
+    setTimeout(() => {
+      /* não aparece sobre tela cheia, sobre outra janela aberta nem sobre a tela de senha */
+      if (document.fullscreenElement || $(".mback") || $(".sos") || $(".lock") || (S.gate && S.gate !== "welcome")) return;
+      if ((moment === "antes") === !!S.booted) return; /* o de antes do login não aparece depois de entrar, e vice-versa */
+      let n = this.cfg.segundosParaFechar || 3; let open = false;
+      const m = modal({ title: tt("Conheça também", "Also check out"), cls: "adpop", body: '<div class="apb">' + this.img(a, "apimg") + '<div><div class="apq">' + esc(this.txt(a.provocacao) || this.txt(a.titulo)) + '</div><p class="muted"><b>' + esc(this.txt(a.titulo)) + "</b> — " + esc(this.txt(a.texto)) + '</p><a class="btn" href="' + esc(a.link || AD_URL) + '" target="_blank" rel="noopener" data-go>' + tt("Conhecer", "Learn more") + " ↗</a></div></div>" });
+      const x = m.el.querySelector("[data-x]"); x.style.display = "none";
+      const cnt = document.createElement("span"); cnt.className = "adcount"; cnt.setAttribute("aria-live", "polite"); cnt.textContent = n; x.after(cnt);
+      /* fechar (×, Esc ou toque fora) só depois da contagem */
+      const block = (e) => { if (!open && (e.type === "keydown" ? e.key === "Escape" : e.target === m.el)) { e.stopImmediatePropagation(); e.preventDefault(); } };
+      document.addEventListener("keydown", block, true); m.el.addEventListener("click", block, true);
+      const t = setInterval(() => { n--; if (n > 0) { cnt.textContent = n; return; } clearInterval(t); open = true; cnt.remove(); x.style.display = ""; x.focus(); document.removeEventListener("keydown", block, true); }, 1000);
+      m.el.querySelector("[data-go]").onclick = () => this.count(a.id, "c");
+      this.count(a.id, "v");
+    }, moment === "antes" ? 1500 : 2500);
+  }
+};
+
+/* ---------- plano da família (Gratuito / Premium) ----------
+   Uma assinatura vale para todos os membros da mesma família: cada um com seu login.
+   Sem cobrança ainda: o administrador marca a família como Premium. */
+const Plan = {
+  get() { return Object.assign({ tier: "gratis" }, DB.setting().plan || {}); },
+  isPremium() { return this.get().tier === "premium"; },
+  members() {
+    if (S.mode === "cloud" && S.family && S.family.members) return Object.values(S.family.members).map((m) => ({ name: m.name || People.name(m.personId), email: m.email || "", role: m.role }));
+    return People.list("humans").map((p) => ({ name: p.nick || p.name, email: p.email || "", role: localRole(p) }));
+  },
+  async set(tier) {
+    await DB.saveSetting({ plan: { tier, since: today(), by: S.meId } });
+    this.publish(); Ads._k = null; Ads.bar(); render();
+  },
+  /* deixa o plano visível para os outros apps do portal neste aparelho (mesmo endereço) */
+  publish() {
+    if (S.mode === "visitor" || !S.booted) return;
+    lsSet("ecossistema.plano.v1", { app: "omnilife-one", familia: (S.family && S.family.name) || DB.setting().familyName || "", familiaId: (S.family && S.family.id) || "local", plano: this.get().tier, membros: this.members(), atualizadoEm: new Date().toISOString() });
+  },
+  card() {
+    const p = this.get(); const mem = this.members(); const prem = p.tier === "premium";
+    return '<div class="card ' + (prem ? "accent" : "") + '"><div class="between"><h3>💎 ' + tt("Plano da família", "Family plan") + '</h3><span class="badge ' + (prem ? "acc" : "") + '">' + (prem ? "Premium" : tt("Gratuito", "Free")) + "</span></div>" +
+      '<p class="small">' + (prem ? tt("Todos os membros desta família usam o Premium com o próprio login — sem anúncios.", "Every member of this family uses Premium with their own login — no ads.") : tt("No plano gratuito aparecem anúncios. Com o Premium, a família inteira fica sem anúncios — uma assinatura só para todos os membros.", "The free plan shows ads. With Premium the whole family is ad-free — one subscription for every member.")) + "</p>" +
+      '<div class="grouph">' + tt("Quem está incluído", "Who's included") + " (" + mem.length + ')</div><div class="chips">' + mem.map((m) => '<span class="chip">' + esc(m.name || m.email) + " · " + esc(roleName(m.role)) + "</span>").join("") + "</div>" +
+      (S.role === "admin" && S.mode !== "visitor" ? '<div class="row" style="margin-top:10px"><button class="btn ' + (prem ? "ghost" : "") + ' sm" data-act="plan.set" data-v="' + (prem ? "gratis" : "premium") + '">' + (prem ? tt("Voltar para o gratuito", "Back to free") : "💎 " + tt("Marcar a família como Premium", "Mark the family as Premium")) + "</button></div>" : "") +
+      '<p class="tiny faint" style="margin-top:8px">' + tt("Ainda não há cobrança: por enquanto o administrador marca o plano. Quem entra na família pelo convite já recebe o mesmo plano, e os outros apps do portal neste aparelho reconhecem a família.", "No billing yet: for now the admin sets the plan. Anyone who joins through the invite gets the same plan, and the other portal apps on this device recognize the family.") + "</p></div>";
+  }
+};
+ACT["plan.set"] = (d) => Plan.set(d.v);
+Ads.statsCard = () => {
+  const st = lsGet("omnilife.adstats.v1", {}); const ids = Object.keys(st);
+  return '<div class="card"><h3>📊 ' + tt("Exibições e cliques neste aparelho", "Views and clicks on this device") + "</h3>" + (ids.length ? '<div class="list">' + ids.map((id) => { const a = Ads.all().find((x) => x.id === id); return '<div class="li"><div class="main"><div class="t">' + esc(a ? Ads.txt(a.titulo) : id) + '</div></div><span class="small">👁 ' + st[id].v + " · 👆 " + st[id].c + "</span></div>"; }).join("") + "</div>" : '<div class="empty tiny">—</div>') + "</div>";
+};
 function updateBadges() {
   if (!S.booted) return;
   const n = Alerts.list().filter((a) => a.level !== "info").length;
   $("#bellbtn").innerHTML = "🔔" + (n ? '<span class="dot">' + (n > 99 ? "99+" : n) + "</span>" : "");
+  const u = Msgs.unread().length;
+  $("#inboxbtn").innerHTML = "📨" + (u ? '<span class="dot">' + (u > 99 ? "99+" : u) + "</span>" : "");
+  /* número no ícone do app instalado (quando o aparelho aceita) */
+  try { if (navigator.setAppBadge) { if (u) navigator.setAppBadge(u); else navigator.clearAppBadge(); } } catch (e) {}
 }
 
 /* ---------- avisos centralizados (sino) ---------- */
@@ -1676,6 +1844,8 @@ const Alerts = {
   list() {
     const out = []; if (!S.booted || S.mode === "advertiser") return out;
     const td = today();
+    Reminders.due(0).forEach((r) => out.push({ level: r.due < td ? "bad" : "warn", ic: "📌", t: r.title + " — " + Reminders.whenTxt(r), go: ["agenda", "reminders"] }));
+    Msgs.unread().filter((m) => m.prio === "urgente").forEach((m) => out.push({ level: "bad", ic: "🔴", t: Msgs.headline(m), go: ["inbox"] }));
     if (isGuardian()) Shop.pendingRequests().forEach((r) => out.push({ level: "warn", ic: "🙋", t: tt("Pedido de ", "Request from ") + People.name(r.by) + ": " + r.name, go: ["shop", "requests"] }));
     if (isGuardian() && S.joinRequests) S.joinRequests.forEach((r) => out.push({ level: "warn", ic: "🚪", t: tt("Quer entrar na família: ", "Wants to join: ") + (r.name || r.email), go: ["family"] }));
     Pantry.soon(3).slice(0, 8).forEach((i) => out.push({ level: "warn", ic: "🥫", t: i.name + " — " + (i._days <= 0 ? tt("provavelmente acabou", "probably out") : tt("acaba em ~" + i._days + " dia(s)", "runs out in ~" + i._days + " day(s)")), go: ["shop", "pantry"] }));
@@ -1714,9 +1884,9 @@ const GATES = {
         tt("A casa e a família num lugar só: compras e despensa, agenda, contatos, saúde, documentos e onde cada coisa fica guardada.", "Home and family in one place: groceries and pantry, calendar, contacts, health, documents and where everything is kept.") + "</p>" +
         (inv ? '<div class="note ok">💌 ' + tt("Você foi convidado para a família ", "You were invited to the family ") + "<b>" + esc(inv.n || "") + "</b>. " + tt("Entre com sua conta para pedir a entrada.", "Sign in to request access.") + "</div>" : "") + "</div>" +
         '<div class="card"><h3>' + tt("Como você quer entrar?", "How do you want to enter?") + '</h3><div class="grid g2 collapse">' +
-        (cloud ? '<button class="rolecard" data-act="gate.google"><span class="e">🔐</span><span><b>' + tt("Família — entrar com Google", "Family — sign in with Google") + "</b><small>" + tt("Cada pessoa com seu login. Tudo sincroniza entre os celulares. Sem anúncios.", "Each person has a login. Syncs across phones. No ads.") + '</small></span></button>' +
+        (cloud ? '<button class="rolecard" data-act="gate.google"><span class="e">🔐</span><span><b>' + tt("Família — entrar com Google", "Family — sign in with Google") + "</b><small>" + tt("Cada pessoa com seu login. Tudo sincroniza entre os celulares. Sem anúncios no Premium.", "Each person has a login. Syncs across phones. Ad-free with Premium.") + '</small></span></button>' +
           '<button class="rolecard" data-act="gate.email"><span class="e">✉️</span><span><b>' + tt("Família — entrar com e-mail", "Family — sign in with e-mail") + "</b><small>" + tt("Bom para os filhos que não têm conta Google.", "Good for kids without a Google account.") + "</small></span></button>" : "") +
-        '<button class="rolecard" data-act="gate.local"><span class="e">📱</span><span><b>' + tt("Só neste aparelho", "This device only") + "</b><small>" + tt("Perfis com PIN, dados guardados só aqui. Sem anúncios.", "PIN profiles, data kept only here. No ads.") + (cloud ? "" : " " + tt("(A nuvem ainda não foi configurada.)", "(Cloud not configured yet.)")) + "</small></span></button>" +
+        '<button class="rolecard" data-act="gate.local"><span class="e">📱</span><span><b>' + tt("Só neste aparelho", "This device only") + "</b><small>" + tt("Perfis com PIN, dados guardados só aqui. Sem anúncios no Premium.", "PIN profiles, data kept only here. Ad-free with Premium.") + (cloud ? "" : " " + tt("(A nuvem ainda não foi configurada.)", "(Cloud not configured yet.)")) + "</small></span></button>" +
         '<button class="rolecard" data-act="gate.visitor"><span class="e">👀</span><span><b>' + tt("Visitante", "Visitor") + "</b><small>" + tt("Sem senha e sem guardar dados pessoais. Com anúncios. Abre com uma família de exemplo.", "No password, no personal data kept. With ads. Opens with a sample family.") + "</small></span></button>" +
         '<button class="rolecard" data-act="gate.advertiser"><span class="e">📣</span><span><b>' + tt("Anunciante", "Advertiser") + "</b><small>" + tt("Área de gestão dos seus anúncios.", "Manage your ads.") + "</small></span></button>" +
         "</div></div>" +
@@ -1844,6 +2014,8 @@ async function startApp() {
     const ok = await bioGate(); if (!ok) return;
   }
   render();
+  Plan.publish();
+  Ads.popup("depois");
 }
 function bioGate() {
   return new Promise((res) => {
@@ -1883,9 +2055,14 @@ function handoverStrip() {
 
 /* ---------- botões do cabeçalho ---------- */
 function wireHeader() {
-  $("#langbtn").onclick = () => setLang(S.lang === "pt" ? "en" : "pt");
+  $("#langsw").onclick = (e) => { const b = e.target.closest("[data-l]"); if (b && b.dataset.l !== S.lang) setLang(b.dataset.l); };
   $("#themebtn").onclick = () => { S.theme = S.theme === "light" ? "dark" : "light"; S.prefs.theme = S.theme; savePrefs(); applyTheme(); staticTexts(); };
-  $("#adclose").onclick = () => { ssSet("omnilife.adclosed", "1"); $("#adbar").classList.add("hidden"); };
+  $("#adclose").onclick = () => { ssSet("omnilife.adclosed", "1"); Ads.bar(); };
+  $("#quickbtn").onclick = () => Reminders.quick();
+  $("#inboxbtn").onclick = () => go("inbox");
+  /* no celular, um toque pausa o carrossel e outro solta */
+  $("#adview").addEventListener("touchstart", (e) => { if (!e.target.closest("a")) $("#adview").classList.toggle("paused"); }, { passive: true });
+  Ads.load();
   $("#brandbtn").onclick = () => { if (S.booted) go(S.mode === "advertiser" ? "ads" : "home"); };
   $("#sosbtn").onclick = () => Health.sos();
   $("#bellbtn").onclick = () => ACT.bell();
@@ -2161,6 +2338,8 @@ const ShopViews = {
     const names = Pantry.items().map((i) => i.name);
     let h = '<div class="card"><div class="row nw"><div class="searchbox"><span class="lead">＋</span><input type="text" id="addin" list="dlitems" placeholder="' + tt("Adicionar item (ex.: leite 2)", "Add item (e.g. milk 2)") + '" autocomplete="off"><datalist id="dlitems">' + names.map((n) => '<option value="' + esc(n) + '">').join("") + '</datalist><button class="mic" data-act="shop.voice" title="' + tt("Falar", "Speak") + '">🎤</button></div><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div>" +
       (isChild() && !childCtl().addDirect ? '<div class="tiny muted" style="margin-top:6px">' + tt("O que você adicionar vira um pedido para os responsáveis aprovarem.", "What you add becomes a request for guardians to approve.") + "</div>" : "") + "</div>";
+    const trip = Reminders.trip("mercado");
+    if (trip.length) h += '<div class="card tight"><b>📌 ' + tt("Lembretes para a próxima ida ao mercado", "Reminders for the next grocery trip") + '</b><div class="list">' + trip.map((r) => '<div class="li"><input type="checkbox" aria-label="' + tt("Feito", "Done") + '" data-act="rem.done" data-id="' + r.id + '"><div class="main click" data-act="rem.edit" data-id="' + r.id + '"><div class="t">' + esc(r.title) + '</div><div class="s">' + esc(r.sub || "") + "</div></div>" + (r.shopId && DB.get("shop", r.shopId) ? '<span class="badge acc">' + tt("na lista", "on list") + "</span>" : '<button class="btn xs ghost" data-act="rem.toshop" data-id="' + r.id + '">🛒 ' + tt("pôr na lista", "add to list") + "</button>") + "</div>").join("") + "</div></div>";
     if (soon.length && !isChild()) h += '<div class="card warnc tight"><div class="between"><b>⏳ ' + tt("Está acabando", "Running out") + '</b><button class="btn xs" data-act="shop.addsoon">' + tt("Pôr todos na lista", "Add all") + '</button></div><div class="chips" style="margin-top:8px">' + soon.slice(0, 12).map((i) => '<span class="chip" data-act="shop.addfrom" data-id="' + i.id + '">＋ ' + esc(i.name) + ' <span class="faint">' + (i._days <= 0 ? tt("acabou?", "out?") : "~" + i._days + "d") + "</span></span>").join("") + "</div></div>";
     if (!open.length && !done.length) h += '<div class="card"><div class="empty"><div class="e">🧺</div>' + tt("Lista vazia. Adicione itens acima ou marque o que acabou na Despensa.", "Empty list. Add items above or mark what ran out in the Pantry.") + "</div></div>";
     else {
@@ -2267,7 +2446,8 @@ ACT["shop.voice"] = async (d, b) => {
   const t = await Voice.listen(b); if (!t) return;
   const clean = t.replace(/^(adicionar|adiciona|colocar|coloca|comprar|compra|pôr|por|add|buy)\s+/i, "");
   const parts = clean.split(/\s+(?:e|and)\s+|,/i).map((s) => s.trim()).filter(Boolean);
-  for (const p of parts) await Shop.add(parseQtyName(p), true);
+  for (const p of parts) { const o = parseQtyName(p); if (!o.unit) delete o.unit; await Shop.add(o, true); }
+  scheduleRender(true); /* sem isto o item só aparecia depois de recarregar a tela */
   toast(tt("Adicionado por voz: ", "Added by voice: ") + parts.join(", "));
 };
 ACT["shop.toggle"] = (d) => Shop.toggle(d.id);
@@ -2329,7 +2509,7 @@ ACT["scan.photo"] = async (d) => {
   S.scanBusy = null; render();
 };
 function scanChecked() { return $$("[data-scan]").filter((c) => c.checked).map((c) => S.scanResult.items[+c.dataset.scan]); }
-ACT["scan.tolist"] = async () => { const it = scanChecked(); for (const x of it) await Shop.add({ name: x.nome }, true); toast(it.length + tt(" itens na lista", " items added")); };
+ACT["scan.tolist"] = async () => { const it = scanChecked(); for (const x of it) await Shop.add({ name: x.nome }, true); scheduleRender(true); toast(it.length + tt(" itens na lista", " items added")); };
 ACT["scan.pantry"] = async () => {
   for (const x of S.scanResult.items) { const it = await Pantry.ensure(x.nome); const low = /pouco|acabando|little|out/.test(x.quantidade || ""); const cur = DB.get("items", it.id) || it; await DB.put("items", Object.assign({}, cur, { status: low ? "baixo" : "ok", expiry: x.vence_logo ? addDays(today(), 3) : cur.expiry }), true); }
   toast(tt("Despensa atualizada ✓", "Pantry updated ✓")); render();
@@ -2348,7 +2528,7 @@ ACT["scan.recipes"] = async () => {
   if (!S.recipes) { const m = recipeMatch(names); S.recipes = m.length ? m.map((x) => { const miss = x.ing.filter((i) => !x.hit.includes(i)); return '<div class="li"><div class="main"><div class="t">' + esc(x.name) + '</div><div class="s">✓ ' + esc(x.hit.join(", ")) + (miss.length ? " · ➕ " + esc(miss.join(", ")) : "") + '</div><div class="small">' + esc(x.tip) + "</div></div>" + (miss.length ? '<button class="btn xs ghost" data-act="rec.add" data-v="' + esc(miss.join("|")) + '">🛒</button>' : "") + "</div>"; }).join("") : '<div class="empty tiny">' + tt("Poucos itens para sugerir. Com a chave de IA as sugestões ficam bem melhores.", "Too few items. With an AI key suggestions get much better.") + "</div>"; }
   render();
 };
-ACT["rec.add"] = async (d) => { for (const n of d.v.split("|")) await Shop.add({ name: n }, true); toast(tt("Ingredientes na lista ✓", "Ingredients added ✓")); };
+ACT["rec.add"] = async (d) => { for (const n of d.v.split("|")) await Shop.add({ name: n }, true); scheduleRender(true); toast(tt("Ingredientes na lista ✓", "Ingredients added ✓")); };
 
 /* =====================================================================
    AGENDA, ROTINA, TAREFAS, DELEGÔMETRO E "ASSUME A CASA"
@@ -2433,22 +2613,63 @@ const Routine = {
 const RT_KINDS = () => [["refeicao", "🍽", tt("Refeição", "Meal")], ["escola", "🎒", tt("Escola / transporte", "School / ride")], ["remedio", "💊", tt("Remédio", "Medicine")], ["casa", "🏠", tt("Casa", "Home")], ["pet", "🐾", "Pet"], ["sono", "😴", tt("Sono", "Sleep")], ["outro", "📌", tt("Outro", "Other")]];
 
 /* ---------- tarefas ---------- */
+const TASK_ST = () => ({ aberta: ["⬜", tt("Aberta", "Open"), ""], feita: ["✅", tt("Feita", "Done"), "ok"], postergada: ["⏭", tt("Postergada", "Postponed"), "warn"], cancelada: ["✖", tt("Cancelada", "Cancelled"), "bad"] });
 const Tasks = {
+  /* aberta = ainda por fazer (inclui a postergada); feita e cancelada encerram a tarefa */
+  isOpen(t) { return !t.done && t.status !== "cancelada"; },
+  status(t) { return t.done ? "feita" : (t.status === "cancelada" || t.status === "postergada" ? t.status : "aberta"); },
   async toggle(id) {
     const t = DB.get("tasks", id); if (!t) return;
     const done = !t.done;
-    await DB.put("tasks", Object.assign({}, t, { done, doneBy: done ? S.meId : null, doneAt: done ? new Date().toISOString() : null }));
+    if (done && t.needPhoto && !(t.photos || []).length) return this.close(id);
+    await DB.put("tasks", Object.assign({}, t, { done, status: done ? "feita" : "aberta", doneBy: done ? S.meId : null, doneAt: done ? new Date().toISOString() : null }));
     if (done && t.repeat && t.repeat !== "none") {
       const step = { daily: 1, weekly: 7, monthly: 30 }[t.repeat] || 7;
-      const nt = Object.assign({}, t, { id: undefined, createdAt: undefined, done: false, doneBy: null, doneAt: null, due: addDays(t.due || today(), step) });
+      const nt = Object.assign({}, t, { id: undefined, createdAt: undefined, done: false, status: "aberta", doneBy: null, doneAt: null, photos: [], closeNote: "", seenAt: null, due: addDays(t.due || today(), step) });
       delete nt.id; delete nt.createdAt; await DB.put("tasks", nt, true);
     }
     if (done && t.points) toast("⭐ +" + t.points + " " + tt("pontos para ", "points for ") + People.name(t.assignee || S.meId));
+  },
+  /* encerrar: feita (com foto de evidência, se pedida), postergada (nova data) ou cancelada (motivo) */
+  async close(id) {
+    const t = DB.get("tasks", id); if (!t) return;
+    let photos = (t.photos || []).slice();
+    const body = '<p class="small muted">' + esc(t.title) + (t.assignee ? " · → " + esc(People.name(t.assignee)) : "") + "</p>" +
+      '<div class="grouph">📷 ' + tt("Foto de evidência", "Photo evidence") + (t.needPhoto ? ' <span class="badge warn">' + tt("pedida", "required") + "</span>" : "") + '</div><div class="thumbs" data-thumbs="' + photos.join(",") + '"></div><button type="button" class="btn ghost sm" id="tph" style="margin-top:6px">📸 ' + tt("Tirar foto", "Take photo") + "</button>" +
+      '<label class="fld" style="margin-top:12px"><span>' + tt("Observação (opcional)", "Note (optional)") + '</span><input type="text" id="tnote" value="' + esc(t.closeNote || "") + '"></label>' +
+      '<div class="grouph">' + tt("Como fica a tarefa?", "What happens to the task?") + '</div><div class="stack">' +
+      '<button class="btn ok block" data-s="feita">✅ ' + tt("Feita", "Done") + "</button>" +
+      '<div class="row nw"><select id="tpost" style="flex:1"><option value="1">' + tt("para amanhã", "to tomorrow") + '</option><option value="3">' + tt("daqui 3 dias", "in 3 days") + '</option><option value="7">' + tt("para a próxima semana", "to next week") + '</option><option value="d">' + tt("escolher a data…", "pick a date…") + '</option></select><input type="date" id="tpd" class="hidden" style="max-width:160px"><button class="btn ghost" data-s="postergada">⏭ ' + tt("Postergar", "Postpone") + "</button></div>" +
+      (!isChild() || t.createdBy === S.meId ? '<button class="btn danger block" data-s="cancelada">✖ ' + tt("Cancelar tarefa", "Cancel task") + "</button>" : "") + "</div>";
+    const m = modal({ title: "✅ " + tt("Encerrar tarefa", "Close task"), body, foot: '<button class="btn ghost" data-x>' + tt("Voltar", "Back") + "</button>" });
+    fillThumbs(m.el);
+    $("#tpost", m.el).onchange = (e) => $("#tpd", m.el).classList.toggle("hidden", e.target.value !== "d");
+    $("#tph", m.el).onclick = async () => {
+      const fs = await Files.pick("image/*", false, true); if (!fs.length) return;
+      const fid = await Files.save(fs[0], { max: 1280, kid: true }); if (!fid) return;
+      photos.push(fid); m.el.querySelector("[data-thumbs]").dataset.thumbs = photos.join(","); fillThumbs(m.el);
+      await DB.patch("tasks", id, { photos });
+    };
+    m.el.querySelectorAll("[data-s]").forEach((b) => (b.onclick = async () => {
+      const st = b.dataset.s, note = $("#tnote", m.el).value.trim(), cur = DB.get("tasks", id) || t;
+      if (st === "feita" && cur.needPhoto && !photos.length) return toast(tt("Esta tarefa pede uma foto de evidência.", "This task needs a photo as evidence."));
+      if (st === "postergada") {
+        const v = $("#tpost", m.el).value; const nd = v === "d" ? $("#tpd", m.el).value : addDays(cur.due && cur.due > today() ? cur.due : today(), +v);
+        if (!nd) return toast(tt("Escolha a nova data.", "Pick the new date."));
+        m.close(); await DB.put("tasks", Object.assign({}, cur, { status: "postergada", due: nd, postponed: (cur.postponed || 0) + 1, closeNote: note, photos, statusBy: S.meId, statusAt: new Date().toISOString() }));
+        return toast(tt("Postergada para ", "Postponed to ") + fmtDate(nd));
+      }
+      m.close();
+      if (st === "feita") { await DB.put("tasks", Object.assign({}, cur, { photos, closeNote: note })); await Tasks.toggle(id); return; }
+      await DB.put("tasks", Object.assign({}, cur, { status: "cancelada", done: false, closeNote: note, photos, statusBy: S.meId, statusAt: new Date().toISOString() }));
+      toast(tt("Tarefa cancelada.", "Task cancelled."));
+    }));
   }
 };
 function taskFields() {
   return [{ k: "title", label: tt("Tarefa", "Task"), req: true, full: true }, { k: "cat", label: tt("Tipo de carga", "Kind of load"), type: "select", opts: TASK_CATS().map((c) => [c[0], c[1] + " " + c[2]]) },
     { k: "due", label: tt("Prazo", "Due"), type: "date" }, { k: "assignee", label: tt("Responsável pela tarefa", "Assigned to"), type: "members", single: true, filter: "humans" },
+    { k: "prio", label: tt("Prioridade", "Priority"), type: "select", opts: PRIOS().map((p) => [p[0], p[1] + " " + (p[0] === "fyi" ? tt("Normal", "Normal") : p[2])]) }, { k: "needPhoto", label: "📷 " + tt("Pedir foto como evidência ao concluir", "Ask for a photo as evidence when done"), type: "check" },
     { k: "points", label: tt("Pontos (para crianças/jovens)", "Points (for kids/teens)"), type: "number" }, { k: "repeat", label: tt("Repetir", "Repeat"), type: "select", opts: [["none", tt("Não", "No")], ["daily", tt("Todo dia", "Daily")], ["weekly", tt("Toda semana", "Weekly")], ["monthly", tt("Todo mês", "Monthly")]] },
     { k: "notes", label: tt("Detalhes", "Details"), type: "textarea", rows: 2 }];
 }
@@ -2474,12 +2695,13 @@ const Load = {
 SCREENS.agenda = {
   render(sub) {
     sub = sub || "cal";
-    const segs = [["cal", "📅 " + tt("Calendário", "Calendar")], ["tasks", "✅ " + tt("Tarefas", "Tasks")], ["routine", "⏰ " + tt("Rotina", "Routine")], ["load", "⚖️ " + tt("Delegômetro", "Load meter")], ["handover", "🔁 " + tt("Assume a Casa", "Handover")]];
+    const segs = [["cal", "📅 " + tt("Calendário", "Calendar")], ["tasks", "✅ " + tt("Tarefas", "Tasks")], ["reminders", "📌 " + tt("Lembretes", "Reminders")], ["routine", "⏰ " + tt("Rotina", "Routine")], ["load", "⚖️ " + tt("Delegômetro", "Load meter")], ["handover", "🔁 " + tt("Assume a Casa", "Handover")]];
     return '<div class="pagehead"><div><h1>📅 ' + tt("Agenda da família", "Family calendar") + '</h1><div class="sub">' + tt("Compromissos, rotina, tarefas e quem está carregando o quê", "Events, routine, tasks and who carries what") + "</div></div></div>" +
       '<div class="seg">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="agenda" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" + (AgendaViews[sub] || AgendaViews.cal)();
   }
 };
 const AgendaViews = {
+  reminders() { return Reminders.view(); },
   cal() {
     const mon = S.calMonth || today().slice(0, 7); const [y, m] = mon.split("-").map(Number);
     const first = new Date(y, m - 1, 1); const start = addDays(isoDate(first), -first.getDay());
@@ -2502,13 +2724,13 @@ const AgendaViews = {
   tasks() {
     const f = S.taskF || (isChild() ? "mine" : "open");
     let ts = DB.all("tasks");
-    if (f === "mine") ts = ts.filter((t) => !t.done && t.assignee === S.meId);
-    else if (f === "open") ts = ts.filter((t) => !t.done);
-    else ts = ts.filter((t) => t.done).sort((a, b) => String(b.doneAt).localeCompare(a.doneAt)).slice(0, 60);
-    if (f !== "done") ts.sort((a, b) => String(a.due || "9999").localeCompare(b.due || "9999"));
-    let h = '<div class="card tight"><div class="between"><div class="chips">' + [["open", tt("Abertas", "Open")], ["mine", tt("Minhas", "Mine")], ["done", tt("Feitas", "Done")]].map((x) => '<span class="chip ' + (f === x[0] ? "on" : "") + '" data-act="task.f" data-v="' + x[0] + '">' + x[1] + "</span>").join("") + '</div><button class="btn sm" data-act="task.new">＋ ' + tt("Tarefa", "Task") + "</button></div></div>";
+    if (f === "mine") ts = ts.filter((t) => Tasks.isOpen(t) && t.assignee === S.meId);
+    else if (f === "open") ts = ts.filter((t) => Tasks.isOpen(t));
+    else ts = ts.filter((t) => !Tasks.isOpen(t)).sort((a, b) => String(b.doneAt || b.statusAt).localeCompare(a.doneAt || a.statusAt)).slice(0, 60);
+    if (f !== "done") ts.sort((a, b) => (PRIO_ORDER[a.prio] ?? 2) - (PRIO_ORDER[b.prio] ?? 2) || String(a.due || "9999").localeCompare(b.due || "9999"));
+    let h = '<div class="card tight"><div class="between"><div class="chips">' + [["open", tt("Abertas", "Open")], ["mine", tt("Minhas", "Mine")], ["done", tt("Encerradas", "Closed")]].map((x) => '<span class="chip ' + (f === x[0] ? "on" : "") + '" data-act="task.f" data-v="' + x[0] + '">' + x[1] + "</span>").join("") + '</div><button class="btn sm" data-act="task.new">＋ ' + tt("Tarefa", "Task") + "</button></div></div>";
     if (isChild() || People.list("kids").length) { h += '<div class="card tight"><div class="row">' + People.list("kids").map((k) => '<span class="badge acc">' + People.emoji(k) + " " + esc(k.nick || k.name) + " ⭐ " + Points.balance(k.id) + "</span>").join("") + "</div></div>"; }
-    h += '<div class="card">' + (ts.length ? '<div class="list">' + ts.map((t) => { const c = tkCat(t.cat); const late = !t.done && t.due && t.due < today(); return '<div class="li ' + (t.done ? "done" : "") + '"><input type="checkbox" ' + (t.done ? "checked" : "") + ' data-act="task.toggle" data-id="' + t.id + '"' + (isChild() && t.assignee !== S.meId && t.assignee ? " disabled" : "") + '><div class="main click" data-act="task.edit" data-id="' + t.id + '"><div class="t">' + c.ic + " " + esc(t.title) + (t.points ? ' <span class="badge acc">⭐ ' + t.points + "</span>" : "") + (t.repeat && t.repeat !== "none" ? " 🔁" : "") + '</div><div class="s">' + [t.due ? (late ? "⚠️ " : "") + fmtDate(t.due) : "", t.assignee ? "→ " + People.name(t.assignee) : tt("sem responsável", "unassigned"), t.done && t.doneBy ? "✓ " + People.name(t.doneBy) : ""].filter(Boolean).map(esc).join(" · ") + "</div></div>" + (t.assignee ? People.av(t.assignee, "sm") : "") + "</div>"; }).join("") + "</div>" : '<div class="empty"><div class="e">✅</div>' + tt("Nenhuma tarefa aqui.", "No tasks here.") + "</div>") + "</div>";
+    h += '<div class="card">' + (ts.length ? '<div class="list">' + ts.map((t) => { const c = tkCat(t.cat); const late = Tasks.isOpen(t) && t.due && t.due < today(); const st = Tasks.status(t), sti = TASK_ST()[st]; return '<div class="li ' + (!Tasks.isOpen(t) ? "done" : "") + '"><input type="checkbox" aria-label="' + tt("Concluir", "Complete") + '" ' + (t.done ? "checked" : "") + ' data-act="task.toggle" data-id="' + t.id + '"' + ((isChild() && t.assignee !== S.meId && t.assignee) || st === "cancelada" ? " disabled" : "") + '><div class="main click" data-act="task.edit" data-id="' + t.id + '"><div class="t">' + (t.prio && t.prio !== "fyi" ? prioInfo(t.prio).ic + " " : "") + c.ic + " " + esc(t.title) + (t.points ? ' <span class="badge acc">⭐ ' + t.points + "</span>" : "") + (t.repeat && t.repeat !== "none" ? " 🔁" : "") + (st !== "aberta" && st !== "feita" ? ' <span class="badge ' + sti[2] + '">' + sti[0] + " " + sti[1] + "</span>" : "") + '</div><div class="s">' + [t.due ? (late ? "⚠️ " : "") + fmtDate(t.due) : "", t.assignee ? "→ " + People.name(t.assignee) : tt("sem responsável", "unassigned"), t.done && t.doneBy ? "✓ " + People.name(t.doneBy) : "", (t.photos || []).length ? "📷 " + t.photos.length : (t.needPhoto && Tasks.isOpen(t) ? "📷 " + tt("pede foto", "photo needed") : ""), t.seenAt && t.assignee !== S.meId && Tasks.isOpen(t) ? "👁 " + tt("visto", "seen") : "", t.closeNote || ""].filter(Boolean).map(esc).join(" · ") + "</div></div>" + (Tasks.isOpen(t) ? '<button class="btn xs ghost" data-act="task.close" data-id="' + t.id + '" title="' + tt("Encerrar / postergar", "Close / postpone") + '">⋯</button>' : "") + (t.assignee ? People.av(t.assignee, "sm") : "") + "</div>"; }).join("") + "</div>" : '<div class="empty"><div class="e">✅</div>' + tt("Nenhuma tarefa aqui.", "No tasks here.") + "</div>") + "</div>";
     return h;
   },
   routine() {
@@ -2526,7 +2748,7 @@ const AgendaViews = {
     h += '<div class="card">' + ppl.map((p) => { const r = res[p.id]; const pp = Math.round(r.plan / tp * 100), pe = Math.round(r.exec / te * 100); return '<div style="margin-bottom:14px"><div class="between"><span class="row">' + People.av(p.id, "sm") + " <b>" + esc(p.nick || p.name) + '</b></span><span class="small muted">🧠 ' + r.plan + " · 💪 " + r.exec + '</span></div><div class="small faint" style="margin-top:4px">' + tt("Planejamento", "Planning") + " " + pp + '%</div><div class="bar"><i style="width:' + pp + '%;background:var(--accent)"></i></div><div class="small faint" style="margin-top:4px">' + tt("Execução", "Execution") + " " + pe + '%</div><div class="bar"><i style="width:' + pe + '%;background:var(--ok)"></i></div></div>'; }).join("") + "</div>";
     const top = ppl.slice().sort((a, b) => res[b.id].plan - res[a.id].plan)[0]; const share = Math.round(res[top.id].plan / tp * 100);
     if (ppl.length > 1 && share >= 60) {
-      const open = DB.all("tasks").filter((t) => !t.done && (!t.assignee || t.assignee === top.id)).slice(0, 8);
+      const open = DB.all("tasks").filter((t) => Tasks.isOpen(t) && (!t.assignee || t.assignee === top.id)).slice(0, 8);
       h += '<div class="card warnc"><b>💡 ' + esc(top.nick || top.name) + tt(" concentra ", " holds ") + share + tt("% do planejamento. Que tal redistribuir?", "% of the planning. How about sharing?") + "</b>" + (open.length ? '<div class="list" style="margin-top:8px">' + open.map((t) => '<div class="li"><div class="main"><div class="t">' + esc(t.title) + '</div></div><select data-chg="task.assign" data-id="' + t.id + '" style="width:auto"><option value="">' + tt("passar para…", "hand to…") + "</option>" + People.list("humans").filter((p) => p.id !== top.id).map((p) => '<option value="' + p.id + '">' + esc(p.nick || p.name) + "</option>").join("") + "</select></div>").join("") + "</div>" : "") + "</div>";
     }
     return h;
@@ -2560,8 +2782,18 @@ ACT["cal.today"] = () => { S.calDay = today(); S.calMonth = today().slice(0, 7);
 ACT["ev.new"] = () => editEvent();
 ACT["ev.edit"] = (d) => { if (!d.id) { const v = d.v || ""; if (v.startsWith("mt-")) go("house", "maint"); else if (v.startsWith("dc-")) go("docs"); else if (v.startsWith("bday-")) go("family"); return; } const e = DB.get("events", d.id); if (e) editEvent(Object.assign({}, e)); };
 ACT["task.f"] = (d) => { S.taskF = d.v; render(); };
-ACT["task.new"] = async () => { const r = await formModal({ title: "＋ " + tt("Tarefa", "Task"), fields: taskFields(), values: { cat: "organizacao", repeat: "none", assignee: isChild() ? S.meId : "" } }); if (r) await DB.put("tasks", Object.assign({ done: false }, r)); };
-ACT["task.edit"] = async (d) => { const t = DB.get("tasks", d.id); if (!t) return; const r = await formModal({ title: "✏️ " + tt("Tarefa", "Task"), fields: taskFields(), values: t, onDelete: isChild() ? null : () => DB.del("tasks", t.id) }); if (r) await DB.put("tasks", r); };
+ACT["task.new"] = async (d) => { const r = await formModal({ title: "＋ " + tt("Tarefa", "Task"), fields: taskFields(), values: { cat: "organizacao", repeat: "none", prio: "fyi", assignee: isChild() ? S.meId : ((d && d.to) || "") } }); if (r) await DB.put("tasks", Object.assign({ done: false, status: "aberta" }, r)); };
+ACT["task.edit"] = async (d) => {
+  const t = DB.get("tasks", d.id); if (!t) return;
+  /* quem recebeu a tarefa abriu: quem pediu vê o 👁 "visto" */
+  if (t.assignee === S.meId && !t.seenAt && t.createdBy !== S.meId) DB.patch("tasks", t.id, { seenAt: new Date().toISOString() });
+  const f = taskFields().concat((t.photos || []).length ? [{ type: "html", html: '<div class="grouph">📷 ' + tt("Evidências", "Evidence") + '</div><div class="thumbs" data-thumbs="' + t.photos.join(",") + '"></div>' }] : []);
+  const r = await formModal({ title: "✏️ " + tt("Tarefa", "Task") + ' <span class="badge ' + TASK_ST()[Tasks.status(t)][2] + '">' + TASK_ST()[Tasks.status(t)].slice(0, 2).join(" ") + "</span>", fields: f, values: t, onDelete: isChild() ? null : () => DB.del("tasks", t.id),
+    extraFoot: Tasks.isOpen(t) ? '<button class="btn ghost" id="tclose">⋯ ' + tt("Encerrar / postergar", "Close / postpone") + "</button>" : '<button class="btn ghost" id="treopen">↺ ' + tt("Reabrir", "Reopen") + "</button>",
+    after: (el, m) => { fillThumbs(el); const c = el.querySelector("#tclose"); if (c) c.onclick = () => { m.close(); Tasks.close(t.id); }; const o = el.querySelector("#treopen"); if (o) o.onclick = async () => { m.close(); await DB.put("tasks", Object.assign({}, DB.get("tasks", t.id), { done: false, status: "aberta", doneBy: null, doneAt: null })); }; } });
+  if (r) await DB.put("tasks", r);
+};
+ACT["task.close"] = (d) => Tasks.close(d.id);
 ACT["task.toggle"] = (d) => Tasks.toggle(d.id);
 ACT["task.assign"] = async (d, el) => { const t = DB.get("tasks", d.id); if (t && el.value) { await DB.put("tasks", Object.assign({}, t, { assignee: el.value })); toast(tt("Tarefa passada para ", "Handed to ") + People.name(el.value)); } };
 ACT["load.days"] = (d, el) => { S.loadDays = +el.value; render(); };
@@ -2591,7 +2823,7 @@ const Handover = {
     for (let d = d0; d <= d2; d = addDays(d, 1)) {
       Routine.on(d).forEach((r) => { const k = RT_KINDS().find((x) => x[0] === r.kind) || RT_KINDS()[6]; push(d, r.time, k[1], r.title, [r.who ? People.name(r.who) : "", r.notes].filter(Boolean).join(" · ")); });
       DB.all("health").forEach((h) => (h.meds || []).forEach((m) => (m.times || "").split(/[,;\s]+/).filter((t) => /^\d{1,2}:\d{2}$/.test(t)).forEach((t) => push(d, t.padStart(5, "0"), "💊", People.name(h.id) + ": " + m.name, m.dose || ""))));
-      DB.all("tasks").filter((t) => !t.done && t.due === d).forEach((t) => push(d, "09:00", "✅", t.title, t.assignee ? "→ " + People.name(t.assignee) : ""));
+      DB.all("tasks").filter((t) => Tasks.isOpen(t) && t.due === d).forEach((t) => push(d, "09:00", "✅", t.title, t.assignee ? "→ " + People.name(t.assignee) : ""));
     }
     Agenda.occurrences(d0, d2).forEach((e) => push(e.date, e.time || "07:00", evCat(e.cat).ic, e.title, [e.place, (e.members || []).map((m) => People.name(m)).join(", ")].filter(Boolean).join(" · ")));
     return out.sort((a, b) => a.k.localeCompare(b.k));
@@ -3018,10 +3250,12 @@ const Health = {
 function medRow(m) { return '<div class="medrow row nw"><input type="text" class="mn" placeholder="' + tt("Remédio", "Medicine") + '" value="' + esc(m.name || "") + '"><input type="text" class="md" placeholder="' + tt("Dose", "Dose") + '" style="max-width:100px" value="' + esc(m.dose || "") + '"><input type="text" class="mt" placeholder="08:00, 20:00" style="max-width:130px" value="' + esc(m.times || "") + '"></div>'; }
 ACT["health.rmfile"] = async (d) => { const h = DB.get("health", d.ref); if (!h) return; await DB.put("health", Object.assign({}, h, { files: (h.files || []).filter((x) => x !== d.id) })); await Files.remove(d.id); $$(".mback").forEach((x) => x.remove()); Health.edit(d.ref); };
 SCREENS.health = {
-  render() {
+  render(sub) {
+    if (sub === "vigia") return Vigia.view();
     const ppl = People.list();
     let h = '<div class="pagehead"><div><h1>❤️ ' + tt("Saúde da família", "Family health") + '</h1><div class="sub">' + tt("Carteira vital de cada um e ficha de emergência pronta para mandar", "Everyone's health wallet and a ready-to-send emergency card") + "</div></div></div>";
     h += '<div class="card danger"><div class="between"><div><h3>🚨 ' + tt("Cartão de emergência", "Emergency card") + '</h3><div class="small">' + tt("Tipo sanguíneo, alergias, remédios, plano e contatos de todos — em 1 toque.", "Blood type, allergies, medicines, plan and contacts for everyone — one tap.") + '</div></div><div class="row"><button class="btn danger" data-act="sos">' + tt("Abrir", "Open") + '</button><button class="btn ghost" data-act="sos.pdf">📄 PDF</button></div></div></div>';
+    h += '<div class="card click" data-act="go" data-tab="health" data-sub="vigia"><div class="between"><div><h3>👁 ' + tt("Modo Vigilante", "Watch mode") + (Vigia.on ? ' <span class="badge ok">' + tt("ligado", "on") + "</span>" : "") + '</h3><div class="small muted">' + tt("Cuidando de alguém doente ou idoso e precisa sair por alguns instantes? O celular vigia pela câmera e dispara um alarme se houver movimento.", "Caring for someone sick or elderly and need to step out? The phone watches through the camera and sounds an alarm on movement.") + '</div></div><span class="faint">›</span></div></div>';
     if (!ppl.length) return h + '<div class="card"><div class="empty">' + tt("Cadastre as pessoas em Família.", "Add people in Family.") + "</div></div>";
     h += '<div class="grid gauto">' + ppl.map((p) => {
       const hh = DB.get("health", p.id) || {}; const al = Health.allergyList(hh);
@@ -3442,13 +3676,48 @@ async function editPerson(p) {
   await DB.put("people", r);
   if (S.mode === "local" && r.id === S.meId) S.role = localRole(r);
 }
+/* ---------- dados da família: aniversários e conferência dos dados ----------
+   "Conferido" vale enquanto nome, apelido, nascimento, celular e e-mail não mudarem. */
+const FamData = {
+  sig(p) { return [p.name, p.nick, p.birth, p.phone, p.email].map((x) => x || "").join("|"); },
+  ok(p) { return !!(p && p.confirmed && p.confirmed.sig === this.sig(p)); },
+  nextBday(p) {
+    if (!p || !p.birth) return null; const b = parseISO(p.birth); if (isNaN(b)) return null;
+    const y = parseISO(today()).getFullYear(); let d = isoDate(new Date(y, b.getMonth(), b.getDate()));
+    if (d < today()) d = isoDate(new Date(y + 1, b.getMonth(), b.getDate()));
+    return { date: d, days: diffDays(today(), d), turns: parseISO(d).getFullYear() - b.getFullYear() };
+  },
+  upcoming(days) { return People.list().map((p) => ({ p, n: this.nextBday(p) })).filter((x) => x.n && x.n.days <= days).sort((a, b) => a.n.days - b.n.days); },
+  bdayTxt(n) { return n.days === 0 ? tt("é hoje! 🎉", "today! 🎉") : n.days === 1 ? tt("amanhã", "tomorrow") : tt("em " + n.days + " dias", "in " + n.days + " days"); },
+  check(pid) {
+    const p = People.get(pid); if (!p) return;
+    const rows = [[tt("Nome", "Name"), p.name], [tt("Apelido", "Nickname"), p.nick], [tt("Nascimento", "Birth date"), p.birth ? fmtDate(p.birth) + " · " + ageTxt(p.birth) : ""], [tt("Celular", "Mobile"), p.phone], ["E-mail", p.email], [tt("Papel", "Role"), ROLES()[p.role]]];
+    const self = pid === S.meId;
+    const m = modal({ title: "🪪 " + tt("Conferir os dados de ", "Check the details of ") + esc(p.nick || p.name), body:
+      '<div class="list">' + rows.map((r) => '<div class="li"><div class="main"><div class="s">' + esc(r[0]) + '</div><div class="t">' + (r[1] ? esc(r[1]) : '<span class="faint">' + tt("não informado", "not filled") + "</span>") + "</div></div></div>").join("") + "</div>" +
+      (p.confirmed ? '<p class="tiny faint" style="margin-top:8px">' + (this.ok(p) ? "✅ " + tt("Conferido por ", "Checked by ") : "⚠️ " + tt("Mudou depois da última conferência de ", "Changed since last check by ")) + esc(People.name(p.confirmed.by)) + " · " + fmtDateTime(p.confirmed.at) + "</p>" : ""),
+      foot: (!self && p.role !== "pet" ? '<button class="btn ghost sm" data-ask>📨 ' + tt("Pedir para ", "Ask ") + esc(p.nick || p.name.split(" ")[0]) + tt(" conferir", " to check") + "</button>" : "") + '<button class="btn ghost" data-fix>✏️ ' + tt("Corrigir", "Fix") + '</button><button class="btn ok" data-okk>✓ ' + tt("Está tudo certo", "All correct") + "</button>" });
+    m.el.querySelector("[data-okk]").onclick = async () => { m.close(); await DB.patch("people", pid, { confirmed: { by: S.meId, at: new Date().toISOString(), sig: this.sig(p) } }); toast(tt("Dados conferidos ✓", "Details checked ✓")); };
+    m.el.querySelector("[data-fix]").onclick = () => { m.close(); editPerson(JSON.parse(JSON.stringify(p))); };
+    const ask = m.el.querySelector("[data-ask]"); if (ask) ask.onclick = async () => {
+      m.close();
+      await DB.put("msgs", { from: S.meId, to: [pid], title: tt("Confira seus dados no OmniLifeONE", "Please check your details in OmniLifeONE"), body: tt("Abra Família, toque em “Conferir” no seu cartão e veja se nome, nascimento, celular e e-mail estão certos.", "Open Family, tap “Check” on your card and see if name, birth date, phone and e-mail are right."), prio: "importante", repeat: "none", start: today(), readBy: {}, archivedBy: {} });
+      toast(tt("Pedido enviado por recado ✓", "Request sent as a message ✓"));
+    };
+  }
+};
+ACT["fam.check"] = (d) => FamData.check(d.id);
 SCREENS.family = {
   render() {
     const ppl = People.list();
     const famName = (S.family && S.family.name) || DB.setting().familyName || tt("Minha família", "My family");
     let h = '<div class="pagehead"><div><h1>👨‍👩‍👧 ' + esc(famName) + '</h1><div class="sub">' + tt("Pessoas, logins, convites, controle parental e pontos", "People, logins, invites, parental controls and points") + "</div></div>" + (isGuardian() ? '<button class="btn" data-act="person.new">＋ ' + tt("Pessoa / pet", "Person / pet") + "</button>" : "") + "</div>";
+    const bd = FamData.upcoming(60);
+    if (bd.length) h += '<div class="card"><h3>🎂 ' + tt("Próximos aniversários", "Upcoming birthdays") + '</h3><div class="chips">' + bd.map((x) => '<span class="chip">' + People.emoji(x.p) + " " + esc(x.p.nick || x.p.name) + " · " + fmtDate(x.n.date, "short") + " · " + x.n.turns + tt(" anos", "y") + " · " + FamData.bdayTxt(x.n) + "</span>").join("") + "</div></div>";
     h += '<div class="grid gauto">' + ppl.map((p) => { const acc = S.family && S.family.members ? Object.entries(S.family.members).find(([u, m]) => m.personId === p.id) : null; return '<div class="card" style="margin:0"><div class="between"><div class="row nw">' + People.av(p.id, "lg") + '<div style="min-width:0"><b>' + esc(p.name) + '</b><div class="small muted">' + esc(ROLES()[p.role] || "") + (p.birth ? " · " + ageTxt(p.birth) : "") + '</div></div></div><button class="btn sm ghost" data-act="person.edit" data-id="' + p.id + '">✏️</button></div>' +
-      '<div class="small" style="margin-top:8px">' + [p.phone ? '📱 <a href="' + telHref(p.phone) + '">' + esc(p.phone) + "</a>" : "", p.birth ? "🎂 " + fmtDate(p.birth) : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
+      '<div class="small" style="margin-top:8px">' + [p.phone ? '📱 <a href="' + telHref(p.phone) + '">' + esc(p.phone) + "</a>" : "", p.birth ? (() => { const n = FamData.nextBday(p); return "🎂 " + fmtDate(p.birth) + (n ? " · " + tt("faz ", "turns ") + n.turns + " " + FamData.bdayTxt(n) : ""); })() : "🎂 <span class=\"faint\">" + tt("sem data de nascimento", "no birth date") + "</span>",
+      p.role !== "pet" ? (FamData.ok(p) ? '<span class="small" style="color:var(--ok)">✅ ' + tt("dados conferidos", "details checked") + "</span>" : '<span class="small" style="color:var(--warn)">🧩 ' + tt("dados a conferir", "details to check") + "</span>") + (!isChild() ? ' <button class="linkbtn small" data-act="fam.check" data-id="' + p.id + '">' + tt("Conferir", "Check") + "</button>" : "") : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
+    if (S.mode !== "visitor") h += '<div style="margin-top:14px"></div>' + Plan.card();
     if (S.mode === "cloud") h += FamilyViews.cloud();
     else if (S.mode === "local") h += '<div class="card" style="margin-top:14px"><h3>📱 ' + tt("Modo neste aparelho", "This-device mode") + '</h3><p class="small muted">' + tt("Cada pessoa entra pelo seu perfil (com PIN, se quiser) aqui mesmo. Para cada um usar o próprio celular com login e receber os pedidos na hora, ligue a nuvem em Ajustes → Nuvem.", "Each person uses their profile (optional PIN) on this device. For everyone to use their own phone and get requests instantly, enable the cloud in Settings → Cloud.") + '</p><button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="cloud">☁️ ' + tt("Ligar a nuvem", "Enable cloud") + "</button></div>";
     else if (S.mode === "visitor") h += '<div class="card" style="margin-top:14px"><div class="note warn">' + tt("No modo visitante não há logins nem convites.", "Visitor mode has no logins or invites.") + "</div></div>";
@@ -3484,6 +3753,353 @@ ACT["mem.role"] = async (d, el) => { try { await Cloud.setRole(d.id, el.value); 
 ACT["mem.rm"] = async (d) => { if (await confirmBox(tt("Remover este login da família? (a pessoa continua cadastrada)", "Remove this login? (the person record stays)"), tt("Remover", "Remove"), true)) { try { await Cloud.removeMember(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
 
 /* =====================================================================
+   LEMBRETES RÁPIDOS — atalho ⚡ com favoritos, frequentes e repetição
+   Ex.: "Comprar tablete lava-louças" (Mercado/Limpeza) na próxima ida ao mercado;
+        "Reservar Hotel do Picolé" (Pet/Geral) antes de 10/Out.
+   ===================================================================== */
+const REM_CTX = () => [["mercado", "🛒", tt("Mercado", "Grocery store")], ["farmacia", "💊", tt("Farmácia", "Pharmacy")], ["pet", "🐾", "Pet"], ["casa", "🏠", tt("Casa", "Home")], ["escola", "🎒", tt("Escola", "School")], ["saude", "🩺", tt("Saúde", "Health")], ["trabalho", "💼", tt("Trabalho", "Work")], ["geral", "📌", tt("Geral", "General")]];
+const remCtx = (k) => { const c = REM_CTX().find((x) => x[0] === k) || REM_CTX()[7]; return { k: c[0], ic: c[1], t: c[2] }; };
+/* lugares onde "na próxima ida" faz sentido */
+const REM_TRIP = { mercado: () => tt("ao mercado", "to the grocery store"), farmacia: () => tt("à farmácia", "to the pharmacy"), pet: () => tt("ao pet shop", "to the pet shop") };
+const Reminders = {
+  list() { return DB.all("reminders"); },
+  open() { return this.list().filter((r) => !r.done); },
+  endOfWeek() { const d = parseISO(today()).getDay(); return addDays(today(), d === 0 ? 0 : 7 - d); },
+  whenTxt(r) {
+    if (r.when === "proxima") return tt("na próxima ida ", "next trip ") + (REM_TRIP[r.ctx] ? REM_TRIP[r.ctx]() : "");
+    if (!r.due) return tt("sem data", "no date");
+    const late = r.due < today() ? "⚠️ " : "";
+    if (r.when === "antes" || r.when === "semana") return late + tt("até ", "by ") + fmtDate(r.due, "short");
+    return late + relDay(r.due);
+  },
+  /* quando fazer: hoje e atrasados primeiro */
+  due(within) { const lim = addDays(today(), within || 0); return this.open().filter((r) => r.due && r.due <= lim).sort((a, b) => a.due.localeCompare(b.due)); },
+  trip(ctx) { return this.open().filter((r) => r.when === "proxima" && (!ctx || r.ctx === ctx)); },
+  /* favoritos (marcados com ⭐) e frequentes (títulos usados 2+ vezes) */
+  templates() {
+    const all = this.list(); const key = (r) => norm(r.title);
+    const favs = []; const seen = new Set();
+    all.filter((r) => r.fav).sort((a, b) => String(b.createdAt).localeCompare(a.createdAt)).forEach((r) => { if (!seen.has(key(r))) { seen.add(key(r)); favs.push(r); } });
+    const cnt = {}; all.forEach((r) => { const k = key(r); cnt[k] = cnt[k] || { n: 0, r }; cnt[k].n++; if (String(r.createdAt) > String(cnt[k].r.createdAt)) cnt[k].r = r; });
+    const freq = Object.values(cnt).filter((x) => x.n >= 2 && !seen.has(key(x.r))).sort((a, b) => b.n - a.n).slice(0, 8).map((x) => x.r);
+    return { favs: favs.slice(0, 10), freq };
+  },
+  computeDue(when, n, date) {
+    const td = today();
+    return { hoje: td, amanha: addDays(td, 1), semana: this.endOfWeek(), dias: addDays(td, Math.max(1, +n || 1)), antes: date || "", data: date || "", proxima: "", sem: "" }[when] ?? "";
+  },
+  async quick(pre) {
+    if (!S.booted || S.mode === "advertiser") return;
+    pre = Object.assign({ title: "", ctx: "geral", sub: "", when: "hoje", n: 3, date: "", repeat: "none", every: 7, fav: false }, pre || {});
+    const { favs, freq } = this.templates();
+    const chip = (r, i, kind) => '<span class="chip" data-tpl="' + kind + i + '">' + (kind === "f" ? "⭐ " : "🔁 ") + esc(r.title) + ' <span class="faint">' + remCtx(r.ctx).ic + "</span></span>";
+    const whenOpts = [["hoje", tt("Hoje", "Today")], ["amanha", tt("Amanhã", "Tomorrow")], ["semana", tt("Esta semana", "This week")], ["dias", tt("Daqui a … dias", "In … days")], ["antes", tt("Antes de uma data", "Before a date")], ["data", tt("Numa data", "On a date")], ["proxima", tt("Na próxima ida", "Next trip")], ["sem", tt("Sem data", "No date")]];
+    const repOpts = [["none", tt("Não repete", "Doesn't repeat")], ["weekly", tt("Toda semana", "Weekly")], ["monthly", tt("Todo mês", "Monthly")], ["days", tt("A cada … dias", "Every … days")]];
+    const subs = [...new Set(CATS().map((c) => c[2]).concat(this.list().map((r) => r.sub).filter(Boolean)))];
+    const body = '<div class="stack">' +
+      '<div class="row nw"><div class="searchbox"><span class="lead">📌</span><input type="text" id="rt" value="' + esc(pre.title) + '" placeholder="' + tt("Ex.: comprar tablete lava-louças", "e.g. buy dishwasher tablets") + '" autocomplete="off" aria-label="' + tt("Lembrete", "Reminder") + '">' + (Voice.ok() ? '<button class="mic" type="button" id="rmic" title="' + tt("Falar", "Speak") + '">🎤</button>' : "") + "</div></div>" +
+      (favs.length ? '<div><div class="grouph">⭐ ' + tt("Favoritos", "Favorites") + '</div><div class="chips">' + favs.map((r, i) => chip(r, i, "f")).join("") + "</div></div>" : "") +
+      (freq.length ? '<div><div class="grouph">🔁 ' + tt("Frequentes", "Frequent") + '</div><div class="chips">' + freq.map((r, i) => chip(r, i, "q")).join("") + "</div></div>" : "") +
+      '<div><div class="grouph">' + tt("Onde / assunto", "Where / topic") + '</div><div class="chips" id="rctx">' + REM_CTX().map((c) => '<span class="chip' + (pre.ctx === c[0] ? " on" : "") + '" data-v="' + c[0] + '">' + c[1] + " " + esc(c[2]) + "</span>").join("") + '</div><input type="text" id="rsub" list="rsubl" value="' + esc(pre.sub || "") + '" placeholder="' + tt("Categoria (opcional, ex.: Limpeza)", "Category (optional, e.g. Cleaning)") + '" style="margin-top:8px"><datalist id="rsubl">' + subs.map((x) => '<option value="' + esc(x) + '">').join("") + "</datalist></div>" +
+      '<div><div class="grouph">' + tt("Quando", "When") + '</div><div class="chips" id="rwhen">' + whenOpts.map((w) => '<span class="chip' + (pre.when === w[0] ? " on" : "") + '" data-v="' + w[0] + '">' + esc(w[1]) + "</span>").join("") + '</div><div class="row" style="margin-top:8px"><input type="number" id="rn" min="1" value="' + esc(pre.n) + '" style="max-width:110px" aria-label="' + tt("dias", "days") + '"><input type="date" id="rd" value="' + esc(pre.date) + '" style="max-width:180px"><span class="small muted" id="rtrip"></span></div></div>' +
+      '<div><div class="grouph">' + tt("Repetir", "Repeat") + '</div><div class="chips" id="rrep">' + repOpts.map((w) => '<span class="chip' + (pre.repeat === w[0] ? " on" : "") + '" data-v="' + w[0] + '">' + esc(w[1]) + "</span>").join("") + '</div><input type="number" id="revery" min="1" value="' + esc(pre.every) + '" style="max-width:110px;margin-top:8px" aria-label="' + tt("a cada quantos dias", "every how many days") + '"></div>' +
+      '<label class="check"><input type="checkbox" id="rfav"' + (pre.fav ? " checked" : "") + "> ⭐ " + tt("Guardar como favorito (atalho para a próxima vez)", "Save as favorite (shortcut for next time)") + "</label>" +
+      '<label class="check" id="rshopl"><input type="checkbox" id="rshop" checked> 🛒 ' + tt("Pôr também na lista de compras", "Also add to the shopping list") + "</label></div>";
+    const m = modal({ title: "⚡ " + (pre.id ? tt("Editar lembrete", "Edit reminder") : tt("Lembrete rápido", "Quick reminder")), body, foot: (pre.id ? '<button class="btn danger sm" data-del style="margin-right:auto">🗑</button>' : "") + '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>' + tt("Salvar", "Save") + "</button>" });
+    const el = m.el; const pick = (box) => { const c = $(".chip.on", $(box, el)); return c ? c.dataset.v : ""; };
+    const sync = () => {
+      const w = pick("#rwhen"), ctx = pick("#rctx"), rep = pick("#rrep");
+      $("#rn", el).classList.toggle("hidden", w !== "dias"); $("#rd", el).classList.toggle("hidden", w !== "antes" && w !== "data");
+      $("#revery", el).classList.toggle("hidden", rep !== "days");
+      const trip = w === "proxima";
+      $("#rtrip", el).textContent = trip ? (REM_TRIP[ctx] ? tt("na próxima ida ", "next trip ") + REM_TRIP[ctx]() : tt("Escolha Mercado, Farmácia ou Pet.", "Pick Grocery, Pharmacy or Pet.")) : "";
+      $("#rshopl", el).classList.toggle("hidden", !(trip && ctx === "mercado") || !!pre.id);
+    };
+    ["#rctx", "#rwhen", "#rrep"].forEach((b) => $(b, el).addEventListener("click", (e) => { const c = e.target.closest(".chip"); if (!c) return; $$(".chip", $(b, el)).forEach((x) => x.classList.toggle("on", x === c)); sync(); }));
+    el.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-tpl]"); if (!t) return;
+      const src = (t.dataset.tpl[0] === "f" ? favs : freq)[+t.dataset.tpl.slice(1)];
+      $("#rt", el).value = src.title; $("#rsub", el).value = src.sub || "";
+      $$("#rctx .chip", el).forEach((x) => x.classList.toggle("on", x.dataset.v === src.ctx));
+      if (src.when === "proxima") $$("#rwhen .chip", el).forEach((x) => x.classList.toggle("on", x.dataset.v === "proxima"));
+      sync();
+    });
+    const mic = $("#rmic", el); if (mic) mic.onclick = async () => { const v = await Voice.listen(mic); if (v) $("#rt", el).value = v; };
+    sync(); setTimeout(() => $("#rt", el).focus(), 60);
+    if (pre.id) el.querySelector("[data-del]").onclick = async () => { m.close(); await DB.del("reminders", pre.id); };
+    el.querySelector("[data-ok]").onclick = async () => {
+      const title = $("#rt", el).value.trim(); if (!title) return toast(tt("Escreva o lembrete.", "Type the reminder."));
+      const when = pick("#rwhen") || "sem", ctx = pick("#rctx") || "geral", repeat = pick("#rrep") || "none";
+      const date = $("#rd", el).value, n = +$("#rn", el).value || 1;
+      if ((when === "antes" || when === "data") && !date) return toast(tt("Escolha a data.", "Pick the date."));
+      if (when === "proxima" && !REM_TRIP[ctx]) return toast(tt("“Na próxima ida” vale para Mercado, Farmácia ou Pet.", "“Next trip” works for Grocery, Pharmacy or Pet."));
+      const doc = Object.assign({}, pre.id ? DB.get("reminders", pre.id) : {}, { title, ctx, sub: $("#rsub", el).value.trim(), when, n, date, due: this.computeDue(when, n, date), repeat, every: +$("#revery", el).value || 7, fav: $("#rfav", el).checked, done: false });
+      if (!pre.id && when === "proxima" && ctx === "mercado" && $("#rshop", el).checked) {
+        const sub = norm(doc.sub); const cat = (CATS().find((c) => norm(c[2]) === sub) || [])[0] || guessCat(title);
+        const s = await Shop.add({ name: title.replace(/^(comprar|compra|buy)\s+/i, ""), cat, note: "📌 " + tt("lembrete", "reminder") }, true);
+        if (s) doc.shopId = s.id;
+      }
+      m.close();
+      await DB.put("reminders", doc);
+      toast("📌 " + tt("Lembrete salvo — ", "Reminder saved — ") + this.whenTxt(doc));
+    };
+  },
+  async done(id) {
+    const r = DB.get("reminders", id); if (!r) return;
+    await DB.put("reminders", Object.assign({}, r, { done: true, doneBy: S.meId, doneAt: new Date().toISOString() }));
+    if (r.repeat && r.repeat !== "none") {
+      const base = r.due && r.due > today() ? r.due : today();
+      let next = r.repeat === "weekly" ? addDays(base, 7) : r.repeat === "days" ? addDays(base, r.every || 7) : (() => { const d = parseISO(base); d.setMonth(d.getMonth() + 1); return isoDate(d); })();
+      const nr = Object.assign({}, r, { done: false, doneBy: null, doneAt: null, due: r.when === "proxima" ? "" : next, fav: false, shopId: null });
+      delete nr.id; delete nr.createdAt; await DB.put("reminders", nr, true);
+      toast("🔁 " + tt("Próximo: ", "Next: ") + this.whenTxt(nr));
+    } else toast("✓ " + r.title);
+  },
+  row(r) {
+    const c = remCtx(r.ctx);
+    return '<div class="li ' + (r.done ? "done" : "") + '"><input type="checkbox" aria-label="' + tt("Feito", "Done") + '" ' + (r.done ? "checked disabled" : "") + ' data-act="rem.done" data-id="' + r.id + '"><div class="main click" data-act="rem.edit" data-id="' + r.id + '"><div class="t">' + esc(r.title) + (r.repeat && r.repeat !== "none" ? " 🔁" : "") + '</div><div class="s">' + c.ic + " " + esc(c.t + (r.sub ? " / " + r.sub : "")) + " · " + esc(r.done ? "✓ " + People.name(r.doneBy) : this.whenTxt(r)) + (r.createdBy && r.createdBy !== S.meId ? " · " + esc(People.name(r.createdBy)) : "") + '</div></div><button class="btn xs ghost" data-act="rem.fav" data-id="' + r.id + '" title="' + tt("Favorito", "Favorite") + '" aria-pressed="' + !!r.fav + '">' + (r.fav ? "⭐" : "☆") + "</button></div>";
+  },
+  view() {
+    const open = this.open(); const td = today(), wk = this.endOfWeek();
+    const groups = [
+      ["⚠️ " + tt("Hoje e atrasados", "Today & overdue"), open.filter((r) => r.due && r.due <= td)],
+      ["📆 " + tt("Esta semana", "This week"), open.filter((r) => r.due && r.due > td && r.due <= wk)],
+      ["🗓 " + tt("Mais para frente", "Later"), open.filter((r) => r.due && r.due > wk)],
+      ["🚶 " + tt("Na próxima ida", "Next trip"), open.filter((r) => r.when === "proxima")],
+      ["📌 " + tt("Sem data", "No date"), open.filter((r) => !r.due && r.when !== "proxima")]
+    ];
+    let h = '<div class="card accent"><div class="between"><div><h3>📌 ' + tt("Lembretes", "Reminders") + '</h3><div class="small muted">' + tt("Coisas para lembrar, com prazo simples: hoje, esta semana, daqui a alguns dias, antes de uma data ou na próxima ida ao mercado. O ⚡ lá em cima abre o atalho de qualquer tela.", "Things to remember with simple timing: today, this week, in a few days, before a date or on the next grocery trip. The ⚡ at the top opens the shortcut from any screen.") + '</div></div><button class="btn" data-act="rem.new">⚡ ' + tt("Lembrete", "Reminder") + "</button></div></div>";
+    const any = groups.some((g) => g[1].length);
+    h += '<div class="card">' + (any ? groups.filter((g) => g[1].length).map((g) => '<div class="grouph">' + g[0] + " (" + g[1].length + ')</div><div class="list">' + g[1].sort((a, b) => String(a.due || "9").localeCompare(b.due || "9")).map((r) => this.row(r)).join("") + "</div>").join("") : '<div class="empty"><div class="e">📌</div>' + tt("Nenhum lembrete aberto.", "No open reminders.") + "</div>") + "</div>";
+    const done = this.list().filter((r) => r.done).sort((a, b) => String(b.doneAt).localeCompare(a.doneAt)).slice(0, 15);
+    if (done.length) h += '<div class="card"><h3>✓ ' + tt("Feitos recentemente", "Recently done") + '</h3><div class="list">' + done.map((r) => this.row(r)).join("") + "</div></div>";
+    return h;
+  }
+};
+ACT["rem.new"] = () => Reminders.quick();
+ACT["rem.done"] = (d) => Reminders.done(d.id);
+ACT["rem.fav"] = async (d) => { const r = DB.get("reminders", d.id); if (r) await DB.patch("reminders", r.id, { fav: !r.fav }); };
+ACT["rem.edit"] = (d) => { const r = DB.get("reminders", d.id); if (r) Reminders.quick(JSON.parse(JSON.stringify(r))); };
+ACT["rem.toshop"] = async (d) => { const r = DB.get("reminders", d.id); if (!r) return; const s = await Shop.add({ name: r.title.replace(/^(comprar|compra|buy)\s+/i, ""), note: "📌 " + tt("lembrete", "reminder") }); if (s) await DB.patch("reminders", r.id, { shopId: s.id }); };
+
+/* =====================================================================
+   MODO VIGILANTE — o celular vigia pela câmera enquanto você se ausenta
+   por alguns instantes (cuidando de alguém doente ou idoso). Tudo roda no
+   aparelho: a imagem não é gravada nem enviada para lugar nenhum.
+   ===================================================================== */
+const Vigia = {
+  on: false, stream: null, video: null, cv: null, prev: null, timer: null, hits: 0, armAt: 0, lastAlarm: 0, ac: null, beepT: null, wake: null, log: [], level: 0,
+  cfg() { return Object.assign({ sens: 6, delay: 10, sound: true, ntfy: true, cam: "environment", who: "" }, S.prefs.vigia || {}); },
+  save(p) { S.prefs.vigia = Object.assign(this.cfg(), p); savePrefs(); },
+  async start() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast(tt("Este navegador não libera a câmera.", "This browser doesn't allow camera access."));
+    const c = this.cfg();
+    try { this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.cam, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }); }
+    catch (e) { return toast(tt("Não consegui abrir a câmera: ", "Couldn't open the camera: ") + (e.name === "NotAllowedError" ? tt("permissão negada.", "permission denied.") : e.message)); }
+    /* o som do alarme precisa ser liberado por um toque: aproveitamos este */
+    try { this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)(); await this.ac.resume(); } catch (e) {}
+    try { if ("wakeLock" in navigator) this.wake = await navigator.wakeLock.request("screen"); } catch (e) {}
+    this.video = document.createElement("video"); this.video.muted = true; this.video.playsInline = true; this.video.setAttribute("playsinline", ""); this.video.srcObject = this.stream;
+    await this.video.play().catch(() => {});
+    this.cv = document.createElement("canvas"); this.cv.width = 64; this.cv.height = 48;
+    this.prev = null; this.hits = 0; this.on = true; this.armAt = Date.now() + c.delay * 1000; this.log = [];
+    this.pip(); this.timer = setInterval(() => this.tick(), 250);
+    document.addEventListener("visibilitychange", this.onVis);
+    render();
+  },
+  onVis: async () => { if (Vigia.on && document.visibilityState === "visible" && "wakeLock" in navigator) { try { Vigia.wake = await navigator.wakeLock.request("screen"); } catch (e) {} } },
+  stop() {
+    this.on = false; clearInterval(this.timer); this.silence();
+    if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
+    this.stream = null; try { if (this.wake) this.wake.release(); } catch (e) {} this.wake = null;
+    document.removeEventListener("visibilitychange", this.onVis);
+    const p = $("#vigiapip"); if (p) p.remove();
+    const a = $("#vigiaalarm"); if (a) a.remove();
+    render();
+  },
+  /* compara cada quadro (bem pequeno, em tons de cinza) com o anterior */
+  tick() {
+    if (!this.on || !this.video || this.video.readyState < 2) return;
+    const g = this.cv.getContext("2d", { willReadFrequently: true }); g.drawImage(this.video, 0, 0, 64, 48);
+    const d = g.getImageData(0, 0, 64, 48).data; const cur = new Uint8Array(64 * 48);
+    for (let i = 0, j = 0; i < d.length; i += 4, j++) cur[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+    let changed = 0;
+    if (this.prev) for (let j = 0; j < cur.length; j++) if (Math.abs(cur[j] - this.prev[j]) > 28) changed++;
+    this.prev = cur;
+    const ratio = changed / cur.length; this.level = ratio;
+    const limit = (11 - this.cfg().sens) * 0.006; /* sensibilidade 10 = 0,6% da imagem; 1 = 6% */
+    const bar = $("#vigialvl"); if (bar) bar.style.width = Math.min(100, Math.round(ratio / limit * 50)) + "%";
+    const st = $("#vigiast"); const left = Math.ceil((this.armAt - Date.now()) / 1000);
+    if (st) st.textContent = left > 0 ? tt("Armando em ", "Arming in ") + left + "s" : tt("Vigiando 👁", "Watching 👁");
+    if (Date.now() < this.armAt) return;
+    this.hits = ratio > limit ? this.hits + 1 : 0;
+    if (this.hits >= 2 && Date.now() - this.lastAlarm > 15000) { this.hits = 0; this.alarm(); }
+  },
+  beep() {
+    if (!this.ac) return; const t = this.ac.currentTime;
+    [0, 0.25].forEach((o, i) => { const os = this.ac.createOscillator(), gn = this.ac.createGain(); os.type = "square"; os.frequency.value = i ? 660 : 990; gn.gain.value = 0.35; os.connect(gn).connect(this.ac.destination); os.start(t + o); os.stop(t + o + 0.2); });
+  },
+  silence() { clearInterval(this.beepT); this.beepT = null; try { navigator.vibrate && navigator.vibrate(0); } catch (e) {} },
+  alarm() {
+    this.lastAlarm = Date.now(); const c = this.cfg();
+    let shot = ""; try { const s = document.createElement("canvas"); s.width = 320; s.height = 240; s.getContext("2d").drawImage(this.video, 0, 0, 320, 240); shot = s.toDataURL("image/jpeg", 0.7); } catch (e) {}
+    this.log.unshift({ at: new Date().toISOString(), shot }); this.log = this.log.slice(0, 10);
+    if (c.sound) { this.silence(); this.beep(); this.beepT = setInterval(() => this.beep(), 700); setTimeout(() => this.silence(), 60000); }
+    try { navigator.vibrate && navigator.vibrate([400, 200, 400, 200, 800]); } catch (e) {}
+    const title = "👁 " + tt("Movimento detectado — Modo Vigilante", "Motion detected — Watch mode");
+    Notify.show(title, fmtDateTime(new Date().toISOString()), "vigia-" + this.lastAlarm);
+    if (c.ntfy && DB.setting().ntfyTopic) Notify.ntfy(title, tt("O celular que está vigiando viu movimento às ", "The watching phone saw motion at ") + fmtTime(pad(new Date().getHours()) + ":" + pad(new Date().getMinutes())));
+    const p = c.who ? People.get(c.who) : null; const ph = p && p.phone;
+    const msg = tt("⚠️ Modo Vigilante do OmniLifeONE: movimento detectado agora. Pode dar uma olhada?", "⚠️ OmniLifeONE watch mode: motion detected just now. Can you check?");
+    const old = $("#vigiaalarm"); if (old) old.remove();
+    const el = document.createElement("div"); el.id = "vigiaalarm"; el.className = "lock"; el.setAttribute("role", "alertdialog");
+    el.innerHTML = '<div style="font-size:3rem">🚨</div><h2>' + esc(title) + '</h2><p class="muted">' + fmtDateTime(new Date().toISOString()) + "</p>" + (shot ? '<img src="' + shot + '" alt="" style="max-width:320px;width:100%;border-radius:12px">' : "") +
+      '<button class="btn big" id="vok">✋ ' + tt("Estou aqui — parar o alarme", "I'm here — stop the alarm") + "</button>" +
+      (ph ? '<div class="row" style="justify-content:center"><a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(ph, msg) + '">💬 WhatsApp ' + esc(p.nick || p.name) + '</a><a class="btn ghost" href="sms:' + onlyDigits(ph) + "?body=" + encodeURIComponent(msg) + '">✉️ SMS</a><a class="btn ghost" href="' + telHref(ph) + '">📞</a></div>' : "");
+    document.body.appendChild(el);
+    $("#vok", el).onclick = () => { this.silence(); el.remove(); this.prev = null; this.armAt = Date.now() + 3000; };
+  },
+  /* miniatura fixa: a vigilância continua mesmo trocando de tela no app */
+  pip() {
+    let p = $("#vigiapip"); if (p) p.remove();
+    p = document.createElement("div"); p.id = "vigiapip"; p.className = "vigiapip";
+    p.innerHTML = '<div class="vt"><span id="vigiast">…</span><button class="btn xs danger" id="vstop">⏹ ' + tt("Parar", "Stop") + '</button></div><div class="bar" style="height:5px"><i id="vigialvl" style="width:0;background:var(--warn)"></i></div>';
+    p.prepend(this.video); document.body.appendChild(p);
+    $("#vstop", p).onclick = () => this.stop();
+  },
+  view() {
+    const c = this.cfg(); const ppl = People.list("humans").filter((p) => p.phone);
+    let h = '<div class="pagehead"><div><h1>👁 ' + tt("Modo Vigilante", "Watch mode") + '</h1><div class="sub">' + tt("Precisa sair do quarto por alguns instantes? Deixe o celular apontado para a pessoa: ele avisa se houver movimento.", "Need to step out for a moment? Point the phone at the person: it alerts you if there's movement.") + '</div></div><button class="btn ghost sm" data-act="go" data-tab="health">← ' + tt("Saúde", "Health") + "</button></div>";
+    if (this.on) h += '<div class="card accent"><div class="between"><b>👁 ' + tt("Vigilância ligada", "Watching") + '</b><button class="btn danger" data-act="vigia.stop">⏹ ' + tt("Parar", "Stop") + '</button></div><p class="small">' + tt("A imagem da câmera está na miniatura do canto. Deixe esta página aberta e a tela ligada.", "The camera image is in the corner thumbnail. Keep this page open and the screen on.") + "</p></div>";
+    else h += '<div class="card"><h3>⚙️ ' + tt("Como vigiar", "Settings") + '</h3><div class="fgrid">' +
+      '<label class="fld"><span>' + tt("Sensibilidade", "Sensitivity") + " (1–10)</span><input type=\"range\" min=\"1\" max=\"10\" value=\"" + c.sens + '" data-chg="vigia.cfg" data-k="sens"><small class="hint">' + tt("Mais alto = avisa com movimentos menores.", "Higher = alerts on smaller movements.") + "</small></label>" +
+      '<label class="fld"><span>' + tt("Começar a vigiar depois de", "Start watching after") + '</span><select data-chg="vigia.cfg" data-k="delay">' + [5, 10, 30, 60].map((s) => '<option value="' + s + '"' + (c.delay === s ? " selected" : "") + ">" + s + " s</option>").join("") + "</select></label>" +
+      '<label class="fld"><span>' + tt("Câmera", "Camera") + '</span><select data-chg="vigia.cfg" data-k="cam"><option value="environment"' + (c.cam === "environment" ? " selected" : "") + ">" + tt("Traseira", "Back") + '</option><option value="user"' + (c.cam === "user" ? " selected" : "") + ">" + tt("Frontal", "Front") + "</option></select></label>" +
+      '<label class="fld"><span>' + tt("Pessoa para avisar (WhatsApp/SMS)", "Person to contact (WhatsApp/SMS)") + '</span><select data-chg="vigia.cfg" data-k="who"><option value="">—</option>' + ppl.map((p) => '<option value="' + p.id + '"' + (c.who === p.id ? " selected" : "") + ">" + esc(p.nick || p.name) + "</option>").join("") + "</select></label>" +
+      '<label class="check"><input type="checkbox" data-chg="vigia.cfg" data-k="sound"' + (c.sound ? " checked" : "") + "> 🔊 " + tt("Alarme sonoro", "Sound alarm") + "</label>" +
+      '<label class="check"><input type="checkbox" data-chg="vigia.cfg" data-k="ntfy"' + (c.ntfy ? " checked" : "") + "> 📲 " + tt("Avisar nos celulares pelo ntfy", "Alert phones via ntfy") + (DB.setting().ntfyTopic ? "" : ' <span class="faint">(' + tt("configure em Ajustes → Avisos", "set up in Settings → Alerts") + ")</span>") + "</label>" +
+      '</div><button class="btn big" style="margin-top:14px" data-act="vigia.start">▶ ' + tt("Ligar a vigilância", "Start watching") + "</button></div>";
+    if (this.log.length) h += '<div class="card"><h3>🕑 ' + tt("Movimentos detectados", "Motion detected") + '</h3><div class="thumbs">' + this.log.map((l) => '<div class="thumb" style="width:120px;height:90px;' + (l.shot ? "background-image:url(" + l.shot + ")" : "") + '"><span class="lb">' + fmtDateTime(l.at) + "</span></div>").join("") + "</div></div>";
+    h += '<div class="card tight small muted"><b>' + tt("Bom saber", "Good to know") + ":</b><ul style=\"margin:6px 0 0;padding-left:18px\"><li>" + tt("O som sai por onde o celular estiver tocando: se houver uma caixinha ou fone Bluetooth conectado, o alarme toca nele.", "The sound plays wherever the phone is playing: if a Bluetooth speaker or headset is connected, the alarm plays there.") + "</li><li>" + tt("Para receber o aviso em outro celular automaticamente, use o ntfy (Ajustes → Avisos). WhatsApp e SMS ficam num toque na tela do alarme — o navegador não deixa enviar mensagem sozinho.", "To get the alert on another phone automatically, use ntfy (Settings → Alerts). WhatsApp and SMS are one tap away on the alarm screen — browsers can't send messages on their own.") + "</li><li>" + tt("Mantenha o app aberto e a tela ligada; com a tela apagada o navegador desliga a câmera.", "Keep the app open and the screen on; with the screen off the browser turns the camera off.") + "</li><li>" + tt("A imagem não é gravada nem enviada: fica só na memória deste aparelho enquanto a vigilância estiver ligada.", "Images are not recorded or sent: they stay only in this device's memory while watching.") + "</li><li>" + tt("É um apoio, não substitui a presença de alguém nem um equipamento médico.", "It's a helper; it doesn't replace a person's presence or medical equipment.") + "</li></ul></div>";
+    return h;
+  }
+};
+ACT["vigia.start"] = () => Vigia.start();
+ACT["vigia.stop"] = () => Vigia.stop();
+ACT["vigia.cfg"] = (d, el) => Vigia.save({ [d.k]: el.type === "checkbox" ? el.checked : (d.k === "cam" || d.k === "who" ? el.value : +el.value) });
+
+/* =====================================================================
+   RECADOS (caixa de recados entre as pessoas da família)
+   Na nuvem (Firebase) o recado chega no celular de quem recebe; no modo
+   "só neste aparelho" ele fica para a pessoa ver quando entrar no perfil dela.
+   ===================================================================== */
+const PRIOS = () => [["urgente", "🔴", tt("Urgente", "Urgent")], ["importante", "🟡", tt("Importante", "Important")], ["fyi", "🔵", tt("Para saber", "FYI")]];
+const prioInfo = (k) => { const p = PRIOS().find((x) => x[0] === k) || PRIOS()[2]; return { k: p[0], ic: p[1], t: p[2] }; };
+const PRIO_ORDER = { urgente: 0, importante: 1, fyi: 2 };
+const REPEATS = () => [["none", tt("Não repete", "Doesn't repeat")], ["daily", tt("Todo dia", "Daily")], ["weekly", tt("Toda semana", "Weekly")], ["monthly", tt("Todo mês", "Monthly")]];
+const Msgs = {
+  /* chave da vez atual do recado (a data da última repetição). null = ainda não chegou.
+     Recado que repete volta a ficar "não lido" a cada nova vez. */
+  occ(m, d) {
+    d = d || today();
+    const st = m.start || String(m.createdAt || "").slice(0, 10) || d;
+    if (st > d) return null;
+    const rep = m.repeat || "none";
+    if (rep !== "none" && m.until && m.until < d) d = m.until;
+    if (rep === "daily") return d;
+    if (rep === "weekly") return addDays(st, Math.floor(diffDays(st, d) / 7) * 7);
+    if (rep === "monthly") {
+      const b = parseISO(st), t = parseISO(d); let y = t.getFullYear(), mo = t.getMonth();
+      if (t.getDate() < b.getDate()) { mo--; if (mo < 0) { mo = 11; y--; } }
+      return isoDate(new Date(y, mo, Math.min(b.getDate(), new Date(y, mo + 1, 0).getDate())));
+    }
+    return st;
+  },
+  recipients(m) { return (m.to && m.to.length) ? m.to : People.list("humans").map((p) => p.id).filter((id) => id !== m.from); },
+  forMe(m) { return m.from !== S.meId && this.recipients(m).includes(S.meId); },
+  readInfo(m, pid) { const r = (m.readBy || {})[pid]; const k = this.occ(m); return r && k && r.k === k ? r : null; },
+  isRead(m) { return !this.occ(m) || !!this.readInfo(m, S.meId); },
+  sortFn(a, b) { const ra = Msgs.isRead(a), rb = Msgs.isRead(b); if (ra !== rb) return ra ? 1 : -1; if (!ra) { const pa = PRIO_ORDER[a.prio] ?? 2, pb = PRIO_ORDER[b.prio] ?? 2; if (pa !== pb) return pa - pb; } return String(Msgs.occ(b) + b.createdAt).localeCompare(Msgs.occ(a) + a.createdAt); },
+  inbox() { if (!S.meId) return []; return DB.all("msgs").filter((m) => this.forMe(m) && this.occ(m) && !(m.archivedBy || {})[S.meId]).sort(this.sortFn); },
+  archived() { return DB.all("msgs").filter((m) => this.forMe(m) && (m.archivedBy || {})[S.meId]).sort(this.sortFn); },
+  sent() { return DB.all("msgs").filter((m) => m.from === S.meId).sort((a, b) => String(b.createdAt).localeCompare(a.createdAt)); },
+  unread() { return this.inbox().filter((m) => !this.isRead(m)); },
+  toTxt(m) { return (m.to && m.to.length) ? m.to.map((id) => People.name(id)).join(", ") : tt("toda a família", "the whole family"); },
+  /* "Novo recado de XXXX para YYYY sobre ZZZZ" */
+  headline(m) { return tt("Recado de ", "Message from ") + People.name(m.from) + tt(" para ", " to ") + this.toTxt(m) + (m.title ? tt(" sobre ", " about ") + m.title : ""); },
+  markRead(m, read) { return DB.patch("msgs", m.id, { ["readBy." + S.meId]: read ? { k: this.occ(m), at: new Date().toISOString() } : undefined }); },
+  archive(m, v) { return DB.patch("msgs", m.id, { ["archivedBy." + S.meId]: v ? true : undefined }); },
+  async compose(pre) {
+    if (!S.meId) return toast(tt("Entre com um perfil da família para mandar recados.", "Sign in with a family profile to send messages."));
+    pre = Object.assign({ prio: "fyi", repeat: "none", start: today(), to: [] }, pre || {});
+    const f = [
+      { k: "to", label: tt("Para quem", "To"), type: "members", filter: "humans", hint: tt("Nenhum marcado = toda a família.", "None selected = the whole family.") },
+      { k: "title", label: tt("Assunto", "Subject"), req: true, full: true, ph: tt("Ex.: buscar a Sofia no inglês", "e.g. pick Sofia up from English class") },
+      { k: "body", label: tt("Recado", "Message"), type: "textarea", rows: 4 },
+      { k: "prio", label: tt("Prioridade", "Priority"), type: "select", opts: PRIOS().map((p) => [p[0], p[1] + " " + p[2]]) },
+      { k: "repeat", label: tt("Repetir", "Repeat"), type: "select", opts: REPEATS() },
+      { k: "start", label: tt("Enviar em", "Send on"), type: "date" },
+      { k: "until", label: tt("Repetir até (opcional)", "Repeat until (optional)"), type: "date" }
+    ];
+    const r = await formModal({ title: "📨 " + (pre.id ? tt("Editar recado", "Edit message") : tt("Novo recado", "New message")), fields: f, values: pre, okText: pre.id ? tt("Salvar", "Save") : tt("Enviar", "Send") });
+    if (!r) return;
+    r.to = (r.to || []).filter((id) => id !== S.meId);
+    if (!r.start) r.start = today();
+    const isNew = !r.id;
+    const doc = await DB.put("msgs", Object.assign({ from: S.meId, readBy: {}, archivedBy: {} }, r));
+    if (isNew) {
+      toast(r.start > today() ? tt("Recado agendado para ", "Message scheduled for ") + fmtDate(r.start) : tt("Recado enviado ✓", "Message sent ✓"));
+      if (r.prio === "urgente" && r.start <= today()) Notify.ntfy("🔴 " + this.headline(doc), r.body || r.title);
+    }
+  },
+  async open(id) {
+    const m = DB.get("msgs", id); if (!m) return;
+    const mine = m.from === S.meId, p = prioInfo(m.prio);
+    if (!mine && !this.isRead(m)) this.markRead(m, true);
+    const rec = this.recipients(m);
+    const receipts = mine ? '<div class="grouph">' + tt("Quem já leu", "Read by") + (m.repeat && m.repeat !== "none" ? " · " + tt("vez de ", "round of ") + fmtDate(this.occ(m) || m.start) : "") + '</div><div class="list">' + rec.map((pid) => { const ri = this.readInfo(m, pid); return '<div class="li"><div class="main"><div class="t">' + esc(People.name(pid)) + '</div></div>' + (ri ? '<span class="badge ok">✓ ' + tt("lido", "read") + " · " + fmtDateTime(ri.at) + "</span>" : '<span class="badge warn">• ' + tt("não lido", "unread") + "</span>") + "</div>"; }).join("") + "</div>" : "";
+    const body = '<div class="row" style="margin-bottom:8px"><span class="badge ' + (m.prio === "urgente" ? "bad" : m.prio === "importante" ? "warn" : "info") + '">' + p.ic + " " + esc(p.t) + "</span>" + (m.repeat && m.repeat !== "none" ? '<span class="badge">🔁 ' + esc((REPEATS().find((x) => x[0] === m.repeat) || ["", ""])[1]) + "</span>" : "") + (m.start > today() ? '<span class="badge acc">⏳ ' + tt("agendado para ", "scheduled for ") + fmtDate(m.start) + "</span>" : "") + "</div>" +
+      '<div class="small muted">' + esc(this.headline(m)) + " · " + fmtDate(this.occ(m) || m.start) + "</div>" +
+      '<p style="white-space:pre-wrap;margin-top:10px">' + esc(m.body || "") + "</p>" + receipts;
+    const foot = (!mine ? '<button class="btn ghost sm" data-unread>' + tt("Marcar como não lido", "Mark as unread") + '</button><button class="btn ghost sm" data-arch>' + ((m.archivedBy || {})[S.meId] ? tt("Voltar para a caixa", "Move to inbox") : "🗄 " + tt("Arquivar", "Archive")) + '</button><button class="btn sm" data-reply>↩ ' + tt("Responder", "Reply") + "</button>" : "") +
+      ('speechSynthesis' in window ? '<button class="btn ghost sm" data-say>🔊</button>' : "") +
+      (mine ? '<button class="btn ghost sm" data-edit>✏️ ' + tt("Editar", "Edit") + "</button>" + (!isChild() ? '<button class="btn danger sm" data-del>🗑</button>' : "") : "") + '<button class="btn sm" data-x>OK</button>';
+    const md = modal({ title: esc(m.title || tt("Recado", "Message")), body, foot });
+    const on = (sel, fn) => { const b = md.el.querySelector(sel); if (b) b.onclick = () => { md.close(); fn(); }; };
+    on("[data-unread]", () => this.markRead(DB.get("msgs", id), false));
+    on("[data-arch]", () => this.archive(m, !(m.archivedBy || {})[S.meId]));
+    on("[data-reply]", () => this.compose({ to: [m.from], title: (/^re:/i.test(m.title || "") ? "" : "Re: ") + (m.title || ""), prio: m.prio === "urgente" ? "importante" : "fyi" }));
+    on("[data-edit]", () => this.compose(JSON.parse(JSON.stringify(m))));
+    on("[data-del]", async () => { if (await confirmBox(tt("Apagar este recado para todos?", "Delete this message for everyone?"), tt("Apagar", "Delete"), true)) DB.del("msgs", id); });
+    const say = md.el.querySelector("[data-say]"); if (say) say.onclick = () => { try { speechSynthesis.cancel(); setTimeout(() => { const u = new SpeechSynthesisUtterance((m.title || "") + ". " + (m.body || "")); u.lang = S.lang === "pt" ? "pt-BR" : "en-US"; speechSynthesis.speak(u); }, 60); } catch (e) {} };
+  },
+  row(m, mode) {
+    const p = prioInfo(m.prio); const unread = mode === "in" && !this.isRead(m);
+    let status = "";
+    if (mode === "out") { const rec = this.recipients(m); const n = rec.filter((pid) => this.readInfo(m, pid)).length; status = m.start > today() ? '<span class="badge acc">⏳ ' + fmtDate(m.start, "short") + "</span>" : '<span class="badge ' + (n === rec.length ? "ok" : "warn") + '">' + (n === rec.length ? "✓✓ " + tt("lido", "read") : "✓ " + n + "/" + rec.length) + "</span>"; }
+    else if (unread) status = '<span class="badge acc">' + tt("novo", "new") + "</span>";
+    return '<div class="li click' + (unread ? " unread" : "") + '" data-act="msg.open" data-id="' + m.id + '"><div class="ico">' + p.ic + '</div><div class="main"><div class="t">' + esc(m.title || "—") + (m.repeat && m.repeat !== "none" ? " 🔁" : "") + '</div><div class="s">' + esc(mode === "out" ? tt("para ", "to ") + this.toTxt(m) : tt("de ", "from ") + People.name(m.from) + ((m.to || []).length ? "" : " · " + tt("para todos", "to everyone"))) + " · " + fmtDate(this.occ(m) || m.start, "short") + (m.body ? " · " + esc(String(m.body).slice(0, 80)) : "") + "</div></div>" + status + "</div>";
+  }
+};
+SCREENS.inbox = {
+  render(sub) {
+    sub = sub || "in";
+    const un = Msgs.unread().length;
+    const segs = [["in", "📥 " + tt("Recebidos", "Inbox") + (un ? ' <span class="nbadge">' + un + "</span>" : "")], ["out", "📤 " + tt("Enviados", "Sent")], ["arch", "🗄 " + tt("Arquivados", "Archived")]];
+    let h = '<div class="pagehead"><div><h1>📨 ' + tt("Recados", "Messages") + '</h1><div class="sub">' + tt("Recados entre as pessoas da família — com prioridade, repetição e quem já leu", "Messages between family members — with priority, repeats and read receipts") + '</div></div><button class="btn" data-act="msg.new">＋ ' + tt("Recado", "Message") + "</button></div>" +
+      '<div class="seg">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="inbox" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>";
+    const myTasks = DB.all("tasks").filter((t) => Tasks.isOpen(t) && t.assignee === S.meId);
+    if (sub === "in" && myTasks.length) h += '<div class="card tight click" data-act="go" data-tab="agenda" data-sub="tasks"><div class="between"><span>✅ <b>' + myTasks.length + "</b> " + tt("tarefa(s) aberta(s) para você", "open task(s) for you") + "</span><span class=\"faint\">›</span></div></div>";
+    const list = sub === "out" ? Msgs.sent() : sub === "arch" ? Msgs.archived() : Msgs.inbox();
+    h += '<div class="card">' + (list.length ? '<div class="list" aria-live="polite">' + list.map((m) => Msgs.row(m, sub === "out" ? "out" : "in")).join("") + "</div>" : '<div class="empty"><div class="e">📭</div>' + (sub === "out" ? tt("Você ainda não mandou recados.", "You haven't sent any messages yet.") : tt("Nenhum recado por aqui.", "No messages here.")) + "</div>") + "</div>";
+    if (S.mode === "local") h += '<div class="card tight small muted">📱 ' + tt("No modo “só neste aparelho”, o recado fica guardado aqui e a pessoa vê quando entrar no perfil dela. Para chegar no celular de cada um, ligue a nuvem em Ajustes → Nuvem.", "In this-device mode the message stays here and the person sees it when they open their profile. To reach everyone's phone, enable the cloud in Settings → Cloud.") + "</div>";
+    return h;
+  }
+};
+ACT["msg.new"] = () => Msgs.compose();
+ACT["msg.open"] = (d) => Msgs.open(d.id);
+
+/* =====================================================================
    INÍCIO
    ===================================================================== */
 SCREENS.home = {
@@ -3501,16 +4117,26 @@ SCREENS.home = {
     h += '<div class="card tight"><div class="row nw"><div class="searchbox"><span class="lead">＋</span><input type="text" id="addin" placeholder="' + tt("Pôr na lista: leite, pão 2, sabão…", "Add to list: milk, bread 2…") + '" autocomplete="off"><button class="mic" data-act="shop.voice">🎤</button></div><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div></div>";
     const al = Alerts.list().filter((a) => a.level !== "info" || a.ic === "📇");
     if (al.length) h += '<div class="card"><div class="between"><h3>📌 ' + tt("Precisa da sua atenção", "Needs your attention") + '</h3><button class="linkbtn small" data-act="bell">' + tt("ver tudo", "see all") + '</button></div><div class="list">' + al.slice(0, 6).map((a) => '<div class="li click" data-act="go" data-tab="' + a.go[0] + '" data-sub="' + (a.go[1] || "") + '" data-arg="' + (a.go[2] || "") + '"><div class="ico">' + a.ic + '</div><div class="main"><div class="t" style="white-space:normal;font-weight:500">' + esc(a.t) + "</div></div></div>").join("") + "</div></div>";
+    const un = Msgs.unread(), remDue = Reminders.due(0), remTrip = Reminders.trip();
+    if (un.length || remDue.length || remTrip.length) {
+      h += '<div class="grid g2 collapse" style="margin-bottom:14px">';
+      h += '<div class="card click" style="margin:0" data-act="go" data-tab="inbox"><h3>📨 ' + tt("Recados", "Messages") + (un.length ? ' <span class="nbadge">' + un.length + "</span>" : "") + ' <span class="faint">›</span></h3>' + (un.length ? '<div class="list">' + un.slice(0, 3).map((m) => '<div class="li"><div class="ico">' + prioInfo(m.prio).ic + '</div><div class="main"><div class="t">' + esc(m.title) + '</div><div class="s">' + tt("de ", "from ") + esc(People.name(m.from)) + "</div></div></div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum recado novo.", "No new messages.") + "</div>") + "</div>";
+      h += '<div class="card click" style="margin:0" data-act="go" data-tab="agenda" data-sub="reminders"><h3>📌 ' + tt("Lembretes", "Reminders") + ' <span class="faint">›</span></h3>' + (remDue.length ? '<div class="list">' + remDue.slice(0, 3).map((r) => '<div class="li"><div class="ico">' + remCtx(r.ctx).ic + '</div><div class="main"><div class="t">' + esc(r.title) + '</div><div class="s">' + esc(Reminders.whenTxt(r)) + "</div></div></div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nada para hoje.", "Nothing for today.") + "</div>") + (remTrip.length ? '<div class="small muted">🚶 ' + remTrip.length + " " + tt("para a próxima ida", "for the next trip") + "</div>" : "") + "</div>";
+      h += "</div>";
+    }
+    if (p && p.role !== "pet" && !FamData.ok(p) && !isChild() && S.mode !== "visitor") h += '<div class="card tight click" data-act="fam.check" data-id="' + p.id + '"><div class="between"><span>🪪 ' + tt("Confira se os seus dados estão certos (nascimento, celular, e-mail).", "Check that your details are right (birth date, phone, e-mail).") + '</span><span class="faint">›</span></div></div>';
     const td = today(); const now = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes());
     const items = [];
-    Agenda.occurrences(td, addDays(td, 1)).forEach((e) => items.push({ d: e.date, t: e.time || "", ic: evCat(e.cat).ic, title: e.title, sub: (e.members || []).map((m) => People.name(m)).join(", ") }));
-    Routine.on(td).filter((r) => r.time >= now).forEach((r) => items.push({ d: td, t: r.time, ic: (RT_KINDS().find((k) => k[0] === r.kind) || RT_KINDS()[6])[1], title: r.title, sub: r.who ? People.name(r.who) : "" }));
-    DB.all("health").forEach((hh) => (hh.meds || []).forEach((m) => (m.times || "").split(/[,;\s]+/).filter((t) => /^\d{1,2}:\d{2}$/.test(t) && t.padStart(5, "0") >= now).forEach((t) => items.push({ d: td, t: t.padStart(5, "0"), ic: "💊", title: People.name(hh.id) + ": " + m.name, sub: m.dose || "" }))));
-    DB.all("tasks").filter((t) => !t.done && t.due && t.due <= addDays(td, 1) && (!isChild() || t.assignee === S.meId)).forEach((t) => items.push({ d: t.due < td ? td : t.due, t: "", ic: "✅", title: t.title, sub: (t.due < td ? "⚠️ " : "") + (t.assignee ? People.name(t.assignee) : "") }));
+    /* cada linha leva para a página dela (go = [aba, sub-aba]) */
+    Agenda.occurrences(td, addDays(td, 1)).forEach((e) => items.push({ d: e.date, t: e.time || "", ic: evCat(e.cat).ic, title: e.title, sub: (e.members || []).map((m) => People.name(m)).join(", "), go: ["agenda", "cal"] }));
+    Routine.on(td).filter((r) => r.time >= now).forEach((r) => items.push({ d: td, t: r.time, ic: (RT_KINDS().find((k) => k[0] === r.kind) || RT_KINDS()[6])[1], title: r.title, sub: r.who ? People.name(r.who) : "", go: ["agenda", "routine"] }));
+    DB.all("health").forEach((hh) => (hh.meds || []).forEach((m) => (m.times || "").split(/[,;\s]+/).filter((t) => /^\d{1,2}:\d{2}$/.test(t) && t.padStart(5, "0") >= now).forEach((t) => items.push({ d: td, t: t.padStart(5, "0"), ic: "💊", title: People.name(hh.id) + ": " + m.name, sub: m.dose || "", go: ["health"] }))));
+    DB.all("tasks").filter((t) => Tasks.isOpen(t) && t.due && t.due <= addDays(td, 1) && (!isChild() || t.assignee === S.meId)).forEach((t) => items.push({ d: t.due < td ? td : t.due, t: "", ic: "✅", title: t.title, sub: (t.due < td ? "⚠️ " : "") + (t.assignee ? People.name(t.assignee) : ""), go: ["agenda", "tasks"] }));
+    Reminders.open().filter((r) => r.due && r.due <= addDays(td, 1)).forEach((r) => items.push({ d: r.due < td ? td : r.due, t: "", ic: "📌", title: r.title, sub: Reminders.whenTxt(r), go: ["agenda", "reminders"] }));
     items.sort((a, b) => (a.d + (a.t || "00:00")).localeCompare(b.d + (b.t || "00:00")));
-    h += '<div class="grid g2 collapse"><div class="card" style="margin:0"><h3>📅 ' + tt("Hoje e amanhã", "Today & tomorrow") + "</h3>" + (items.length ? '<div class="timeline">' + items.slice(0, 12).map((x) => '<div class="ti"><div class="h">' + (x.t ? fmtTime(x.t) : "•") + '<span class="dday">' + relDay(x.d) + "</span></div><div><b>" + x.ic + " " + esc(x.title) + '</b><div class="small muted">' + esc(x.sub || "") + "</div></div></div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Dia tranquilo.", "Quiet day.") + "</div>") + '<button class="linkbtn small" data-act="go" data-tab="agenda">' + tt("abrir agenda", "open calendar") + " →</button></div>";
+    h += '<div class="grid g2 collapse"><div class="card" style="margin:0"><h3 class="click" data-act="go" data-tab="agenda">📅 ' + tt("Hoje e amanhã", "Today & tomorrow") + ' <span class="faint">›</span></h3>' + (items.length ? '<div class="timeline">' + items.slice(0, 12).map((x) => '<div class="ti click" data-act="go" data-tab="' + x.go[0] + '" data-sub="' + (x.go[1] || "") + '"><div class="h">' + (x.t ? fmtTime(x.t) : "•") + '<span class="dday">' + relDay(x.d) + "</span></div><div><b>" + x.ic + " " + esc(x.title) + '</b><div class="small muted">' + esc(x.sub || "") + "</div></div></div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Dia tranquilo.", "Quiet day.") + "</div>") + '<button class="linkbtn small" data-act="go" data-tab="agenda">' + tt("abrir agenda", "open calendar") + " →</button></div>";
     const soon = Pantry.soon(3);
-    h += '<div class="card" style="margin:0"><h3>🥫 ' + tt("Acabando em breve", "Running out soon") + "</h3>" + (soon.length ? '<div class="chips">' + soon.slice(0, 10).map((i) => '<span class="chip" data-act="shop.addfrom" data-id="' + i.id + '">＋ ' + esc(i.name) + "</span>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nada previsto. A despensa aprende a cada compra finalizada.", "Nothing predicted. The pantry learns from each finished purchase.") + "</div>") +
+    h += '<div class="card" style="margin:0"><h3 class="click" data-act="go" data-tab="shop" data-sub="pantry">🥫 ' + tt("Acabando em breve", "Running out soon") + ' <span class="faint">›</span></h3>' + (soon.length ? '<div class="chips">' + soon.slice(0, 10).map((i) => '<span class="chip" data-act="shop.addfrom" data-id="' + i.id + '">＋ ' + esc(i.name) + "</span>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nada previsto. A despensa aprende a cada compra finalizada.", "Nothing predicted. The pantry learns from each finished purchase.") + "</div>") +
       (isGuardian() && Shop.pendingRequests().length ? '<div class="sep"></div><b>🙋 ' + Shop.pendingRequests().length + " " + tt("pedido(s) para aprovar", "request(s) to approve") + '</b> <button class="linkbtn" data-act="go" data-tab="shop" data-sub="requests">' + tt("ver", "view") + "</button>" : "") + "</div></div>";
     if (!isChild()) h += Setup.card();
     return h;
@@ -3558,6 +4184,7 @@ const SetViews = {
     h += '<div class="card"><h3>👤 ' + tt("Conta e família", "Account & family") + '</h3><p class="small">' + ({ visitor: tt("Modo visitante (nada é salvo, com anúncios).", "Visitor mode (nothing saved, with ads)."), local: tt("Dados guardados só neste aparelho.", "Data kept on this device only."), cloud: tt("Conectado à nuvem: ", "Connected to the cloud: ") + esc((S.user && S.user.email) || "") }[S.mode] || "") + (S.role ? " · " + roleName(S.role) : "") + "</p>" +
       (isGuardian() ? '<label class="fld" style="max-width:360px"><span>' + tt("Nome da família", "Family name") + '</span><input type="text" id="famname" value="' + esc((S.family && S.family.name) || DB.setting().familyName || "") + '"></label><button class="btn ghost sm" style="margin-top:8px" data-act="set.famname">' + tt("Salvar nome", "Save name") + "</button>" : "") +
       '<div class="row" style="margin-top:10px"><button class="btn ghost" data-act="signout">🚪 ' + tt("Sair", "Sign out") + "</button></div></div>";
+    if (S.mode !== "visitor") h += Plan.card();
     h += '<div class="card"><h3>📱 ' + tt("Barra de baixo (celular)", "Bottom bar (phone)") + '</h3><p class="small muted">' + tt("Escolha os 4 atalhos fixos; o resto fica em “Mais”.", "Pick the 4 fixed shortcuts; the rest go under “More”.") + '</p><div class="grid g4">' + [0, 1, 2, 3].map((i) => '<select data-chg="set.bottom" data-i="' + i + '">' + tabs.map((t) => '<option value="' + t.id + '"' + (pick[i] === t.id ? " selected" : "") + ">" + t.ic + " " + esc(t.t) + "</option>").join("") + "</select>").join("") + "</div></div>";
     h += '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + '</h3><label class="check"><input type="checkbox" data-chg="set.biolock"' + (S.prefs.bioLock && Bio.cred() ? " checked" : "") + "> 👆 " + tt("Pedir digital/rosto para abrir o app neste aparelho", "Require fingerprint/face to open the app on this device") + '</label><p class="tiny faint" style="margin-top:6px">' + tt("O cofre tem senha própria e também pode ser liberado por biometria (Casa → Cofre).", "The vault has its own password and can also be unlocked by biometrics (House → Vault).") + "</p></div>";
     h += '<div class="card"><h3>🥫 ' + tt("Compras", "Shopping") + '</h3><label class="check"><input type="checkbox" data-chg="set.autoadd"' + (DB.setting().autoAdd !== false ? " checked" : "") + "> " + tt("Quando marcar que algo acabou, pôr na lista automaticamente", "When something runs out, add it to the list automatically") + "</label></div>";
@@ -3664,9 +4291,9 @@ ACT["data.wipe"] = async () => { if (!(await confirmBox(tt("Apagar TODOS os dado
 SCREENS.ads = {
   render() {
     const ads = lsGet(LS.ads, []) || [];
-    return '<div class="pagehead"><div><h1>📣 ' + tt("Área do anunciante", "Advertiser area") + '</h1><div class="sub">' + tt("Crie o anúncio que aparece no banner do topo para visitantes.", "Create the ad shown in the top banner to visitors.") + '</div></div><button class="btn" data-act="ad.new">＋ ' + tt("Anúncio", "Ad") + "</button></div>" +
+    return '<div class="pagehead"><div><h1>📣 ' + tt("Área do anunciante", "Advertiser area") + '</h1><div class="sub">' + tt("Crie o anúncio que aparece na faixa do topo para visitantes e famílias no plano gratuito.", "Create the ad shown in the top strip to visitors and free-plan families.") + '</div></div><button class="btn" data-act="ad.new">＋ ' + tt("Anúncio", "Ad") + "</button></div>" +
       '<div class="card">' + (ads.length ? '<div class="list">' + ads.map((a, i) => '<div class="li"><div class="ico">📣</div><div class="main click" data-act="ad.edit" data-i="' + i + '"><div class="t">' + esc(a.title) + (a.active ? ' <span class="badge ok">' + tt("ativo", "active") + "</span>" : ' <span class="badge">' + tt("pausado", "paused") + "</span>") + '</div><div class="s">' + esc([a.text, a.link].filter(Boolean).join(" · ")) + "</div></div></div>").join("") + "</div>" : '<div class="empty"><div class="e">📣</div>' + tt("Nenhum anúncio.", "No ads.") + "</div>") + "</div>" +
-      '<div class="card tight small muted">💳 ' + tt("Pagamento, métricas de exibição e aprovação de anúncios ficam com a estrutura pronta para quando houver servidor. Por enquanto os anúncios valem para este navegador. Para anunciar de verdade: ", "Payments, impression metrics and ad approval are ready for a future server. For now ads apply to this browser. To advertise for real: ") + '<a href="' + AD_URL + '" target="_blank" rel="noopener">marceloneco.github.io</a></div>';
+      Ads.statsCard() + '<div class="card tight small muted">💳 ' + tt("Pagamento, métricas de exibição e aprovação de anúncios ficam com a estrutura pronta para quando houver servidor. Por enquanto os anúncios valem para este navegador. Para anunciar de verdade: ", "Payments, impression metrics and ad approval are ready for a future server. For now ads apply to this browser. To advertise for real: ") + '<a href="' + AD_URL + '" target="_blank" rel="noopener">marceloneco.github.io</a></div>';
   }
 };
 async function editAd(i) {
@@ -3729,6 +4356,17 @@ const Demo = {
     add("tasks", { title: tt("Comprar presente da Vó", "Buy Grandma's gift"), cat: "compras", due: D(7), done: false });
     add("tasks", { title: tt("Organizar a mochila da escola", "Pack the school bag"), cat: "criancas", assignee: "pAna", done: true, doneBy: "pAna", doneAt: TS(-1, 21) });
     add("tasks", { title: tt("Trocar lâmpada do corredor", "Replace hallway bulb"), cat: "limpeza", assignee: "pBruno", done: true, doneBy: "pBruno", doneAt: TS(-3, 19), createdBy: "pBruno" });
+    add("tasks", { title: tt("Arrumar o quarto e mandar foto", "Tidy the room and send a photo"), cat: "organizacao", assignee: "pSofia", points: 10, prio: "importante", needPhoto: true, due: td, done: false, status: "aberta" });
+    add("tasks", { title: tt("Consertar a torneira do tanque", "Fix the laundry tap"), cat: "outro", assignee: "pBruno", due: D(2), done: false, status: "postergada", postponed: 1, closeNote: tt("falta a peça", "missing the part") });
+    const MS = (o) => add("msgs", Object.assign({ repeat: "none", start: td, readBy: {}, archivedBy: {}, to: [] }, o));
+    MS({ from: "pBruno", to: ["pAna"], title: tt("Buscar a Sofia no inglês hoje", "Pick Sofia up from English today"), body: tt("Saio tarde do trabalho. Consegue buscar às 18h?", "I'm leaving work late. Can you pick her up at 6pm?"), prio: "urgente", createdBy: "pBruno", createdAt: TS(0, 9) });
+    MS({ from: "pCida", title: tt("Almoço de domingo aqui em casa", "Sunday lunch at my place"), body: tt("Todo domingo, 12h30. Tragam a sobremesa!", "Every Sunday, 12:30. Bring dessert!"), prio: "fyi", repeat: "weekly", start: D(-((new Date().getDay()) % 7)), createdBy: "pCida", createdAt: TS(-10) });
+    MS({ from: "pAna", to: ["pSofia", "pLeo"], title: tt("Hora de guardar os brinquedos", "Time to put toys away"), body: tt("Antes do jantar, combinado?", "Before dinner, deal?"), prio: "importante", createdAt: TS(-1, 17), readBy: { pSofia: { k: D(0), at: TS(0, 7) } } });
+    const RM = (o) => add("reminders", Object.assign({ done: false, repeat: "none", sub: "", n: 3, date: "" }, o));
+    RM({ title: tt("Comprar tablete lava-louças", "Buy dishwasher tablets"), ctx: "mercado", sub: tt("Limpeza", "Cleaning"), when: "proxima", due: "", fav: true });
+    RM({ title: tt("Reservar Hotel do Picolé", "Book the pet hotel"), ctx: "pet", sub: tt("Geral", "General"), when: "antes", date: D(10), due: D(10), fav: true });
+    RM({ title: tt("Renovar a receita da Vó Cida", "Renew Grandma's prescription"), ctx: "farmacia", when: "hoje", due: td, repeat: "monthly" });
+    RM({ title: tt("Comprar tablete lava-louças", "Buy dishwasher tablets"), ctx: "mercado", sub: tt("Limpeza", "Cleaning"), when: "proxima", due: "", done: true, doneBy: "pBruno", doneAt: TS(-20) });
     const E = (o) => add("events", Object.assign({ repeat: "none", remind: 60, allDay: !o.time }, o));
     E({ title: tt("Reunião de pais — Colégio Horizonte", "Parents meeting — Horizonte School"), date: D(3), time: "19:00", cat: "escola", members: ["pSofia"], place: "Colégio Horizonte" });
     E({ title: tt("Natação do Léo", "Léo's swimming"), date: D(-((new Date().getDay() + 5) % 7)), time: "17:30", end: "18:15", cat: "lazer", members: ["pLeo"], repeat: "weekly", place: "Clube" });
