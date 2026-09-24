@@ -369,6 +369,8 @@ footer.app a{color:var(--text2)}
 #drawer .morehint.show{display:flex}
 #drawer .morehint.show{animation:bob 1.6s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(3px)}}
+ol.helpsteps{margin:0;padding-left:22px}
+ol.helpsteps li{margin:0 0 10px;line-height:1.5}
 #drawer .dsub button{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:999px;padding:4px 10px;font-size:.76rem;cursor:pointer;min-height:28px}
 .menu{transform-origin:top right;animation:menuin .16s cubic-bezier(.2,.8,.2,1)}
 @keyframes menuin{from{opacity:0;transform:scale(.94) translateY(-4px)}}
@@ -439,7 +441,7 @@ footer.app a{color:var(--text2)}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.2.2";
+const APP_VERSION = "1.2.4";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1746,7 +1748,7 @@ const Drawer = {
   fill() {
     const tabs = S.booted ? visibleTabs() : [];
     const subs = DRAWER_SUBS();
-    const quick = S.booted && S.mode !== "advertiser" ? [["⚡", tt("Lembrete rápido", "Quick reminder"), "rem.new"], ["📨", tt("Novo recado", "New message"), "msg.new"], ["✅", tt("Nova tarefa", "New task"), "task.new"], ["🚨", tt("Emergência", "Emergency"), "sos"]] : [];
+    const quick = S.booted && S.mode !== "advertiser" ? [["⚡", tt("Lembrete rápido", "Quick reminder"), "rem.new"], ["📨", tt("Novo recado", "New message"), "msg.new"], ["✅", tt("Nova tarefa", "New task"), "task.new"], ["🚨", tt("Emergência", "Emergency"), "sos"], ["❓", tt("Ajuda e tutoriais", "Help & tutorials"), "help"]] : [];
     $("#drawerin").innerHTML = '<div class="dhead">' + ART.mark() + "<b>OmniLife<span style=\"color:var(--accent)\">ONE</span></b><button class=\"xbtn\" type=\"button\" data-dclose aria-label=\"" + tt("Fechar menu", "Close menu") + '">×</button></div>' +
       (quick.length ? '<div class="dsec">' + tt("Atalhos", "Shortcuts") + "</div>" + quick.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + q[0] + "</span>" + esc(q[1]) + "</button>").join("") : "") +
       (tabs.length ? '<div class="dsec">' + tt("Todas as funções", "Everything") + "</div>" : "") +
@@ -3992,17 +3994,28 @@ ACT["rem.toshop"] = async (d) => { const r = DB.get("reminders", d.id); if (!r) 
    por alguns instantes (cuidando de alguém doente ou idoso). Tudo roda no
    aparelho: a imagem não é gravada nem enviada para lugar nenhum.
    ===================================================================== */
+const VIGIA_TONES = () => [["sirene", "🚨 " + tt("Sirene", "Siren")], ["bipe", "📟 " + tt("Bipe rápido", "Fast beep")], ["campainha", "🔔 " + tt("Campainha", "Doorbell")], ["suave", "🎵 " + tt("Suave", "Gentle")]];
 const Vigia = {
-  on: false, stream: null, video: null, cv: null, prev: null, timer: null, hits: 0, armAt: 0, lastAlarm: 0, ac: null, beepT: null, wake: null, log: [], level: 0,
-  cfg() { return Object.assign({ sens: 6, delay: 10, sound: true, ntfy: true, cam: "environment", who: "" }, S.prefs.vigia || {}); },
+  on: false, stream: null, video: null, cv: null, prev: null, timer: null, hits: 0, armAt: 0, lastAlarm: 0, lastMsg: 0, ac: null, beepT: null, stopT: null, wake: null, log: [], level: 0,
+  /* action: o que fazer ao detectar — "alarme", "mensagem" ou "ambos". Chaves do Telegram/WhatsApp
+     ficam só neste aparelho (não vão para a nuvem da família nem para o GitHub). */
+  /* Telegram e WhatsApp vêm DESLIGADOS: a pessoa liga nas configurações depois de seguir a ajuda.
+     recips = quem recebe os alertas (pessoa da família ou outra pessoa); sel = quem está marcado agora. */
+  cfg() { return Object.assign({ sens: 6, delay: 10, action: "alarme", tone: "sirene", vol: 8, ntfy: false, cam: "environment", tgOn: false, waOn: false, tgToken: "", tgPhoto: true, recips: [], sel: [] }, S.prefs.vigia || {}); },
+  chosen() { const c = this.cfg(); return (c.recips || []).filter((r) => (c.sel || []).includes(r.id)); },
+  channelsReady() { const c = this.cfg(), rs = this.chosen(); return (c.tgOn && c.tgToken && rs.some((r) => r.tgChat)) || (c.waOn && rs.some((r) => r.waPhone && r.waKey)) || (c.ntfy && !!DB.setting().ntfyTopic); },
   save(p) { S.prefs.vigia = Object.assign(this.cfg(), p); savePrefs(); },
+  wantsSound() { return this.cfg().action !== "mensagem"; },
+  wantsMsg() { return this.cfg().action !== "alarme"; },
+  audio() { try { this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)(); if (this.ac.state === "suspended") this.ac.resume(); } catch (e) {} return this.ac; },
   async start() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return toast(tt("Este navegador não libera a câmera.", "This browser doesn't allow camera access."));
     const c = this.cfg();
+    if (this.wantsMsg() && !this.channelsReady()) toast(tt("Mensagens ainda não configuradas (ligue o Telegram ou o WhatsApp e marque quem recebe).", "Messages not set up yet (turn on Telegram or WhatsApp and select recipients)."), 5000);
     try { this.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: c.cam, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false }); }
     catch (e) { return toast(tt("Não consegui abrir a câmera: ", "Couldn't open the camera: ") + (e.name === "NotAllowedError" ? tt("permissão negada.", "permission denied.") : e.message)); }
     /* o som do alarme precisa ser liberado por um toque: aproveitamos este */
-    try { this.ac = this.ac || new (window.AudioContext || window.webkitAudioContext)(); await this.ac.resume(); } catch (e) {}
+    this.audio();
     try { if ("wakeLock" in navigator) this.wake = await navigator.wakeLock.request("screen"); } catch (e) {}
     this.video = document.createElement("video"); this.video.muted = true; this.video.playsInline = true; this.video.setAttribute("playsinline", ""); this.video.srcObject = this.stream;
     await this.video.play().catch(() => {});
@@ -4040,58 +4053,231 @@ const Vigia = {
     this.hits = ratio > limit ? this.hits + 1 : 0;
     if (this.hits >= 2 && Date.now() - this.lastAlarm > 15000) { this.hits = 0; this.alarm(); }
   },
-  beep() {
-    if (!this.ac) return; const t = this.ac.currentTime;
-    [0, 0.25].forEach((o, i) => { const os = this.ac.createOscillator(), gn = this.ac.createGain(); os.type = "square"; os.frequency.value = i ? 660 : 990; gn.gain.value = 0.35; os.connect(gn).connect(this.ac.destination); os.start(t + o); os.stop(t + o + 0.2); });
+  /* toques feitos no próprio aparelho (sem arquivo de som): cada um é uma sequência de notas */
+  ring(tone) {
+    const ac = this.audio(); if (!ac) return 700;
+    const vol = Math.max(0.05, Math.min(1, (this.cfg().vol || 8) / 10)) * 0.45;
+    const note = (t, f, dur, type, glide) => { const o = ac.createOscillator(), g = ac.createGain(); o.type = type || "square"; o.frequency.setValueAtTime(f, t); if (glide) o.frequency.linearRampToValueAtTime(glide, t + dur); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur); o.connect(g).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02); };
+    const t = ac.currentTime;
+    tone = tone || this.cfg().tone;
+    if (tone === "bipe") { [0, 0.18, 0.36].forEach((o) => note(t + o, 1400, 0.1)); return 600; }
+    if (tone === "campainha") { note(t, 880, 0.5, "sine"); note(t + 0.5, 698, 0.7, "sine"); return 1500; }
+    if (tone === "suave") { [523, 659, 784].forEach((f, i) => note(t + i * 0.22, f, 0.45, "triangle")); return 1600; }
+    note(t, 700, 0.45, "sawtooth", 1300); note(t + 0.45, 1300, 0.45, "sawtooth", 700); return 900; /* sirene */
   },
-  silence() { clearInterval(this.beepT); this.beepT = null; try { navigator.vibrate && navigator.vibrate(0); } catch (e) {} },
-  alarm() {
+  silence() {
+    clearInterval(this.beepT); clearTimeout(this.stopT); this.beepT = null; this.stopT = null;
+    try { navigator.vibrate && navigator.vibrate(0); } catch (e) {}
+  },
+  preview(tone) { this.silence(); this.ring(tone); },
+  /* mensagem automática: Telegram (robô próprio) e/ou WhatsApp pelo CallMeBot */
+  /* mensagem automática para cada pessoa marcada: Telegram (robô próprio) e/ou WhatsApp (CallMeBot) */
+  async sendMsgs(text, shot) {
+    const c = this.cfg(); const res = [];
+    let photo = null; if (shot && c.tgPhoto) { try { photo = await (await fetch(shot)).blob(); } catch (e) {} }
+    for (const r of this.chosen()) {
+      if (c.tgOn && c.tgToken && r.tgChat) {
+        try {
+          const base = "https://api.telegram.org/bot" + c.tgToken + "/"; let resp;
+          if (photo) { const fd = new FormData(); fd.append("chat_id", r.tgChat); fd.append("caption", text); fd.append("photo", photo, "vigia.jpg"); resp = await fetch(base + "sendPhoto", { method: "POST", body: fd }); }
+          else resp = await fetch(base + "sendMessage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: r.tgChat, text }) });
+          res.push([r.name + " (Telegram)", resp.ok]);
+        } catch (e) { res.push([r.name + " (Telegram)", false]); }
+      }
+      if (c.waOn && r.waPhone && r.waKey) {
+        try {
+          /* o CallMeBot não deixa o navegador ler a resposta (no-cors): a mensagem sai, mas não dá para confirmar a entrega */
+          await fetch("https://api.callmebot.com/whatsapp.php?phone=" + encodeURIComponent(onlyDigits(r.waPhone)) + "&text=" + encodeURIComponent(text) + "&apikey=" + encodeURIComponent(r.waKey), { mode: "no-cors" });
+          res.push([r.name + " (WhatsApp)", true]);
+        } catch (e) { res.push([r.name + " (WhatsApp)", false]); }
+      }
+    }
+    if (c.ntfy && DB.setting().ntfyTopic) res.push(["ntfy", await Notify.ntfy("👁 " + tt("Modo Vigilante", "Watch mode"), text)]);
+    return res;
+  },
+  async alarm() {
     this.lastAlarm = Date.now(); const c = this.cfg();
     let shot = ""; try { const s = document.createElement("canvas"); s.width = 320; s.height = 240; s.getContext("2d").drawImage(this.video, 0, 0, 320, 240); shot = s.toDataURL("image/jpeg", 0.7); } catch (e) {}
-    this.log.unshift({ at: new Date().toISOString(), shot }); this.log = this.log.slice(0, 10);
-    if (c.sound) { this.silence(); this.beep(); this.beepT = setInterval(() => this.beep(), 700); setTimeout(() => this.silence(), 60000); }
-    try { navigator.vibrate && navigator.vibrate([400, 200, 400, 200, 800]); } catch (e) {}
+    const entry = { at: new Date().toISOString(), shot, sent: null }; this.log.unshift(entry); this.log = this.log.slice(0, 10);
+    const hhmm = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes());
     const title = "👁 " + tt("Movimento detectado — Modo Vigilante", "Motion detected — Watch mode");
-    Notify.show(title, fmtDateTime(new Date().toISOString()), "vigia-" + this.lastAlarm);
-    if (c.ntfy && DB.setting().ntfyTopic) Notify.ntfy(title, tt("O celular que está vigiando viu movimento às ", "The watching phone saw motion at ") + fmtTime(pad(new Date().getHours()) + ":" + pad(new Date().getMinutes())));
-    const p = c.who ? People.get(c.who) : null; const ph = p && p.phone;
-    const msg = tt("⚠️ Modo Vigilante do OmniLifeONE: movimento detectado agora. Pode dar uma olhada?", "⚠️ OmniLifeONE watch mode: motion detected just now. Can you check?");
+    if (this.wantsSound()) {
+      this.silence(); const gap = this.ring(); this.beepT = setInterval(() => this.ring(), gap + 150);
+      this.stopT = setTimeout(() => this.silence(), 60000);
+      try { navigator.vibrate && navigator.vibrate([400, 200, 400, 200, 800]); } catch (e) {}
+    }
+    Notify.show(title, fmtDateTime(entry.at), "vigia-" + this.lastAlarm);
+    const text = tt("⚠️ OmniLifeONE — Modo Vigilante: movimento detectado às ", "⚠️ OmniLifeONE — Watch mode: motion detected at ") + fmtTime(hhmm) + ". " + tt("Pode dar uma olhada?", "Can you check?");
+    /* no máximo uma mensagem por minuto, para não encher o celular de quem recebe */
+    const msgNote = () => this.wantsMsg() && entry.sent ? '<p class="small">' + entry.sent.map((x) => (x[1] ? "✓ " : "✕ ") + x[0]).join(" · ") + "</p>" : "";
+    if (this.wantsMsg() && Date.now() - this.lastMsg > 60000) { this.lastMsg = Date.now(); this.sendMsgs(text, shot).then((r) => { entry.sent = r; const n = $("#vsent"); if (n) n.innerHTML = msgNote() || (r.length ? "" : '<p class="small faint">' + tt("Nenhuma mensagem saiu: confira em Modo Vigilante → Mensagens se o canal está ligado e se há alguém marcado.", "No message went out: check in Watch mode → Messages that a channel is on and someone is selected.") + "</p>"); }); }
+    const withPhone = this.chosen().filter((r) => r.phone || r.waPhone);
     const old = $("#vigiaalarm"); if (old) old.remove();
     const el = document.createElement("div"); el.id = "vigiaalarm"; el.className = "lock"; el.setAttribute("role", "alertdialog");
-    el.innerHTML = '<div style="font-size:3rem">🚨</div><h2>' + esc(title) + '</h2><p class="muted">' + fmtDateTime(new Date().toISOString()) + "</p>" + (shot ? '<img src="' + shot + '" alt="" style="max-width:320px;width:100%;border-radius:12px">' : "") +
-      '<button class="btn big" id="vok">✋ ' + tt("Estou aqui — parar o alarme", "I'm here — stop the alarm") + "</button>" +
-      (ph ? '<div class="row" style="justify-content:center"><a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(ph, msg) + '">💬 WhatsApp ' + esc(p.nick || p.name) + '</a><a class="btn ghost" href="sms:' + onlyDigits(ph) + "?body=" + encodeURIComponent(msg) + '">✉️ SMS</a><a class="btn ghost" href="' + telHref(ph) + '">📞</a></div>' : "");
+    el.innerHTML = '<div style="font-size:3rem">' + (this.wantsSound() ? "🚨" : "👁") + "</div><h2>" + esc(title) + '</h2><p class="muted">' + fmtDateTime(entry.at) + "</p>" + (shot ? '<img src="' + shot + '" alt="" style="max-width:320px;width:100%;border-radius:12px">' : "") +
+      (this.wantsSound() ? '<button class="btn big danger" id="vmute">🔕 ' + tt("Silenciar agora", "Silence now") + "</button>" : "") +
+      '<div id="vsent">' + (this.wantsMsg() ? '<p class="small faint">⏳ ' + tt("Mandando mensagem…", "Sending message…") + "</p>" : "") + "</div>" +
+      '<button class="btn big" id="vok">✋ ' + tt("Estou aqui — voltar a vigiar", "I'm here — keep watching") + "</button>" +
+      withPhone.map((r) => { const ph = r.phone || r.waPhone; return '<div class="row" style="justify-content:center"><b class="small">' + esc(r.name) + ':</b><a class="btn ghost sm" target="_blank" rel="noopener" href="' + waHref(ph, text) + '">💬 WhatsApp</a><a class="btn ghost sm" href="sms:' + onlyDigits(ph) + "?body=" + encodeURIComponent(text) + '">✉️ SMS</a><a class="btn ghost sm" href="' + telHref(ph) + '">📞</a></div>'; }).join("") +
+      '<button class="linkbtn" id="vend">⏹ ' + tt("Desligar a vigilância", "Turn watching off") + "</button>";
     document.body.appendChild(el);
+    /* qualquer toque na tela do alarme já cala o som na hora */
+    el.addEventListener("pointerdown", () => this.silence(), { capture: true });
+    const mute = $("#vmute", el); if (mute) mute.onclick = () => { this.silence(); mute.remove(); };
     $("#vok", el).onclick = () => { this.silence(); el.remove(); this.prev = null; this.armAt = Date.now() + 3000; };
+    $("#vend", el).onclick = () => this.stop();
   },
   /* miniatura fixa: a vigilância continua mesmo trocando de tela no app */
   pip() {
     let p = $("#vigiapip"); if (p) p.remove();
     p = document.createElement("div"); p.id = "vigiapip"; p.className = "vigiapip";
-    p.innerHTML = '<div class="vt"><span id="vigiast">…</span><button class="btn xs danger" id="vstop">⏹ ' + tt("Parar", "Stop") + '</button></div><div class="bar" style="height:5px"><i id="vigialvl" style="width:0;background:var(--warn)"></i></div>';
+    p.innerHTML = '<div class="vt"><span id="vigiast">…</span><button class="btn xs ghost" id="vmute2" title="' + tt("Silenciar", "Silence") + '">🔕</button><button class="btn xs danger" id="vstop">⏹</button></div><div class="bar" style="height:5px"><i id="vigialvl" style="width:0;background:var(--warn)"></i></div>';
     p.prepend(this.video); document.body.appendChild(p);
     $("#vstop", p).onclick = () => this.stop();
+    $("#vmute2", p).onclick = () => this.silence();
+  },
+  /* conversas que já falaram com o robô do Telegram (para escolher a de cada pessoa) */
+  async tgChats() {
+    const c = this.cfg(); if (!c.tgToken) { toast(tt("Cole primeiro o código do robô (em Mensagens → Telegram).", "Paste the bot token first (Messages → Telegram).")); return null; }
+    try {
+      const r = await fetch("https://api.telegram.org/bot" + c.tgToken + "/getUpdates"); const j = await r.json();
+      if (!j.ok) { toast(tt("O Telegram não aceitou o código do robô.", "Telegram rejected the bot token.")); return null; }
+      const chats = [...new Map((j.result || []).map((u) => (u.message || u.channel_post || {}).chat).filter(Boolean).map((ch) => [ch.id, ch])).values()];
+      if (!chats.length) toast(tt("Nenhuma conversa ainda. A pessoa precisa abrir o robô no Telegram, tocar em Começar e mandar um “oi”.", "No chat yet. The person must open the bot in Telegram, tap Start and send “hi”."), 6000);
+      return chats;
+    } catch (e) { toast(tt("Não consegui falar com o Telegram.", "Couldn't reach Telegram.")); return null; }
+  },
+  /* cadastro de quem recebe os alertas: alguém da família ou outra pessoa (vizinho, cuidador…) */
+  async editRecip(id) {
+    const c = this.cfg(); const list = (c.recips || []).slice();
+    const cur = id ? list.find((r) => r.id === id) : { id: uid("r"), kind: "familia", name: "", personId: "", phone: "", tgChat: "", waPhone: "", waKey: "" };
+    if (!cur) return;
+    const ppl = People.list("humans");
+    const body = '<div class="stack">' +
+      '<div class="chips" id="rkind"><span class="chip' + (cur.kind !== "outro" ? " on" : "") + '" data-v="familia">👨‍👩‍👧 ' + tt("Pessoa da família", "Family member") + '</span><span class="chip' + (cur.kind === "outro" ? " on" : "") + '" data-v="outro">🙋 ' + tt("Outra pessoa", "Someone else") + "</span></div>" +
+      '<label class="fld" id="rfam"><span>' + tt("Quem da família", "Which family member") + '</span><select id="rpid"><option value="">—</option>' + ppl.map((p) => '<option value="' + p.id + '"' + (cur.personId === p.id ? " selected" : "") + ">" + esc(p.nick || p.name) + "</option>").join("") + "</select></label>" +
+      '<label class="fld"><span>' + tt("Nome", "Name") + '</span><input type="text" id="rname" value="' + esc(cur.name) + '" placeholder="' + tt("Ex.: Tia Rosa, vizinha do 42", "e.g. Aunt Rose, neighbor") + '"></label>' +
+      '<label class="fld"><span>' + tt("Celular (para ligar, SMS e WhatsApp a um toque)", "Phone (one-tap call, SMS and WhatsApp)") + '</span><input type="tel" id="rphone" value="' + esc(cur.phone) + '"></label>' +
+      '<div class="grouph">Telegram <button type="button" class="linkbtn tiny" data-help="telegram">❓ ' + tt("como configurar", "how to set up") + '</button></div>' +
+      '<div class="row nw"><input type="text" id="rtg" value="' + esc(cur.tgChat) + '" placeholder="' + tt("conversa (chat) — use o botão", "chat — use the button") + '"><button type="button" class="btn ghost sm" id="rtgf">🔎 ' + tt("Descobrir", "Find") + '</button></div><div class="chips" id="rtgl"></div>' +
+      '<div class="grouph">WhatsApp <button type="button" class="linkbtn tiny" data-help="whatsapp">❓ ' + tt("como configurar", "how to set up") + '</button></div>' +
+      '<div class="fgrid"><label class="fld"><span>' + tt("Celular com DDI (ex.: 5511999998888)", "Phone with country code") + '</span><input type="tel" id="rwa" value="' + esc(cur.waPhone) + '"></label><label class="fld"><span>apikey (CallMeBot)</span><input type="password" id="rwk" value="' + esc(cur.waKey) + '" autocomplete="off"></label></div></div>';
+    const m = modal({ title: "👤 " + (id ? tt("Quem recebe o alerta", "Alert recipient") : tt("Cadastrar quem recebe o alerta", "Add an alert recipient")), body, foot: (id ? '<button class="btn danger sm" data-del style="margin-right:auto">🗑</button>' : "") + '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>' + tt("Salvar", "Save") + "</button>" });
+    const el = m.el; const kind = () => ($(".chip.on", $("#rkind", el)) || {}).dataset.v || "familia";
+    const sync = () => $("#rfam", el).classList.toggle("hidden", kind() !== "familia");
+    $("#rkind", el).onclick = (e) => { const ch = e.target.closest(".chip"); if (!ch) return; $$("#rkind .chip", el).forEach((x) => x.classList.toggle("on", x === ch)); sync(); };
+    $("#rpid", el).onchange = () => { const p = People.get($("#rpid", el).value); if (p) { $("#rname", el).value = p.nick || p.name; if (p.phone) { $("#rphone", el).value = p.phone; if (!$("#rwa", el).value) { let d = onlyDigits(p.phone); if (d.length === 10 || d.length === 11) d = "55" + d; $("#rwa", el).value = d; } } } };
+    el.querySelectorAll("[data-help]").forEach((b) => (b.onclick = () => Help.open("vigia-" + b.dataset.help)));
+    $("#rtgf", el).onclick = async () => { const chats = await this.tgChats(); if (!chats) return; $("#rtgl", el).innerHTML = chats.map((ch) => '<span class="chip" data-chat="' + ch.id + '">' + esc(ch.first_name || ch.title || String(ch.id)) + (ch.username ? " @" + esc(ch.username) : "") + "</span>").join(""); };
+    $("#rtgl", el).onclick = (e) => { const ch = e.target.closest("[data-chat]"); if (ch) { $("#rtg", el).value = ch.dataset.chat; $$("#rtgl .chip", el).forEach((x) => x.classList.toggle("on", x === ch)); } };
+    sync();
+    if (id) el.querySelector("[data-del]").onclick = () => { m.close(); this.save({ recips: list.filter((r) => r.id !== id), sel: (c.sel || []).filter((x) => x !== id) }); render(); };
+    el.querySelector("[data-ok]").onclick = () => {
+      const r = Object.assign({}, cur, { kind: kind(), personId: kind() === "familia" ? $("#rpid", el).value : "", name: $("#rname", el).value.trim(), phone: $("#rphone", el).value.trim(), tgChat: $("#rtg", el).value.trim(), waPhone: onlyDigits($("#rwa", el).value), waKey: $("#rwk", el).value.trim() });
+      if (!r.name) return toast(tt("Dê um nome para a pessoa.", "Give the person a name."));
+      const i = list.findIndex((x) => x.id === r.id); if (i >= 0) list[i] = r; else list.push(r);
+      const sel = new Set(c.sel || []); if (!id) sel.add(r.id);
+      m.close(); this.save({ recips: list, sel: [...sel] }); render();
+    };
+  },
+  async testMsg() {
+    if (!this.chosen().length && !(this.cfg().ntfy && DB.setting().ntfyTopic)) return toast(tt("Marque pelo menos uma pessoa para receber.", "Select at least one recipient."));
+    const r = await this.sendMsgs("✅ " + tt("Teste do Modo Vigilante do OmniLifeONE: as mensagens estão chegando.", "OmniLifeONE watch mode test: messages are arriving."));
+    toast(r.length ? r.map((x) => (x[1] ? "✓ " : "✕ ") + x[0]).join(" · ") : tt("Nada foi enviado: ligue o Telegram ou o WhatsApp e confira os dados de quem recebe.", "Nothing sent: turn on Telegram or WhatsApp and check the recipients' details."), 6000);
   },
   view() {
-    const c = this.cfg(); const ppl = People.list("humans").filter((p) => p.phone);
-    let h = '<div class="pagehead"><div><h1>👁 ' + tt("Modo Vigilante", "Watch mode") + '</h1><div class="sub">' + tt("Precisa sair do quarto por alguns instantes? Deixe o celular apontado para a pessoa: ele avisa se houver movimento.", "Need to step out for a moment? Point the phone at the person: it alerts you if there's movement.") + '</div></div><button class="btn ghost sm" data-act="go" data-tab="health">← ' + tt("Saúde", "Health") + "</button></div>";
-    if (this.on) h += '<div class="card accent"><div class="between"><b>👁 ' + tt("Vigilância ligada", "Watching") + '</b><button class="btn danger" data-act="vigia.stop">⏹ ' + tt("Parar", "Stop") + '</button></div><p class="small">' + tt("A imagem da câmera está na miniatura do canto. Deixe esta página aberta e a tela ligada.", "The camera image is in the corner thumbnail. Keep this page open and the screen on.") + "</p></div>";
-    else h += '<div class="card"><h3>⚙️ ' + tt("Como vigiar", "Settings") + '</h3><div class="fgrid">' +
-      '<label class="fld"><span>' + tt("Sensibilidade", "Sensitivity") + " (1–10)</span><input type=\"range\" min=\"1\" max=\"10\" value=\"" + c.sens + '" data-chg="vigia.cfg" data-k="sens"><small class="hint">' + tt("Mais alto = avisa com movimentos menores.", "Higher = alerts on smaller movements.") + "</small></label>" +
-      '<label class="fld"><span>' + tt("Começar a vigiar depois de", "Start watching after") + '</span><select data-chg="vigia.cfg" data-k="delay">' + [5, 10, 30, 60].map((s) => '<option value="' + s + '"' + (c.delay === s ? " selected" : "") + ">" + s + " s</option>").join("") + "</select></label>" +
-      '<label class="fld"><span>' + tt("Câmera", "Camera") + '</span><select data-chg="vigia.cfg" data-k="cam"><option value="environment"' + (c.cam === "environment" ? " selected" : "") + ">" + tt("Traseira", "Back") + '</option><option value="user"' + (c.cam === "user" ? " selected" : "") + ">" + tt("Frontal", "Front") + "</option></select></label>" +
-      '<label class="fld"><span>' + tt("Pessoa para avisar (WhatsApp/SMS)", "Person to contact (WhatsApp/SMS)") + '</span><select data-chg="vigia.cfg" data-k="who"><option value="">—</option>' + ppl.map((p) => '<option value="' + p.id + '"' + (c.who === p.id ? " selected" : "") + ">" + esc(p.nick || p.name) + "</option>").join("") + "</select></label>" +
-      '<label class="check"><input type="checkbox" data-chg="vigia.cfg" data-k="sound"' + (c.sound ? " checked" : "") + "> 🔊 " + tt("Alarme sonoro", "Sound alarm") + "</label>" +
-      '<label class="check"><input type="checkbox" data-chg="vigia.cfg" data-k="ntfy"' + (c.ntfy ? " checked" : "") + "> 📲 " + tt("Avisar nos celulares pelo ntfy", "Alert phones via ntfy") + (DB.setting().ntfyTopic ? "" : ' <span class="faint">(' + tt("configure em Ajustes → Avisos", "set up in Settings → Alerts") + ")</span>") + "</label>" +
-      '</div><button class="btn big" style="margin-top:14px" data-act="vigia.start">▶ ' + tt("Ligar a vigilância", "Start watching") + "</button></div>";
-    if (this.log.length) h += '<div class="card"><h3>🕑 ' + tt("Movimentos detectados", "Motion detected") + '</h3><div class="thumbs">' + this.log.map((l) => '<div class="thumb" style="width:120px;height:90px;' + (l.shot ? "background-image:url(" + l.shot + ")" : "") + '"><span class="lb">' + fmtDateTime(l.at) + "</span></div>").join("") + "</div></div>";
-    h += '<div class="card tight small muted"><b>' + tt("Bom saber", "Good to know") + ":</b><ul style=\"margin:6px 0 0;padding-left:18px\"><li>" + tt("O som sai por onde o celular estiver tocando: se houver uma caixinha ou fone Bluetooth conectado, o alarme toca nele.", "The sound plays wherever the phone is playing: if a Bluetooth speaker or headset is connected, the alarm plays there.") + "</li><li>" + tt("Para receber o aviso em outro celular automaticamente, use o ntfy (Ajustes → Avisos). WhatsApp e SMS ficam num toque na tela do alarme — o navegador não deixa enviar mensagem sozinho.", "To get the alert on another phone automatically, use ntfy (Settings → Alerts). WhatsApp and SMS are one tap away on the alarm screen — browsers can't send messages on their own.") + "</li><li>" + tt("Mantenha o app aberto e a tela ligada; com a tela apagada o navegador desliga a câmera.", "Keep the app open and the screen on; with the screen off the browser turns the camera off.") + "</li><li>" + tt("A imagem não é gravada nem enviada: fica só na memória deste aparelho enquanto a vigilância estiver ligada.", "Images are not recorded or sent: they stay only in this device's memory while watching.") + "</li><li>" + tt("É um apoio, não substitui a presença de alguém nem um equipamento médico.", "It's a helper; it doesn't replace a person's presence or medical equipment.") + "</li></ul></div>";
+    const c = this.cfg();
+    const opt = (k, v, t) => '<option value="' + v + '"' + (String(c[k]) === String(v) ? " selected" : "") + ">" + t + "</option>";
+    const sw = (k, label) => '<label class="check"><input type="checkbox" data-chg="vigia.cfg" data-k="' + k + '"' + (c[k] ? " checked" : "") + "> " + label + "</label>";
+    let h = '<div class="pagehead"><div><h1>👁 ' + tt("Modo Vigilante", "Watch mode") + '</h1><div class="sub">' + tt("Precisa sair do quarto por alguns instantes? Deixe o celular apontado para a pessoa: ele avisa se houver movimento.", "Need to step out for a moment? Point the phone at the person: it alerts you if there's movement.") + '</div></div><div class="row"><button class="btn ghost sm" data-act="help" data-t="vigia">❓ ' + tt("Ajuda", "Help") + '</button><button class="btn ghost sm" data-act="go" data-tab="health">← ' + tt("Saúde", "Health") + "</button></div></div>";
+    if (this.on) h += '<div class="card accent"><div class="between"><b>👁 ' + tt("Vigilância ligada", "Watching") + '</b><div class="row"><button class="btn ghost" data-act="vigia.mute">🔕 ' + tt("Silenciar", "Silence") + '</button><button class="btn danger" data-act="vigia.stop">⏹ ' + tt("Parar", "Stop") + '</button></div></div><p class="small">' + tt("A imagem da câmera está na miniatura do canto. Deixe esta página aberta e a tela ligada.", "The camera image is in the corner thumbnail. Keep this page open and the screen on.") + "</p></div>";
+    else {
+      h += '<div class="card"><h3>⚙️ ' + tt("Como vigiar", "Settings") + '</h3><div class="fgrid">' +
+        '<label class="fld full"><span>' + tt("Quando detectar movimento", "When motion is detected") + '</span><select data-chg="vigia.cfg" data-k="action">' + opt("action", "alarme", "🔔 " + tt("Tocar alarme", "Sound the alarm")) + opt("action", "mensagem", "💬 " + tt("Mandar mensagem", "Send a message")) + opt("action", "ambos", "🔔 + 💬 " + tt("Os dois", "Both")) + "</select></label>" +
+        '<label class="fld"><span>' + tt("Sensibilidade", "Sensitivity") + " (1–10)</span><input type=\"range\" min=\"1\" max=\"10\" value=\"" + c.sens + '" data-chg="vigia.cfg" data-k="sens"><small class="hint">' + tt("Mais alto = avisa com movimentos menores.", "Higher = alerts on smaller movements.") + "</small></label>" +
+        '<label class="fld"><span>' + tt("Começar a vigiar depois de", "Start watching after") + '</span><select data-chg="vigia.cfg" data-k="delay">' + [5, 10, 30, 60].map((x) => opt("delay", x, x + " s")).join("") + "</select></label>" +
+        '<label class="fld"><span>' + tt("Câmera", "Camera") + '</span><select data-chg="vigia.cfg" data-k="cam">' + opt("cam", "environment", tt("Traseira", "Back")) + opt("cam", "user", tt("Frontal", "Front")) + "</select></label></div></div>";
+      if (this.wantsSound()) h += '<div class="card"><h3>🔔 ' + tt("Alarme", "Alarm") + '</h3><div class="fgrid">' +
+        '<label class="fld"><span>' + tt("Toque", "Sound") + '</span><div class="row nw"><select data-chg="vigia.cfg" data-k="tone">' + VIGIA_TONES().map((t) => opt("tone", t[0], t[1])).join("") + '</select><button class="btn ghost sm" data-act="vigia.preview" title="' + tt("Ouvir", "Listen") + '">▶</button></div></label>' +
+        '<label class="fld"><span>' + tt("Volume", "Volume") + '</span><input type="range" min="1" max="10" value="' + c.vol + '" data-chg="vigia.cfg" data-k="vol"></label>' +
+        '</div><p class="tiny faint" style="margin-top:8px">' + tt("O alarme para na hora com um toque em qualquer lugar da tela, no botão 🔕 ou sozinho depois de 1 minuto. Se houver uma caixinha ou fone Bluetooth conectado, ele toca lá.", "The alarm stops right away with a tap anywhere on the screen, on the 🔕 button or by itself after 1 minute. If a Bluetooth speaker or headset is connected, it plays there.") + "</p></div>";
+      /* quem recebe: seleção múltipla; os atalhos de ligar/WhatsApp/SMS da tela do alarme também usam esta lista */
+      const rs = c.recips || [];
+      h += '<div class="card"><div class="between"><h3>👥 ' + tt("Quem recebe os alertas", "Who gets the alerts") + '</h3><button class="btn sm" data-act="vigia.rnew">＋ ' + tt("Cadastrar", "Add") + "</button></div>" +
+        '<p class="small muted">' + tt("Toque para marcar uma ou várias pessoas. Elas recebem a mensagem e aparecem com botões de ligar, WhatsApp e SMS na tela do alarme.", "Tap to select one or more people. They get the message and show up with call, WhatsApp and SMS buttons on the alarm screen.") + "</p>" +
+        (rs.length ? '<div class="list">' + rs.map((r) => { const on = (c.sel || []).includes(r.id); return '<div class="li"><input type="checkbox" aria-label="' + esc(r.name) + '" data-act="vigia.rsel" data-id="' + r.id + '"' + (on ? " checked" : "") + '><div class="main click" data-act="vigia.redit" data-id="' + r.id + '"><div class="t">' + (r.kind === "outro" ? "🙋 " : "👨‍👩‍👧 ") + esc(r.name) + '</div><div class="s">' + [r.phone ? "📞 " + esc(r.phone) : "", r.tgChat ? "✈️ Telegram" : "", r.waPhone && r.waKey ? "💬 WhatsApp" : ""].filter(Boolean).join(" · ") + "</div></div><span class=\"faint\">✏️</span></div>"; }).join("") + "</div>" : '<div class="empty tiny">' + tt("Ninguém cadastrado ainda.", "Nobody added yet.") + "</div>") + "</div>";
+      if (this.wantsMsg()) h += '<div class="card"><div class="between"><h3>💬 ' + tt("Mensagens", "Messages") + '</h3><button class="linkbtn small" data-act="help" data-t="vigia-telegram">❓ ' + tt("Como configurar", "How to set up") + "</button></div>" +
+        '<p class="small muted">' + tt("Vêm desligadas. Ligue depois de seguir a ajuda. Os códigos ficam só neste aparelho.", "They start off. Turn them on after following the help. Codes stay on this device only.") + "</p>" +
+        sw("tgOn", "✈️ " + tt("Enviar pelo Telegram", "Send via Telegram")) +
+        (c.tgOn ? '<div class="fgrid" style="margin:8px 0 10px"><label class="fld full"><span>' + tt("Código do robô (token)", "Bot token") + ' <button type="button" class="linkbtn tiny" data-act="help" data-t="vigia-telegram">❓</button></span><input type="password" value="' + esc(c.tgToken) + '" data-chg="vigia.cfg" data-k="tgToken" placeholder="123456:ABC…" autocomplete="off"></label>' + sw("tgPhoto", "📷 " + tt("Mandar junto a foto do momento", "Send the snapshot too")) + "</div>" : "") +
+        '<div style="margin-top:6px">' + sw("waOn", "💬 " + tt("Enviar pelo WhatsApp (CallMeBot)", "Send via WhatsApp (CallMeBot)")) + (c.waOn ? '<p class="tiny faint" style="margin:4px 0 0 26px">' + tt("O número e a chave de cada pessoa ficam no cadastro dela.", "Each person's number and key are in their entry.") + ' <button class="linkbtn tiny" data-act="help" data-t="vigia-whatsapp">❓ ' + tt("como conseguir a chave", "how to get the key") + "</button></p>" : "") + "</div>" +
+        '<div style="margin-top:6px">' + sw("ntfy", "📲 " + tt("Avisar também pelo ntfy", "Also alert via ntfy") + (DB.setting().ntfyTopic ? "" : ' <span class="faint">(' + tt("configure em Ajustes → Avisos", "set up in Settings → Alerts") + ")</span>")) + "</div>" +
+        '<div class="row" style="margin-top:10px"><button class="btn ghost sm" data-act="vigia.test">🧪 ' + tt("Mandar mensagem de teste", "Send a test message") + "</button></div>" +
+        '<p class="tiny faint" style="margin-top:8px">' + tt("No máximo uma mensagem por minuto.", "At most one message per minute.") + "</p></div>";
+      h += '<button class="btn big" style="margin-bottom:14px" data-act="vigia.start">▶ ' + tt("Ligar a vigilância", "Start watching") + "</button>";
+    }
+    if (this.log.length) h += '<div class="card"><h3>🕑 ' + tt("Movimentos detectados", "Motion detected") + '</h3><div class="thumbs">' + this.log.map((l) => '<div class="thumb" style="width:120px;height:90px;' + (l.shot ? "background-image:url(" + l.shot + ")" : "") + '"><span class="lb">' + fmtDateTime(l.at) + (l.sent ? " · " + l.sent.filter((x) => x[1]).length + " ✓" : "") + "</span></div>").join("") + "</div></div>";
+    h += '<div class="card tight small muted"><b>' + tt("Bom saber", "Good to know") + ":</b><ul style=\"margin:6px 0 0;padding-left:18px\"><li>" + tt("Mantenha o app aberto e a tela ligada; com a tela apagada o navegador desliga a câmera.", "Keep the app open and the screen on; with the screen off the browser turns the camera off.") + "</li><li>" + tt("A imagem não é gravada: fica só na memória deste aparelho enquanto a vigilância estiver ligada. Ela só sai daqui na foto do Telegram, se você marcar essa opção.", "Images are not recorded: they stay only in this device's memory while watching. They only leave in the Telegram photo, if you tick that option.") + "</li><li>" + tt("É um apoio, não substitui a presença de alguém nem um equipamento médico.", "It's a helper; it doesn't replace a person's presence or medical equipment.") + "</li></ul></div>";
     return h;
   }
 };
 ACT["vigia.start"] = () => Vigia.start();
 ACT["vigia.stop"] = () => Vigia.stop();
-ACT["vigia.cfg"] = (d, el) => Vigia.save({ [d.k]: el.type === "checkbox" ? el.checked : (d.k === "cam" || d.k === "who" ? el.value : +el.value) });
+ACT["vigia.mute"] = () => { Vigia.silence(); toast("🔕"); };
+ACT["vigia.preview"] = () => Vigia.preview();
+ACT["vigia.test"] = () => Vigia.testMsg();
+ACT["vigia.cfg"] = (d, el) => {
+  const txt = ["cam", "action", "tone", "tgToken"];
+  Vigia.save({ [d.k]: el.type === "checkbox" ? el.checked : (txt.includes(d.k) ? el.value.trim() : +el.value) });
+  if (["action", "tgOn", "waOn"].includes(d.k)) render();
+  if (d.k === "tone") Vigia.preview();
+};
+ACT["vigia.rsel"] = (d) => { const c = Vigia.cfg(); const sel = new Set(c.sel || []); if (sel.has(d.id)) sel.delete(d.id); else sel.add(d.id); Vigia.save({ sel: [...sel] }); render(); };
+ACT["vigia.rnew"] = () => Vigia.editRecip(null);
+ACT["vigia.redit"] = (d) => Vigia.editRecip(d.id);
+/* ---------- ajuda e tutoriais (passo a passo, PT/EN) ---------- */
+const HELP = () => ({
+  vigia: { t: "👁 " + tt("Modo Vigilante — como usar", "Watch mode — how to use"), steps: [
+    tt("Abra Saúde → Modo Vigilante.", "Open Health → Watch mode."),
+    tt("Em “Quando detectar movimento”, escolha: tocar alarme, mandar mensagem ou os dois.", "Under “When motion is detected”, choose: sound the alarm, send a message, or both."),
+    tt("Alarme: escolha o toque (▶ para ouvir) e o volume. Na hora do alarme, um toque em qualquer lugar da tela já cala o som.", "Alarm: pick the sound (▶ to listen) and the volume. When it rings, one tap anywhere on the screen silences it."),
+    tt("Em “Quem recebe os alertas”, toque em ＋ Cadastrar: pode ser alguém da família ou outra pessoa (vizinho, cuidador…). Marque quantas pessoas quiser.", "Under “Who gets the alerts”, tap ＋ Add: a family member or someone else (neighbor, caregiver…). Select as many as you like."),
+    tt("Mensagens automáticas vêm desligadas. Para ligar, siga a ajuda do Telegram e/ou do WhatsApp e depois use “Mandar mensagem de teste”.", "Automatic messages start off. To turn them on, follow the Telegram and/or WhatsApp help, then use “Send a test message”."),
+    tt("Aponte o celular para a pessoa, toque em ▶ Ligar a vigilância e saia antes de acabar a contagem. Deixe a tela ligada.", "Point the phone at the person, tap ▶ Start watching and leave before the countdown ends. Keep the screen on.")
+  ], more: [["vigia-telegram", "✈️ Telegram"], ["vigia-whatsapp", "💬 WhatsApp"]] },
+  "vigia-telegram": { t: "✈️ " + tt("Alertas pelo Telegram — passo a passo", "Telegram alerts — step by step"), steps: [
+    tt("No Telegram, procure <b>@BotFather</b> (tem o selo azul de verificado) e toque em <b>Começar</b>.", "In Telegram, find <b>@BotFather</b> (blue verified badge) and tap <b>Start</b>."),
+    tt("Mande <b>/newbot</b>. Ele pede um nome (ex.: <i>Vigia da Casa</i>) e depois um apelido terminado em <i>bot</i> (ex.: <i>vigiadacasa_bot</i>).", "Send <b>/newbot</b>. It asks for a name (e.g. <i>Home Watch</i>) and a username ending in <i>bot</i>."),
+    tt("Ele responde com um código grande, o <b>token</b> (algo como <i>123456:ABC-xyz…</i>). Copie.", "It replies with a long code, the <b>token</b> (like <i>123456:ABC-xyz…</i>). Copy it."),
+    tt("No app: Saúde → Modo Vigilante → Mensagens → ligue <b>Enviar pelo Telegram</b> e cole o token.", "In the app: Health → Watch mode → Messages → turn on <b>Send via Telegram</b> and paste the token."),
+    tt("Cada pessoa que vai receber abre o robô novo no Telegram (pelo apelido), toca em <b>Começar</b> e manda um “oi”.", "Each recipient opens the new bot in Telegram (by its username), taps <b>Start</b> and sends “hi”."),
+    tt("No cadastro da pessoa (Quem recebe os alertas → ✏️), toque em <b>🔎 Descobrir</b> e escolha o nome dela.", "In the person's entry (Who gets the alerts → ✏️), tap <b>🔎 Find</b> and pick their name."),
+    tt("Toque em <b>🧪 Mandar mensagem de teste</b>. Chegou? Pronto.", "Tap <b>🧪 Send a test message</b>. Arrived? Done.")
+  ], note: tt("O token é como uma senha do robô: fica só neste aparelho. Não mande para ninguém.", "The token is like the bot's password: it stays on this device only. Don't share it.") },
+  "vigia-whatsapp": { t: "💬 " + tt("Alertas pelo WhatsApp — passo a passo", "WhatsApp alerts — step by step"), steps: [
+    tt("O WhatsApp não deixa site mandar mensagem sozinho. Usamos o <b>CallMeBot</b>, um serviço gratuito que faz essa ponte.", "WhatsApp doesn't let websites send messages by themselves. We use <b>CallMeBot</b>, a free service that bridges it."),
+    tt("<b>No celular de quem vai receber</b>: abra <a href=\"https://www.callmebot.com/blog/free-api-whatsapp-messages/\" target=\"_blank\" rel=\"noopener\">callmebot.com</a> e salve nos contatos o número que aparece lá.", "<b>On the recipient's phone</b>: open <a href=\"https://www.callmebot.com/blog/free-api-whatsapp-messages/\" target=\"_blank\" rel=\"noopener\">callmebot.com</a> and save the number shown there."),
+    tt("Pelo WhatsApp, mande para esse número exatamente: <b>I allow callmebot to send me messages</b>", "On WhatsApp, send exactly this to that number: <b>I allow callmebot to send me messages</b>"),
+    tt("A resposta traz a <b>apikey</b> (um número). Anote.", "The reply contains the <b>apikey</b> (a number). Note it down."),
+    tt("No app: Saúde → Modo Vigilante → Mensagens → ligue <b>Enviar pelo WhatsApp</b>.", "In the app: Health → Watch mode → Messages → turn on <b>Send via WhatsApp</b>."),
+    tt("No cadastro da pessoa (Quem recebe os alertas → ✏️), preencha o celular com DDI (ex.: 5511999998888) e a apikey.", "In the person's entry (Who gets the alerts → ✏️), fill in the phone with country code and the apikey."),
+    tt("Toque em <b>🧪 Mandar mensagem de teste</b> e confira no WhatsApp da pessoa.", "Tap <b>🧪 Send a test message</b> and check the person's WhatsApp.")
+  ], note: tt("O CallMeBot é de terceiros e gratuito: pode atrasar ou ficar fora do ar. Por isso a tela do alarme sempre mostra WhatsApp, SMS e ligar a um toque.", "CallMeBot is a free third-party service and may be slow or down. That's why the alarm screen always shows WhatsApp, SMS and call one tap away.") }
+});
+const Help = {
+  open(k) {
+    const H = HELP(); const x = H[k];
+    if (!x) { /* índice de todas as ajudas */
+      const m = modal({ title: "❓ " + tt("Ajuda e tutoriais", "Help & tutorials"), body: '<div class="list">' + Object.keys(H).map((id) => '<div class="li click" data-h="' + id + '"><div class="main"><div class="t">' + H[id].t + '</div></div><span class="faint">›</span></div>').join("") + "</div>", foot: '<button class="btn" data-x>OK</button>' });
+      m.el.querySelectorAll("[data-h]").forEach((el) => (el.onclick = () => { m.close(); this.open(el.dataset.h); }));
+      return;
+    }
+    const m = modal({ title: x.t, body: '<ol class="helpsteps">' + x.steps.map((s) => "<li>" + s + "</li>").join("") + "</ol>" + (x.note ? '<div class="note warn" style="margin-top:10px">' + x.note + "</div>" : "") + (x.more ? '<div class="row" style="margin-top:12px">' + x.more.map((mm) => '<button class="btn ghost sm" data-h="' + mm[0] + '">' + mm[1] + "</button>").join("") + "</div>" : ""), foot: '<button class="btn ghost" data-all>' + tt("Todas as ajudas", "All help") + '</button><button class="btn" data-x>' + tt("Entendi", "Got it") + "</button>" });
+    m.el.querySelectorAll("[data-h]").forEach((el) => (el.onclick = () => { m.close(); this.open(el.dataset.h); }));
+    m.el.querySelector("[data-all]").onclick = () => { m.close(); this.open(); };
+  }
+};
+ACT.help = (d) => Help.open(d && d.t);
 
 /* =====================================================================
    RECADOS (caixa de recados entre as pessoas da família)
