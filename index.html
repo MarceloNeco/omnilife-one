@@ -396,6 +396,9 @@ svg.flag{border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.25);flex:none}
 .onetap{display:flex;flex-direction:column;gap:8px;margin-top:10px}.onetap a.done{opacity:.6}
 .twleft{min-width:0}.dayrow{position:relative;display:flex;align-items:center;gap:4px;margin:6px 0 2px}.daybtn{background:none;border:1px solid var(--border);border-radius:9px;color:var(--text);font:inherit;font-size:.85rem;font-weight:600;padding:4px 8px;cursor:pointer;white-space:nowrap}.daybtn:hover{border-color:var(--accent)}.dayinput{position:absolute;left:30px;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
 @media(max-width:420px){.twrow{flex-direction:column;align-items:stretch}.twrow .twheel{align-self:center}}
+.vlvl{display:inline-block;vertical-align:middle;width:46px;height:8px;border-radius:5px;background:var(--surface2);border:1px solid var(--border);margin-right:6px;overflow:hidden}.vlvl i{display:block;height:100%;width:0;background:var(--ok,#35d49a);transition:width .08s}
+.li.unread{background:var(--accent-soft);border-radius:10px}.udot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle}.seg.segscroll{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.seg.segscroll::-webkit-scrollbar{display:none}.seg.segscroll button{white-space:nowrap}
+.modal.gsearch{min-height:min(82vh,680px)}.searchbox.big input{font-size:1.05rem;padding-top:12px;padding-bottom:12px}.gsr{margin-top:10px;max-height:60vh;overflow:auto}.gsr .gsi{display:flex;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;gap:10px;align-items:center;padding:8px 6px;border-radius:10px;cursor:pointer}.gsr .gsi:hover,.gsr .gsi:focus{background:var(--surface2)}.gsr .gsi .main{display:flex;flex-direction:column;min-width:0}.gsr .gsi .s{font-size:.78rem;color:var(--text2)}.verbox{border-top:1px solid var(--border);padding:8px 0}.verbox summary{cursor:pointer}.verbox ul{margin:6px 0 0 0}
 .npick{border-top:1px dashed var(--border);padding-top:10px}
 .verifybox{margin:14px auto;max-width:320px;border:2px dashed var(--accent);border-radius:14px;padding:12px;background:var(--accent-soft)}
 .verifybox .vcode{font-size:2.6rem;font-weight:900;letter-spacing:.35em;color:var(--accent);margin:4px 0 2px;font-variant-numeric:tabular-nums}
@@ -438,8 +441,9 @@ ol.helpsteps li{margin:0 0 10px;line-height:1.5}
     </button>
     <span class="spacer"></span>
     <button class="iconbtn" id="sosbtn" title="Emergência"><span>🚨</span><span class="t">SOS</span></button>
+    <button class="iconbtn" id="searchbtn" title="Buscar" aria-label="Buscar">🔎</button>
     <button class="iconbtn" id="quickbtn" title="Lembrete rápido">⚡</button>
-    <button class="iconbtn" id="inboxbtn" title="Recados">📨</button>
+    <button class="iconbtn" id="inboxbtn" title="Inbox">📥</button>
     <button class="iconbtn" id="bellbtn" title="Avisos">🔔</button>
     <button class="iconbtn" id="themebtn" title="Tema">🌙</button>
     <button class="iconbtn" id="appsbtn" title="Apps">▦</button>
@@ -473,7 +477,7 @@ ol.helpsteps li{margin:0 0 10px;line-height:1.5}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.4.2";
+const APP_VERSION = "1.5.0";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1770,16 +1774,32 @@ const QR = { async svg(text) { await loadScript(LIBS.qr); const q = qrcode(0, "M
 /* ---------- voz ---------- */
 const Voice = {
   ok() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); },
+  /* fala curta (lista de compras, busca, lembrete). Se o navegador não devolver texto e a IA Gemini
+     estiver ligada, transcreve a gravação. Tocar de novo no 🎤 encerra. */
   listen(btn) {
-    return new Promise((res) => {
+    return new Promise(async (res) => {
       const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!R) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Chrome.", "No speech recognition here. Use Chrome.")); return res(""); }
-      const r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = false; r.maxAlternatives = 1;
-      if (btn) btn.classList.add("rec");
-      let done = false; const fin = (v) => { if (done) return; done = true; if (btn) btn.classList.remove("rec"); res(v || ""); };
-      r.onresult = (e) => fin(e.results[0][0].transcript);
-      r.onerror = (e) => { if (e.error && e.error !== "aborted" && e.error !== "no-speech") toast(Voice.errMsg(e.error), 8000); else if (e.error === "no-speech") toast(Voice.errMsg("no-speech")); fin(""); }; r.onend = () => fin("");
-      try { r.start(); } catch (e) { fin(""); }
+      if (!R && !AI.on()) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Google Chrome ou ligue a IA grátis em Ajustes → IA.", "No speech recognition here. Use Chrome or enable the free AI in Settings → AI.")); return res(""); }
+      if (btn && btn._stop) { btn._stop(); return res(""); }
+      let cap = null; if (AI.on() && navigator.mediaDevices) { try { cap = await Voice.capture(); } catch (e) { cap = null; } }
+      let r = null, done = false, err = "";
+      const fin = async (v) => {
+        if (done) return; done = true; clearTimeout(lim); if (btn) { btn.classList.remove("rec"); btn._stop = null; }
+        try { r && r.abort(); } catch (e) {}
+        if (cap) { const wav = await cap.stop(); if (!v && cap.peak() > 0.04 && wav.size > 16000) { toast("✨ " + tt("Transcrevendo com a IA…", "Transcribing with AI…")); try { v = await Voice.aiTranscribe(wav); } catch (e) { toast(tt("A IA não conseguiu transcrever: ", "AI couldn't transcribe: ") + e.message, 6000); } } }
+        if (!v && err && err !== "aborted") toast(Voice.errMsg(err === "no-speech" || !cap ? err : "no-speech"), 8000);
+        else if (!v && !R) toast(Voice.errMsg("no-speech"));
+        res(v || "");
+      };
+      if (btn) { btn.classList.add("rec"); btn._stop = () => fin(""); }
+      const lim = setTimeout(() => fin(""), 12000);
+      if (R) {
+        r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = false; r.maxAlternatives = 1;
+        r.onresult = (e) => fin(e.results[0][0].transcript);
+        r.onerror = (e) => { err = e.error; if (e.error === "not-allowed" || e.error === "audio-capture") { toast(Voice.errMsg(e.error), 8000); fin(""); } };
+        r.onend = () => { if (!cap) fin(""); else setTimeout(() => fin(""), 300); };
+        try { r.start(); } catch (e) { if (!cap) fin(""); }
+      }
     });
   }
 };
@@ -1844,7 +1864,8 @@ function staticTexts() {
   $("#adtag").textContent = tt("ANÚNCIO", "AD");
   $("#adclose").title = tt("Fechar anúncio", "Close ad");
   $("#quickbtn").title = tt("Lembrete rápido", "Quick reminder");
-  $("#inboxbtn").title = tt("Recados", "Messages");
+  $("#searchbtn").title = tt("Buscar em tudo (/ ou Ctrl+K)", "Search everything (/ or Ctrl+K)"); $("#searchbtn").setAttribute("aria-label", tt("Buscar", "Search"));
+  $("#inboxbtn").title = tt("Inbox: recados, avisos e alertas", "Inbox: messages, check-ins and alerts");
   $("#legalbtn").textContent = tt("Aviso legal e privacidade", "Legal notice & privacy");
   $("#vertxt").textContent = "v" + APP_VERSION;
   $("#themebtn").textContent = S.theme === "light" ? "☀️" : "🌙";
@@ -1856,7 +1877,7 @@ function staticTexts() {
 /* ---------- abas ---------- */
 const TABS = () => [
   { id: "home", ic: "🏠", t: tt("Início", "Home") },
-  { id: "inbox", ic: "📨", t: tt("Recados", "Messages") },
+  { id: "inbox", ic: "📥", t: "Inbox" },
   { id: "shop", ic: "🛒", t: tt("Compras", "Shopping") },
   { id: "agenda", ic: "📅", t: tt("Agenda", "Calendar") },
   { id: "contacts", ic: "📇", t: tt("Contatos", "Contacts") },
@@ -1873,7 +1894,7 @@ function visibleTabs() {
 }
 function tabBadge(id) {
   if (id === "shop") { const n = Shop.pendingRequests().length; return isGuardian() && n ? n : 0; }
-  if (id === "inbox") return Msgs.unread().length;
+  if (id === "inbox") return Inbox.unread();
   if (id === "family" && S.joinRequests && S.joinRequests.length && isGuardian()) return S.joinRequests.length;
   return 0;
 }
@@ -1891,12 +1912,12 @@ function bottomPick() { const p = S.prefs.bottom && S.prefs.bottom.length ? S.pr
 
 /* ---------- menu ☰ (gaveta lateral com todas as funções) ---------- */
 const DRAWER_SUBS = () => ({
-  inbox: [["in", tt("Recebidos", "Inbox")], ["out", tt("Enviados", "Sent")]],
+  inbox: [["all", tt("Tudo", "All")], ["in", tt("Recados", "Messages")], ["chk", tt("Cheguei", "Check-ins")], ["alerts", tt("Alertas", "Alerts")], ["out", tt("Enviados", "Sent")]],
   shop: [["list", tt("Lista", "List")], ["pantry", tt("Despensa", "Pantry")], ["requests", tt("Pedidos", "Requests")], ["scan", tt("Geladeira", "Fridge scan")], ["stores", tt("Onde comprar", "Where to buy")], ["history", tt("Histórico", "History")]],
   agenda: [["cal", tt("Calendário", "Calendar")], ["tasks", tt("Tarefas", "Tasks")], ["reminders", tt("Lembretes", "Reminders")], ["routine", tt("Rotina", "Routine")], ["load", tt("Delegômetro", "Load meter")], ["handover", tt("Assume a Casa", "Handover")]],
   security: [["cheguei", "✅ " + tt("Cheguei", "Check-in")], ["vigia", "👁 " + tt("Modo Vigilante", "Watch mode")], ["alertas", "📣 " + tt("Alertas", "Alerts")]],
   house: [["where", tt("Onde está?", "Where is it?")], ["maint", tt("Manutenção", "Maintenance")], ["vault", tt("Cofre", "Vault")], ["guides", tt("Guias", "Guides")]],
-  settings: [["general", tt("Geral", "General")], ["cloud", tt("Nuvem", "Cloud")], ["alerts", tt("Avisos", "Alerts")], ["data", tt("Dados", "Data")]]
+  settings: [["general", tt("Geral", "General")], ["cloud", tt("Nuvem", "Cloud")], ["alerts", tt("Avisos", "Alerts")], ["data", tt("Dados", "Data")], ["versions", tt("Versões", "Versions")]]
 });
 const Drawer = {
   fill() {
@@ -1966,6 +1987,7 @@ function renderHeader() {
   $("#hambbtn").classList.toggle("hidden", !S.booted);
   if (!S.booted) Drawer.close();
   $("#inboxbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
+  $("#searchbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   Ads.bar();
 }
 
@@ -2081,8 +2103,8 @@ function updateBadges() {
   if (!S.booted) return;
   const n = Alerts.list().filter((a) => a.level !== "info").length;
   $("#bellbtn").innerHTML = "🔔" + (n ? '<span class="dot">' + (n > 99 ? "99+" : n) + "</span>" : "");
-  const u = Msgs.unread().length;
-  $("#inboxbtn").innerHTML = "📨" + (u ? '<span class="dot">' + (u > 99 ? "99+" : u) + "</span>" : "");
+  const u = Inbox.unread();
+  $("#inboxbtn").innerHTML = "📥" + (u ? '<span class="dot">' + (u > 99 ? "99+" : u) + "</span>" : "");
   /* número no ícone do app instalado (quando o aparelho aceita) */
   try { if (navigator.setAppBadge) { if (u) navigator.setAppBadge(u); else navigator.clearAppBadge(); } } catch (e) {}
 }
@@ -2279,7 +2301,7 @@ function startVisitor() {
 
 /* ---------- inicia o app (depois de entrar) ---------- */
 async function startApp() {
-  S.gate = null; S.booted = true;
+  S.gate = null; S.booted = true; Versions.load();
   if (!location.hash || /^#convite=/.test(location.hash)) history.replaceState(null, "", location.pathname + "#/" + (S.mode === "advertiser" ? "ads" : "home"));
   parseRoute();
   if (S.prefs.bioLock && Bio.cred() && (S.mode === "local" || S.mode === "cloud") && !S.unlocked) {
@@ -2333,6 +2355,7 @@ function wireHeader() {
   $("#quickbtn").onclick = () => Reminders.quick();
   Drawer.wire();
   $("#inboxbtn").onclick = () => go("inbox");
+  $("#searchbtn").onclick = () => Search.open();
   /* no celular, um toque pausa o carrossel e outro solta */
   $("#adview").addEventListener("touchstart", (e) => { if (!e.target.closest("a")) $("#adview").classList.toggle("paused"); }, { passive: true });
   Ads.load();
@@ -4680,34 +4703,73 @@ Voice.errMsg = function (code) {
     "language-not-supported": tt("O idioma não é aceito pelo reconhecimento de voz deste navegador.", "Language not supported by this browser's speech recognition.")
   })[code] || tt("O reconhecimento de voz parou (" + code + "). Tente de novo ou use o ditado do teclado.", "Speech recognition stopped (" + code + "). Try again or use keyboard dictation.");
 };
-/* ditado contínuo: mostra o que ouve, o botão ✓ OK sempre encerra (mesmo se o navegador travar) */
+/* gravação do microfone em WAV 16 kHz + medidor de volume (para diagnóstico e para transcrever com a IA) */
+Voice.capture = async function (onLevel) {
+  const ms = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  const AC = window.AudioContext || window.webkitAudioContext; let ac;
+  try { ac = new AC({ sampleRate: 16000 }); } catch (e) { ac = new AC(); }
+  const src = ac.createMediaStreamSource(ms), proc = ac.createScriptProcessor(4096, 1, 1), bufs = []; let peak = 0, total = 0;
+  proc.onaudioprocess = (e) => { const d = e.inputBuffer.getChannelData(0); let m = 0; for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > m) m = v; } peak = Math.max(peak, m); if (onLevel) onLevel(m); if (total < ac.sampleRate * 90) { bufs.push(new Float32Array(d)); total += d.length; } };
+  src.connect(proc); proc.connect(ac.destination);
+  const label = (ms.getAudioTracks()[0] || {}).label || "";
+  return {
+    label, peak: () => peak,
+    async stop() {
+      try { proc.disconnect(); src.disconnect(); } catch (e) {} ms.getTracks().forEach((t) => t.stop());
+      const rate = ac.sampleRate; try { await ac.close(); } catch (e) {}
+      const n = bufs.reduce((a, b) => a + b.length, 0), dv = new DataView(new ArrayBuffer(44 + n * 2));
+      const w = (o, t) => [...t].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+      w(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); w(8, "WAVE"); w(12, "fmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true); dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, "data"); dv.setUint32(40, n * 2, true);
+      let o = 44; bufs.forEach((b) => { for (let i = 0; i < b.length; i++, o += 2) { const v = Math.max(-1, Math.min(1, b[i])); dv.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); } });
+      return new Blob([dv], { type: "audio/wav" });
+    }
+  };
+};
+Voice.aiTranscribe = async function (wav) {
+  const b64 = await blobToB64(wav);
+  const t = await AI.ask(tt("Transcreva exatamente o que é falado neste áudio, em português do Brasil. Responda só com o texto falado, sem comentários. Se não houver fala, responda vazio.", "Transcribe exactly what is spoken in this audio. Reply with the spoken text only, no comments. If there's no speech, reply empty."), [{ mime: "audio/wav", b64 }]);
+  return String(t || "").replace(/^["“]|["”]$/g, "").trim();
+};
+/* ditado: usa o reconhecimento do navegador e, ao mesmo tempo, grava o áudio.
+   Se o navegador não devolver texto (acontece no Chrome do computador), a IA Gemini transcreve a gravação.
+   O ✓ OK sempre encerra. O medidor mostra se o microfone está captando som. */
 Voice.dictate = async function (input, mic, okb, statusEl) {
   const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!R) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Google Chrome — ou, no Windows, clique no campo e aperte ⊞ Win + H.", "No speech recognition here. Use Google Chrome — or on Windows press ⊞ Win + H in the field."), 6000); return; }
+  if (!R && !AI.on()) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Google Chrome, ligue a IA grátis em Ajustes → IA — ou, no Windows, clique no campo e aperte ⊞ Win + H.", "No speech recognition here. Use Google Chrome, enable the free AI in Settings → AI — or on Windows press ⊞ Win + H."), 7000); return; }
   if (Voice.cur) { Voice.cur.finish(); return; }
-  const say = (t) => { if (statusEl) { statusEl.textContent = t || ""; statusEl.classList.toggle("hidden", !t); } };
-  /* pede o microfone antes: assim o aviso de permissão aparece e dá para saber se foi bloqueado */
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    try { const ms = await navigator.mediaDevices.getUserMedia({ audio: true }); ms.getTracks().forEach((t) => t.stop()); }
-    catch (e) { toast(Voice.errMsg(e && e.name === "NotFoundError" ? "audio-capture" : "not-allowed"), 8000); return; }
-  }
-  const base = input.value.trim(); let fin = "", inter = "", done = false, heard = false;
-  const r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1;
-  const end = (err) => {
+  const lvl = document.createElement("span"); lvl.className = "vlvl"; lvl.innerHTML = "<i></i>";
+  const say = (t) => { if (!statusEl) return; statusEl.textContent = t || ""; if (t) statusEl.prepend(lvl); statusEl.classList.toggle("hidden", !t); };
+  let cap = null;
+  try { cap = await Voice.capture((m) => { lvl.firstChild.style.width = Math.min(100, Math.round(m * 260)) + "%"; }); }
+  catch (e) { toast(Voice.errMsg(e && e.name === "NotFoundError" ? "audio-capture" : "not-allowed"), 8000); return; }
+  const base = input.value.trim(); let fin = "", inter = "", done = false, heard = false, r = null, lastErr = "";
+  const finishAll = async () => {
     if (done) return; done = true; Voice.cur = null; clearTimeout(quiet);
-    mic.classList.remove("rec"); okb.classList.add("hidden"); say("");
-    input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim();
-    if (err && err !== "aborted") toast(Voice.errMsg(err), 8000);
+    try { r && r.abort(); } catch (e) {}
+    const wav = await cap.stop(); const peak = cap.peak();
+    let txt = (fin + " " + inter).trim();
+    mic.classList.remove("rec"); okb.classList.add("hidden");
+    if (!txt && peak > 0.04 && AI.on() && wav.size > 16000) {
+      say("✨ " + tt("Transcrevendo com a IA…", "Transcribing with AI…")); mic.disabled = true;
+      try { txt = await Voice.aiTranscribe(wav); } catch (e) { toast(tt("A IA não conseguiu transcrever: ", "AI couldn't transcribe: ") + e.message, 7000); }
+      mic.disabled = false;
+    }
+    say(""); input.value = (base + " " + txt).replace(/\s+/g, " ").trim();
+    if (txt) return;
+    if (peak <= 0.04) toast("🔇 " + tt("O microfone não captou som" + (cap.label ? " (" + cap.label + ")" : "") + ". No Windows, abra Configurações → Sistema → Som → Entrada e escolha o microfone certo como padrão (o Chrome usa o padrão do Windows); confira também se ele não está mudo.", "The microphone picked up no sound" + (cap.label ? " (" + cap.label + ")" : "") + ". In your system's sound settings, set the right microphone as default input and make sure it isn't muted."), 10000);
+    else if (!AI.on()) toast("🎙️ " + tt("O microfone captou sua voz, mas o serviço de voz do navegador não devolveu texto" + (lastErr ? " (" + lastErr + ")" : "") + ". Para funcionar no computador: ligue a IA grátis em Ajustes → IA (chave Gemini) — o app passa a transcrever sozinho. Ou clique no campo e aperte ⊞ Win + H.", "The mic heard you, but the browser's speech service returned no text. To make it work on a computer: enable the free AI in Settings → AI (Gemini key) — the app will transcribe by itself. Or press ⊞ Win + H in the field."), 12000);
   };
-  Voice.cur = { finish: () => { try { r.stop(); } catch (e) {} setTimeout(() => { try { r.abort(); } catch (e) {} end(); }, 700); } };
-  mic.classList.add("rec"); okb.classList.remove("hidden"); say("🎙️ " + tt("Ouvindo… fale agora. Toque em ✓ OK quando terminar.", "Listening… speak now. Tap ✓ OK when done."));
-  const quiet = setTimeout(() => { if (!heard && !done) say("🤔 " + tt("Ainda não ouvi nada. Confira o microfone — ou toque em ✓ OK para parar.", "Nothing heard yet. Check the mic — or tap ✓ OK to stop.")); }, 7000);
-  r.onaudiostart = () => say("🎙️ " + tt("Microfone ligado. Pode falar.", "Mic on. Go ahead."));
-  r.onresult = (e) => { heard = true; inter = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += (fin ? " " : "") + e.results[i][0].transcript.trim(); else inter += e.results[i][0].transcript; } input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim(); say("🎙️ " + tt("Ouvindo…", "Listening…")); };
-  r.onerror = (e) => end(e.error);
-  r.onend = () => end();
-  okb.onclick = (e) => { e.preventDefault(); e.stopPropagation(); if (Voice.cur) Voice.cur.finish(); };
-  try { r.start(); } catch (e) { end("start"); }
+  Voice.cur = { finish: finishAll };
+  mic.classList.add("rec"); okb.classList.remove("hidden"); say(tt("Ouvindo… fale agora. Toque em ✓ OK quando terminar.", "Listening… speak now. Tap ✓ OK when done."));
+  const quiet = setTimeout(() => { if (!heard && !done) say(cap.peak() > 0.04 ? tt("Estou gravando. Toque em ✓ OK quando terminar", "Recording. Tap ✓ OK when done") + (AI.on() ? tt(" — a IA transcreve.", " — AI will transcribe.") : ".") : tt("Não estou captando som. Confira o microfone — ou toque em ✓ OK para parar.", "No sound coming in. Check the mic — or tap ✓ OK to stop.")); }, 6000);
+  okb.onclick = (e) => { e.preventDefault(); e.stopPropagation(); finishAll(); };
+  if (R) {
+    r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1;
+    r.onresult = (e) => { heard = true; inter = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += (fin ? " " : "") + e.results[i][0].transcript.trim(); else inter += e.results[i][0].transcript; } input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim(); say(tt("Ouvindo…", "Listening…")); };
+    r.onerror = (e) => { lastErr = e.error; if (e.error === "not-allowed" || e.error === "audio-capture") { toast(Voice.errMsg(e.error), 8000); finishAll(); } };
+    r.onend = () => { if (!done && heard) finishAll(); };
+    try { r.start(); } catch (e) { r = null; }
+  }
 };
 
 /* ---------- meus contatos (de cada pessoa, guardados só neste aparelho) ---------- */
@@ -5062,6 +5124,13 @@ SCREENS.security = {
 
 /* ---------- ajuda e tutoriais (passo a passo, PT/EN) ---------- */
 const HELP = () => ({
+  inbox: { t: "📥 " + tt("Inbox, busca e voz", "Inbox, search and voice"), steps: [
+    tt("<b>📥 Inbox</b> (botão no topo e aba Inbox): junta os recados, os avisos de “Cheguei” e “Estou saindo” e os alertas da família. A aba <b>Tudo</b> mostra os alertas de agora e, embaixo, recados e avisos em ordem de horário. O número no ícone conta o que você ainda não viu.", "<b>📥 Inbox</b> (top button and Inbox tab): gathers messages, check-ins and family alerts. <b>All</b> shows current alerts and then messages and check-ins by time. The number on the icon counts what you haven't seen."),
+    tt("Em cada aviso de chegada dá para ver o recado, abrir o 📍 mapa e tocar em <b>💬 Responder</b>.", "On each check-in you can read the note, open the 📍 map and tap <b>💬 Reply</b>."),
+    tt("<b>🔎 Busca</b> (lupa no topo, ou tecla / ou Ctrl+K no computador): procura em tudo — funções do app, pessoas, contatos, compras, despensa, agenda, tarefas, lembretes, recados, documentos, objetos da casa e ajudas. Enter abre o primeiro resultado.", "<b>🔎 Search</b> (top magnifier, or / or Ctrl+K): finds anything — features, people, contacts, shopping, pantry, calendar, tasks, reminders, messages, documents, household objects and help. Enter opens the first result."),
+    tt("<b>🎤 Voz no computador:</b> o Chrome do computador às vezes grava mas não devolve texto. Ligue a IA grátis em Ajustes → IA (chave Gemini): o app passa a transcrever a gravação sozinho. O medidor verde ao lado de “Ouvindo…” mostra se o microfone está captando som.", "<b>🎤 Voice on computers:</b> desktop Chrome sometimes records but returns no text. Turn on the free AI in Settings → AI (Gemini key): the app will transcribe the recording itself. The green meter next to “Listening…” shows whether the mic picks up sound."),
+    tt("<b>🆕 Versões:</b> em Ajustes → Versões você vê a versão instalada e o que entrou em cada uma.", "<b>🆕 Versions:</b> Settings → Versions shows the installed version and what each one brought.")
+  ] },
   familia: { t: "👨‍👩‍👧 " + tt("Família — como as pessoas entram, com segurança", "Family — how people join, safely"), steps: [
     tt("<b>Criar a família:</b> quem abre o app primeiro entra com Google ou e-mail e toca em “Criar família”. Essa pessoa vira <b>👑 Chefe</b> e “criadora” da família.", "<b>Create the family:</b> whoever opens the app first signs in with Google or e-mail and taps “Create family”. They become <b>👑 Head</b> and the family's “creator”."),
     tt("<b>Papéis:</b> 👑 <b>Chefe</b> (administra tudo — pode haver vários: pai, mãe, avó…), 🛡️ <b>Responsável/tutor</b> (vê tudo, aprova pedidos e a entrada de adultos e crianças, abre o cofre), 🧑 <b>Membro adulto</b> e 🧒 <b>Criança/jovem</b> (com controle parental). Além do papel, cada pessoa pode ter um ou mais <b>títulos</b> (Chefe da família, Mãe, Tutor legal…) em ✏️.", "<b>Roles:</b> 👑 <b>Head</b> (manages everything — there can be several: dad, mom, grandma…), 🛡️ <b>Guardian/tutor</b> (sees all, approves requests and adult/child joins, opens the vault), 🧑 <b>Adult member</b> and 🧒 <b>Child/teen</b> (with parental controls). Besides the role, each person can have one or more <b>titles</b> (Head of family, Mother, Legal guardian…) in ✏️."),
@@ -5243,18 +5312,136 @@ const Msgs = {
     return '<div class="li click' + (unread ? " unread" : "") + '" data-act="msg.open" data-id="' + m.id + '"><div class="ico">' + p.ic + '</div><div class="main"><div class="t">' + esc(m.title || "—") + (m.repeat && m.repeat !== "none" ? " 🔁" : "") + '</div><div class="s">' + esc(mode === "out" ? tt("para ", "to ") + this.toTxt(m) : tt("de ", "from ") + People.name(m.from) + ((m.to || []).length ? "" : " · " + tt("para todos", "to everyone"))) + " · " + fmtDate(this.occ(m) || m.start, "short") + (m.body ? " · " + esc(String(m.body).slice(0, 80)) : "") + "</div></div>" + status + "</div>";
   }
 };
+
+/* ---------- versões (o que entrou em cada uma) ----------
+   A lista fica embutida aqui e também em versoes.json (padrão de todos os apps). Se o
+   versoes.json do site for mais novo, ele vale. */
+const VERSOES_EMB = [{"v": "1.5.0", "d": "2026-09-25", "pt": ["📥 Inbox: recados, avisos do Cheguei e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados", "🔎 Lupa de busca no topo: procura em tudo (funções, pessoas, contatos, compras, agenda, tarefas, lembretes, recados, documentos, objetos e ajudas). Atalho: tecla / ou Ctrl+K", "🆕 Versões em Ajustes, com o que entrou em cada uma", "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Ajustes → IA) transcreve a gravação; medidor mostra se o microfone capta som"], "en": ["📥 Inbox: messages, check-ins and alerts in one place, with All, Messages, Check-ins, Alerts, Sent and Archived tabs", "🔎 Search at the top: finds everything (features, people, contacts, shopping, calendar, tasks, reminders, messages, documents, objects and help). Shortcut: / or Ctrl+K", "🆕 Versions in Settings, with what each one brought", "🎤 Dictation that works on computers: if Chrome returns no text, Gemini AI (Settings → AI) transcribes the recording; a meter shows whether the mic picks up sound"]}, {"v": "1.4.2", "d": "2026-09-25", "pt": ["📅 Dia da chegada com dia da semana, mudável", "🎤 ✓ OK sempre encerra o ditado e o app explica o motivo quando o reconhecimento de voz falha"], "en": ["📅 Arrival day with weekday, changeable", "🎤 ✓ OK always stops dictation and the app explains why speech recognition failed"]}, {"v": "1.4.1", "d": "2026-09-24", "pt": ["✅ Cheguei com mais lugares (Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… e Outro)", "“Complemente a informação” com sugestões do que já foi escrito", "🕐 Horário em roda para ajustar", "📣 Escolha de quem recebe a notificação e por onde (Notificação, WhatsApp, Telegram, SMS, e-mail); contatos da agenda e novo contato com país e DDD", "📇 Meus contatos"], "en": ["✅ Check-in with more places (Bar, Friends' home, Airport, Bus station, Subway… and Other)", "“Add details” with suggestions from what you typed before", "🕐 Scroll wheel to adjust the time", "📣 Choose who gets notified and how (Push, WhatsApp, Telegram, SMS, e-mail); phone contacts and new contact with country and area code", "📇 My contacts"]}, {"v": "1.4.0", "d": "2026-09-24", "pt": ["👑 Vários chefes da família com direitos de administrador", "✉️ Convites com prazo, limite de pessoas e papel; compartilháveis por WhatsApp, e-mail, link ou QR", "🔢 Código de confirmação de 4 números e aprovação por 1 ou 2 chefes", "🧒 Consentimento do responsável para crianças (LGPD art. 14)", "📜 Histórico de segurança", "❓ Tutoriais de entrada na família"], "en": ["👑 Several family heads with admin rights", "✉️ Invites with deadline, people limit and role; shareable by WhatsApp, e-mail, link or QR", "🔢 4-digit confirmation code and approval by 1 or 2 heads", "🧒 Guardian consent for children (LGPD art. 14)", "📜 Security log", "❓ Family joining tutorials"]}, {"v": "1.3.0", "d": "2026-09-24", "pt": ["🛡️ Nova área Segurança", "✅ Aviso “Cheguei” e “Estou saindo”, com horários combinados e alerta de atraso", "👁 Modo Vigilante com flash piscando e tela escura", "📣 Alertas: Telegram, WhatsApp, e-mail e ntfy num lugar só"], "en": ["🛡️ New Safety area", "✅ “I'm here” and “I'm leaving” check-ins, with scheduled times and late alerts", "👁 Watch mode with flashing light and dark screen", "📣 Alerts: Telegram, WhatsApp, e-mail and ntfy in one place"]}, {"v": "1.2.4", "d": "2026-09-24", "pt": ["Vigilante: Telegram e WhatsApp desligados por padrão", "Cadastro de quem recebe os alertas (família ou outra pessoa), com seleção múltipla", "Ajuda passo a passo de Telegram e WhatsApp"], "en": ["Watch mode: Telegram and WhatsApp off by default", "Register who gets alerts (family or someone else), multi-select", "Step-by-step help for Telegram and WhatsApp"]}, {"v": "1.2.3", "d": "2026-09-24", "pt": ["Vigilante: alarme, mensagem ou os dois", "4 toques de alarme, silenciar na hora", "Telegram com foto e WhatsApp automático"], "en": ["Watch mode: alarm, message or both", "4 alarm tones, silence instantly", "Telegram with photo and automatic WhatsApp"]}, {"v": "1.2.2", "d": "2026-09-24", "pt": ["☰ só depois de entrar", "Aviso “↓ Mais opções abaixo” no menu", "Digital ou rosto no lugar do PIN"], "en": ["☰ only after signing in", "“↓ More options below” hint in the menu", "Fingerprint or face instead of PIN"]}, {"v": "1.2.1", "d": "2026-09-24", "pt": ["☰ no topo com todas as funções", "Barra de baixo só com favoritos", "Abertura suave dos menus"], "en": ["☰ at the top with every feature", "Bottom bar with favorites only", "Smooth menu opening"]}, {"v": "1.2.0", "d": "2026-09-24", "pt": ["📨 Recados entre a família com prioridade e lido/não lido", "✅ Tarefas feitas, postergadas ou canceladas, com foto", "⚡ Lembretes rápidos", "👁 Modo Vigilante", "🎂 Dados e aniversários da família", "💎 Plano da família", "Faixa do topo com PT | EN e anúncios (da 1.1.0)"], "en": ["📨 Family messages with priority and read receipts", "✅ Tasks done, postponed or cancelled, with photo", "⚡ Quick reminders", "👁 Watch mode", "🎂 Family data and birthdays", "💎 Family plan", "Top strip with PT | EN and ads (from 1.1.0)"]}, {"v": "1.0.1", "d": "2026-09-22", "pt": ["Ajustes e correções da primeira versão"], "en": ["Tweaks and fixes to the first version"]}, {"v": "1.0.0", "d": "2026-09-18", "pt": ["Primeira versão: compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e família"], "en": ["First version: shopping and pantry, calendar, contacts, health, documents, “Where is it?”, vault and family"]}];
+const Versions = {
+  KEY: "omnilife.versionSeen.v1",
+  list() { return (S.versoes && S.versoes.length ? S.versoes : VERSOES_EMB); },
+  async load() { try { const r = await fetch("versoes.json", { cache: "no-cache" }); if (r.ok) { const j = await r.json(); if (Array.isArray(j) && j.length && j[0].v) S.versoes = j; } } catch (e) {} },
+  isNew() { return lsGet(this.KEY, "") !== APP_VERSION; },
+  seen() { lsSet(this.KEY, APP_VERSION); },
+  view() {
+    const nw = this.isNew();
+    const h = '<div class="card"><div class="between"><h3>🆕 ' + tt("Versões", "Versions") + '</h3><span class="badge acc">v' + APP_VERSION + "</span></div>" +
+      '<p class="small muted">' + tt("O que entrou em cada versão do OmniLifeONE. Se aqui aparecer uma versão mais antiga que a publicada, feche e abra o app (ou recarregue a página) para atualizar.", "What each OmniLifeONE version brought. If this shows an older version than published, close and reopen the app (or reload) to update.") + "</p>" +
+      this.list().map((v, i) => '<details class="verbox"' + (i < 2 ? " open" : "") + '><summary><b>v' + esc(v.v) + "</b> · " + fmtDate(v.d) + (i === 0 && nw ? ' <span class="badge ok">✨ ' + tt("novidades", "new") + "</span>" : "") + (v.v === APP_VERSION ? ' <span class="badge">' + tt("esta", "current") + "</span>" : "") + '</summary><ul class="small">' + ((S.lang === "pt" ? v.pt : v.en) || v.pt || []).map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul></details>").join("") + "</div>";
+    if (nw) setTimeout(() => { this.seen(); updateBadges(); }, 1500);
+    return h;
+  }
+};
+
+/* ---------- 🔎 busca geral (lupa do topo) ---------- */
+const Search = {
+  sources() {
+    const out = [];
+    const add = (grp, ic, t, s, fn, extra) => out.push({ grp, ic, t: t || "", s: s || "", fn, q: norm([t, s, extra].filter(Boolean).join(" ")) });
+    const G = (k) => ({ fn: tt("Funções", "Features"), pp: tt("Pessoas", "People"), ct: tt("Contatos", "Contacts"), sh: tt("Compras e despensa", "Shopping & pantry"), ag: tt("Agenda, tarefas e lembretes", "Calendar, tasks & reminders"), ms: tt("Recados", "Messages"), dc: tt("Documentos", "Documents"), hs: tt("Casa", "Home"), hp: tt("Ajuda", "Help") })[k];
+    const subs = DRAWER_SUBS();
+    TABS().filter((t) => canTab(t.id)).forEach((t) => { add(G("fn"), t.ic, t.t, "", () => go(t.id)); (subs[t.id] || []).forEach((x) => add(G("fn"), t.ic, t.t + " → " + x[1].replace(/^\S+\s/, (m) => /\p{Extended_Pictographic}/u.test(m) ? "" : m), "", () => go(t.id, x[0]))); });
+    add(G("fn"), "🆕", tt("Versões e novidades", "Versions & what's new"), tt("Ajustes", "Settings"), () => go("settings", "versions"));
+    add(G("fn"), "✅", tt("Avisar que cheguei", "Check in"), tt("Segurança", "Safety"), () => Cheguei.arrive());
+    add(G("fn"), "⚡", tt("Lembrete rápido", "Quick reminder"), "", () => $("#quickbtn").click());
+    People.list().forEach((p) => add(G("pp"), People.emoji(p), p.nick || p.name, "", () => go("family"), [p.name, p.phone, p.email].join(" ")));
+    if (canTab("contacts")) Contacts.list().forEach((c) => add(G("ct"), "📇", c.name, [c.org, (c.phones || [])[0], c.email].filter(Boolean).join(" · "), () => go("contacts", "list", c.id), c.address));
+    MyContacts.list().forEach((c) => add(G("ct"), "🙋", c.name, [c.phone, c.email].filter(Boolean).join(" · "), () => go("security", "alertas")));
+    Shop.open().forEach((i) => add(G("sh"), "🛒", i.name, tt("na lista de compras", "on the shopping list"), () => go("shop")));
+    DB.all("items").forEach((i) => add(G("sh"), "🥫", i.name, tt("despensa", "pantry"), () => go("shop", "pantry")));
+    DB.all("events").forEach((e) => add(G("ag"), "📅", e.title, fmtDate(e.date) + (e.time ? " " + fmtTime(e.time) : ""), () => { S.calDay = e.date; go("agenda"); }, e.notes));
+    DB.all("tasks").filter((t) => Tasks.isOpen(t)).forEach((t) => add(G("ag"), "✅", t.title, People.name(t.assignee), () => go("agenda", "tasks"), t.notes));
+    DB.all("reminders").forEach((r) => add(G("ag"), "📌", r.title, "", () => go("agenda", "reminders")));
+    DB.all("msgs").filter((m) => Msgs.forMe(m) || m.from === S.meId).forEach((m) => add(G("ms"), "📨", m.title || tt("Recado", "Message"), People.name(m.from), () => Msgs.open(m.id), m.body));
+    if (canTab("docs")) DB.all("docs").filter((d) => canSee(d)).forEach((d) => add(G("dc"), "📄", d.title, People.name(d.owner), () => go("docs", null, d.id), d.number));
+    DB.all("things").forEach((t) => add(G("hs"), "🔹", t.name, tt("Onde está?", "Where is it?"), () => ACT["where.open"]({ type: "thing", id: t.id }), (t.tags || []).join(" ")));
+    DB.all("maint").forEach((m) => add(G("hs"), "🛠", m.title, tt("manutenção", "maintenance"), () => go("house", "maint")));
+    const H = HELP(); Object.keys(H).forEach((k) => add(G("hp"), "❓", H[k].t.replace(/<[^>]+>/g, ""), "", () => Help.open(k), H[k].steps.join(" ").replace(/<[^>]+>/g, "")));
+    return out;
+  },
+  find(q) {
+    const toks = norm(q).split(/\s+/).filter(Boolean); if (!toks.length) return [];
+    return this.sources().map((x) => { let sc = 0; for (const t of toks) { if (!x.q.includes(t)) return null; sc += norm(x.t).startsWith(t) ? 3 : norm(x.t).includes(t) ? 2 : 1; } return Object.assign({ sc }, x); }).filter(Boolean).sort((a, b) => b.sc - a.sc).slice(0, 60);
+  },
+  open(pre) {
+    const body = '<div class="searchbox big"><span class="lead">🔎</span><input type="search" id="gsq" autocomplete="off" placeholder="' + tt("Buscar em tudo: pessoas, contatos, itens, agenda, recados…", "Search everything: people, contacts, items, calendar, messages…") + '" value="' + esc(pre || "") + '"></div><div id="gsr" class="gsr" aria-live="polite"></div>';
+    const m = modal({ title: "🔎 " + tt("Buscar", "Search"), body, wide: true, cls: "gsearch", foot: '<span class="tiny faint">' + tt("Dica: tecla / ou Ctrl+K abre a busca", "Tip: press / or Ctrl+K to search") + '</span><button class="btn ghost" data-x>' + tt("Fechar", "Close") + "</button>" });
+    const el = m.el, inp = $("#gsq", el), box = $("#gsr", el); let res = [];
+    const draw = () => {
+      const q = inp.value.trim();
+      if (!q) { box.innerHTML = '<div class="empty tiny">' + tt("Digite o que procura. Ex.: “Sofia”, “leite”, “dentista”, “RG”, “cheguei”.", "Type what you're looking for. e.g. “Sofia”, “milk”, “dentist”.") + "</div>"; return; }
+      res = this.find(q); let last = "";
+      box.innerHTML = res.length ? res.map((r, i) => (r.grp !== last ? '<div class="grouph">' + esc((last = r.grp)) + "</div>" : "") + '<button type="button" class="li click gsi" data-i="' + i + '"><span class="ico">' + r.ic + '</span><span class="main"><span class="t">' + esc(r.t) + "</span>" + (r.s ? '<span class="s">' + esc(r.s) + "</span>" : "") + '</span><span class="faint">›</span></button>').join("") : '<div class="empty tiny">' + tt("Nada encontrado para “", "Nothing found for “") + esc(q) + "”.</div>";
+    };
+    let t; inp.oninput = () => { clearTimeout(t); t = setTimeout(draw, 120); };
+    inp.onkeydown = (e) => { if (e.key === "Enter" && res[0]) { e.preventDefault(); m.close(); res[0].fn(); } };
+    box.onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) return; const r = res[+b.dataset.i]; m.close(); r.fn(); };
+    draw(); setTimeout(() => inp.focus(), 60);
+  }
+};
+document.addEventListener("keydown", (e) => {
+  if (!S.booted || S.mode === "advertiser" || $(".mback")) return;
+  const typing = /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || "") || (document.activeElement || {}).isContentEditable;
+  if ((e.key === "/" && !typing) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k")) { e.preventDefault(); Search.open(); }
+});
+/* ---------- Inbox: recados, avisos do Cheguei e alertas num lugar só ---------- */
+const Inbox = {
+  KEY: "omnilife.inboxSeen.v1",
+  seen() { return (lsGet(this.KEY, {})[S.meId] || ""); },
+  markSeen() { const a = lsGet(this.KEY, {}); a[S.meId] = new Date().toISOString(); lsSet(this.KEY, a); },
+  /* avisos de chegada/saída dos últimos 7 dias (de todos da família) */
+  checkins() { const from = new Date(Date.now() - 7 * 864e5).toISOString(); return Cheguei.list().filter((c) => (c.sentAt || c.at) >= from); },
+  forMe(c) { return c.by !== S.meId && (c.pushTo === undefined || c.pushTo === "all" || (Array.isArray(c.pushTo) && c.pushTo.includes(S.meId))); },
+  newChk() { const s = this.seen(); return this.checkins().filter((c) => c.by !== S.meId && (c.sentAt || c.at) > s); },
+  unread() { return Msgs.unread().length + this.newChk().length; },
+  chkRow(c) {
+    const isNew = c.by !== S.meId && (c.sentAt || c.at) > this.seen();
+    const t = c.type === "cheguei"
+      ? tt("chegou", "arrived") + (c.place ? tt(" em ", " at ") + esc(c.place) : "") + (c.detail ? ' <span class="faint">(' + esc(c.detail) + ")</span>" : "") + tt(" às ", " at ") + fmtTime(new Date(c.at).toTimeString().slice(0, 5))
+      : tt("está saindo", "is leaving") + (c.to ? tt(" para ", " to ") + esc(c.to) : "") + (c.eta ? tt(" · chega ~", " · ETA ~") + fmtTime(String(c.eta).slice(11, 16)) : "");
+    return '<div class="li' + (isNew ? " unread" : "") + '"><div class="ico">' + (c.type === "cheguei" ? "✅" : "🚶") + '</div><div class="main"><div class="t" style="white-space:normal">' + (isNew ? '<span class="udot"></span>' : "") + "<b>" + esc(People.name(c.by)) + (c.by === S.meId ? " (" + tt("você", "you") + ")" : "") + "</b> " + t + "</div>" +
+      (c.note ? '<div class="s" style="white-space:normal">💬 ' + esc(c.note) + "</div>" : "") +
+      '<div class="s">' + fmtDateTime(c.sentAt || c.at) + (c.lat != null ? ' · <a href="' + Cheguei.mapLink(c) + '" target="_blank" rel="noopener">📍 ' + tt("mapa", "map") + "</a>" : "") + "</div></div>" +
+      (c.by !== S.meId ? '<button class="btn xs ghost" data-act="inbox.reply" data-id="' + c.by + '" data-t="' + esc(c.type === "cheguei" ? tt("Que bom que chegou! ", "Glad you made it! ") : tt("Boa viagem! ", "Safe trip! ")) + '">💬 ' + tt("Responder", "Reply") + "</button>" : "") + "</div>";
+  },
+  alertRow(a) { return '<div class="li click" data-act="go" data-tab="' + a.go[0] + '" data-sub="' + (a.go[1] || "") + '" data-arg="' + (a.go[2] || "") + '"><div class="ico">' + a.ic + '</div><div class="main"><div class="t" style="white-space:normal">' + esc(a.t) + '</div></div><span class="badge ' + (a.level === "bad" ? "bad" : a.level === "warn" ? "warn" : "") + '">' + (a.level === "bad" ? tt("urgente", "urgent") : a.level === "warn" ? tt("atenção", "heads-up") : "info") + "</span></div>"; },
+  /* feed único em ordem de tempo: recados recebidos + avisos do Cheguei */
+  feed() {
+    const items = Msgs.inbox().map((m) => ({ at: m.sentAt || m.at || m.createdAt || "", html: Msgs.row(m, "in") }))
+      .concat(this.checkins().map((c) => ({ at: c.sentAt || c.at, html: this.chkRow(c) })));
+    return items.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+  }
+};
+ACT["inbox.reply"] = (d) => Msgs.compose({ to: [d.id], title: d.t || "", prio: "fyi" });
+ACT["inbox.readall"] = () => { Inbox.markSeen(); render(); };
 SCREENS.inbox = {
   render(sub) {
-    sub = sub || "in";
-    const un = Msgs.unread().length;
-    const segs = [["in", "📥 " + tt("Recebidos", "Inbox") + (un ? ' <span class="nbadge">' + un + "</span>" : "")], ["out", "📤 " + tt("Enviados", "Sent")], ["arch", "🗄 " + tt("Arquivados", "Archived")]];
-    let h = '<div class="pagehead"><div><h1>📨 ' + tt("Recados", "Messages") + '</h1><div class="sub">' + tt("Recados entre as pessoas da família — com prioridade, repetição e quem já leu", "Messages between family members — with priority, repeats and read receipts") + '</div></div><button class="btn" data-act="msg.new">＋ ' + tt("Recado", "Message") + "</button></div>" +
-      '<div class="seg">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="inbox" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>";
-    const myTasks = DB.all("tasks").filter((t) => Tasks.isOpen(t) && t.assignee === S.meId);
-    if (sub === "in" && myTasks.length) h += '<div class="card tight click" data-act="go" data-tab="agenda" data-sub="tasks"><div class="between"><span>✅ <b>' + myTasks.length + "</b> " + tt("tarefa(s) aberta(s) para você", "open task(s) for you") + "</span><span class=\"faint\">›</span></div></div>";
-    const list = sub === "out" ? Msgs.sent() : sub === "arch" ? Msgs.archived() : Msgs.inbox();
-    h += '<div class="card">' + (list.length ? '<div class="list" aria-live="polite">' + list.map((m) => Msgs.row(m, sub === "out" ? "out" : "in")).join("") + "</div>" : '<div class="empty"><div class="e">📭</div>' + (sub === "out" ? tt("Você ainda não mandou recados.", "You haven't sent any messages yet.") : tt("Nenhum recado por aqui.", "No messages here.")) + "</div>") + "</div>";
-    if (S.mode === "local") h += '<div class="card tight small muted">📱 ' + tt("No modo “só neste aparelho”, o recado fica guardado aqui e a pessoa vê quando entrar no perfil dela. Para chegar no celular de cada um, ligue a nuvem em Ajustes → Nuvem.", "In this-device mode the message stays here and the person sees it when they open their profile. To reach everyone's phone, enable the cloud in Settings → Cloud.") + "</div>";
+    sub = sub || "all";
+    const un = Msgs.unread().length, nc = Inbox.newChk().length;
+    const al = Alerts.list().filter((a) => a.level !== "info");
+    const segs = [["all", "📥 " + tt("Tudo", "All") + (un + nc ? ' <span class="nbadge">' + (un + nc) + "</span>" : "")], ["in", "📨 " + tt("Recados", "Messages") + (un ? ' <span class="nbadge">' + un + "</span>" : "")], ["chk", "✅ " + tt("Cheguei", "Check-ins") + (nc ? ' <span class="nbadge">' + nc + "</span>" : "")], ["alerts", "🔔 " + tt("Alertas", "Alerts") + (al.length ? ' <span class="nbadge">' + al.length + "</span>" : "")], ["out", "📤 " + tt("Enviados", "Sent")], ["arch", "🗄 " + tt("Arquivados", "Archived")]];
+    let h = '<div class="pagehead"><div><h1>📥 Inbox</h1><div class="sub">' + tt("Recados, avisos do Cheguei e alertas da família num lugar só", "Messages, check-ins and family alerts in one place") + '</div></div><div class="row"><button class="btn ghost sm" data-act="chk.arrive">✅ ' + tt("Cheguei", "I'm here") + '</button><button class="btn" data-act="msg.new">＋ ' + tt("Recado", "Message") + "</button></div></div>" +
+      '<div class="seg segscroll">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="inbox" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>";
+    const empty = (e, t) => '<div class="empty"><div class="e">' + e + "</div>" + t + "</div>";
+    if (sub === "all") {
+      if (al.length) h += '<div class="card"><div class="between"><h3>🔔 ' + tt("Alertas agora", "Alerts now") + '</h3><button class="linkbtn small" data-act="go" data-tab="inbox" data-sub="alerts">' + tt("ver todos", "see all") + '</button></div><div class="list">' + al.slice(0, 4).map((a) => Inbox.alertRow(a)).join("") + "</div></div>";
+      const myTasks = DB.all("tasks").filter((t) => Tasks.isOpen(t) && t.assignee === S.meId);
+      if (myTasks.length) h += '<div class="card tight click" data-act="go" data-tab="agenda" data-sub="tasks"><div class="between"><span>✅ <b>' + myTasks.length + "</b> " + tt("tarefa(s) aberta(s) para você", "open task(s) for you") + "</span><span class=\"faint\">›</span></div></div>";
+      const f = Inbox.feed();
+      h += '<div class="card"><div class="between"><h3>🕑 ' + tt("Mensagens e avisos", "Messages and check-ins") + "</h3>" + (nc ? '<button class="linkbtn small" data-act="inbox.readall">✓ ' + tt("marcar avisos como vistos", "mark check-ins as seen") + "</button>" : "") + "</div>" + (f.length ? '<div class="list" aria-live="polite">' + f.slice(0, 60).map((x) => x.html).join("") + "</div>" : empty("📭", tt("Nada por aqui ainda. Recados e avisos de “Cheguei” aparecem aqui.", "Nothing here yet. Messages and check-ins show up here."))) + "</div>";
+    } else if (sub === "chk") {
+      const l = Inbox.checkins();
+      h += '<div class="card"><div class="between"><h3>✅ ' + tt("Chegadas e saídas (7 dias)", "Arrivals and departures (7 days)") + '</h3><button class="linkbtn small" data-act="go" data-tab="security" data-sub="cheguei">' + tt("horários combinados ›", "scheduled times ›") + "</button></div>" + (l.length ? '<div class="list">' + l.map((c) => Inbox.chkRow(c)).join("") + "</div>" : empty("✅", tt("Nenhum aviso nos últimos 7 dias.", "No check-ins in the last 7 days."))) + "</div>";
+    } else if (sub === "alerts") {
+      const all = Alerts.list();
+      h += '<div class="card">' + (all.length ? '<div class="list">' + all.map((a) => Inbox.alertRow(a)).join("") + "</div>" : empty("🔔", tt("Nenhum alerta. Tudo em ordem!", "No alerts. All good!"))) + "</div>";
+    } else {
+      const list = sub === "out" ? Msgs.sent() : sub === "arch" ? Msgs.archived() : Msgs.inbox();
+      h += '<div class="card">' + (list.length ? '<div class="list" aria-live="polite">' + list.map((m) => Msgs.row(m, sub === "out" ? "out" : "in")).join("") + "</div>" : empty("📭", sub === "out" ? tt("Você ainda não mandou recados.", "You haven't sent any messages yet.") : tt("Nenhum recado por aqui.", "No messages here."))) + "</div>";
+    }
+    if (S.mode === "local") h += '<div class="card tight small muted">📱 ' + tt("No modo “só neste aparelho”, recados e avisos ficam guardados aqui e cada pessoa vê quando entrar no perfil dela. Para chegar no celular de cada um, ligue a nuvem em Ajustes → Nuvem.", "In this-device mode messages and check-ins stay here and each person sees them in their profile. To reach everyone's phone, enable the cloud in Settings → Cloud.") + "</div>";
+    /* ao abrir Tudo ou Cheguei, os avisos novos passam a contar como vistos (depois de mostrar os destaques) */
+    if ((sub === "all" || sub === "chk") && nc) setTimeout(() => { Inbox.markSeen(); updateBadges(); }, 4000);
     return h;
   }
 };
@@ -5334,12 +5521,13 @@ ACT["setup.hide"] = () => { S.prefs.hideSetup = true; savePrefs(); render(); };
 SCREENS.settings = {
   render(sub) {
     sub = sub || "general";
-    const segs = [["general", "⚙️ " + tt("Geral", "General")], ["cloud", "☁️ " + tt("Nuvem", "Cloud")], ["ai", "🤖 IA"], ["alerts", "🔔 " + tt("Avisos", "Alerts")], ["integr", "🔗 " + tt("Integrações", "Integrations")], ["data", "💾 " + tt("Dados", "Data")]];
+    const segs = [["general", "⚙️ " + tt("Geral", "General")], ["cloud", "☁️ " + tt("Nuvem", "Cloud")], ["ai", "🤖 IA"], ["alerts", "🔔 " + tt("Avisos", "Alerts")], ["integr", "🔗 " + tt("Integrações", "Integrations")], ["data", "💾 " + tt("Dados", "Data")], ["versions", "🆕 " + tt("Versões", "Versions") + (Versions.isNew() ? ' <span class="nbadge">1</span>' : "")]];
     if (S.mode === "advertiser") return '<div class="pagehead"><h1>⚙️ ' + tt("Ajustes", "Settings") + "</h1></div>" + SetViews.general();
-    return '<div class="pagehead"><h1>⚙️ ' + tt("Ajustes", "Settings") + "</h1></div>" + '<div class="seg">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="settings" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" + (SetViews[sub] || SetViews.general)();
+    return '<div class="pagehead"><h1>⚙️ ' + tt("Ajustes", "Settings") + "</h1></div>" + '<div class="seg segscroll">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="settings" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" + (SetViews[sub] || SetViews.general)();
   }
 };
 const SetViews = {
+  versions() { return Versions.view(); },
   general() {
     const tabs = TABS(); const pick = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : BOTTOM_DEFAULT;
     let h = '<div class="card"><h3>🌐 ' + tt("Idioma e aparência", "Language & look") + '</h3><div class="row"><button class="btn ' + (S.lang === "pt" ? "" : "ghost") + '" data-act="set.lang" data-v="pt">🇧🇷 Português</button><button class="btn ' + (S.lang === "en" ? "" : "ghost") + '" data-act="set.lang" data-v="en">🇺🇸 English</button><button class="btn ghost" data-act="set.theme">' + (S.theme === "dark" ? "☀️ " + tt("Tema claro", "Light theme") : "🌙 " + tt("Tema escuro", "Dark theme")) + '</button></div><label class="check" style="margin-top:10px"><input type="checkbox" data-chg="set.bgart"' + (S.prefs.bgArt !== false ? " checked" : "") + "> 🎨 " + tt("Arte de fundo (ícones em neon)", "Background art (neon icons)") + '</label><p class="tiny faint" style="margin-top:8px">' + tt("Datas: ", "Dates: ") + fmtDate(today()) + " · " + tt("O idioma também vale para o portal e os outros apps.", "Language is shared with the portal and the other apps.") + "</p></div>";
