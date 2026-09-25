@@ -1,5 +1,33 @@
 [
  {
+  "v": "2.1.0",
+  "d": "2026-09-25",
+  "hora": "19:27:00",
+  "pt": [
+   "💡 Chegou o AssistONE: o assistente no canto da tela, ligado por padrão",
+   "Balões para começar o passo a passo (guarda onde parou), fazer um tour rápido, procurar qualquer coisa (com sugestão quando escreve errado) e ver a ajuda da tela",
+   "Dicas curtas em cada tela, uma vez só; liga e desliga em ⚙ → Geral → AssistONE"
+  ],
+  "en": [
+   "💡 Meet AssistONE: the assistant in the corner of the screen, on by default",
+   "Balloons to start the walkthrough (saves your place), take a quick tour, find anything (with spelling suggestions) and get help for the screen",
+   "Short tips on each screen, shown once; turn it on or off in ⚙ → General → AssistONE"
+  ]
+ },
+ {
+  "v": "2.0.1",
+  "d": "2026-09-25",
+  "hora": "19:11:00",
+  "pt": [
+   "👆 Tela de entrada com todas as formas de entrar: digital ou rosto, Google, e-mail e senha e PIN",
+   "Depois do primeiro acesso, a digital vira um toque só na entrada; na nuvem, o app oferece ativar a digital logo após entrar"
+  ],
+  "en": [
+   "👆 Sign-in screen with every way in: fingerprint or face, Google, e-mail and password, and PIN",
+   "After the first sign-in, fingerprint becomes one tap; in the cloud, the app offers to enable it right after signing in"
+  ]
+ },
+ {
   "v": "2.0.0",
   "d": "2026-09-25",
   "hora": "18:58:00",

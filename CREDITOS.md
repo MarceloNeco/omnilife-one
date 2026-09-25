@@ -16,3 +16,5 @@ Groq, Mistral, OpenAI (IA); Telegram Bot API, CallMeBot (WhatsApp), FormSubmit (
 ntfy.sh (avisos no celular), ViaCEP (endereço), OpenStreetMap/Nominatim (mapa).
 
 Ícones de traço, ilustrações do guia de chaves, ícones e textos do app: feitos para o OmniLifeONE.
+
+Arte do AssistONE (ponto de interrogação dourado com rosto, fibras e pérola): enviada pelo dono do app; recortada e ampliada para os arquivos `assistone-hd.png`, `ajuda-icone.png` e `ajuda-botao.png`.

@@ -16,6 +16,7 @@ sem framework: HTML, CSS e JavaScript puros.
 | `regras-firestore-OmniLifeONE.txt` | Regras de segurança do Firebase (colar no console) | Só junto com mudanças de nuvem |
 | `LEIA-ME-OmniLifeONE.html` | Passo a passo para o dono do app | Sim |
 | `ARQUITETURA.md`, `CREDITOS.md` | Este briefing e as licenças de terceiros | Sim |
+| `ajuda-botao.png`, `ajuda-icone.png`, `assistone-hd.png` | Arte do AssistONE (botão redondo, ícone transparente e versão grande). O app usa uma cópia pequena embutida no `index.html` (`AONE_IMG`) | Pode trocar a arte; para mudar no app, troque também o `AONE_IMG` |
 
 ## Nunca
 
@@ -51,6 +52,7 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Sess` — sessão da aba (recarregar não pede PIN por 30 min) e volta ao mesmo lugar depois de entrar.
 - `Batch` — vários arquivos de uma vez (Documentos), com fila, duplicados e conferência.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento.
+- `AOne` — AssistONE: personagem flutuante (ligado por padrão, `S.prefs.aone`), balões (começar/wizard, tour, busca com `Search.find` + "você quis dizer", ajuda da tela), dicas por tela uma vez só, cartão em ⚙ → Geral. Chamado no fim de `render()` por `AOne.after()`.
 
 ## Publicar uma versão nova
 
