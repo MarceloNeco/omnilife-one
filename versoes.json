@@ -1,5 +1,64 @@
 [
  {
+  "v": "2.0.0",
+  "d": "2026-09-25",
+  "hora": "18:58:00",
+  "pt": [
+   "✨ Visual novo, calmo e moderno, pensado primeiro para o celular: ícones de traço, cartões macios, menos distração e tema que segue o aparelho (claro de dia, escuro à noite)",
+   "🏠 Início reorganizado: 4 ações grandes (Lista, Cheguei, Inbox, Lembrete), campo para pôr na lista, atalhos numa linha e um só bloco “Para você agora”",
+   "🔝 Cabeçalho padrão: 🔍 busca, ⚙ configurações, 🏠 Início e 👤 conta; SOS, alertas, compartilhar e outros apps foram para o Início e o ☰ (com link para o Portal)",
+   "↩️ Na tela inicial, o Voltar pede um segundo toque para sair",
+   "🎤 Lista por voz corrigida: o que você fala entra no campo, separado por vírgulas, para conferir e tocar em Pôr",
+   "📲 Usar sem internet: salvar o app no aparelho, criar o ícone na tela inicial e aviso quando estiver sem sinal",
+   "🤖 Cofre de IA completo: texto, voz → texto, texto → voz e fotos, com guia passo a passo ilustrado para cada provedor e “Usar para”",
+   "📚 Documentos: enviar vários arquivos de uma vez (arrastar, colar, câmera em sequência), com conferência e aviso de duplicados",
+   "🧩 Aviso de compatibilidade do aparelho/navegador só quando houver problema",
+   "🔒 Recarregar a página não pede PIN de novo por 30 min; quem entra volta para a tela onde estava",
+   "📜 Registro de alterações no aparelho e relatório de erros opcional",
+   "🆕 Novidades agrupadas por dia e recolhidas em Ajustes"
+  ],
+  "en": [
+   "✨ New calm, modern look designed mobile-first: line icons, soft cards, fewer distractions and a theme that follows the device",
+   "🏠 Reorganized Home: 4 big actions (List, Check-in, Inbox, Reminder), add-to-list field, one-line shortcuts and a single “For you now” block",
+   "🔝 Standard header: 🔍 search, ⚙ settings, 🏠 Home and 👤 account; SOS, alerts, share and other apps moved to Home and ☰ (with a Portal link)",
+   "↩️ On the home screen, Back asks for a second press to leave",
+   "🎤 Voice list fixed: what you say goes into the field, comma-separated, to check and tap Add",
+   "📲 Use offline: save the app on the device, create the home-screen icon and an offline notice",
+   "🤖 Full AI vault: text, voice → text, text → voice and photos, with an illustrated step-by-step guide per provider and “Use for”",
+   "📚 Documents: upload many files at once (drag, paste, camera sequence), with review and duplicate warnings",
+   "🧩 Device/browser compatibility notice only when there's a problem",
+   "🔒 Reloading doesn't ask for the PIN again for 30 min; signing in brings you back to where you were",
+   "📜 On-device change log and optional error report",
+   "🆕 What's new grouped by day and collapsed in Settings"
+  ]
+ },
+ {
+  "v": "1.6.0",
+  "d": "2026-09-25",
+  "pt": [
+   "↩️ Botão Voltar do celular navega dentro do app: fecha a janela ou o menu aberto, e das abas volta para o Início antes de sair",
+   "🤖 IA com vários provedores grátis: Google Gemini, OpenRouter, Groq, Mistral (e OpenAI ou personalizado), com “Ver modelos que esta chave aceita” e nova tentativa quando a IA está ocupada",
+   "🎤 Voz transcrita também pelo Groq (Whisper), além do Gemini",
+   "🧒 Nomes das crianças são trocados por códigos antes de ir para a IA (LGPD)",
+   "♿ Ajustes → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta",
+   "📶 Ajustes → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados",
+   "📢 Avisos do administrador (recados.json) na Inbox",
+   "🗑 Apagar minha conta (nuvem), além do backup",
+   "🔧 Modo sem internet não apaga mais o dos outros apps do portal"
+  ],
+  "en": [
+   "↩️ Phone Back button navigates inside the app: closes the open window or menu, and from tabs goes Home before leaving",
+   "🤖 AI with several free providers: Google Gemini, OpenRouter, Groq, Mistral (plus OpenAI or custom), with “See models this key accepts” and retry when busy",
+   "🎤 Voice transcribed by Groq (Whisper) too, besides Gemini",
+   "🧒 Children's names are replaced by codes before going to the AI",
+   "♿ Settings → Accessibility: text size, high contrast, reduce motion, underline links, reading mode and read the screen aloud",
+   "📶 Settings → Network: large downloads and AI on Wi-Fi or data",
+   "📢 Admin notices (recados.json) in the Inbox",
+   "🗑 Delete my account (cloud), besides backup",
+   "🔧 Offline mode no longer wipes the other portal apps' offline data"
+  ]
+ },
+ {
   "v": "1.5.2",
   "d": "2026-09-25",
   "pt": [

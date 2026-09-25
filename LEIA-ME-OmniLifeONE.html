@@ -12,8 +12,35 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 .files code{display:inline-block;margin:2px 0}
 </style></head><body><div class="w">
 <h1>OmniLife<b>ONE</b> — passo a passo</h1>
-<p>Versão 1.5.2 · organizador da casa e da família.</p>
-<div class="card warn"><b>Esta entrega (1.5.2) substitui todas as anteriores (1.2.0 a 1.5.1).</b> Suba <code>index.html</code>, <code>sw.js</code> e <code>versoes.json</code>. Para conferir se o site atualizou: o rodapé tem que mostrar <b>v1.5.2</b> (se não mostrar, recarregue com <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>).</div>
+<p>Versão 2.0.0 · o MVP do OmniLifeONE — organizador da casa e da família.</p>
+<div class="card warn"><b>Esta entrega (2.0.0) substitui todas as anteriores (1.2.0 a 1.6.0).</b> Suba para o GitHub: <code>index.html</code>, <code>sw.js</code>, <code>versoes.json</code>, <code>recados.json</code>, <code>ARQUITETURA.md</code> e <code>CREDITOS.md</code>. Para conferir: em ⚙ → Versões tem que aparecer <b>Versão 2.0.0</b> (se não, recarregue com <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>, ou feche e abra o app no celular). As regras do Firebase não mudaram.</div>
+<p><b>Novidades da 2.0.0:</b></p>
+<ul>
+<li><b>Visual novo</b>, calmo e moderno, pensado primeiro para o celular. O tema segue o aparelho (claro de dia, escuro à noite); dá para fixar em ⚙ → Geral.</li>
+<li><b>Início</b> com 4 ações grandes (Lista, Cheguei, Inbox, Lembrete), o campo “Pôr na lista” com 🎤, atalhos numa linha e um só bloco “Para você agora”.</li>
+<li><b>Cabeçalho padrão</b>: 🔍 busca, ⚙ configurações, 🏠 Início e 👤 conta. SOS está no Início; alertas, compartilhar, outros apps e o link do Portal estão no ☰.</li>
+<li><b>Voltar do celular</b>: na tela inicial, pede um segundo toque para sair.</li>
+<li><b>🎤 Lista por voz corrigida</b>: o que você fala entra no campo separado por vírgulas (“açúcar, pão, leite”) para você conferir e tocar em <b>Pôr</b>.</li>
+<li><b>📲 Usar sem internet</b> (⚙ → Sem internet): salvar o app no aparelho, criar o ícone na tela inicial e aviso quando estiver sem sinal.</li>
+<li><b>🤖 IA e voz</b> (⚙ → IA): cada provedor tem guia passo a passo com desenho de onde tocar, “Salvar e testar” e “Usar para” (✍️ texto, 🎤 voz → texto, 🔊 texto → voz, 🖼️ fotos).</li>
+<li><b>📚 Documentos</b>: “Vários de uma vez” — arrastar, colar, escolher vários ou câmera em sequência, com conferência antes de salvar e aviso de duplicados.</li>
+<li><b>🧩 Compatibilidade</b>: se faltar algo no aparelho ou o navegador for antigo, aparece um quadro no topo de ⚙.</li>
+<li><b>🔒 Sessão</b>: recarregar a página não pede PIN de novo por 30 min; quem cria conta a partir do modo visitante volta para a tela onde estava.</li>
+<li><b>📜 Registro de alterações</b> e relatório de erros opcional em ⚙ → Dados.</li>
+</ul>
+<p><b>Novidades da 1.6.0 — diretrizes gerais aplicadas:</b></p>
+<ul>
+<li><b>↩️ Botão Voltar do celular</b> fecha a janela ou o menu aberto; de qualquer aba volta para o Início antes de sair do app.</li>
+<li><b>🤖 IA com vários provedores grátis</b> (Ajustes → IA): Google Gemini, OpenRouter, Groq, Mistral, OpenAI ou personalizado. Botão “Ver modelos que esta chave aceita”. Se a IA estiver ocupada, o app tenta de novo sozinho.</li>
+<li><b>🎤 Voz:</b> transcrição pelo Gemini ou pelo Groq (Whisper). Vindo do 🎤, a tela de IA já abre no Google Gemini.</li>
+<li><b>🧒 Crianças:</b> o nome delas é trocado por código antes de ir para a IA e volta ao normal na resposta.</li>
+<li><b>♿ Ajustes → Acessibilidade:</b> A− / A+, alto contraste, reduzir animações, sublinhar links, modo leitura e 🔊 ler a tela em voz alta (também no ☰).</li>
+<li><b>📶 Ajustes → Rede e dados:</b> escolha se coisas grandes (leitor de fotos, reconhecimento de objetos) baixam só no Wi-Fi e se a IA pode usar os dados móveis.</li>
+<li><b>📢 Avisos para todos:</b> o arquivo <code>recados.json</code> aparece na Inbox. Ele vai vazio; para mandar um aviso, copie o exemplo de <code>recados-MODELO-OmniLifeONE.json</code>, ajuste as datas e o texto e suba como <code>recados.json</code>.</li>
+<li><b>🗑 Apagar minha conta</b> (Ajustes → Dados, no modo nuvem).</li>
+<li><b>🔧 Correção importante:</b> ao atualizar, o OmniLifeONE apagava o modo sem internet dos seus outros apps do portal. Não apaga mais.</li>
+<li>Arquivos novos para quem for mexer no código: <code>ARQUITETURA.md</code> (mapa do app) e <code>CREDITOS.md</code> (licenças das bibliotecas).</li>
+</ul>
 <p><b>Novidades da 1.5.2:</b> link fixo embaixo do campo Recado do Cheguei — “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — que leva direto para Ajustes → IA.</p>
 <p><b>Novidades da 1.5.1 — todo 🎤 explica antes de frustrar:</b></p>
 <ul>
