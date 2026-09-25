@@ -377,6 +377,24 @@ ol.steps5 .e{font-size:1.4rem} ol.steps5 small{color:var(--text2);font-size:.74r
 @media(max-width:760px){ol.steps5{grid-template-columns:1fr}}
 select[data-chg="mem.role"]{max-width:48%;min-width:0}
 @media(max-width:420px){select[data-chg="mem.role"]{max-width:42%;font-size:.85rem}}
+.phonein{position:relative;display:flex;gap:6px;align-items:stretch}
+.phonein .ccbtn{display:inline-flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:0 9px;color:var(--text);cursor:pointer;font:inherit;white-space:nowrap}
+.phonein .ddd{width:62px;flex:none;text-align:center}.phonein .num{flex:1;min-width:0}
+.phonein .cclist{position:absolute;left:0;top:calc(100% + 4px);z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:4px;max-height:240px;overflow:auto;min-width:230px;animation:menuin .16s cubic-bezier(.2,.8,.2,1)}
+.phonein .cclist button{display:flex;align-items:center;gap:8px;width:100%;background:none;border:0;color:var(--text);padding:7px 8px;border-radius:8px;cursor:pointer;font:inherit;text-align:left}
+.phonein .cclist button:hover{background:var(--surface2)}
+svg.flag{border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.25);flex:none}
+.twrow{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:8px 12px}
+.twrow.hidden{display:none}
+.twheel{position:relative;display:flex;align-items:center;gap:4px;height:108px}
+.twbar{position:absolute;left:0;right:0;top:36px;height:36px;border-radius:10px;background:var(--accent-soft);border:1px solid var(--accent);pointer-events:none}
+.twcol{position:relative;height:108px;width:58px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;text-align:center;-webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);outline:none;overscroll-behavior:contain}
+.twcol::-webkit-scrollbar{display:none}
+.twi{height:36px;line-height:36px;scroll-snap-align:center;font-size:1.2rem;font-variant-numeric:tabular-nums;cursor:pointer;color:var(--text2)}
+.twi.on{color:var(--accent);font-weight:700}.twpad{height:36px}.twsep{position:relative;font-size:1.2rem}
+.searchbox.dict input{padding-left:12px;padding-right:100px}.searchbox.dict #chok{position:absolute;right:42px;top:50%;transform:translateY(-50%)}
+.onetap{display:flex;flex-direction:column;gap:8px;margin-top:10px}.onetap a.done{opacity:.6}
+.npick{border-top:1px dashed var(--border);padding-top:10px}
 .verifybox{margin:14px auto;max-width:320px;border:2px dashed var(--accent);border-radius:14px;padding:12px;background:var(--accent-soft)}
 .verifybox .vcode{font-size:2.6rem;font-weight:900;letter-spacing:.35em;color:var(--accent);margin:4px 0 2px;font-variant-numeric:tabular-nums}
 .vigiadark{position:fixed;inset:0;z-index:175;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:40px;touch-action:none;user-select:none}
@@ -453,7 +471,7 @@ ol.helpsteps li{margin:0 0 10px;line-height:1.5}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1580,7 +1598,7 @@ const Notify = {
     if (col === "requests" && type === "added" && isGuardian() && d.status === "pendente" && d.by !== S.meId) this.show(tt("Novo pedido de ", "New request from ") + People.name(d.by), d.name, "req-" + d.id);
     if (col === "requests" && type === "modified" && d.by === S.meId && d.status !== "pendente") this.show(d.status === "recusado" ? tt("Pedido recusado", "Request declined") : tt("Pedido aprovado 🎉", "Request approved 🎉"), d.name, "reqd-" + d.id + d.status);
     if (col === "events" && type === "added" && (d.members || []).includes(S.meId) && d.createdBy !== S.meId) this.show(tt("Novo compromisso para você", "New event for you"), d.title + " · " + fmtDate(d.date), "ev-new-" + d.id);
-    if (col === "checkins" && type === "added" && d.by !== S.meId && Date.now() - new Date(d.at) < 6 * 3600e3) this.once("chk-in-" + d.id, d.type === "cheguei" ? "✅ " + People.name(d.by) + tt(" chegou", " arrived") + (d.place ? tt(" em ", " at ") + d.place : "") : "🚶 " + People.name(d.by) + tt(" está saindo", " is leaving") + (d.to ? tt(" para ", " to ") + d.to : ""), d.type === "saindo" && d.eta ? tt("chega por volta das ", "arriving around ") + fmtTime(d.eta.slice(11, 16)) : (d.note || ""));
+    if (col === "checkins" && type === "added" && d.by !== S.meId && Date.now() - new Date(d.sentAt || d.at) < 6 * 3600e3 && (d.pushTo === undefined || d.pushTo === "all" || (Array.isArray(d.pushTo) && d.pushTo.includes(S.meId)))) this.once("chk-in-" + d.id, d.type === "cheguei" ? "✅ " + People.name(d.by) + tt(" chegou", " arrived") + (d.place ? tt(" em ", " at ") + d.place : "") + (d.detail ? " (" + d.detail + ")" : "") : "🚶 " + People.name(d.by) + tt(" está saindo", " is leaving") + (d.to ? tt(" para ", " to ") + d.to : ""), d.type === "saindo" && d.eta ? tt("chega por volta das ", "arriving around ") + fmtTime(d.eta.slice(11, 16)) : (d.note || ""));
     if (col === "msgs" && type === "added" && Msgs.forMe(d) && Msgs.occ(d)) this.once("msg-" + d.id + "-" + Msgs.occ(d), "📨 " + Msgs.headline(d), d.body || "");
     if (col === "tasks" && type === "modified" && d.createdBy === S.meId && d.updatedBy !== S.meId && Tasks.status(d) !== "aberta") this.once("tk-st-" + d.id + "-" + Tasks.status(d) + (d.due || ""), TASK_ST()[Tasks.status(d)][0] + " " + d.title, TASK_ST()[Tasks.status(d)][1] + " · " + People.name(d.updatedBy) + (d.closeNote ? " — " + d.closeNote : ""));
     if (col === "tasks" && type === "added" && d.assignee === S.meId && d.createdBy !== S.meId) this.show(tt("Nova tarefa para você", "New task for you"), d.title, "tk-new-" + d.id);
@@ -4250,7 +4268,7 @@ const AlertHub = {
     opt = opt || {}; const c = this.cfg(); const res = [];
     let photo = null; if (opt.shot && c.tgPhoto) { try { photo = await (await fetch(opt.shot)).blob(); } catch (e) {} }
     for (const r of this.pick(sel)) {
-      if (c.tgOn && c.tgToken && r.tgChat) {
+      if (c.tgOn && c.tgToken && r.tgChat && (!opt.only || opt.only.includes("tg"))) {
         try {
           const base = "https://api.telegram.org/bot" + c.tgToken + "/"; let resp;
           if (photo) { const fd = new FormData(); fd.append("chat_id", r.tgChat); fd.append("caption", text); fd.append("photo", photo, "foto.jpg"); resp = await fetch(base + "sendPhoto", { method: "POST", body: fd }); }
@@ -4258,21 +4276,21 @@ const AlertHub = {
           res.push([r.name + " (Telegram)", resp.ok]);
         } catch (e) { res.push([r.name + " (Telegram)", false]); }
       }
-      if (c.waOn && r.waPhone && r.waKey) {
+      if (c.waOn && r.waPhone && r.waKey && (!opt.only || opt.only.includes("wa"))) {
         try {
           /* o CallMeBot não deixa o navegador ler a resposta (no-cors): a mensagem sai, mas não dá para confirmar */
           await fetch("https://api.callmebot.com/whatsapp.php?phone=" + encodeURIComponent(onlyDigits(r.waPhone)) + "&text=" + encodeURIComponent(text) + "&apikey=" + encodeURIComponent(r.waKey), { mode: "no-cors" });
           res.push([r.name + " (WhatsApp)", true]);
         } catch (e) { res.push([r.name + " (WhatsApp)", false]); }
       }
-      if (c.mailOn && r.email) {
+      if (c.mailOn && r.email && (!opt.only || opt.only.includes("mail"))) {
         try {
           const resp = await fetch("https://formsubmit.co/ajax/" + encodeURIComponent(r.email), { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify({ _subject: opt.subject || "OmniLifeONE", _template: "box", _captcha: "false", mensagem: text }) });
           res.push([r.name + " (e-mail)", resp.ok]);
         } catch (e) { res.push([r.name + " (e-mail)", false]); }
       }
     }
-    if (c.ntfy && DB.setting().ntfyTopic) res.push(["ntfy", await Notify.ntfy(opt.subject || APP_NAME, text)]);
+    if (c.ntfy && DB.setting().ntfyTopic && !opt.noNtfy) res.push(["ntfy", await Notify.ntfy(opt.subject || APP_NAME, text)]);
     return res;
   },
   resTxt(r) { return r.map((x) => (x[1] ? "✓ " : "✕ ") + x[0]).join(" · "); },
@@ -4572,7 +4590,250 @@ ACT["vigia.rsel"] = (d) => { const s = new Set(Vigia.cfg().sel || []); if (s.has
    marcam horários esperados; se ninguém avisar até o horário (mais a tolerância), o app alerta.
    Na nuvem, o aviso chega na hora nos celulares da família; mensagens automáticas (Telegram,
    WhatsApp, e-mail, ntfy) saem do aparelho que tiver os canais configurados. */
-const CHK_PLACES = () => [tt("Casa", "Home"), tt("Escola", "School"), tt("Curso", "Class"), tt("Casa dos avós", "Grandparents' home"), tt("Trabalho", "Work")];
+/* ---------- telefone com país (DDI) + DDD ---------- */
+const FLAG_SVG = {
+  BR: '<rect width="21" height="15" fill="#009c3b"/><path d="M10.5 1.8 19 7.5l-8.5 5.7L2 7.5z" fill="#ffdf00"/><circle cx="10.5" cy="7.5" r="3.2" fill="#002776"/><path d="M7.4 6.9c2.1-.5 4.4 0 6.2 1.2" stroke="#fff" stroke-width=".6" fill="none"/>',
+  PT: '<rect width="21" height="15" fill="#da291c"/><rect width="8.4" height="15" fill="#046a38"/><circle cx="8.4" cy="7.5" r="2.6" fill="#ffe900"/><circle cx="8.4" cy="7.5" r="1.4" fill="#da291c"/>',
+  US: '<rect width="21" height="15" fill="#fff"/><path d="M0 0h21v1.15H0zM0 2.3h21v1.15H0zM0 4.6h21v1.15H0zM0 6.9h21v1.15H0zM0 9.2h21v1.15H0zM0 11.5h21v1.15H0zM0 13.8h21V15H0z" fill="#b22234"/><rect width="9" height="8" fill="#3c3b6e"/>',
+  AR: '<rect width="21" height="15" fill="#74acdf"/><rect y="5" width="21" height="5" fill="#fff"/><circle cx="10.5" cy="7.5" r="1.6" fill="#f6b40e"/>',
+  UY: '<rect width="21" height="15" fill="#fff"/><path d="M8 1.7h13v1.6H8zM8 5h13v1.6H8zM0 8.3h21v1.6H0zM0 11.7h21v1.6H0z" fill="#0038a8"/><circle cx="3.8" cy="3.6" r="2" fill="#fcd116"/>',
+  PY: '<rect width="21" height="15" fill="#fff"/><rect width="21" height="5" fill="#d52b1e"/><rect y="10" width="21" height="5" fill="#0038a8"/>',
+  CL: '<rect width="21" height="15" fill="#fff"/><rect y="7.5" width="21" height="7.5" fill="#d52b1e"/><rect width="7" height="7.5" fill="#0039a6"/><circle cx="3.5" cy="3.75" r="1.3" fill="#fff"/>',
+  MX: '<rect width="21" height="15" fill="#fff"/><rect width="7" height="15" fill="#006847"/><rect x="14" width="7" height="15" fill="#ce1126"/><circle cx="10.5" cy="7.5" r="1.5" fill="#8c6b3c"/>',
+  ES: '<rect width="21" height="15" fill="#aa151b"/><rect y="3.75" width="21" height="7.5" fill="#f1bf00"/>',
+  IT: '<rect width="21" height="15" fill="#fff"/><rect width="7" height="15" fill="#009246"/><rect x="14" width="7" height="15" fill="#ce2b37"/>',
+  FR: '<rect width="21" height="15" fill="#fff"/><rect width="7" height="15" fill="#002395"/><rect x="14" width="7" height="15" fill="#ed2939"/>',
+  DE: '<rect width="21" height="15" fill="#000"/><rect y="5" width="21" height="5" fill="#dd0000"/><rect y="10" width="21" height="5" fill="#ffce00"/>',
+  GB: '<rect width="21" height="15" fill="#012169"/><path d="M0 0l21 15M21 0L0 15" stroke="#fff" stroke-width="3"/><path d="M0 0l21 15M21 0L0 15" stroke="#c8102e" stroke-width="1.2"/><path d="M10.5 0v15M0 7.5h21" stroke="#fff" stroke-width="4.4"/><path d="M10.5 0v15M0 7.5h21" stroke="#c8102e" stroke-width="2.4"/>',
+  JP: '<rect width="21" height="15" fill="#fff"/><circle cx="10.5" cy="7.5" r="4" fill="#bc002d"/>'
+};
+function flagIcon(cc) { return '<svg class="flag" viewBox="0 0 21 15" width="21" height="15" aria-hidden="true">' + (FLAG_SVG[cc] || FLAG_SVG.BR) + "</svg>"; }
+const COUNTRIES = () => [["BR", "55", tt("Brasil", "Brazil")], ["PT", "351", "Portugal"], ["US", "1", tt("EUA / Canadá", "USA / Canada")], ["AR", "54", "Argentina"], ["UY", "598", "Uruguai"], ["PY", "595", "Paraguai"], ["CL", "56", "Chile"], ["MX", "52", tt("México", "Mexico")], ["ES", "34", tt("Espanha", "Spain")], ["IT", "39", tt("Itália", "Italy")], ["FR", "33", tt("França", "France")], ["DE", "49", tt("Alemanha", "Germany")], ["GB", "44", tt("Reino Unido", "United Kingdom")], ["JP", "81", tt("Japão", "Japan")]];
+const PhoneIn = {
+  /* DDD padrão: o da casa cadastrada (CEP), senão o último usado, senão o do meu celular */
+  defDDD() {
+    const a = DB.setting().address || {}; if (a.ddd) return String(a.ddd);
+    if (S.prefs.lastDDD) return S.prefs.lastDDD;
+    const me = People.get(S.meId); const d = onlyDigits(me && me.phone); return d.length === 10 || d.length === 11 ? d.slice(0, 2) : d.length >= 12 && d.startsWith("55") ? d.slice(2, 4) : "";
+  },
+  parse(v) {
+    let d = onlyDigits(v); const plus = /^\s*\+/.test(v || "");
+    if (!d) return { cc: "BR", ddd: this.defDDD(), num: "" };
+    if (plus || d.length > 11) { const c = COUNTRIES().map((x) => x[1]).sort((a, b) => b.length - a.length).find((x) => d.startsWith(x)); if (c) { const cc = COUNTRIES().find((x) => x[1] === c)[0]; d = d.slice(c.length); return cc === "BR" ? { cc, ddd: d.slice(0, 2), num: d.slice(2) } : { cc, ddd: "", num: d }; } }
+    if (d.length === 10 || d.length === 11) return { cc: "BR", ddd: d.slice(0, 2), num: d.slice(2) };
+    return { cc: "BR", ddd: this.defDDD(), num: d };
+  },
+  fmtNum(n) { n = onlyDigits(n).slice(0, 9); return n.length === 9 ? n[0] + " " + n.slice(1, 5) + "-" + n.slice(5) : n.length === 8 ? n.slice(0, 4) + "-" + n.slice(4) : n; },
+  html(id, v) {
+    const p = this.parse(v); const c = COUNTRIES().find((x) => x[0] === p.cc);
+    return '<div class="phonein" id="' + id + '" data-cc="' + p.cc + '"><button type="button" class="ccbtn" aria-label="' + tt("País", "Country") + '">' + flagIcon(p.cc) + ' <span>+' + c[1] + "</span> ▾</button>" +
+      '<input class="ddd' + (p.cc === "BR" ? "" : " hidden") + '" inputmode="numeric" maxlength="2" placeholder="DDD" aria-label="DDD" value="' + esc(p.ddd) + '">' +
+      '<input class="num" type="tel" inputmode="tel" placeholder="' + (p.cc === "BR" ? "9 8765-4321" : tt("número", "number")) + '" aria-label="' + tt("Celular", "Mobile") + '" value="' + esc(p.cc === "BR" ? this.fmtNum(p.num) : p.num) + '">' +
+      '<div class="cclist hidden" role="listbox">' + COUNTRIES().map((x) => '<button type="button" data-cc="' + x[0] + '">' + flagIcon(x[0]) + " " + esc(x[2]) + ' <span class="faint">+' + x[1] + "</span></button>").join("") + "</div></div>";
+  },
+  bind(root) {
+    const box = root.classList && root.classList.contains("phonein") ? root : $(".phonein", root); if (!box) return;
+    const list = $(".cclist", box), ddd = $(".ddd", box), num = $(".num", box);
+    $(".ccbtn", box).onclick = (e) => { e.stopPropagation(); list.classList.toggle("hidden"); };
+    list.onclick = (e) => { const b = e.target.closest("[data-cc]"); if (!b) return; const c = COUNTRIES().find((x) => x[0] === b.dataset.cc); box.dataset.cc = c[0]; $(".ccbtn", box).innerHTML = flagIcon(c[0]) + " <span>+" + c[1] + "</span> ▾"; ddd.classList.toggle("hidden", c[0] !== "BR"); num.placeholder = c[0] === "BR" ? "9 8765-4321" : tt("número", "number"); list.classList.add("hidden"); (c[0] === "BR" && !ddd.value ? ddd : num).focus(); };
+    ddd.oninput = () => { ddd.value = onlyDigits(ddd.value).slice(0, 2); if (ddd.value.length === 2) num.focus(); };
+    num.oninput = () => { if (box.dataset.cc === "BR") num.value = this.fmtNum(num.value); };
+  },
+  /* devolve "+55 (11) 9 8765-4321" (ou "" se vazio); ok=false se faltar pedaço */
+  read(root) {
+    const box = root.classList && root.classList.contains("phonein") ? root : $(".phonein", root); if (!box) return { phone: "", ok: true };
+    const cc = box.dataset.cc, c = COUNTRIES().find((x) => x[0] === cc), n = onlyDigits($(".num", box).value), d = onlyDigits($(".ddd", box).value);
+    if (!n) return { phone: "", ok: true };
+    if (cc === "BR") { if (d.length !== 2 || n.length < 8) return { phone: "", ok: false }; S.prefs.lastDDD = d; savePrefs(); return { phone: "+55 (" + d + ") " + this.fmtNum(n), ok: true }; }
+    return { phone: "+" + c[1] + " " + n, ok: n.length >= 6 };
+  },
+  norm(v) { const p = this.parse(v); if (!p.num) return ""; const c = COUNTRIES().find((x) => x[0] === p.cc); return p.cc === "BR" ? (p.ddd ? "+55 (" + p.ddd + ") " + this.fmtNum(p.num) : this.fmtNum(p.num)) : "+" + c[1] + " " + p.num; }
+};
+
+/* ---------- roda de horário (rolar para ajustar) ---------- */
+const TimeWheel = {
+  H: 36,
+  html(id) { const col = (n, u) => '<div class="twcol" tabindex="0" data-u="' + u + '" aria-label="' + (u === "h" ? tt("Hora", "Hour") : tt("Minuto", "Minute")) + '"><div class="twpad"></div>' + [...Array(n)].map((_, i) => '<div class="twi">' + pad(i) + "</div>").join("") + '<div class="twpad"></div></div>'; return '<div class="twheel" id="' + id + '"><div class="twbar"></div>' + col(24, "h") + '<b class="twsep">:</b>' + col(60, "m") + "</div>"; },
+  set(root, hhmm) { const [h, m] = String(hhmm).split(":").map(Number); const cs = $$(".twcol", root); cs[0].scrollTop = h * this.H; cs[1].scrollTop = m * this.H; },
+  get(root) { const cs = $$(".twcol", root); const v = (c, mx) => Math.max(0, Math.min(mx, Math.round(c.scrollTop / this.H))); return pad(v(cs[0], 23)) + ":" + pad(v(cs[1], 59)); },
+  bind(root, on) {
+    $$(".twcol", root).forEach((c) => {
+      let t; c.addEventListener("scroll", () => { clearTimeout(t); t = setTimeout(() => { $$(".twi", c).forEach((x, i) => x.classList.toggle("on", i === Math.round(c.scrollTop / this.H))); on && on(this.get(root)); }, 70); });
+      c.addEventListener("click", (e) => { const i = e.target.closest(".twi"); if (i) c.scrollTo({ top: $$(".twi", c).indexOf(i) * this.H, behavior: "smooth" }); });
+      c.addEventListener("keydown", (e) => { if (e.key === "ArrowUp" || e.key === "ArrowDown") { e.preventDefault(); c.scrollTop += (e.key === "ArrowUp" ? -1 : 1) * this.H; } });
+    });
+  }
+};
+/* horário escolhido na roda → data/hora ISO (se ficou bem no futuro, era ontem) */
+function wheelIso(hhmm) { const d = new Date(); const [h, m] = hhmm.split(":").map(Number); d.setHours(h, m, 0, 0); if (d.getTime() - Date.now() > 3600e3) d.setDate(d.getDate() - 1); return d; }
+
+/* ---------- ditado por voz com botão OK (para quando o detector não percebe que você parou) ---------- */
+Voice.dictate = function (input, mic, okb) {
+  const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!R) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Chrome.", "No speech recognition here. Use Chrome.")); return; }
+  if (Voice.cur) { try { Voice.cur.stop(); } catch (e) {} return; }
+  const base = input.value.trim(); let fin = "";
+  const r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = true; r.continuous = true;
+  Voice.cur = r; mic.classList.add("rec"); okb.classList.remove("hidden");
+  const end = () => { Voice.cur = null; mic.classList.remove("rec"); okb.classList.add("hidden"); input.value = (base + " " + fin).trim(); };
+  r.onresult = (e) => { let inter = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += (fin ? " " : "") + e.results[i][0].transcript.trim(); else inter += e.results[i][0].transcript; } input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim(); };
+  r.onerror = end; r.onend = end;
+  okb.onclick = () => { try { r.stop(); } catch (e) { end(); } };
+  try { r.start(); } catch (e) { end(); }
+};
+
+/* ---------- meus contatos (de cada pessoa, guardados só neste aparelho) ---------- */
+const MyContacts = {
+  KEY: "omnilife.myContacts.v1",
+  list(pid) { return (lsGet(this.KEY, {})[pid || S.meId] || []); },
+  put(c) { const a = lsGet(this.KEY, {}); const l = a[S.meId] || []; const i = l.findIndex((x) => x.id === c.id); if (i >= 0) l[i] = c; else l.unshift(c); a[S.meId] = l; lsSet(this.KEY, a); return c; },
+  del(id) { const a = lsGet(this.KEY, {}); a[S.meId] = (a[S.meId] || []).filter((x) => x.id !== id); lsSet(this.KEY, a); },
+  canPhone() { return "contacts" in navigator && "ContactsManager" in window; },
+  /* ler da agenda do celular (Android/Chrome) — a pessoa escolhe quais */
+  async fromPhone() {
+    if (!this.canPhone()) { toast(tt("Este navegador não deixa ler a agenda (só o Chrome no Android deixa). Use “＋ Novo contato”.", "This browser can't read your address book (only Chrome on Android can). Use “＋ New contact”."), 6000); return []; }
+    try {
+      const sel = await navigator.contacts.select(["name", "tel", "email"], { multiple: true });
+      return sel.map((c) => ({ name: (c.name || [])[0] || (c.tel || [])[0] || "", phone: PhoneIn.norm((c.tel || [])[0] || ""), email: (c.email || [])[0] || "" })).filter((c) => c.name && (c.phone || c.email)).map((c) => this.put(Object.assign({ id: uid("mc"), src: "agenda" }, c)));
+    } catch (e) { return []; }
+  },
+  /* formulário: nome, país + DDD + celular, e-mail */
+  edit(cur, opt) {
+    opt = opt || {}; cur = cur || { id: uid("mc"), name: "", phone: "", email: "" };
+    return new Promise((res) => {
+      const body = '<div class="stack"><label class="fld"><span>' + tt("Nome", "Name") + ' *</span><input type="text" id="mcname" value="' + esc(cur.name) + '" placeholder="' + tt("Ex.: Tia Rosa, pai da Júlia", "e.g. Aunt Rose") + '"></label>' +
+        '<div class="fld"><span>' + tt("Celular", "Mobile") + "</span>" + PhoneIn.html("mcph", cur.phone) + '<small class="hint">' + tt("País, DDD e número. O DDD já vem o da sua casa.", "Country, area code and number.") + "</small></div>" +
+        '<label class="fld"><span>E-mail</span><input type="email" id="mcmail" value="' + esc(cur.email || "") + '"></label>' +
+        (opt.askSave ? '<label class="check"><input type="checkbox" id="mcsave" checked> ' + tt("Guardar nos meus contatos", "Save to my contacts") + "</label>" : "") + "</div>";
+      const m = modal({ title: (cur.name ? "✏️ " : "＋ ") + tt("Contato", "Contact"), body, foot: (cur.name && !opt.askSave ? '<button class="btn danger ghost" data-del>🗑</button>' : "") + '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>' + tt("Pronto", "Done") + "</button>", onClose: () => res(null) });
+      const el = m.el; PhoneIn.bind(el);
+      const del = el.querySelector("[data-del]"); if (del) del.onclick = () => { this.del(cur.id); m.el.remove(); res(null); render(); };
+      el.querySelector("[data-ok]").onclick = () => {
+        const name = $("#mcname", el).value.trim(), ph = PhoneIn.read(el), email = $("#mcmail", el).value.trim();
+        if (!name) return toast(tt("Escreva o nome.", "Type the name."));
+        if (!ph.ok) return toast(tt("Confira o DDD e o número do celular.", "Check the area code and number."));
+        if (!ph.phone && !email) return toast(tt("Coloque o celular ou o e-mail.", "Add a phone or e-mail."));
+        const c = Object.assign({}, cur, { name, phone: ph.phone, email });
+        if (!opt.askSave || $("#mcsave", el).checked) this.put(c); else c.temp = true;
+        m.el.remove(); res(c);
+      };
+    });
+  },
+  view() {
+    if (!S.meId) return "";
+    const l = this.list();
+    return '<div class="card"><div class="between"><h3>📇 ' + tt("Meus contatos", "My contacts") + '</h3><div class="row">' + (this.canPhone() ? '<button class="btn ghost sm" data-act="mc.phone">📱 ' + tt("Da agenda", "From phone") + "</button>" : "") + '<button class="btn sm" data-act="mc.new">＋ ' + tt("Novo", "New") + "</button></div></div>" +
+      '<p class="small muted">' + tt("Contatos de ", "Contacts of ") + esc(People.name(S.meId)) + tt(" para receber o Cheguei e outros avisos (amigos, pais de amigos, motorista…). Ficam só neste aparelho.", " to get check-ins and other alerts. They stay on this device only.") + "</p>" +
+      (l.length ? '<div class="list">' + l.map((c) => '<div class="li click" data-act="mc.edit" data-id="' + c.id + '"><div class="ico">' + (c.src === "agenda" ? "📱" : "🙋") + '</div><div class="main"><div class="t">' + esc(c.name) + '</div><div class="s">' + esc([c.phone, c.email].filter(Boolean).join(" · ")) + '</div></div><span class="faint">✏️</span></div>').join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum ainda.", "None yet.") + "</div>") + "</div>";
+  }
+};
+ACT["mc.new"] = async () => { if (await MyContacts.edit()) render(); };
+ACT["mc.edit"] = async (d) => { const c = MyContacts.list().find((x) => x.id === d.id); if (c && await MyContacts.edit(c)) render(); };
+ACT["mc.phone"] = async () => { const l = await MyContacts.fromPhone(); if (l.length) { toast("📇 " + l.length + tt(" contato(s) guardado(s)", " contact(s) saved")); render(); } };
+
+/* ---------- quem recebe a notificação e por onde (Cheguei / Estou saindo) ----------
+   O registro aparece para toda a família no app. A notificação (push, WhatsApp, Telegram,
+   SMS, e-mail) vai só para quem foi escolhido — o padrão é a família toda. */
+const NotifyPick = {
+  CH: () => [["push", "🔔", tt("Notificação", "Push")], ["wa", "💬", "WhatsApp"], ["tg", "✈️", "Telegram"], ["sms", "✉️", "SMS"], ["mail", "📧", "E-mail"]],
+  fromPerson(p) { return { k: "p:" + p.id, name: p.nick || p.name, phone: p.phone || "", email: p.email || "", pid: p.id }; },
+  family() { return People.list("humans").filter((p) => p.id !== S.meId); },
+  resolve(k, extra) {
+    const [t, id] = [k.slice(0, 1), k.slice(2)];
+    if (t === "p") { const p = People.get(id); return p ? this.fromPerson(p) : null; }
+    if (t === "m") { const c = MyContacts.list().find((x) => x.id === id) || (extra || []).find((x) => x.id === id); return c ? { k, name: c.name, phone: c.phone, email: c.email } : null; }
+    if (t === "c") { const c = DB.get("contacts", id); return c ? { k, name: c.name, phone: (c.phones || [])[0] || "", email: c.email || "" } : null; }
+    if (t === "r") { const r = AlertHub.recips().find((x) => x.id === id); return r ? { k, name: r.name, phone: r.phone || r.waPhone || "", email: r.email || "", recip: r } : null; }
+    return null;
+  },
+  state() { const c = Cheguei.cfg(); return { to: c.to || "all", pick: (c.pick || []).slice(), ch: (c.ch || ["push", "wa"]).slice(), extra: [] }; },
+  targets(st) {
+    if (st.to === "all") return this.family().map((p) => this.fromPerson(p)).concat((Cheguei.cfg().sel || []).map((id) => this.resolve("r:" + id)).filter(Boolean));
+    return st.pick.map((k) => this.resolve(k, st.extra)).filter(Boolean);
+  },
+  autoOn(ch) { const c = AlertHub.cfg(); return ch === "wa" ? c.waOn : ch === "tg" ? c.tgOn && !!c.tgToken : ch === "mail" ? c.mailOn : false; },
+  render(box, st) {
+    const fam = this.family();
+    const extras = st.pick.filter((k) => !k.startsWith("p:")).map((k) => this.resolve(k, st.extra)).filter(Boolean);
+    const auto = this.CH().filter((x) => st.ch.includes(x[0]) && this.autoOn(x[0])).map((x) => x[2]);
+    const tap = this.CH().filter((x) => st.ch.includes(x[0]) && x[0] !== "push" && !this.autoOn(x[0])).map((x) => x[2]);
+    box.innerHTML = '<div class="grouph">📣 ' + tt("Quem recebe a notificação", "Who gets notified") + "</div>" +
+      '<div class="tiny faint" style="margin:-2px 0 6px">' + tt("O aviso aparece no app para toda a família. A notificação vai para quem você escolher.", "The check-in shows in the app for the whole family. Notifications go to whoever you choose.") + "</div>" +
+      '<div class="chips"><span class="chip' + (st.to === "all" ? " on" : "") + '" data-np="all">👨‍👩‍👧 ' + tt("Toda a família", "Whole family") + '</span><span class="chip' + (st.to === "pick" ? " on" : "") + '" data-np="pick">🎯 ' + tt("Escolher", "Choose") + "</span></div>" +
+      (st.to === "pick" ? '<div class="chips" style="margin-top:8px">' + fam.map((p) => '<span class="chip' + (st.pick.includes("p:" + p.id) ? " on" : "") + '" data-tg="p:' + p.id + '">' + People.emoji(p) + " " + esc(p.nick || p.name) + "</span>").join("") +
+        extras.map((t) => '<span class="chip on" data-rm="' + t.k + '">' + (t.k[0] === "c" ? "📇" : "🙋") + " " + esc(t.name) + " ✕</span>").join("") + "</div>" +
+        '<div class="row" style="margin-top:8px"><button type="button" class="btn ghost sm" data-np="book">📇 ' + tt("Contatos", "Contacts") + '</button><button type="button" class="btn ghost sm" data-np="new">＋ ' + tt("Novo contato", "New contact") + "</button></div>" : "") +
+      '<div class="grouph" style="margin-top:10px">' + tt("Por onde", "How") + '</div><div class="chips">' + this.CH().map((x) => '<span class="chip' + (st.ch.includes(x[0]) ? " on" : "") + '" data-ch="' + x[0] + '">' + x[1] + " " + x[2] + "</span>").join("") + "</div>" +
+      '<div class="tiny faint" style="margin-top:6px">' + (auto.length ? "⚡ " + tt("Automático: ", "Automatic: ") + auto.join(", ") + ". " : "") + (tap.length ? "👆 " + tt("Com um toque, logo depois de avisar: ", "One tap right after: ") + tap.join(", ") + ". " : "") +
+      (!isChild() ? '<button type="button" class="linkbtn tiny" data-np="setup">' + tt("Configurar canais", "Set up channels") + "</button>" : "") + "</div>";
+  },
+  bind(box, st) {
+    const re = () => this.render(box, st);
+    box.onclick = async (e) => {
+      const t = e.target.closest("[data-np],[data-tg],[data-rm],[data-ch]"); if (!t) return;
+      const d = t.dataset;
+      if (d.np === "all" || d.np === "pick") { st.to = d.np; if (st.to === "pick" && !st.pick.length) st.pick = this.family().map((p) => "p:" + p.id); }
+      else if (d.tg) st.pick = st.pick.includes(d.tg) ? st.pick.filter((x) => x !== d.tg) : st.pick.concat(d.tg);
+      else if (d.rm) st.pick = st.pick.filter((x) => x !== d.rm);
+      else if (d.ch) st.ch = st.ch.includes(d.ch) ? st.ch.filter((x) => x !== d.ch) : st.ch.concat(d.ch);
+      else if (d.np === "new") { const c = await MyContacts.edit(null, { askSave: true }); if (c) { if (c.temp) st.extra.push(c); if (!st.pick.includes("m:" + c.id)) st.pick.push("m:" + c.id); } }
+      else if (d.np === "book") { const ks = await this.book(st); ks.forEach((k) => { if (!st.pick.includes(k)) st.pick.push(k); }); }
+      else if (d.np === "setup") { $$(".mback").forEach((x) => x.remove()); location.hash = "#/security/alertas"; return; }
+      re();
+    };
+    re();
+  },
+  /* lista de contatos: meus, da agenda do celular, da família e cadastrados nos alertas */
+  book(st) {
+    return new Promise((res) => {
+      const mine = MyContacts.list().map((c) => ["m:" + c.id, "🙋", c.name, c.phone || c.email]);
+      const recs = AlertHub.recips().filter((r) => r.kind === "outro").map((r) => ["r:" + r.id, "📣", r.name, r.phone || r.waPhone || r.email || ""]);
+      const fam = Contacts.list().filter((c) => (c.phones || []).some(Boolean) || c.email).map((c) => ["c:" + c.id, "📇", c.name, (c.phones || [])[0] || c.email]);
+      const sec = (t, l) => l.length ? '<div class="grouph">' + t + '</div><div class="list">' + l.map((x) => '<label class="li" data-q="' + esc(norm(x[2] + " " + x[3])) + '"><input type="checkbox" value="' + x[0] + '"' + (st.pick.includes(x[0]) ? " checked" : "") + '><div class="main"><div class="t">' + x[1] + " " + esc(x[2]) + '</div><div class="s">' + esc(x[3] || "") + "</div></div></label>").join("") + "</div>" : "";
+      const body = '<div class="stack"><input type="search" id="bkq" placeholder="🔎 ' + tt("Procurar", "Search") + '">' + (MyContacts.canPhone() ? '<button type="button" class="btn ghost" id="bkph">📱 ' + tt("Escolher da agenda do celular", "Pick from phone contacts") + "</button>" : '<div class="tiny faint">📱 ' + tt("Ler a agenda do celular só funciona no Chrome do Android. Aqui, use “＋ Novo contato” ou os contatos abaixo.", "Reading the phone's address book only works in Chrome on Android.") + "</div>") +
+        '<div id="bkl">' + (sec(tt("Meus contatos", "My contacts"), mine) + sec(tt("Cadastrados nos alertas", "Alert recipients"), recs) + sec(tt("Contatos da família", "Family contacts"), fam) || '<div class="empty tiny">' + tt("Nenhum contato ainda.", "No contacts yet.") + "</div>") + "</div></div>";
+      const m = modal({ title: "📇 " + tt("Escolher contatos", "Pick contacts"), body, foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>' + tt("Usar selecionados", "Use selected") + "</button>", onClose: () => res([]) });
+      const el = m.el;
+      $("#bkq", el).oninput = () => { const q = norm($("#bkq", el).value); $$("[data-q]", el).forEach((x) => x.classList.toggle("hidden", !!q && !x.dataset.q.includes(q))); };
+      const ph = $("#bkph", el); if (ph) ph.onclick = async () => { const l = await MyContacts.fromPhone(); if (l.length) { m.el.remove(); res(l.map((c) => "m:" + c.id)); } };
+      el.querySelector("[data-ok]").onclick = () => { const ks = $$("input[type=checkbox]:checked", el).map((x) => x.value); m.el.remove(); res(ks); };
+    });
+  },
+  remember(st) { Cheguei.save({ to: st.to, pick: st.pick.filter((k) => !st.extra.some((c) => k === "m:" + c.id)), ch: st.ch }); },
+  pushTo(st) { if (!st.ch.includes("push")) return []; return st.to === "all" ? "all" : this.targets(st).filter((t) => t.pid).map((t) => t.pid); },
+  /* envia: automático onde o canal está configurado; o resto vira botões de um toque */
+  async dispatch(st, text, subject, link) {
+    const ts = this.targets(st), c = AlertHub.cfg(), res = [];
+    if (st.ch.includes("push") && DB.setting().ntfyTopic && c.ntfy) res.push(["ntfy", await Notify.ntfy(subject, text)]);
+    const manual = { wa: [], sms: [], mail: [], tg: false };
+    const recipOf = (t) => t.recip || (t.pid && AlertHub.recips().find((r) => r.personId === t.pid)) || null;
+    for (const t of ts) {
+      const r = recipOf(t); const only = [];
+      if (st.ch.includes("wa")) { if (c.waOn && r && r.waPhone && r.waKey) only.push("wa"); else if (t.phone) manual.wa.push(t); }
+      if (st.ch.includes("tg")) { if (c.tgOn && c.tgToken && r && r.tgChat) only.push("tg"); else manual.tg = true; }
+      if (st.ch.includes("mail")) { if (c.mailOn && r && r.email) only.push("mail"); else if (t.email) manual.mail.push(t); }
+      if (st.ch.includes("sms") && t.phone) manual.sms.push(t);
+      if (only.length) res.push(...await AlertHub.send([r.id], text, { subject, only, noNtfy: true }));
+    }
+    if (res.length) toast("📣 " + AlertHub.resTxt(res), 4500);
+    if (manual.wa.length || manual.sms.length || manual.mail.length || manual.tg) this.oneTap(manual, text, link);
+  },
+  oneTap(man, text, link) {
+    const nums = man.sms.map((t) => { const d = onlyDigits(t.phone); return "+" + (d.length === 10 || d.length === 11 ? "55" + d : d); });
+    const body = '<p class="small muted">' + tt("O navegador não manda sozinho por estes canais. Toque para abrir cada um com a mensagem pronta:", "The browser can't send through these by itself. Tap to open each one with the message ready:") + '</p><div class="note small" style="white-space:pre-wrap">' + esc(text) + "</div><div class=\"onetap\">" +
+      man.wa.map((t) => '<a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(t.phone, text) + '">💬 WhatsApp — ' + esc(t.name) + "</a>").join("") +
+      (nums.length ? '<a class="btn ghost" href="sms:' + nums.join(",") + "?body=" + encodeURIComponent(text) + '">✉️ SMS — ' + esc(man.sms.map((t) => t.name).join(", ")) + "</a>" : "") +
+      (man.mail.length ? '<a class="btn ghost" href="mailto:' + man.mail.map((t) => t.email).join(",") + "?subject=" + encodeURIComponent(APP_NAME) + "&body=" + encodeURIComponent(text) + '">📧 E-mail — ' + esc(man.mail.map((t) => t.name).join(", ")) + "</a>" : "") +
+      (man.tg ? '<a class="btn ghost" target="_blank" rel="noopener" href="https://t.me/share/url?url=' + encodeURIComponent(link || location.origin + location.pathname) + "&text=" + encodeURIComponent(text) + '">✈️ Telegram</a>' : "") + "</div>";
+    const m = modal({ title: "👆 " + tt("Terminar os envios", "Finish sending"), body, foot: '<button class="btn" data-x>' + tt("Pronto", "Done") + "</button>" });
+    $$(".onetap a", m.el).forEach((x) => x.addEventListener("click", () => { x.classList.add("done"); if (!x.textContent.startsWith("✓")) x.textContent = "✓ " + x.textContent; }));
+  }
+};
+
+/* ---------- lugares do Cheguei ---------- */
+const CHK_PLACE_LIST = () => [["🏠", tt("Casa", "Home")], ["🎒", tt("Escola", "School")], ["📚", tt("Curso", "Class")], ["💼", tt("Trabalho", "Work")], ["👵", tt("Casa dos avós", "Grandparents' home")], ["🧑‍🤝‍🧑", tt("Casa de amigos", "Friends' home")], ["🍻", "Bar"], ["🍽️", tt("Restaurante", "Restaurant")], ["🏋️", tt("Academia", "Gym")], ["🛍️", "Shopping"], ["✈️", tt("Aeroporto", "Airport")], ["🚌", tt("Rodoviária", "Bus station")], ["🚇", tt("Metrô", "Subway")], ["🏥", tt("Hospital", "Hospital")]];
+const CHK_PLACES = () => CHK_PLACE_LIST().map((x) => x[1]);
+const CHK_OTHER = () => tt("Outro", "Other");
 const Cheguei = {
   cfg() { return Object.assign({ sel: [], gps: true }, S.prefs.cheguei || {}); },
   save(p) { S.prefs.cheguei = Object.assign(this.cfg(), p); savePrefs(); },
@@ -4623,43 +4884,76 @@ const Cheguei = {
     if (!S.meId) return toast(tt("Entre com um perfil da família para avisar.", "Sign in with a family profile to check in."));
     pre = pre || {};
     const mine = this.pending().filter((x) => x.person === S.meId && !x.arr);
-    const places = [...new Set(mine.map((x) => x.place).filter(Boolean).concat(this.list().filter((c) => c.by === S.meId).map((c) => c.place).filter(Boolean)).concat(CHK_PLACES()))].slice(0, 10);
-    const body = '<div class="stack"><div class="grouph">' + tt("Onde você chegou?", "Where did you arrive?") + '</div><div class="chips" id="chpl">' + places.map((p, i) => '<span class="chip' + ((pre.place ? p === pre.place : i === 0) ? " on" : "") + '" data-v="' + esc(p) + '">' + esc(p) + (mine.some((x) => x.place === p) ? " ⏳" : "") + "</span>").join("") + '</div><input type="text" id="chother" placeholder="' + tt("ou escreva outro lugar", "or type another place") + '">' +
-      '<label class="fld"><span>' + tt("Recado (opcional)", "Note (optional)") + '</span><input type="text" id="chnote" placeholder="' + tt("Ex.: cheguei bem, vou jantar aqui", "e.g. got here fine") + '"></label>' +
-      '<label class="check"><input type="checkbox" id="chgps"' + (this.cfg().gps ? " checked" : "") + "> 📍 " + tt("Mandar minha localização junto", "Send my location too") + "</label></div>";
-    const m = modal({ title: "✅ " + tt("Avisar que cheguei", "Check in: I arrived"), body, foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn ok big" data-ok>✅ ' + tt("Cheguei!", "I'm here!") + "</button>" });
+    const base = CHK_PLACE_LIST(), baseNames = base.map((x) => x[1]);
+    const hist = [...new Set(this.list().filter((c) => c.by === S.meId && c.type === "cheguei").map((c) => c.place).filter((p) => p && !baseNames.includes(p)))].slice(0, 3);
+    const pend = [...new Set(mine.map((x) => x.place).filter(Boolean))];
+    const places = pend.map((p) => [(base.find((x) => x[1] === p) || ["⏳"])[0], p, true]).concat(base.filter((x) => !pend.includes(x[1])), hist.filter((p) => !pend.includes(p)).map((p) => ["🕘", p]), [["✏️", CHK_OTHER()]]);
+    const sel0 = pre.place || (pend[0]) || "";
+    const recent = (this.cfg().recent || []);
+    const nowHM = pad(new Date().getHours()) + ":" + pad(new Date().getMinutes());
+    const body = '<div class="stack"><div class="grouph">' + tt("Onde você chegou?", "Where did you arrive?") + '</div><div class="chips" id="chpl">' + places.map((p) => '<span class="chip' + (p[1] === sel0 ? " on" : "") + '" data-v="' + esc(p[1]) + '">' + p[0] + " " + esc(p[1]) + (p[2] ? " ⏳" : "") + "</span>").join("") + "</div>" +
+      '<input type="text" id="chother" list="chrecent" autocomplete="off" placeholder="' + tt("Complemente a informação", "Add details") + ' (' + tt("ex.: casa da Júlia, portão 2", "e.g. Julia's place, gate 2") + ')"><datalist id="chrecent">' + recent.map((r) => '<option value="' + esc(r) + '">').join("") + "</datalist>" +
+      (recent.length ? '<div class="chips" id="chrec"><span class="tiny faint">🕘 ' + tt("Recentes:", "Recent:") + "</span>" + recent.slice(0, 6).map((r) => '<span class="chip" data-v="' + esc(r) + '">' + esc(r) + "</span>").join("") + "</div>" : "") +
+      '<div class="twrow"><div><div class="grouph" style="margin:0">🕐 ' + tt("Horário da chegada", "Arrival time") + '</div><div class="tiny faint" id="chtlab">' + tt("agora", "now") + " · " + fmtTime(nowHM) + '</div><button type="button" class="btn ghost xs" id="chnow" style="margin-top:6px">↺ ' + tt("Agora", "Now") + "</button></div>" + TimeWheel.html("chtw") + "</div>" +
+      '<label class="fld"><span>' + tt("Recado (opcional)", "Note (optional)") + '</span><div class="searchbox dict"><input type="text" id="chnote" placeholder="' + tt("Ex.: cheguei bem, vou jantar aqui", "e.g. got here fine") + '">' + (Voice.ok() ? '<button type="button" class="btn ok xs hidden" id="chok" title="' + tt("Terminei de falar", "Done talking") + '">✓ OK</button><button class="mic" type="button" id="chmic" title="' + tt("Falar o recado", "Speak the note") + '">🎤</button>' : "") + "</div></label>" +
+      '<label class="check"><input type="checkbox" id="chgps"' + (this.cfg().gps ? " checked" : "") + "> 📍 " + tt("Mandar minha localização junto", "Send my location too") + "</label>" +
+      '<div id="chnp" class="npick"></div></div>';
+    const m = modal({ title: "✅ " + tt("Avisar que cheguei", "Check in: I arrived"), body, foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn ok big" data-ok>✅ ' + tt("Cheguei!", "I'm here!") + "</button>", onClose: () => { if (Voice.cur) try { Voice.cur.stop(); } catch (e) {} } });
     const el = m.el;
-    $("#chpl", el).onclick = (e) => { const c = e.target.closest(".chip"); if (!c) return; $$("#chpl .chip", el).forEach((x) => x.classList.toggle("on", x === c)); $("#chother", el).value = ""; };
+    const other = $("#chother", el);
+    $("#chpl", el).onclick = (e) => { const c = e.target.closest(".chip"); if (!c) return; const on = !c.classList.contains("on"); $$("#chpl .chip", el).forEach((x) => x.classList.toggle("on", on && x === c)); other.placeholder = c.dataset.v === CHK_OTHER() && on ? tt("Qual lugar? (obrigatório)", "Which place? (required)") : tt("Complemente a informação", "Add details"); if (c.dataset.v === CHK_OTHER()) other.focus(); };
+    const rec = $("#chrec", el); if (rec) rec.onclick = (e) => { const c = e.target.closest(".chip"); if (c) other.value = c.dataset.v; };
+    const tw = $("#chtw", el); let touched = false;
+    const lab = (v) => { $("#chtlab", el).textContent = (touched ? tt("ajustado", "adjusted") : tt("agora", "now")) + " · " + fmtTime(v); };
+    requestAnimationFrame(() => { TimeWheel.set(tw, nowHM); TimeWheel.bind(tw, (v) => { if (v !== nowHM) touched = true; lab(v); }); });
+    $("#chnow", el).onclick = () => { touched = false; const n = new Date(); TimeWheel.set(tw, pad(n.getHours()) + ":" + pad(n.getMinutes())); };
+    const mic = $("#chmic", el); if (mic) mic.onclick = () => Voice.dictate($("#chnote", el), mic, $("#chok", el));
+    const st = NotifyPick.state(); NotifyPick.bind($("#chnp", el), st);
     el.querySelector("[data-ok]").onclick = async () => {
-      const place = $("#chother", el).value.trim() || ($(".chip.on", $("#chpl", el)) || {}).dataset.v || "";
-      const note = $("#chnote", el).value.trim(); const gps = $("#chgps", el).checked; this.save({ gps });
+      if (Voice.cur) try { Voice.cur.stop(); } catch (e) {}
+      const chip = ($(".chip.on", $("#chpl", el)) || {}).dataset; const extra = other.value.trim();
+      let place = chip ? chip.v : "", detail = extra;
+      if (place === CHK_OTHER()) { if (!extra) { other.focus(); return toast(tt("Escreva qual é o lugar.", "Type the place.")); } place = extra; detail = ""; }
+      if (!place && extra) { place = extra; detail = ""; }
+      const when = wheelIso(TimeWheel.get(tw)); const hm = pad(when.getHours()) + ":" + pad(when.getMinutes());
+      const note = $("#chnote", el).value.trim(); const gps = $("#chgps", el).checked;
+      const recentN = extra ? [extra].concat(recent.filter((r) => norm(r) !== norm(extra))).slice(0, 12) : recent;
+      this.save({ gps, recent: recentN }); NotifyPick.remember(st);
       m.close(); toast("⏳ " + tt("Avisando…", "Sending…"));
       const loc = gps ? await this.locate() : null;
-      const doc = await DB.put("checkins", Object.assign({ type: "cheguei", by: S.meId, place, note, at: new Date().toISOString() }, loc || {}));
-      const txt = "✅ " + People.name(S.meId) + tt(" chegou", " arrived") + (place ? tt(" em ", " at ") + place : "") + tt(" às ", " at ") + fmtTime(pad(new Date().getHours()) + ":" + pad(new Date().getMinutes())) + (note ? " — " + note : "") + (loc ? "\n📍 " + this.mapLink(doc) : "");
-      this.notifyOut(txt, tt("Cheguei", "Checked in"));
-      toast("✅ " + tt("Aviso enviado para a família", "Check-in sent to the family"));
+      const doc = await DB.put("checkins", Object.assign({ type: "cheguei", by: S.meId, place, detail, note, at: when.toISOString(), sentAt: new Date().toISOString(), pushTo: NotifyPick.pushTo(st), ch: st.ch }, loc || {}));
+      const txt = "✅ " + People.name(S.meId) + tt(" chegou", " arrived") + (place ? tt(" em ", " at ") + place : "") + (detail ? " (" + detail + ")" : "") + tt(" às ", " at ") + fmtTime(hm) + (note ? " — " + note : "") + (loc ? "\n📍 " + this.mapLink(doc) : "");
+      toast("✅ " + tt("Aviso registrado para a família", "Check-in saved for the family"));
+      NotifyPick.dispatch(st, txt, tt("Cheguei", "Checked in"), loc ? this.mapLink(doc) : "");
     };
   },
   async leave() {
     if (!S.meId) return toast(tt("Entre com um perfil da família para avisar.", "Sign in with a family profile to check in."));
-    const body = '<div class="stack"><label class="fld"><span>' + tt("Para onde vai?", "Where are you going?") + '</span><input type="text" id="lvto" list="lvpl" placeholder="' + tt("Ex.: Casa", "e.g. Home") + '"><datalist id="lvpl">' + CHK_PLACES().map((p) => '<option value="' + esc(p) + '">').join("") + "</datalist></label>" +
-      '<div class="grouph">' + tt("Chego em", "I'll get there in") + '</div><div class="chips" id="lveta">' + [15, 30, 45, 60, 90].map((n, i) => '<span class="chip' + (i === 1 ? " on" : "") + '" data-v="' + n + '">' + n + " min</span>").join("") + '<span class="chip" data-v="t">' + tt("às…", "at…") + '</span></div><input type="time" id="lvt" class="hidden" style="max-width:160px">' +
-      '<label class="check"><input type="checkbox" id="lvgps"' + (this.cfg().gps ? " checked" : "") + "> 📍 " + tt("Mandar de onde estou saindo", "Send where I'm leaving from") + "</label></div>";
+    const recent = (this.cfg().recent || []);
+    const body = '<div class="stack"><label class="fld"><span>' + tt("Para onde vai?", "Where are you going?") + '</span><input type="text" id="lvto" list="lvpl" autocomplete="off" placeholder="' + tt("Ex.: Casa", "e.g. Home") + '"><datalist id="lvpl">' + [...new Set(CHK_PLACES().concat(recent))].map((p) => '<option value="' + esc(p) + '">').join("") + "</datalist></label>" +
+      '<div class="grouph">' + tt("Chego em", "I'll get there in") + '</div><div class="chips" id="lveta">' + [15, 30, 45, 60, 90].map((n, i) => '<span class="chip' + (i === 1 ? " on" : "") + '" data-v="' + n + '">' + n + " min</span>").join("") + '<span class="chip" data-v="t">🕐 ' + tt("às…", "at…") + "</span></div>" +
+      '<div id="lvtw" class="hidden twrow"><div class="grouph" style="margin:0">🕐 ' + tt("Chego às", "Arriving at") + "</div>" + TimeWheel.html("lvwheel") + "</div>" +
+      '<label class="check"><input type="checkbox" id="lvgps"' + (this.cfg().gps ? " checked" : "") + "> 📍 " + tt("Mandar de onde estou saindo", "Send where I'm leaving from") + "</label>" +
+      '<div id="lvnp" class="npick"></div></div>';
     const m = modal({ title: "🚶 " + tt("Estou saindo", "I'm leaving"), body, foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>🚶 ' + tt("Avisar", "Send") + "</button>" });
-    const el = m.el;
-    $("#lveta", el).onclick = (e) => { const c = e.target.closest(".chip"); if (!c) return; $$("#lveta .chip", el).forEach((x) => x.classList.toggle("on", x === c)); $("#lvt", el).classList.toggle("hidden", c.dataset.v !== "t"); };
+    const el = m.el; const tw = $("#lvwheel", el); let twReady = false;
+    $("#lveta", el).onclick = (e) => {
+      const c = e.target.closest(".chip"); if (!c) return; $$("#lveta .chip", el).forEach((x) => x.classList.toggle("on", x === c));
+      $("#lvtw", el).classList.toggle("hidden", c.dataset.v !== "t");
+      if (c.dataset.v === "t" && !twReady) { twReady = true; const d = new Date(Date.now() + 30 * 60000); requestAnimationFrame(() => { TimeWheel.set(tw, pad(d.getHours()) + ":" + pad(d.getMinutes())); TimeWheel.bind(tw); }); }
+    };
+    const st = NotifyPick.state(); NotifyPick.bind($("#lvnp", el), st);
     el.querySelector("[data-ok]").onclick = async () => {
       const to = $("#lvto", el).value.trim(); const v = ($(".chip.on", $("#lveta", el)) || {}).dataset.v;
       let eta;
-      if (v === "t") { const t = $("#lvt", el).value; if (!t) return toast(tt("Escolha o horário.", "Pick the time.")); const d = new Date(); const [hh, mm] = t.split(":").map(Number); d.setHours(hh, mm, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); eta = d; }
+      if (v === "t") { const [hh, mm] = TimeWheel.get(tw).split(":").map(Number); const d = new Date(); d.setHours(hh, mm, 0, 0); if (d < new Date()) d.setDate(d.getDate() + 1); eta = d; }
       else eta = new Date(Date.now() + (+v || 30) * 60000);
       const etaIso = isoDate(eta) + "T" + pad(eta.getHours()) + ":" + pad(eta.getMinutes());
-      const gps = $("#lvgps", el).checked; this.save({ gps }); m.close();
+      const gps = $("#lvgps", el).checked; this.save({ gps }); NotifyPick.remember(st); m.close();
       const loc = gps ? await this.locate() : null;
-      const doc = await DB.put("checkins", Object.assign({ type: "saindo", by: S.meId, to, eta: etaIso, at: new Date().toISOString() }, loc || {}));
-      this.notifyOut("🚶 " + People.name(S.meId) + tt(" está saindo", " is leaving") + (to ? tt(" para ", " to ") + to : "") + tt(" — chega por volta das ", " — arriving around ") + fmtTime(etaIso.slice(11, 16)) + (loc ? "\n📍 " + this.mapLink(doc) : ""), tt("Saindo", "Leaving"));
+      const doc = await DB.put("checkins", Object.assign({ type: "saindo", by: S.meId, to, eta: etaIso, at: new Date().toISOString(), pushTo: NotifyPick.pushTo(st), ch: st.ch }, loc || {}));
       toast("🚶 " + tt("Avisado. Lembre de tocar em Cheguei quando chegar!", "Sent. Remember to tap Check in when you arrive!"), 4500);
+      NotifyPick.dispatch(st, "🚶 " + People.name(S.meId) + tt(" está saindo", " is leaving") + (to ? tt(" para ", " to ") + to : "") + tt(" — chega por volta das ", " — arriving around ") + fmtTime(etaIso.slice(11, 16)) + (loc ? "\n📍 " + this.mapLink(doc) : ""), tt("Saindo", "Leaving"), loc ? this.mapLink(doc) : "");
     };
   },
   async editExpect(id) {
@@ -4708,7 +5002,7 @@ const Cheguei = {
       if (ex.length) h += '<div class="card"><h3>📋 ' + tt("Horários combinados", "Agreed times") + '</h3><div class="list">' + ex.map((e) => '<div class="li click" data-act="chk.exedit" data-id="' + e.id + '"><div class="ico">' + (e.active === false ? "⏸" : "⏰") + '</div><div class="main"><div class="t">' + esc(People.name(e.person)) + " · " + esc(e.place || "—") + " · " + tt("até ", "by ") + fmtTime(e.time) + '</div><div class="s">' + (e.date ? fmtDate(e.date) : (e.days || []).length ? e.days.map((d) => WD[S.lang][d]).join(", ") : tt("todos os dias", "every day")) + " · " + tt("tolerância ", "grace ") + (e.tol || 15) + " min" + (e.note ? " · " + esc(e.note) : "") + "</div></div></div>").join("") + "</div></div>";
       h += '<div class="card">' + AlertHub.selector(c.sel, "chk.rsel") + '<p class="tiny faint" style="margin-top:8px">' + tt("Recebem os avisos de “cheguei”, “estou saindo” e de atraso pelos canais ligados em Segurança → Alertas (WhatsApp, Telegram, e-mail, ntfy). Quem usa o app na nuvem também recebe o aviso no próprio celular.", "They get check-in, leaving and late alerts through the channels enabled in Safety → Alerts (WhatsApp, Telegram, e-mail, ntfy). Family members using the cloud also get it on their own phone.") + "</p></div>";
     }
-    h += '<div class="card"><h3>🕑 ' + tt("Últimos avisos", "Recent check-ins") + "</h3>" + (hist.length ? '<div class="list">' + hist.map((x) => '<div class="li"><div class="ico">' + (x.type === "cheguei" ? "✅" : "🚶") + '</div><div class="main"><div class="t">' + esc(People.name(x.by)) + " " + (x.type === "cheguei" ? tt("chegou", "arrived") + (x.place ? tt(" em ", " at ") + esc(x.place) : "") : tt("saiu", "left") + (x.to ? tt(" para ", " to ") + esc(x.to) : "") + tt(" · chega ", " · ETA ") + fmtTime(String(x.eta || "").slice(11, 16))) + '</div><div class="s">' + fmtDateTime(x.at) + (x.note ? " · " + esc(x.note) : "") + (x.lat != null ? ' · <a href="' + this.mapLink(x) + '" target="_blank" rel="noopener">📍 ' + tt("mapa", "map") + "</a>" : "") + "</div></div>" + People.av(x.by, "sm") + "</div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum aviso ainda.", "No check-ins yet.") + "</div>") + "</div>";
+    h += '<div class="card"><h3>🕑 ' + tt("Últimos avisos", "Recent check-ins") + "</h3>" + (hist.length ? '<div class="list">' + hist.map((x) => '<div class="li"><div class="ico">' + (x.type === "cheguei" ? "✅" : "🚶") + '</div><div class="main"><div class="t">' + esc(People.name(x.by)) + " " + (x.type === "cheguei" ? tt("chegou", "arrived") + (x.place ? tt(" em ", " at ") + esc(x.place) : "") + (x.detail ? ' <span class="faint">(' + esc(x.detail) + ")</span>" : "") : tt("saiu", "left") + (x.to ? tt(" para ", " to ") + esc(x.to) : "") + tt(" · chega ", " · ETA ") + fmtTime(String(x.eta || "").slice(11, 16))) + '</div><div class="s">' + fmtDateTime(x.at) + (x.note ? " · " + esc(x.note) : "") + (x.lat != null ? ' · <a href="' + this.mapLink(x) + '" target="_blank" rel="noopener">📍 ' + tt("mapa", "map") + "</a>" : "") + "</div></div>" + People.av(x.by, "sm") + "</div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum aviso ainda.", "No check-ins yet.") + "</div>") + "</div>";
     return h;
   }
 };
@@ -4724,7 +5018,7 @@ SCREENS.security = {
     const segs = [["cheguei", "✅ " + tt("Cheguei", "Check-in")], ["vigia", "👁 " + tt("Modo Vigilante", "Watch mode") + (Vigia.on ? " 🟢" : "")], ["alertas", "📣 " + tt("Alertas", "Alerts")]];
     return '<div class="pagehead"><div><h1>🛡️ ' + tt("Segurança", "Safety") + '</h1><div class="sub">' + tt("Saber que todo mundo chegou bem, vigiar quem precisa de cuidado e para quem avisar", "Know everyone got home safe, watch over who needs care, and who to alert") + "</div></div></div>" +
       '<div class="seg">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="security" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" +
-      (sub === "vigia" ? Vigia.view() : sub === "alertas" ? (isChild() ? '<div class="card"><div class="empty tiny">' + tt("Os responsáveis configuram os alertas.", "Guardians set up the alerts.") + "</div></div>" : AlertHub.view()) : Cheguei.view());
+      (sub === "vigia" ? Vigia.view() : sub === "alertas" ? (isChild() ? '<div class="card"><div class="empty tiny">' + tt("Os responsáveis configuram os alertas.", "Guardians set up the alerts.") + "</div></div>" : AlertHub.view() + MyContacts.view()) : Cheguei.view());
   }
 };
 
@@ -4758,6 +5052,8 @@ const HELP = () => ({
     tt("Na hora combinada, o celular de quem deve avisar lembra: “Já chegou?”. Passou a tolerância sem aviso, os responsáveis recebem ⚠️ no app e nos canais de alerta.", "At the agreed time, the person's phone reminds them: “Arrived?”. If the grace time passes with no check-in, guardians get ⚠️ in the app and through the alert channels."),
     tt("<b>Para quem vai o aviso:</b> em Cheguei → Quem recebe, marque uma ou várias pessoas — da família ou de fora (avó, motorista da van, pais do amigo).", "<b>Who gets it:</b> in Check-in → Who gets it, select one or more people — family or not (grandma, the school van driver, a friend's parents)."),
     tt("<b>Por onde chega:</b> no app (na nuvem, direto no celular de cada um) e, se configurados em Segurança → Alertas, por WhatsApp, Telegram, e-mail e ntfy. Ligação e SMS ficam a um toque.", "<b>How it arrives:</b> in the app (with the cloud, straight on everyone's phone) and, if set up in Safety → Alerts, via WhatsApp, Telegram, e-mail and ntfy. Call and SMS are one tap."),
+    tt("<b>Na tela do Cheguei:</b> escolha o lugar (Casa, Escola, Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… ou ✏️ Outro) e, se quiser, complemente (ex.: “casa da Júlia”) — o app lembra o que você escreveu e sugere da próxima vez. O horário já vem com a hora do toque; role a roda para ajustar. O recado pode ser falado no 🎤 — toque em ✓ OK quando terminar.", "<b>On the check-in screen:</b> pick the place (Home, School, Bar, Friends' home, Airport, Bus station, Subway… or ✏️ Other) and optionally add details — the app remembers and suggests them next time. The time starts at the moment you tap; scroll the wheel to adjust. You can speak the note with 🎤 — tap ✓ OK when done."),
+    tt("<b>Quem recebe a notificação:</b> o aviso aparece no app para toda a família; a notificação vai para “Toda a família” (padrão) ou para quem você escolher em 🎯 Escolher — pessoas da família, seus contatos (📇 Contatos, inclusive da agenda do celular no Android) ou ＋ Novo contato na hora (país, DDD e celular; o DDD já vem o da sua casa). Marque também por onde: 🔔 Notificação, 💬 WhatsApp, ✈️ Telegram, ✉️ SMS, 📧 E-mail. O que não sai sozinho aparece em seguida com botões de um toque.", "<b>Who gets notified:</b> the check-in shows in the app for everyone; notifications go to “Whole family” (default) or whoever you pick in 🎯 Choose — family, your contacts (📇, including the phone's address book on Android) or ＋ New contact on the spot. Pick the channels too. Whatever can't go out automatically shows up right after as one-tap buttons."),
     tt("<b>Ideias de uso:</b> saída da escola; volta do curso ou do treino; chegada à casa dos avós; volta de festa à noite; primeira viagem sozinho de ônibus; chegada ao trabalho de quem cuida da casa; idoso que mora sozinho avisando que acordou bem.", "<b>Ideas:</b> leaving school; back from class or practice; arriving at grandparents'; home from a party at night; first bus trip alone; the caregiver arriving at work; an elderly relative living alone checking in each morning.")
   ], note: tt("As mensagens automáticas (WhatsApp, Telegram, e-mail) saem do celular que tem os canais configurados. Se o filho avisa pelo celular dele, configure os canais também nele — ou use a nuvem, que leva o aviso para o celular dos pais.", "Automatic messages (WhatsApp, Telegram, e-mail) go out from the phone that has the channels set up. If the kid checks in on their own phone, set the channels up there too — or use the cloud, which carries it to the parents' phones."), more: [["alertas", "📣 " + tt("Alertas", "Alerts")]] },
   vigia: { t: "👁 " + tt("Modo Vigilante — como usar", "Watch mode — how to use"), steps: [
