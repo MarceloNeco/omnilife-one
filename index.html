@@ -394,6 +394,8 @@ svg.flag{border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.25);flex:none}
 .twi.on{color:var(--accent);font-weight:700}.twpad{height:36px}.twsep{position:relative;font-size:1.2rem}
 .searchbox.dict input{padding-left:12px;padding-right:100px}.searchbox.dict #chok{position:absolute;right:42px;top:50%;transform:translateY(-50%)}
 .onetap{display:flex;flex-direction:column;gap:8px;margin-top:10px}.onetap a.done{opacity:.6}
+.twleft{min-width:0}.dayrow{position:relative;display:flex;align-items:center;gap:4px;margin:6px 0 2px}.daybtn{background:none;border:1px solid var(--border);border-radius:9px;color:var(--text);font:inherit;font-size:.85rem;font-weight:600;padding:4px 8px;cursor:pointer;white-space:nowrap}.daybtn:hover{border-color:var(--accent)}.dayinput{position:absolute;left:30px;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+@media(max-width:420px){.twrow{flex-direction:column;align-items:stretch}.twrow .twheel{align-self:center}}
 .npick{border-top:1px dashed var(--border);padding-top:10px}
 .verifybox{margin:14px auto;max-width:320px;border:2px dashed var(--accent);border-radius:14px;padding:12px;background:var(--accent-soft)}
 .verifybox .vcode{font-size:2.6rem;font-weight:900;letter-spacing:.35em;color:var(--accent);margin:4px 0 2px;font-variant-numeric:tabular-nums}
@@ -471,7 +473,7 @@ ol.helpsteps li{margin:0 0 10px;line-height:1.5}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.4.2";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1776,7 +1778,7 @@ const Voice = {
       if (btn) btn.classList.add("rec");
       let done = false; const fin = (v) => { if (done) return; done = true; if (btn) btn.classList.remove("rec"); res(v || ""); };
       r.onresult = (e) => fin(e.results[0][0].transcript);
-      r.onerror = () => fin(""); r.onend = () => fin("");
+      r.onerror = (e) => { if (e.error && e.error !== "aborted" && e.error !== "no-speech") toast(Voice.errMsg(e.error), 8000); else if (e.error === "no-speech") toast(Voice.errMsg("no-speech")); fin(""); }; r.onend = () => fin("");
       try { r.start(); } catch (e) { fin(""); }
     });
   }
@@ -4665,21 +4667,47 @@ const TimeWheel = {
   }
 };
 /* horário escolhido na roda → data/hora ISO (se ficou bem no futuro, era ontem) */
-function wheelIso(hhmm) { const d = new Date(); const [h, m] = hhmm.split(":").map(Number); d.setHours(h, m, 0, 0); if (d.getTime() - Date.now() > 3600e3) d.setDate(d.getDate() - 1); return d; }
+function wheelIso(hhmm, day) { const d = day ? parseISO(day) : new Date(); const [h, m] = hhmm.split(":").map(Number); d.setHours(h, m, 0, 0); if (!day && d.getTime() - Date.now() > 3600e3) d.setDate(d.getDate() - 1); return d; }
 
 /* ---------- ditado por voz com botão OK (para quando o detector não percebe que você parou) ---------- */
-Voice.dictate = function (input, mic, okb) {
+Voice.errMsg = function (code) {
+  return ({
+    "not-allowed": tt("O microfone está bloqueado para este site. No Chrome, clique no cadeado 🔒 ao lado do endereço → Microfone → Permitir, e recarregue a página.", "The microphone is blocked for this site. In Chrome, click the 🔒 next to the address → Microphone → Allow, then reload."),
+    "service-not-allowed": tt("Este navegador não liberou o reconhecimento de voz. Use o Google Chrome (no Edge, Brave e Opera ele costuma não funcionar).", "This browser didn't allow speech recognition. Use Google Chrome (it often fails in Edge, Brave and Opera)."),
+    "audio-capture": tt("Não encontrei microfone. Confira se ele está ligado e escolhido no Windows/Mac.", "No microphone found. Check that it's plugged in and selected."),
+    "network": tt("O reconhecimento de voz do Chrome precisa de internet e dos servidores do Google, e eles não responderam (rede da empresa, VPN ou bloqueador podem impedir). Alternativa: no Windows, clique no campo e aperte ⊞ Win + H para ditar.", "Chrome's speech recognition needs the internet and Google's servers, and they didn't answer (office network, VPN or blockers can prevent it). Alternative: on Windows, click the field and press ⊞ Win + H to dictate."),
+    "no-speech": tt("Não ouvi nada. Fale mais perto do microfone e tente de novo.", "I didn't hear anything. Speak closer to the mic and try again."),
+    "language-not-supported": tt("O idioma não é aceito pelo reconhecimento de voz deste navegador.", "Language not supported by this browser's speech recognition.")
+  })[code] || tt("O reconhecimento de voz parou (" + code + "). Tente de novo ou use o ditado do teclado.", "Speech recognition stopped (" + code + "). Try again or use keyboard dictation.");
+};
+/* ditado contínuo: mostra o que ouve, o botão ✓ OK sempre encerra (mesmo se o navegador travar) */
+Voice.dictate = async function (input, mic, okb, statusEl) {
   const R = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!R) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Chrome.", "No speech recognition here. Use Chrome.")); return; }
-  if (Voice.cur) { try { Voice.cur.stop(); } catch (e) {} return; }
-  const base = input.value.trim(); let fin = "";
-  const r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = true; r.continuous = true;
-  Voice.cur = r; mic.classList.add("rec"); okb.classList.remove("hidden");
-  const end = () => { Voice.cur = null; mic.classList.remove("rec"); okb.classList.add("hidden"); input.value = (base + " " + fin).trim(); };
-  r.onresult = (e) => { let inter = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += (fin ? " " : "") + e.results[i][0].transcript.trim(); else inter += e.results[i][0].transcript; } input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim(); };
-  r.onerror = end; r.onend = end;
-  okb.onclick = () => { try { r.stop(); } catch (e) { end(); } };
-  try { r.start(); } catch (e) { end(); }
+  if (!R) { toast(tt("Seu navegador não tem reconhecimento de voz. Use o Google Chrome — ou, no Windows, clique no campo e aperte ⊞ Win + H.", "No speech recognition here. Use Google Chrome — or on Windows press ⊞ Win + H in the field."), 6000); return; }
+  if (Voice.cur) { Voice.cur.finish(); return; }
+  const say = (t) => { if (statusEl) { statusEl.textContent = t || ""; statusEl.classList.toggle("hidden", !t); } };
+  /* pede o microfone antes: assim o aviso de permissão aparece e dá para saber se foi bloqueado */
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try { const ms = await navigator.mediaDevices.getUserMedia({ audio: true }); ms.getTracks().forEach((t) => t.stop()); }
+    catch (e) { toast(Voice.errMsg(e && e.name === "NotFoundError" ? "audio-capture" : "not-allowed"), 8000); return; }
+  }
+  const base = input.value.trim(); let fin = "", inter = "", done = false, heard = false;
+  const r = new R(); r.lang = S.lang === "pt" ? "pt-BR" : "en-US"; r.interimResults = true; r.continuous = true; r.maxAlternatives = 1;
+  const end = (err) => {
+    if (done) return; done = true; Voice.cur = null; clearTimeout(quiet);
+    mic.classList.remove("rec"); okb.classList.add("hidden"); say("");
+    input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim();
+    if (err && err !== "aborted") toast(Voice.errMsg(err), 8000);
+  };
+  Voice.cur = { finish: () => { try { r.stop(); } catch (e) {} setTimeout(() => { try { r.abort(); } catch (e) {} end(); }, 700); } };
+  mic.classList.add("rec"); okb.classList.remove("hidden"); say("🎙️ " + tt("Ouvindo… fale agora. Toque em ✓ OK quando terminar.", "Listening… speak now. Tap ✓ OK when done."));
+  const quiet = setTimeout(() => { if (!heard && !done) say("🤔 " + tt("Ainda não ouvi nada. Confira o microfone — ou toque em ✓ OK para parar.", "Nothing heard yet. Check the mic — or tap ✓ OK to stop.")); }, 7000);
+  r.onaudiostart = () => say("🎙️ " + tt("Microfone ligado. Pode falar.", "Mic on. Go ahead."));
+  r.onresult = (e) => { heard = true; inter = ""; for (let i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) fin += (fin ? " " : "") + e.results[i][0].transcript.trim(); else inter += e.results[i][0].transcript; } input.value = (base + " " + fin + " " + inter).replace(/\s+/g, " ").trim(); say("🎙️ " + tt("Ouvindo…", "Listening…")); };
+  r.onerror = (e) => end(e.error);
+  r.onend = () => end();
+  okb.onclick = (e) => { e.preventDefault(); e.stopPropagation(); if (Voice.cur) Voice.cur.finish(); };
+  try { r.start(); } catch (e) { end("start"); }
 };
 
 /* ---------- meus contatos (de cada pessoa, guardados só neste aparelho) ---------- */
@@ -4894,11 +4922,13 @@ const Cheguei = {
     const body = '<div class="stack"><div class="grouph">' + tt("Onde você chegou?", "Where did you arrive?") + '</div><div class="chips" id="chpl">' + places.map((p) => '<span class="chip' + (p[1] === sel0 ? " on" : "") + '" data-v="' + esc(p[1]) + '">' + p[0] + " " + esc(p[1]) + (p[2] ? " ⏳" : "") + "</span>").join("") + "</div>" +
       '<input type="text" id="chother" list="chrecent" autocomplete="off" placeholder="' + tt("Complemente a informação", "Add details") + ' (' + tt("ex.: casa da Júlia, portão 2", "e.g. Julia's place, gate 2") + ')"><datalist id="chrecent">' + recent.map((r) => '<option value="' + esc(r) + '">').join("") + "</datalist>" +
       (recent.length ? '<div class="chips" id="chrec"><span class="tiny faint">🕘 ' + tt("Recentes:", "Recent:") + "</span>" + recent.slice(0, 6).map((r) => '<span class="chip" data-v="' + esc(r) + '">' + esc(r) + "</span>").join("") + "</div>" : "") +
-      '<div class="twrow"><div><div class="grouph" style="margin:0">🕐 ' + tt("Horário da chegada", "Arrival time") + '</div><div class="tiny faint" id="chtlab">' + tt("agora", "now") + " · " + fmtTime(nowHM) + '</div><button type="button" class="btn ghost xs" id="chnow" style="margin-top:6px">↺ ' + tt("Agora", "Now") + "</button></div>" + TimeWheel.html("chtw") + "</div>" +
-      '<label class="fld"><span>' + tt("Recado (opcional)", "Note (optional)") + '</span><div class="searchbox dict"><input type="text" id="chnote" placeholder="' + tt("Ex.: cheguei bem, vou jantar aqui", "e.g. got here fine") + '">' + (Voice.ok() ? '<button type="button" class="btn ok xs hidden" id="chok" title="' + tt("Terminei de falar", "Done talking") + '">✓ OK</button><button class="mic" type="button" id="chmic" title="' + tt("Falar o recado", "Speak the note") + '">🎤</button>' : "") + "</div></label>" +
+      '<div class="twrow"><div class="twleft"><div class="grouph" style="margin:0">🕐 ' + tt("Dia e horário da chegada", "Arrival day and time") + '</div>' +
+        '<div class="dayrow"><button type="button" class="btn ghost xs" id="chdprev" aria-label="' + tt("Dia anterior", "Previous day") + '">‹</button><button type="button" class="daybtn" id="chday"></button><button type="button" class="btn ghost xs" id="chdnext" aria-label="' + tt("Próximo dia", "Next day") + '">›</button><input type="date" id="chdate" class="dayinput" tabindex="-1" aria-hidden="true" max="' + today() + '" value="' + today() + '"></div>' +
+        '<div class="tiny faint" id="chtlab">' + tt("agora", "now") + " · " + fmtTime(nowHM) + '</div><button type="button" class="btn ghost xs" id="chnow" style="margin-top:6px">↺ ' + tt("Agora", "Now") + "</button></div>" + TimeWheel.html("chtw") + "</div>" +
+      '<label class="fld"><span>' + tt("Recado (opcional)", "Note (optional)") + '</span><div class="searchbox dict"><input type="text" id="chnote" placeholder="' + tt("Ex.: cheguei bem, vou jantar aqui", "e.g. got here fine") + '">' + (Voice.ok() ? '<button type="button" class="btn ok xs hidden" id="chok" title="' + tt("Terminei de falar", "Done talking") + '">✓ OK</button><button class="mic" type="button" id="chmic" title="' + tt("Falar o recado", "Speak the note") + '">🎤</button>' : "") + '</div><small class="hint hidden" id="chvst" aria-live="polite"></small></label>' +
       '<label class="check"><input type="checkbox" id="chgps"' + (this.cfg().gps ? " checked" : "") + "> 📍 " + tt("Mandar minha localização junto", "Send my location too") + "</label>" +
       '<div id="chnp" class="npick"></div></div>';
-    const m = modal({ title: "✅ " + tt("Avisar que cheguei", "Check in: I arrived"), body, foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn ok big" data-ok>✅ ' + tt("Cheguei!", "I'm here!") + "</button>", onClose: () => { if (Voice.cur) try { Voice.cur.stop(); } catch (e) {} } });
+    const m = modal({ title: "✅ " + tt("Avisar que cheguei", "Check in: I arrived"), body, foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn ok big" data-ok>✅ ' + tt("Cheguei!", "I'm here!") + "</button>", onClose: () => { if (Voice.cur) Voice.cur.finish(); } });
     const el = m.el;
     const other = $("#chother", el);
     $("#chpl", el).onclick = (e) => { const c = e.target.closest(".chip"); if (!c) return; const on = !c.classList.contains("on"); $$("#chpl .chip", el).forEach((x) => x.classList.toggle("on", on && x === c)); other.placeholder = c.dataset.v === CHK_OTHER() && on ? tt("Qual lugar? (obrigatório)", "Which place? (required)") : tt("Complemente a informação", "Add details"); if (c.dataset.v === CHK_OTHER()) other.focus(); };
@@ -4906,23 +4936,31 @@ const Cheguei = {
     const tw = $("#chtw", el); let touched = false;
     const lab = (v) => { $("#chtlab", el).textContent = (touched ? tt("ajustado", "adjusted") : tt("agora", "now")) + " · " + fmtTime(v); };
     requestAnimationFrame(() => { TimeWheel.set(tw, nowHM); TimeWheel.bind(tw, (v) => { if (v !== nowHM) touched = true; lab(v); }); });
-    $("#chnow", el).onclick = () => { touched = false; const n = new Date(); TimeWheel.set(tw, pad(n.getHours()) + ":" + pad(n.getMinutes())); };
-    const mic = $("#chmic", el); if (mic) mic.onclick = () => Voice.dictate($("#chnote", el), mic, $("#chok", el));
+    $("#chnow", el).onclick = () => { touched = false; din.value = today(); dayLab(); const n = new Date(); TimeWheel.set(tw, pad(n.getHours()) + ":" + pad(n.getMinutes())); };
+    const mic = $("#chmic", el); if (mic) mic.onclick = (e) => { e.preventDefault(); Voice.dictate($("#chnote", el), mic, $("#chok", el), $("#chvst", el)); };
+    const WD = S.lang === "pt" ? ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const din = $("#chdate", el);
+    const dayLab = () => { const v = din.value || today(); const n = diffDays(v, today()); $("#chday", el).textContent = "📅 " + (n === 0 ? tt("Hoje", "Today") + " · " : n === 1 ? tt("Ontem", "Yesterday") + " · " : "") + WD[parseISO(v).getDay()] + ", " + fmtDate(v); $("#chdnext", el).disabled = v >= today(); };
+    $("#chdprev", el).onclick = () => { din.value = addDays(din.value || today(), -1); dayLab(); };
+    $("#chdnext", el).onclick = () => { if ((din.value || today()) < today()) din.value = addDays(din.value, 1); dayLab(); };
+    $("#chday", el).onclick = () => { try { din.showPicker(); } catch (e) { din.focus(); din.click(); } };
+    din.onchange = () => { if (!din.value || din.value > today()) din.value = today(); dayLab(); };
+    dayLab();
     const st = NotifyPick.state(); NotifyPick.bind($("#chnp", el), st);
     el.querySelector("[data-ok]").onclick = async () => {
-      if (Voice.cur) try { Voice.cur.stop(); } catch (e) {}
+      if (Voice.cur) Voice.cur.finish();
       const chip = ($(".chip.on", $("#chpl", el)) || {}).dataset; const extra = other.value.trim();
       let place = chip ? chip.v : "", detail = extra;
       if (place === CHK_OTHER()) { if (!extra) { other.focus(); return toast(tt("Escreva qual é o lugar.", "Type the place.")); } place = extra; detail = ""; }
       if (!place && extra) { place = extra; detail = ""; }
-      const when = wheelIso(TimeWheel.get(tw)); const hm = pad(when.getHours()) + ":" + pad(when.getMinutes());
+      const when = wheelIso(TimeWheel.get(tw), din.value); const hm = pad(when.getHours()) + ":" + pad(when.getMinutes());
       const note = $("#chnote", el).value.trim(); const gps = $("#chgps", el).checked;
       const recentN = extra ? [extra].concat(recent.filter((r) => norm(r) !== norm(extra))).slice(0, 12) : recent;
       this.save({ gps, recent: recentN }); NotifyPick.remember(st);
       m.close(); toast("⏳ " + tt("Avisando…", "Sending…"));
       const loc = gps ? await this.locate() : null;
       const doc = await DB.put("checkins", Object.assign({ type: "cheguei", by: S.meId, place, detail, note, at: when.toISOString(), sentAt: new Date().toISOString(), pushTo: NotifyPick.pushTo(st), ch: st.ch }, loc || {}));
-      const txt = "✅ " + People.name(S.meId) + tt(" chegou", " arrived") + (place ? tt(" em ", " at ") + place : "") + (detail ? " (" + detail + ")" : "") + tt(" às ", " at ") + fmtTime(hm) + (note ? " — " + note : "") + (loc ? "\n📍 " + this.mapLink(doc) : "");
+      const txt = "✅ " + People.name(S.meId) + tt(" chegou", " arrived") + (place ? tt(" em ", " at ") + place : "") + (detail ? " (" + detail + ")" : "") + (isoDate(when) !== today() ? tt(" em ", " on ") + fmtDate(isoDate(when)) : "") + tt(" às ", " at ") + fmtTime(hm) + (note ? " — " + note : "") + (loc ? "\n📍 " + this.mapLink(doc) : "");
       toast("✅ " + tt("Aviso registrado para a família", "Check-in saved for the family"));
       NotifyPick.dispatch(st, txt, tt("Cheguei", "Checked in"), loc ? this.mapLink(doc) : "");
     };
@@ -5052,7 +5090,7 @@ const HELP = () => ({
     tt("Na hora combinada, o celular de quem deve avisar lembra: “Já chegou?”. Passou a tolerância sem aviso, os responsáveis recebem ⚠️ no app e nos canais de alerta.", "At the agreed time, the person's phone reminds them: “Arrived?”. If the grace time passes with no check-in, guardians get ⚠️ in the app and through the alert channels."),
     tt("<b>Para quem vai o aviso:</b> em Cheguei → Quem recebe, marque uma ou várias pessoas — da família ou de fora (avó, motorista da van, pais do amigo).", "<b>Who gets it:</b> in Check-in → Who gets it, select one or more people — family or not (grandma, the school van driver, a friend's parents)."),
     tt("<b>Por onde chega:</b> no app (na nuvem, direto no celular de cada um) e, se configurados em Segurança → Alertas, por WhatsApp, Telegram, e-mail e ntfy. Ligação e SMS ficam a um toque.", "<b>How it arrives:</b> in the app (with the cloud, straight on everyone's phone) and, if set up in Safety → Alerts, via WhatsApp, Telegram, e-mail and ntfy. Call and SMS are one tap."),
-    tt("<b>Na tela do Cheguei:</b> escolha o lugar (Casa, Escola, Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… ou ✏️ Outro) e, se quiser, complemente (ex.: “casa da Júlia”) — o app lembra o que você escreveu e sugere da próxima vez. O horário já vem com a hora do toque; role a roda para ajustar. O recado pode ser falado no 🎤 — toque em ✓ OK quando terminar.", "<b>On the check-in screen:</b> pick the place (Home, School, Bar, Friends' home, Airport, Bus station, Subway… or ✏️ Other) and optionally add details — the app remembers and suggests them next time. The time starts at the moment you tap; scroll the wheel to adjust. You can speak the note with 🎤 — tap ✓ OK when done."),
+    tt("<b>Na tela do Cheguei:</b> escolha o lugar (Casa, Escola, Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… ou ✏️ Outro) e, se quiser, complemente (ex.: “casa da Júlia”) — o app lembra o que você escreveu e sugere da próxima vez. O dia (com o dia da semana) e o horário já vêm com o momento do toque: use ‹ › ou toque na data para mudar o dia, e role a roda para ajustar a hora. O recado pode ser falado no 🎤 — toque em ✓ OK quando terminar. Se o 🎤 não funcionar no computador, clique no campo e aperte ⊞ Win + H (ditado do Windows).", "<b>On the check-in screen:</b> pick the place (Home, School, Bar, Friends' home, Airport, Bus station, Subway… or ✏️ Other) and optionally add details — the app remembers and suggests them next time. The time starts at the moment you tap; scroll the wheel to adjust. You can speak the note with 🎤 — tap ✓ OK when done."),
     tt("<b>Quem recebe a notificação:</b> o aviso aparece no app para toda a família; a notificação vai para “Toda a família” (padrão) ou para quem você escolher em 🎯 Escolher — pessoas da família, seus contatos (📇 Contatos, inclusive da agenda do celular no Android) ou ＋ Novo contato na hora (país, DDD e celular; o DDD já vem o da sua casa). Marque também por onde: 🔔 Notificação, 💬 WhatsApp, ✈️ Telegram, ✉️ SMS, 📧 E-mail. O que não sai sozinho aparece em seguida com botões de um toque.", "<b>Who gets notified:</b> the check-in shows in the app for everyone; notifications go to “Whole family” (default) or whoever you pick in 🎯 Choose — family, your contacts (📇, including the phone's address book on Android) or ＋ New contact on the spot. Pick the channels too. Whatever can't go out automatically shows up right after as one-tap buttons."),
     tt("<b>Ideias de uso:</b> saída da escola; volta do curso ou do treino; chegada à casa dos avós; volta de festa à noite; primeira viagem sozinho de ônibus; chegada ao trabalho de quem cuida da casa; idoso que mora sozinho avisando que acordou bem.", "<b>Ideas:</b> leaving school; back from class or practice; arriving at grandparents'; home from a party at night; first bus trip alone; the caregiver arriving at work; an elderly relative living alone checking in each morning.")
   ], note: tt("As mensagens automáticas (WhatsApp, Telegram, e-mail) saem do celular que tem os canais configurados. Se o filho avisa pelo celular dele, configure os canais também nele — ou use a nuvem, que leva o aviso para o celular dos pais.", "Automatic messages (WhatsApp, Telegram, e-mail) go out from the phone that has the channels set up. If the kid checks in on their own phone, set the channels up there too — or use the cloud, which carries it to the parents' phones."), more: [["alertas", "📣 " + tt("Alertas", "Alerts")]] },
