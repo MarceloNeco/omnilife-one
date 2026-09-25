@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OmniLifeONE — Benchmark de entrada na família</title>
+<style>
+body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f6fb;color:#15131f;margin:0;line-height:1.55}
+.w{max-width:900px;margin:0 auto;padding:22px 16px 60px}
+h1{font-size:1.55rem;margin:.2em 0}h1 b{color:#6a50e6}
+h2{font-size:1.15rem;margin:28px 0 8px;padding-top:10px;border-top:1px solid #dedbee}
+.card{background:#fff;border:1px solid #dedbee;border-radius:14px;padding:14px 16px;margin:10px 0}
+.tip{background:#eef6ff;border-color:#b9d8ff}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:640px;background:#fff;font-size:.92rem}
+th,td{border:1px solid #dedbee;padding:8px;text-align:left;vertical-align:top}th{background:#eeebfa}
+td.y{color:#0a7a3d;font-weight:600}a{color:#6a50e6}
+</style></head><body><div class="w">
+<h1>OmniLife<b>ONE</b> — como entrar na família com segurança</h1>
+<p>Benchmark feito em 24/Set/2026 comparando os apps de família mais usados e as boas práticas de segurança. No fim, o que a versão 1.4.0 adotou.</p>
+
+<h2>1. Como os grandes fazem</h2>
+<div class="tw"><table>
+<tr><th></th><th>Apple (Compartilhamento Familiar)</th><th>Google (grupo familiar)</th><th>Microsoft Family Safety</th><th>Life360 (Círculos)</th><th>OmniLifeONE 1.4.0</th></tr>
+<tr><td><b>Quem convida</b></td><td>Organizador; pais/responsáveis ajudam com crianças</td><td>Só o administrador da família</td><td>Organizadores</td><td>Qualquer membro (admin controla)</td><td class="y">Chefes e responsáveis (só chefe convida chefe/responsável)</td></tr>
+<tr><td><b>Como chega o convite</b></td><td>Mensagem/iMessage, e-mail ou pessoalmente</td><td>E-mail ou link</td><td>E-mail ou SMS</td><td>Código de 6 caracteres válido por 3 dias</td><td class="y">Link + QR, WhatsApp, e-mail, compartilhar; prazo 24 h a 7 dias; 1 a 10 usos</td></tr>
+<tr><td><b>Confirmação extra</b></td><td>Convidado aceita com a própria conta; criança precisa de consentimento dos pais</td><td>Convidado aceita; criança exige conta supervisionada</td><td>Convidado aceita</td><td>Só o código</td><td class="y">Código de 4 números mostrado a quem entra e conferido por quem aprova (fora do app)</td></tr>
+<tr><td><b>Vários administradores</b></td><td>1 organizador + vários “pais/responsáveis”</td><td>1 administrador + “pais” com poderes limitados</td><td>Vários organizadores</td><td>Vários administradores</td><td class="y">Vários chefes; sempre pelo menos 1; criador é sempre chefe e pode transferir</td></tr>
+<tr><td><b>Crianças</b></td><td>Conta infantil criada pelo adulto</td><td>Family Link</td><td>Conta de criança com controles</td><td>Membro comum</td><td class="y">Papel Criança/jovem + consentimento LGPD art. 14 + controle parental</td></tr>
+<tr><td><b>Sair / remover</b></td><td>Organizador remove; adulto pode sair</td><td>Admin remove; membro pode sair</td><td>Organizador remove</td><td>Admin remove; membro sai</td><td class="y">Chefe remove; qualquer um (menos o criador) sai sozinho</td></tr>
+<tr><td><b>Histórico</b></td><td>—</td><td>—</td><td>Relatórios de atividade</td><td>—</td><td class="y">Histórico de segurança que ninguém apaga</td></tr>
+</table></div>
+
+<h2>2. Boas práticas de segurança (e onde estão no app)</h2>
+<div class="card"><ol>
+<li><b>Convite é um segredo com prazo:</b> código aleatório de 12 caracteres (gerado com criptografia do navegador), com validade e número máximo de usos, e que pode ser cancelado. <i>(Família → Convites)</i></li>
+<li><b>Quem controla a porta é o servidor, não a tela:</b> as regras do Firebase só aceitam pedido de entrada com convite ativo, dentro do prazo e com vaga — mesmo que alguém mexa no app.</li>
+<li><b>Confirmação por outro canal:</b> um link pode vazar (grupo de WhatsApp, print). O código de 4 números conferido por telefone ou pessoalmente garante que quem entra é quem você convidou. 3 erros recusam o pedido.</li>
+<li><b>Aprovação humana e, se quiser, dupla:</b> 1 ou 2 chefes/responsáveis diferentes precisam aprovar. <i>(Regras de entrada)</i></li>
+<li><b>Menor privilégio:</b> cada papel só faz o necessário. Responsável aprova adultos e crianças, mas só chefe cria outro chefe/responsável, muda papéis ou remove logins.</li>
+<li><b>Vários administradores, sem ficar trancado para fora:</b> sempre sobra pelo menos um chefe; o criador não é rebaixado sem antes transferir a criação.</li>
+<li><b>Crianças com consentimento:</b> a LGPD (art. 14) pede consentimento de pelo menos um dos pais ou responsável; o app registra quem autorizou e quando.</li>
+<li><b>Rastro auditável:</b> tudo que muda quem entra, sai ou manda na família fica no histórico, que só aceita novos registros.</li>
+<li><b>Saída fácil:</b> qualquer pessoa pode sair da família quando quiser.</li>
+</ol></div>
+
+<div class="card tip"><b>Limites honestos:</b> o app não confirma identidade por documento (como bancos fazem) — a confirmação é de quem já conhece a pessoa. No modo “só neste aparelho” não há convites: cada pessoa usa seu perfil com PIN ou digital no mesmo celular.</div>
+
+<h2>Fontes</h2>
+<ul>
+<li><a href="https://support.apple.com/en-us/105062">Apple — How to add a family member to your Family Sharing group</a></li>
+<li><a href="https://support.google.com/families/answer/6317858?hl=en">Google — Invite family members to your family group</a></li>
+<li><a href="https://support.microsoft.com/en-us/family-safety/roles-permissions-and-data-sharing-in-family-safety">Microsoft — Roles, permissions and data sharing in Family Safety</a></li>
+<li><a href="https://support.life360.com/hc/en-us/articles/23053409850647-Add-a-New-Member-to-My-Circle">Life360 — Add a new member to my Circle</a></li>
+<li><a href="https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm">Lei 13.709/2018 (LGPD), art. 14 — dados de crianças e adolescentes</a></li>
+</ul>
+</div></body></html>

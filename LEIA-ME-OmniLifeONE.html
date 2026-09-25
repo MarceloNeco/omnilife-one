@@ -12,8 +12,24 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 .files code{display:inline-block;margin:2px 0}
 </style></head><body><div class="w">
 <h1>OmniLife<b>ONE</b> — passo a passo</h1>
-<p>Versão 1.3.0 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e muito mais).</p>
-<div class="card warn"><b>Esta entrega (1.3.0) substitui todas as anteriores (1.2.0 a 1.2.4).</b> Ela já inclui o que a 1.1.0 trazia — o index.html da 1.1.0 nunca chegou a ser enviado ao GitHub, por isso o site ainda mostrava a 1.0.1.</div>
+<p>Versão 1.4.0 · organizador da casa e da família (compras e despensa, agenda, contatos, saúde, documentos, segurança, cofre e muito mais).</p>
+<div class="card warn"><b>Esta entrega (1.4.0) substitui todas as anteriores (1.2.0 a 1.3.0).</b></div>
+<p><b>Novidades da 1.4.0 — entrada segura na família:</b></p>
+<ul>
+<li><b>👑 Vários chefes da família:</b> pai, mãe, avó, tutor… quantos quiser, todos com direitos de administrador. A família sempre fica com pelo menos um chefe, e quem criou a família é sempre chefe (pode passar a criação para outro chefe).</li>
+<li><b>Papéis:</b> 👑 Chefe · 🛡️ Responsável/tutor · 🧑 Membro adulto · 🧒 Criança/jovem. Além disso, cada pessoa pode ter <b>títulos</b> (Chefe da família, Mãe, Pai, Tutor legal, Avó…).</li>
+<li><b>✉️ Convites novos:</b> para uma pessoa ou para um grupo (até 10), com prazo (24 h, 3 ou 7 dias), papel já definido e botão para WhatsApp, e-mail, compartilhar, copiar link ou QR code. Dá para reenviar ou cancelar.</li>
+<li><b>🔢 Código de confirmação:</b> quem entra pelo convite vê 4 números na tela; quem aprova pergunta esse código à pessoa (ao vivo ou por telefone). Link vazado não basta. 3 erros = pedido recusado.</li>
+<li><b>✅✅ Aprovação por 1 ou 2 chefes</b> (você escolhe em Família → Regras de entrada).</li>
+<li><b>🧒 Criança:</b> exige o consentimento do responsável ao aprovar (LGPD, art. 14), registrado com nome e data.</li>
+<li><b>📜 Histórico de segurança:</b> convites, aprovações, recusas, códigos errados, mudanças de papel e saídas. Ninguém apaga.</li>
+<li><b>❓ Tutorial completo</b> em Família → Tutorial e em ☰ → Ajuda e tutoriais (um para quem convida e outro para quem foi convidado).</li>
+<li>Arquivo novo: <code>BENCHMARK-ONBOARDING-OmniLifeONE.html</code> — como Apple, Google, Microsoft e Life360 fazem e o que o OmniLifeONE adotou. Não precisa subir para o GitHub.</li>
+</ul>
+<div class="card tip"><b>Se usa a nuvem (importante):</b> as regras do Firebase mudaram. Cole de novo o arquivo <code>regras-firestore-OmniLifeONE.txt</code> em Firestore Database → Regras e clique em <b>Publicar</b>. Depois disso:
+<ul><li>convites antigos (de antes da 1.4.0) deixam de funcionar — gere um novo em Família → Convites;</li>
+<li>só <b>chefes</b> mudam papéis e removem logins; responsáveis continuam aprovando a entrada de adultos e crianças;</li>
+<li>quem já está na família continua como está. Confira em Família → Logins quem deve ser 👑 Chefe.</li></ul></div>
 <p><b>Novidades da 1.3.0 — nova área 🛡️ Segurança:</b></p>
 <ul>
 <li><b>✅ Aviso “Cheguei”:</b> botões “Cheguei” e “Estou saindo” (também no Início). Os responsáveis marcam horários combinados (ex.: volta do inglês às 19h); se ninguém avisar até o horário mais a tolerância, chega o alerta ⚠️. Tutorial completo no botão ❓ Tutorial.</li>

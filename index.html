@@ -370,6 +370,15 @@ footer.app a{color:var(--text2)}
 #drawer .morehint.show{animation:bob 1.6s ease-in-out infinite}
 @keyframes bob{50%{transform:translateY(3px)}}
 ol.helpsteps{margin:0;padding-left:22px}
+ol.steps5{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+ol.steps5 li{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:3px;position:relative}
+ol.steps5 .n{position:absolute;top:6px;right:8px;font-size:.7rem;font-weight:800;color:var(--text3)}
+ol.steps5 .e{font-size:1.4rem} ol.steps5 small{color:var(--text2);font-size:.74rem;line-height:1.35}
+@media(max-width:760px){ol.steps5{grid-template-columns:1fr}}
+select[data-chg="mem.role"]{max-width:48%;min-width:0}
+@media(max-width:420px){select[data-chg="mem.role"]{max-width:42%;font-size:.85rem}}
+.verifybox{margin:14px auto;max-width:320px;border:2px dashed var(--accent);border-radius:14px;padding:12px;background:var(--accent-soft)}
+.verifybox .vcode{font-size:2.6rem;font-weight:900;letter-spacing:.35em;color:var(--accent);margin:4px 0 2px;font-variant-numeric:tabular-nums}
 .vigiadark{position:fixed;inset:0;z-index:175;background:#000;display:flex;align-items:flex-end;justify-content:center;padding-bottom:40px;touch-action:none;user-select:none}
 .vigiadark .vdtxt{color:#333;font-size:.8rem;text-align:center}
 .vigiaalarm.flash{background:#b3001b !important}
@@ -444,7 +453,7 @@ ol.helpsteps li{margin:0 0 10px;line-height:1.5}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.4.0";
 const AD_URL = "https://marceloneco.github.io/";
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
@@ -1179,11 +1188,11 @@ const Cloud = {
     if (inv && inv.fid) {
       const ok = await this.tryEnter(inv.fid);
       if (ok) { S.pendingInvite = null; history.replaceState(null, "", location.pathname); return; }
-      try {
-        await F.setDoc(FB.ref("families", inv.fid, "joinRequests", uid), { uid, name: S.user.name || "", email: S.user.email || "", photo: S.user.photo || "", at: new Date().toISOString() });
-        await F.setDoc(FB.ref("users", uid), { pending: inv.fid, pendingName: inv.n || "", email: S.user.email || "", name: S.user.name || "" }, { merge: true });
-      } catch (e) { toast(this.errMsg(e)); }
       S.pendingInvite = null; history.replaceState(null, "", location.pathname);
+      if (!inv.code) return setGate("invbad", "old");
+      let bad = null;
+      try { bad = await this.requestJoin(inv); } catch (e) { console.warn(e); bad = e.code === "permission-denied" ? "invalid" : null; if (!bad) toast(this.errMsg(e)); }
+      if (bad) return setGate("invbad", bad);
       return this.waitApproval(inv.fid, inv.n);
     }
     const tryIds = [ud.lastFamily, lsGet(LS.lastFam, null)].concat(ud.families || []).filter(Boolean);
@@ -1229,7 +1238,10 @@ const Cloud = {
   },
   attachJoin(fid) {
     this.joinUnsub && this.joinUnsub(); this.joinUnsub = null; S.joinRequests = [];
+    (this.extraUnsubs || []).forEach((u) => { try { u(); } catch (e) {} }); this.extraUnsubs = []; S.invites = []; S.audit = [];
     if (!isGuardian()) return;
+    this.extraUnsubs.push(FB.F.onSnapshot(FB.F.collection(FB.db, "families", fid, "invites"), (snap) => { S.invites = snap.docs.map((d) => d.data()); scheduleRender(); }, () => {}));
+    this.extraUnsubs.push(FB.F.onSnapshot(FB.F.query(FB.F.collection(FB.db, "families", fid, "audit"), FB.F.orderBy("at", "desc"), FB.F.limit(40)), (snap) => { S.audit = snap.docs.map((d) => d.data()); scheduleRender(); }, () => {}));
     let first = true;
     this.joinUnsub = FB.F.onSnapshot(FB.F.collection(FB.db, "families", fid, "joinRequests"), (snap) => {
       S.joinRequests = snap.docs.map((d) => d.data());
@@ -1238,10 +1250,11 @@ const Cloud = {
     }, () => {});
   },
   waitApproval(fid, name) {
-    setGate("waiting", name);
+    setGate("waiting", { fid, name });
     this.waitUnsub && this.waitUnsub();
     this.waitUnsub = FB.F.onSnapshot(FB.ref("families", fid, "joinRequests", S.user.uid), async (s) => {
-      if (s.exists() || s.metadata.fromCache) return;
+      if (s.exists()) { if (S.gate === "waiting") setGate("waiting", { fid, name, req: s.data() }); return; }
+      if (s.metadata.fromCache) return;
       this.waitUnsub(); this.waitUnsub = null;
       if (!(await this.tryEnter(fid))) { toast(tt("O pedido não foi aprovado.", "The request was not approved.")); FB.F.setDoc(FB.ref("users", S.user.uid), { pending: FB.F.deleteField() }, { merge: true }).catch(() => {}); setGate("create"); }
     }, (e) => { console.warn(e); setGate("offline"); });
@@ -1272,22 +1285,98 @@ const Cloud = {
     const s = await F.getDoc(FB.ref("families", fid));
     await this.enter(fid, s.data());
   },
-  inviteLink() {
-    const o = { fid: S.family.id, n: S.family.name };
+  /* ---------- entrada segura na família ----------
+     1) chefe/responsável cria um CONVITE com código aleatório, prazo, número de usos e papel;
+     2) quem recebe entra com Google/e-mail e faz o pedido — as regras do Firebase só aceitam
+        pedido com convite ativo, dentro do prazo e com vaga;
+     3) a tela de quem pediu mostra um CÓDIGO DE CONFIRMAÇÃO de 4 números; quem aprova pergunta
+        esse código à pessoa (ao vivo ou por telefone) — assim, um link vazado não basta;
+     4) aprovação por 1 chefe ou, se a família quiser, por 2; criança exige consentimento do
+        responsável (LGPD, art. 14). Tudo fica no histórico de segurança. */
+  newCode(n) { const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return [...crypto.getRandomValues(new Uint32Array(n || 12))].map((x) => a[x % a.length]).join(""); },
+  policy() { return Object.assign({ approvals: 1, ttlH: 72 }, (S.family && S.family.policy) || {}); },
+  guardians() { return Object.entries((S.family && S.family.members) || {}).filter(([, m]) => m.role === "admin" || m.role === "responsavel"); },
+  admins() { return Object.entries((S.family && S.family.members) || {}).filter(([, m]) => m.role === "admin"); },
+  need() { return Math.max(1, Math.min(this.policy().approvals || 1, this.guardians().length)); },
+  myName() { return People.name(S.meId) || (S.user && S.user.name) || ""; },
+  async audit(action, detail) {
+    try { const id = uid("a"); await FB.F.setDoc(FB.ref("families", S.family.id, "audit", id), { id, at: new Date().toISOString(), byUid: S.user.uid, byName: this.myName(), action, detail: detail || "" }); } catch (e) { console.warn("audit", e); }
+  },
+  inviteLink(code) {
+    const o = { fid: S.family.id, n: S.family.name, code, by: this.myName() };
     if (!EMBEDDED_FIREBASE_CONFIG) o.c = FB.config();
     return location.origin + location.pathname + "#convite=" + b64url(o);
   },
-  async approve(req, role, personId) {
-    const F = FB.F;
-    if (!personId) { personId = uid("p"); await DB.put("people", { id: personId, name: req.name || req.email || "Membro", role: role === "crianca" ? "crianca" : (role === "responsavel" ? "responsavel" : "adulto"), uid: req.uid, color: COLORS[Math.floor(Math.random() * COLORS.length)], email: req.email || "" }); }
-    else { const p = People.get(personId); if (p) await DB.put("people", Object.assign({}, p, { uid: req.uid, email: p.email || req.email || "" })); }
-    await F.updateDoc(FB.ref("families", S.family.id), { ["members." + req.uid]: { role, personId, name: req.name || "", email: req.email || "" } });
+  async createInvite(o) {
+    const code = this.newCode(12);
+    const doc = { code, createdAt: new Date().toISOString(), createdByUid: S.user.uid, createdByName: this.myName(), role: o.role || "membro", personId: o.personId || "", forName: o.forName || "", maxUses: +o.maxUses || 1, uses: 0, expiresAt: Date.now() + (+o.ttlH || 72) * 3600e3, active: true, need: this.need() };
+    await FB.F.setDoc(FB.ref("families", S.family.id, "invites", code), doc);
+    await this.audit("convite.criado", roleName(doc.role) + (doc.forName ? " · " + doc.forName : "") + " · " + doc.maxUses + "× · " + (+o.ttlH || 72) + "h");
+    return doc;
+  },
+  async revokeInvite(code) { await FB.F.updateDoc(FB.ref("families", S.family.id, "invites", code), { active: false }); await this.audit("convite.revogado", code.slice(0, 4) + "…"); },
+  /* a) pedido do convidado */
+  async requestJoin(inv) {
+    const F = FB.F, u = S.user;
+    let iv = null; try { const s = await F.getDoc(FB.ref("families", inv.fid, "invites", inv.code)); iv = s.exists() ? s.data() : null; } catch (e) { iv = null; }
+    const bad = !iv ? "invalid" : !iv.active ? "revoked" : iv.expiresAt < Date.now() ? "expired" : (iv.uses || 0) >= (iv.maxUses || 1) ? "used" : null;
+    if (bad) return bad;
+    const verify = String(1000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 9000));
+    await F.setDoc(FB.ref("families", inv.fid, "joinRequests", u.uid), { uid: u.uid, name: u.name || "", email: u.email || "", photo: u.photo || "", at: new Date().toISOString(), code: inv.code, verify, role: iv.role, personId: iv.personId || "", forName: iv.forName || "", by: iv.createdByName || inv.by || "", need: iv.need || 1, approvals: {}, tries: 0 });
+    await F.setDoc(FB.ref("users", u.uid), { pending: inv.fid, pendingName: inv.n || "", email: u.email || "", name: u.name || "" }, { merge: true });
+    return null;
+  },
+  async cancelRequest(fid) {
+    try { await FB.F.deleteDoc(FB.ref("families", fid, "joinRequests", S.user.uid)); } catch (e) {}
+    try { await FB.F.setDoc(FB.ref("users", S.user.uid), { pending: FB.F.deleteField(), pendingName: FB.F.deleteField() }, { merge: true }); } catch (e) {}
+  },
+  /* b) aprovação (1 ou 2 chefes/responsáveis) */
+  async approve(req, o) {
+    const F = FB.F, me = S.user.uid;
+    const approvals = Object.assign({}, req.approvals || {}, { [me]: { name: this.myName(), at: new Date().toISOString() } });
+    const need = this.need();
+    if (Object.keys(approvals).length < need) {
+      await F.updateDoc(FB.ref("families", S.family.id, "joinRequests", req.uid), { approvals, proposal: { role: o.role, personId: o.personId || "", consent: o.consent || null }, verified: true });
+      await this.audit("entrada.aprovacao", (req.name || req.email) + " · " + Object.keys(approvals).length + "/" + need);
+      toast(tt("Sua aprovação foi registrada. Falta a confirmação de outro chefe/responsável.", "Your approval was recorded. Another head/guardian still has to confirm."), 5000);
+      return;
+    }
+    let personId = o.personId;
+    const pRole = o.role === "crianca" ? "crianca" : (o.role === "admin" || o.role === "responsavel" ? "responsavel" : "adulto");
+    const extra = o.role === "crianca" && o.consent ? { consent: o.consent } : {};
+    if (!personId) { personId = uid("p"); await DB.put("people", Object.assign({ id: personId, name: req.name || req.email || "Membro", role: pRole, uid: req.uid, color: COLORS[Math.floor(Math.random() * COLORS.length)], email: req.email || "" }, extra)); }
+    else { const p = People.get(personId); if (p) await DB.put("people", Object.assign({}, p, { uid: req.uid, email: p.email || req.email || "" }, extra)); }
+    await F.updateDoc(FB.ref("families", S.family.id), { ["members." + req.uid]: { role: o.role, personId, name: req.name || "", email: req.email || "", since: new Date().toISOString(), invitedBy: req.by || "", approvedBy: Object.values(approvals).map((a) => a.name) } });
+    try { await F.updateDoc(FB.ref("families", S.family.id, "invites", req.code), { uses: F.increment(1) }); const s = await F.getDoc(FB.ref("families", S.family.id, "invites", req.code)); if (s.exists() && s.data().uses >= s.data().maxUses) await F.updateDoc(FB.ref("families", S.family.id, "invites", req.code), { active: false }); } catch (e) { console.warn(e); }
     await F.deleteDoc(FB.ref("families", S.family.id, "joinRequests", req.uid));
+    await this.audit("entrada.aprovada", (req.name || req.email) + " · " + roleName(o.role) + (o.consent ? " · " + tt("consentimento registrado", "consent recorded") : ""));
     toast(tt("Entrada aprovada ✓", "Approved ✓"));
   },
-  async reject(req) { await FB.F.deleteDoc(FB.ref("families", S.family.id, "joinRequests", req.uid)); },
-  async setRole(uidM, role) { await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM + ".role"]: role }); },
-  async removeMember(uidM) { await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM]: FB.F.deleteField() }); }
+  async reject(req, why) { await FB.F.deleteDoc(FB.ref("families", S.family.id, "joinRequests", req.uid)); await this.audit("entrada.recusada", (req.name || req.email) + (why ? " · " + why : "")); },
+  /* c) papéis: só chefes mudam; sempre fica pelo menos um chefe; o criador é sempre chefe */
+  async setRole(uidM, role) {
+    const m = S.family.members[uidM]; if (!m) return;
+    if (uidM === S.family.owner && role !== "admin") return toast(tt("O criador da família é sempre chefe. Para mudar, passe a criação para outro chefe.", "The family creator is always a head. To change that, hand over ownership to another head."), 5000);
+    if (m.role === "admin" && role !== "admin" && this.admins().length <= 1) return toast(tt("A família precisa de pelo menos um chefe.", "The family needs at least one head."));
+    await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM + ".role"]: role });
+    const p = People.get(m.personId); if (p) { const pr = role === "crianca" ? "crianca" : (role === "membro" ? (p.role === "responsavel" ? "adulto" : p.role) : "responsavel"); if (pr !== p.role) await DB.put("people", Object.assign({}, p, { role: pr })); }
+    await this.audit("papel.alterado", (m.name || m.email) + ": " + roleName(m.role) + " → " + roleName(role));
+    toast(tt("Papel atualizado ✓", "Role updated ✓"));
+  },
+  async removeMember(uidM) { const m = S.family.members[uidM]; await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM]: FB.F.deleteField() }); await this.audit("membro.removido", m ? m.name || m.email : uidM); },
+  async leave() {
+    await this.audit("membro.saiu", this.myName());
+    await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + S.user.uid]: FB.F.deleteField() });
+    try { await FB.F.setDoc(FB.ref("users", S.user.uid), { lastFamily: FB.F.deleteField(), families: FB.F.arrayRemove(S.family.id) }, { merge: true }); } catch (e) {}
+    lsDel(LS.lastFam); toast(tt("Você saiu da família.", "You left the family.")); ACT["cloud.logout"]();
+  },
+  async transferOwner(uidM) {
+    const m = S.family.members[uidM]; if (!m || m.role !== "admin") return toast(tt("Primeiro torne a pessoa chefe.", "Make the person a head first."));
+    await FB.F.updateDoc(FB.ref("families", S.family.id), { owner: uidM });
+    await this.audit("criacao.transferida", this.myName() + " → " + (m.name || m.email));
+    toast(tt("Criação da família transferida ✓", "Family ownership transferred ✓"));
+  },
+  async setPolicy(p) { await FB.F.updateDoc(FB.ref("families", S.family.id), { policy: Object.assign({}, this.policy(), p) }); await this.audit("regras.alteradas", JSON.stringify(p)); }
 };
 
 const RULES_TEXT = `rules_version = '2';
@@ -1297,9 +1386,14 @@ service cloud.firestore {
     function fam(fid) { return get(/databases/$(database)/documents/families/$(fid)).data; }
     function isMember(fid) { return signedIn() && request.auth.uid in fam(fid).members; }
     function myRole(fid) { return fam(fid).members[request.auth.uid].role; }
+    function isAdmin(fid) { return isMember(fid) && myRole(fid) == 'admin'; }
     function isGuardian(fid) { return isMember(fid) && myRole(fid) in ['admin', 'responsavel']; }
     function isAdult(fid) { return isMember(fid) && myRole(fid) in ['admin', 'responsavel', 'membro']; }
     function visOk(fid, data) { return isGuardian(fid) || data.vis != 'restrito'; }
+    function inviteOk(fid, code) {
+      let p = /databases/$(database)/documents/families/$(fid)/invites/$(code);
+      return exists(p) && get(p).data.active == true && get(p).data.expiresAt > request.time.toMillis() && get(p).data.uses < get(p).data.maxUses;
+    }
 
     match /users/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
@@ -1310,12 +1404,45 @@ service cloud.firestore {
         && request.resource.data.owner == request.auth.uid
         && request.resource.data.members.keys().hasOnly([request.auth.uid])
         && request.resource.data.members[request.auth.uid].role == 'admin';
-      allow update: if isGuardian(fid) && request.resource.data.owner == resource.data.owner;
+
+      // Chefes (admin): mudam tudo, mas o criador continua chefe e só ele passa a criação para outro chefe.
+      function ownerOk() {
+        let o = request.resource.data.owner;
+        return o in request.resource.data.members && request.resource.data.members[o].role == 'admin'
+          && (o == resource.data.owner || request.auth.uid == resource.data.owner);
+      }
+      // Responsáveis: só podem aprovar a entrada de membro adulto ou criança (um por vez).
+      function guardianAddsMember() {
+        let d = request.resource.data.diff(resource.data);
+        let m = request.resource.data.members.diff(resource.data.members);
+        return d.affectedKeys().hasOnly(['members']) && m.removedKeys().size() == 0 && m.changedKeys().size() == 0
+          && m.addedKeys().size() == 1 && request.resource.data.members[m.addedKeys().toList()[0]].role in ['membro', 'crianca'];
+      }
+      // Qualquer um (menos o criador) pode sair da família sozinho.
+      function leavingSelf() {
+        let d = request.resource.data.diff(resource.data);
+        let m = request.resource.data.members.diff(resource.data.members);
+        return d.affectedKeys().hasOnly(['members']) && m.addedKeys().size() == 0 && m.changedKeys().size() == 0
+          && m.removedKeys().hasOnly([request.auth.uid]) && request.auth.uid != resource.data.owner;
+      }
+      allow update: if (isAdmin(fid) && ownerOk()) || (isGuardian(fid) && guardianAddsMember()) || (isMember(fid) && leavingSelf());
       allow delete: if signedIn() && resource.data.owner == request.auth.uid;
 
+      // Convites: quem tem o código (o segredo) consegue ler aquele convite; só chefes e responsáveis criam e revogam.
+      match /invites/{code} {
+        allow get: if signedIn();
+        allow list, create, update, delete: if isGuardian(fid);
+      }
+      // Pedido de entrada: só com convite válido (ativo, dentro do prazo e com vagas).
       match /joinRequests/{uid} {
-        allow create, update: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn() && request.auth.uid == uid && request.resource.data.code is string && inviteOk(fid, request.resource.data.code);
+        allow update: if isGuardian(fid);
         allow read, delete: if (signedIn() && request.auth.uid == uid) || isGuardian(fid);
+      }
+      // Histórico de segurança: só se acrescenta; ninguém edita nem apaga.
+      match /audit/{id} {
+        allow read: if isGuardian(fid);
+        allow create: if isMember(fid) && request.resource.data.byUid == request.auth.uid;
       }
       match /vault/{id} {
         allow read, write: if isGuardian(fid);
@@ -1332,10 +1459,10 @@ service cloud.firestore {
         allow write: if isMember(fid);
       }
       match /{col}/{id} {
-        allow read: if !(col in ['vault', 'joinRequests']) && isMember(fid) && visOk(fid, resource.data);
-        allow create, update: if !(col in ['vault', 'requests', 'joinRequests'])
+        allow read: if !(col in ['vault', 'joinRequests', 'invites', 'audit']) && isMember(fid) && visOk(fid, resource.data);
+        allow create, update: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit'])
           && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files', 'checkins']));
-        allow delete: if !(col in ['vault', 'requests', 'joinRequests']) && isAdult(fid);
+        allow delete: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit']) && isAdult(fid);
       }
     }
   }
@@ -2024,7 +2151,17 @@ const GATES = {
       };
     }
   },
-  waiting: { html: (name) => '<div class="card center" style="padding:30px"><div style="font-size:2.2rem">⏳</div><h2>' + tt("Aguardando aprovação", "Waiting for approval") + '</h2><p class="muted">' + tt("Seu pedido para entrar na família ", "Your request to join ") + "<b>" + esc(name || "") + "</b> " + tt("foi enviado. Um responsável precisa aprovar em Família → Pedidos de entrada. Esta tela abre sozinha quando aprovarem.", "was sent. A guardian must approve it in Family → Join requests. This screen opens by itself once approved.") + '</p><button class="btn ghost" data-act="cloud.logout">' + tt("Sair", "Sign out") + "</button></div>" },
+  waiting: {
+    html: (a) => {
+      a = typeof a === "object" && a ? a : { name: a }; const r = a.req || {};
+      const ap = Object.keys(r.approvals || {}).length, need = r.need || 1;
+      return '<div class="card center" style="padding:26px"><div style="font-size:2.2rem">⏳</div><h2>' + tt("Quase lá!", "Almost there!") + '</h2><p class="muted">' + tt("Seu pedido para entrar na família ", "Your request to join ") + "<b>" + esc(a.name || "") + "</b>" + (r.by ? tt(" (convite de ", " (invited by ") + esc(r.by) + ")" : "") + tt(" foi enviado.", " was sent.") + "</p>" +
+        (r.verify ? '<div class="verifybox"><div class="small">' + tt("Diga este código para quem te convidou:", "Tell this code to whoever invited you:") + '</div><div class="vcode" aria-label="' + esc(r.verify.split("").join(" ")) + '">' + esc(r.verify) + '</div><div class="tiny faint">' + tt("Só diga por telefone ou pessoalmente, para quem você conhece.", "Only share it by phone or in person, with someone you know.") + "</div></div>" : "") +
+        (need > 1 ? '<p class="small">✅ ' + ap + "/" + need + " " + tt("aprovações", "approvals") + "</p>" : "") +
+        '<p class="small muted">' + tt("Esta tela abre sozinha quando aprovarem.", "This screen opens by itself once approved.") + '</p><div class="row" style="justify-content:center"><button class="btn ghost" data-act="help" data-t="familia-entrar">❓ ' + tt("Como funciona", "How it works") + '</button><button class="btn ghost" data-act="join.cancel" data-id="' + esc(a.fid || "") + '">' + tt("Cancelar pedido", "Cancel request") + '</button><button class="btn ghost" data-act="cloud.logout">' + tt("Sair", "Sign out") + "</button></div></div>";
+    }
+  },
+  invbad: { html: (why) => '<div class="card danger center" style="padding:26px"><div style="font-size:2.2rem">🔒</div><h2>' + tt("Este convite não vale mais", "This invite is no longer valid") + '</h2><p>' + ({ expired: tt("O prazo do convite acabou.", "The invite has expired."), used: tt("O convite já foi usado pelo número máximo de pessoas.", "The invite has reached its people limit."), revoked: tt("Quem convidou cancelou este convite.", "Whoever invited you revoked it."), old: tt("Este é um convite antigo, de antes da entrada segura.", "This is an old invite, from before secure joining."), invalid: tt("Não encontramos este convite.", "We couldn't find this invite.") }[why] || "") + " " + tt("Peça um convite novo para um chefe ou responsável da família.", "Ask a family head or guardian for a new invite.") + '</p><div class="row" style="justify-content:center"><button class="btn ghost" data-act="help" data-t="familia-entrar">❓ ' + tt("Como funciona", "How it works") + '</button><button class="btn ghost" data-act="cloud.logout">' + tt("Sair", "Sign out") + "</button></div></div>" },
   offline: { html: () => '<div class="card center" style="padding:30px"><div style="font-size:2.2rem">📡</div><h2>' + tt("Sem conexão com a nuvem", "Can't reach the cloud") + '</h2><p class="muted">' + tt("Confira a internet e tente de novo.", "Check the internet and try again.") + '</p><div class="row" style="justify-content:center"><button class="btn" data-act="cloud.retry">↻ ' + tt("Tentar de novo", "Try again") + '</button><button class="btn ghost" data-act="cloud.logout">' + tt("Sair", "Sign out") + "</button></div></div>" },
   rules: { html: () => '<div class="card danger"><h2>🔒 ' + tt("Falta publicar as regras de segurança", "Security rules are missing") + '</h2><p>' + tt("O Firebase recusou o acesso. No console do Firebase, abra Firestore Database → aba Regras, apague o que estiver lá, cole o texto abaixo e clique em Publicar. Depois recarregue esta página.", "Firebase denied access. In the Firebase console open Firestore Database → Rules, replace everything with the text below and click Publish. Then reload this page.") + '</p><pre class="code">' + esc(RULES_TEXT) + '</pre><div class="row"><button class="btn" data-act="copyrules">📋 ' + tt("Copiar regras", "Copy rules") + '</button><button class="btn ghost" onclick="location.reload()">↻ ' + tt("Recarregar", "Reload") + '</button><button class="btn ghost" data-act="cloud.logout">' + tt("Sair", "Sign out") + "</button></div></div>" },
   localsetup: {
@@ -2078,6 +2215,7 @@ ACT["gate.advertiser"] = () => { S.mode = "advertiser"; lsSet(LS.mode, "advertis
 ACT["gate.pick"] = async (d) => { if (await selectProfile(d.id)) startApp(); };
 ACT["cloud.logout"] = async () => { await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
 ACT.copyrules = () => copyText(RULES_TEXT);
+ACT["join.cancel"] = async (d) => { if (!(await confirmBox(tt("Cancelar o pedido de entrada?", "Cancel the join request?"), tt("Cancelar pedido", "Cancel request"), true))) return; if (Cloud.waitUnsub) { Cloud.waitUnsub(); Cloud.waitUnsub = null; } await Cloud.cancelRequest(d.id); setGate("create"); };
 ACT["cloud.retry"] = async () => { if (!S.user) return setGate("welcome"); S.resolving = true; try { await Cloud.resolve(); } catch (e) { setGate("offline"); } S.resolving = false; };
 
 async function selectProfile(id) {
@@ -2203,7 +2341,7 @@ async function signOut() {
   if (S.mode === "local") lsDel(LS.localMe);
   S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome");
 }
-function roleName(r) { return { admin: tt("Administrador", "Admin"), responsavel: tt("Responsável", "Guardian"), membro: tt("Membro", "Member"), crianca: tt("Criança/Jovem", "Child/Teen") }[r] || ""; }
+function roleName(r) { return { admin: tt("Chefe da família", "Family head"), responsavel: tt("Responsável/tutor", "Guardian/tutor"), membro: tt("Membro adulto", "Adult member"), crianca: tt("Criança/Jovem", "Child/Teen") }[r] || ""; }
 function legal() {
   modal({ title: tt("Aviso legal e privacidade", "Legal notice & privacy"), body:
     "<p>" + tt("O OmniLifeONE é um projeto pessoal, para uso familiar e fins de pesquisa, oferecido “como está”, sem garantias. O autor não se responsabiliza por perdas, danos, decisões tomadas com base no app nem por vazamento de dados causado por uso indevido do aparelho, da conta ou do serviço de nuvem.", "OmniLifeONE is a personal project for family use and research purposes, provided “as is”, without warranties. The author is not liable for losses, damages, decisions based on the app, or data leaks caused by misuse of the device, account or cloud service.") + "</p>" +
@@ -3769,7 +3907,9 @@ function personFields(p) {
     { k: "role", label: tt("Papel na família", "Role"), type: "select", opts: Object.entries(ROLES()) }, { k: "birth", label: tt("Nascimento", "Birth date"), type: "date" },
     { k: "phone", label: tt("Celular", "Mobile"), type: "tel" }, { k: "email", label: "E-mail", type: "email" },
     { k: "emoji", label: tt("Ícone", "Icon"), type: "select", opts: EMOJIS.map((e) => [e, e || tt("(inicial do nome)", "(initial)")]) }, { k: "color", label: tt("Cor", "Color"), type: "select", opts: COLORS.map((c, i) => [c, "● " + [tt("Lilás", "Lilac"), tt("Azul", "Blue"), tt("Verde", "Green"), tt("Laranja", "Orange"), tt("Rosa", "Pink"), tt("Vermelho", "Red"), tt("Céu", "Sky"), tt("Violeta", "Violet"), tt("Lima", "Lime"), tt("Areia", "Sand")][i]]) },
+    { k: "titles", label: tt("Títulos na família (um ou mais)", "Family titles (one or more)"), type: "tags", ph: FAM_TITLES().slice(0, 5).join(", "), hint: tt("Ex.: Chefe da família, Mãe, Tutor(a) legal. É só um rótulo; o que a pessoa pode fazer vem do papel.", "e.g. Head of family, Mother, Legal guardian. Just a label; permissions come from the role.") },
     { k: "notes", label: tt("Observações (escola, série, tamanho de roupa…)", "Notes (school, grade, clothing size…)"), type: "textarea", rows: 2 }];
+  if (S.mode === "local" && S.role === "admin" && (!p || p.role !== "crianca")) f.splice(3, 0, { k: "isAdmin", label: "👑 " + tt("Chefe da família (administra tudo — pode haver vários)", "Family head (manages everything — there can be several)"), type: "check" });
   if (!p || p.role === "crianca" || !p.id) f.push({ type: "html", html: '<div class="grouph full">👶 ' + tt("Controle parental (vale se for Criança/Jovem)", "Parental controls (for Child/Teen)") + "</div>" },
     { k: "controls.seeList", label: tt("Pode ver a lista de compras", "Can see shopping list"), type: "check", def: true }, { k: "controls.addDirect", label: tt("Pode pôr itens direto na lista (sem aprovação)", "Can add to list without approval"), type: "check" },
     { k: "controls.seeAgenda", label: tt("Pode ver a agenda", "Can see calendar"), type: "check", def: true }, { k: "controls.seeContacts", label: tt("Pode ver contatos públicos", "Can see public contacts"), type: "check", def: true },
@@ -3785,6 +3925,7 @@ async function editPerson(p) {
   const r = await formModal({ title: (isNew ? "＋ " : "✏️ ") + tt("Pessoa", "Person"), fields: personFields(p), values: p, wide: true,
     onDelete: !isNew && isGuardian() && p.id !== S.meId ? async () => { await DB.del("people", p.id); const h = DB.get("health", p.id); if (h) await DB.del("health", p.id); } : null });
   if (!r) return;
+  if (S.mode === "local" && p.isAdmin && (!r.isAdmin || r.role !== "responsavel") && People.list("humans").filter((x) => x.isAdmin && x.role === "responsavel").length <= 1) { r.isAdmin = true; r.role = "responsavel"; toast(tt("A família precisa de pelo menos um chefe: esta pessoa continua chefe.", "The family needs at least one head: this person stays head."), 4500); }
   if (S.mode === "local" && r._pin) { const pin = onlyDigits(r._pin); if (pin === "0") delete r.pinHash; else if (pin.length >= 4) r.pinHash = await sha256(pin + (r.id || (r.id = uid("p")))); else toast(tt("PIN ignorado: use 4 a 6 números.", "PIN ignored: 4–6 digits.")); }
   delete r._pin;
   await DB.put("people", r);
@@ -3825,46 +3966,132 @@ SCREENS.family = {
   render() {
     const ppl = People.list();
     const famName = (S.family && S.family.name) || DB.setting().familyName || tt("Minha família", "My family");
-    let h = '<div class="pagehead"><div><h1>👨‍👩‍👧 ' + esc(famName) + '</h1><div class="sub">' + tt("Pessoas, logins, convites, controle parental e pontos", "People, logins, invites, parental controls and points") + "</div></div>" + (isGuardian() ? '<button class="btn" data-act="person.new">＋ ' + tt("Pessoa / pet", "Person / pet") + "</button>" : "") + "</div>";
+    let h = '<div class="pagehead"><div><h1>👨‍👩‍👧 ' + esc(famName) + '</h1><div class="sub">' + tt("Pessoas, logins, convites, controle parental e pontos", "People, logins, invites, parental controls and points") + '</div></div><div class="row"><button class="btn ghost sm" data-act="help" data-t="familia">❓ ' + tt("Tutorial", "Tutorial") + "</button>" + (isGuardian() ? '<button class="btn" data-act="person.new">＋ ' + tt("Pessoa / pet", "Person / pet") + "</button>" : "") + "</div></div>";
     const bd = FamData.upcoming(60);
     if (bd.length) h += '<div class="card"><h3>🎂 ' + tt("Próximos aniversários", "Upcoming birthdays") + '</h3><div class="chips">' + bd.map((x) => '<span class="chip">' + People.emoji(x.p) + " " + esc(x.p.nick || x.p.name) + " · " + fmtDate(x.n.date, "short") + " · " + x.n.turns + tt(" anos", "y") + " · " + FamData.bdayTxt(x.n) + "</span>").join("") + "</div></div>";
-    h += '<div class="grid gauto">' + ppl.map((p) => { const acc = S.family && S.family.members ? Object.entries(S.family.members).find(([u, m]) => m.personId === p.id) : null; return '<div class="card" style="margin:0"><div class="between"><div class="row nw">' + People.av(p.id, "lg") + '<div style="min-width:0"><b>' + esc(p.name) + '</b><div class="small muted">' + esc(ROLES()[p.role] || "") + (p.birth ? " · " + ageTxt(p.birth) : "") + '</div></div></div><button class="btn sm ghost" data-act="person.edit" data-id="' + p.id + '">✏️</button></div>' +
+    h += '<div class="grid gauto">' + ppl.map((p) => { const acc = S.family && S.family.members ? Object.entries(S.family.members).find(([u, m]) => m.personId === p.id) : null; return '<div class="card" style="margin:0"><div class="between"><div class="row nw">' + People.av(p.id, "lg") + '<div style="min-width:0"><b>' + esc(p.name) + '</b><div class="small muted">' + esc(ROLES()[p.role] || "") + (p.birth ? " · " + ageTxt(p.birth) : "") + '</div>' + ((p.titles || []).length || (S.mode === "local" && p.isAdmin) ? '<div class="chips" style="margin-top:4px">' + (S.mode === "local" && p.isAdmin ? '<span class="badge warn">👑 ' + tt("chefe", "head") + "</span>" : "") + (p.titles || []).map((t) => '<span class="badge acc">' + esc(t) + "</span>").join("") + "</div>" : "") + '</div></div><button class="btn sm ghost" data-act="person.edit" data-id="' + p.id + '">✏️</button></div>' +
       '<div class="small" style="margin-top:8px">' + [p.phone ? '📱 <a href="' + telHref(p.phone) + '">' + esc(p.phone) + "</a>" : "", p.birth ? (() => { const n = FamData.nextBday(p); return "🎂 " + fmtDate(p.birth) + (n ? " · " + tt("faz ", "turns ") + n.turns + " " + FamData.bdayTxt(n) : ""); })() : "🎂 <span class=\"faint\">" + tt("sem data de nascimento", "no birth date") + "</span>",
       p.role !== "pet" ? (FamData.ok(p) ? '<span class="small" style="color:var(--ok)">✅ ' + tt("dados conferidos", "details checked") + "</span>" : '<span class="small" style="color:var(--warn)">🧩 ' + tt("dados a conferir", "details to check") + "</span>") + (!isChild() ? ' <button class="linkbtn small" data-act="fam.check" data-id="' + p.id + '">' + tt("Conferir", "Check") + "</button>" : "") : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
     if (S.mode !== "visitor") h += '<div style="margin-top:14px"></div>' + Plan.card();
     if (S.mode === "cloud") h += FamilyViews.cloud();
-    else if (S.mode === "local") h += '<div class="card" style="margin-top:14px"><h3>📱 ' + tt("Modo neste aparelho", "This-device mode") + '</h3><p class="small muted">' + tt("Cada pessoa entra pelo seu perfil (com PIN, se quiser) aqui mesmo. Para cada um usar o próprio celular com login e receber os pedidos na hora, ligue a nuvem em Ajustes → Nuvem.", "Each person uses their profile (optional PIN) on this device. For everyone to use their own phone and get requests instantly, enable the cloud in Settings → Cloud.") + '</p><button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="cloud">☁️ ' + tt("Ligar a nuvem", "Enable cloud") + "</button></div>";
+    else if (S.mode === "local") h += '<div class="card" style="margin-top:14px"><div class="between"><h3>📱 ' + tt("Modo neste aparelho", "This-device mode") + '</h3><button class="btn ghost sm" data-act="help" data-t="familia">❓ ' + tt("Tutorial", "Tutorial") + '</button></div><p class="small muted">' + tt("Cada pessoa entra pelo seu perfil (com PIN ou digital) aqui mesmo. Chefes (👑) marcam isso em ✏️ de cada responsável. Para cada um usar o próprio celular com login e receber os pedidos na hora, ligue a nuvem em Ajustes → Nuvem.", "Each person uses their profile (PIN or fingerprint) on this device. Heads (👑) are set in each guardian's ✏️. For everyone to use their own phone and get requests instantly, enable the cloud in Settings → Cloud.") + '</p><button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="cloud">☁️ ' + tt("Ligar a nuvem", "Enable cloud") + "</button></div>";
     else if (S.mode === "visitor") h += '<div class="card" style="margin-top:14px"><div class="note warn">' + tt("No modo visitante não há logins nem convites.", "Visitor mode has no logins or invites.") + "</div></div>";
     return h;
   },
-  async after(root) { const q = $("#invqr", root); if (q) { try { q.innerHTML = await QR.svg(Cloud.inviteLink()); } catch (e) { q.textContent = ""; } } }
+  after() {}
 };
+const ROLE_INFO = () => ({
+  admin: ["👑", tt("Chefe da família", "Family head"), tt("administra tudo: convites, papéis, regras, plano, cofre e aprovações. Pode haver vários.", "manages everything: invites, roles, rules, plan, vault and approvals. There can be several.")],
+  responsavel: ["🛡️", tt("Responsável / tutor", "Guardian / tutor"), tt("vê tudo, aprova pedidos e a entrada de adultos e crianças, abre o cofre. Não muda papéis.", "sees everything, approves requests and adult/child joins, opens the vault. Can't change roles.")],
+  membro: ["🧑", tt("Membro adulto", "Adult member"), tt("usa tudo no dia a dia, sem cofre e sem aprovar entradas.", "uses everything day to day, no vault and no join approvals.")],
+  crianca: ["🧒", tt("Criança / jovem", "Child / teen"), tt("faz pedidos, tarefas e avisa “Cheguei”; só vê o que o controle parental deixar.", "makes requests, does tasks and checks in; only sees what parental controls allow.")]
+});
+const FAM_TITLES = () => [tt("Chefe da família", "Head of family"), tt("Pai", "Father"), tt("Mãe", "Mother"), tt("Tutor(a) legal", "Legal guardian"), tt("Responsável", "Guardian"), tt("Avô", "Grandfather"), tt("Avó", "Grandmother"), tt("Padrasto", "Stepfather"), tt("Madrasta", "Stepmother"), tt("Cuidador(a)", "Caregiver")];
 const FamilyViews = {
+  /* passo a passo visual de como alguém entra na família */
+  howto() {
+    const st = [["💌", tt("Convite", "Invite"), tt("Um chefe ou responsável cria o convite (para quem, papel, prazo e quantas pessoas).", "A head or guardian creates the invite (who, role, deadline, how many people).")], ["📲", tt("Envio", "Send"), tt("Manda por WhatsApp, e-mail, QR code ou copia o link. Pode ser repassado dentro do limite de pessoas.", "Send via WhatsApp, e-mail, QR code or copy the link. It can be forwarded within the people limit.")], ["🔐", tt("Entrada", "Sign-in"), tt("A pessoa abre o link e entra com Google ou e-mail. Aparece um código de 4 números na tela dela.", "The person opens the link and signs in with Google or e-mail. A 4-digit code shows on their screen.")], ["✅", tt("Confirmação", "Confirmation"), tt("Quem aprova pergunta o código à pessoa e confere. 1 ou 2 chefes, como a família escolher.", "The approver asks the person for the code and checks it. 1 or 2 heads, as the family chooses.")], ["🏠", tt("Pronto", "Done"), tt("A pessoa entra com o papel certo. Tudo fica no histórico de segurança.", "The person joins with the right role. Everything goes into the security log.")]];
+    return '<div class="card"><div class="between"><h3>🧭 ' + tt("Como alguém entra na família", "How someone joins the family") + '</h3><button class="btn ghost sm" data-act="help" data-t="familia">❓ ' + tt("Tutorial completo", "Full tutorial") + '</button></div><ol class="steps5">' + st.map((s, i) => '<li><span class="n">' + (i + 1) + '</span><span class="e">' + s[0] + "</span><b>" + esc(s[1]) + '</b><small>' + esc(s[2]) + "</small></li>").join("") + "</ol></div>";
+  },
   cloud() {
     const mem = Object.entries((S.family && S.family.members) || {});
-    let h = "";
-    if (isGuardian()) {
+    const admin = S.role === "admin", guard = isGuardian(), pol = Cloud.policy();
+    let h = FamilyViews.howto();
+    if (guard) {
+      const invs = (S.invites || []).filter((i) => i.active && i.expiresAt > Date.now() && i.uses < i.maxUses).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      h += '<div class="card accent"><div class="between"><h3>💌 ' + tt("Convites", "Invites") + '</h3><button class="btn" data-act="inv.new">＋ ' + tt("Novo convite", "New invite") + "</button></div>" +
+        '<p class="small muted">' + tt("Cada convite tem código secreto, prazo e limite de pessoas. Mesmo com o link, ninguém entra sem a sua confirmação.", "Each invite has a secret code, a deadline and a people limit. Even with the link, nobody gets in without your confirmation.") + "</p>" +
+        (invs.length ? '<div class="list">' + invs.map((i) => '<div class="li"><div class="ico">' + ROLE_INFO()[i.role][0] + '</div><div class="main"><div class="t">' + esc(i.forName || tt("Convite aberto", "Open invite")) + " · " + esc(ROLE_INFO()[i.role][1]) + '</div><div class="s">' + tt("vale até ", "valid until ") + fmtDateTime(new Date(i.expiresAt).toISOString()) + " · " + i.uses + "/" + i.maxUses + " " + tt("usos", "uses") + " · " + tt("por ", "by ") + esc(i.createdByName || "") + '</div></div><button class="btn xs ghost" data-act="inv.show" data-id="' + i.code + '" title="' + tt("Enviar de novo", "Send again") + '">↗</button><button class="btn xs danger" data-act="inv.revoke" data-id="' + i.code + '" title="' + tt("Cancelar convite", "Revoke") + '">⊘</button></div>').join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum convite ativo.", "No active invites.") + "</div>") + "</div>";
       const reqs = S.joinRequests || [];
-      h += '<div class="card accent" style="margin-top:14px"><h3>💌 ' + tt("Convidar para a família", "Invite to the family") + '</h3><p class="small muted">' + tt("Mande o link (ou mostre o QR code). A pessoa entra com Google ou e-mail e aparece aqui para você aprovar e escolher o papel dela.", "Send the link (or show the QR code). They sign in with Google or e-mail and show up here for you to approve and pick their role.") + '</p><div class="row"><button class="btn" data-act="inv.share">💬 ' + tt("Enviar convite", "Send invite") + '</button><button class="btn ghost" data-act="inv.copy">📋 ' + tt("Copiar link", "Copy link") + '</button></div><div class="qr" id="invqr" style="margin-top:10px"></div></div>';
-      h += '<div class="card"><h3>🚪 ' + tt("Pedidos de entrada", "Join requests") + " (" + reqs.length + ")</h3>" + (reqs.length ? '<div class="list">' + reqs.map((r) => '<div class="li"><div class="ico">🙋</div><div class="main"><div class="t">' + esc(r.name || r.email) + '</div><div class="s">' + esc(r.email || "") + " · " + fmtDateTime(r.at) + '</div></div><button class="btn sm ok" data-act="join.ok" data-id="' + r.uid + '">' + tt("Aprovar", "Approve") + '</button><button class="btn sm danger" data-act="join.no" data-id="' + r.uid + '">✕</button></div>').join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum pedido.", "No requests.") + "</div>") + "</div>";
+      h += '<div class="card' + (reqs.length ? " warnc" : "") + '"><h3>🚪 ' + tt("Pedidos de entrada", "Join requests") + " (" + reqs.length + ")</h3>" + (reqs.length ? '<div class="list">' + reqs.map((r) => { const ap = Object.keys(r.approvals || {}).length; return '<div class="li"><div class="ico">🙋</div><div class="main"><div class="t">' + esc(r.name || r.email) + '</div><div class="s">' + esc(r.email || "") + " · " + tt("convite de ", "invited by ") + esc(r.by || "—") + " · " + esc(ROLE_INFO()[r.role] ? ROLE_INFO()[r.role][1] : "") + " · " + fmtDateTime(r.at) + (ap ? " · ✅ " + ap + "/" + Cloud.need() : "") + '</div></div><button class="btn sm ok" data-act="join.ok" data-id="' + r.uid + '">' + ((r.approvals || {})[S.user.uid] ? "✓" : tt("Conferir", "Review")) + '</button><button class="btn sm danger" data-act="join.no" data-id="' + r.uid + '">✕</button></div>'; }).join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum pedido.", "No requests.") + "</div>") + "</div>";
     }
-    h += '<div class="card"><h3>🔐 ' + tt("Logins da família", "Family logins") + '</h3><div class="list">' + mem.map(([u, m]) => '<div class="li"><div class="main"><div class="t">' + esc(m.name || People.name(m.personId)) + (u === S.user.uid ? ' <span class="badge acc">' + tt("você", "you") + "</span>" : "") + '</div><div class="s">' + esc(m.email || "") + "</div></div>" + (isGuardian() && u !== S.family.owner && u !== S.user.uid ? '<select data-chg="mem.role" data-id="' + u + '" style="width:auto">' + ["responsavel", "membro", "crianca"].map((r) => '<option value="' + r + '"' + (m.role === r ? " selected" : "") + ">" + roleName(r) + "</option>").join("") + '</select><button class="btn xs danger" data-act="mem.rm" data-id="' + u + '">✕</button>' : '<span class="badge">' + esc(roleName(m.role)) + "</span>") + "</div>").join("") + "</div></div>";
+    h += '<div class="card"><h3>🔐 ' + tt("Logins e papéis", "Logins and roles") + '</h3><div class="list">' + mem.sort((a, b) => ["admin", "responsavel", "membro", "crianca"].indexOf(a[1].role) - ["admin", "responsavel", "membro", "crianca"].indexOf(b[1].role)).map(([u, m]) => {
+      const ri = ROLE_INFO()[m.role] || ["", m.role]; const owner = u === S.family.owner; const self = u === S.user.uid;
+      const p = People.get(m.personId); const titles = (p && p.titles) || [];
+      return '<div class="li"><div class="ico">' + ri[0] + '</div><div class="main"><div class="t">' + esc(m.name || People.name(m.personId)) + (owner ? ' <span class="badge warn">🏠 ' + tt("criador", "creator") + "</span>" : "") + (self ? ' <span class="badge acc">' + tt("você", "you") + "</span>" : "") + '</div><div class="s">' + esc(m.email || "") + (titles.length ? " · " + titles.map(esc).join(", ") : "") + (m.since ? " · " + tt("desde ", "since ") + fmtDate(m.since.slice(0, 10)) : "") + "</div></div>" +
+        (admin && !owner && !self ? '<select data-chg="mem.role" data-id="' + u + '" style="width:auto" aria-label="' + tt("Papel", "Role") + '">' + ["admin", "responsavel", "membro", "crianca"].map((r) => '<option value="' + r + '"' + (m.role === r ? " selected" : "") + ">" + ROLE_INFO()[r][0] + " " + ROLE_INFO()[r][1] + "</option>").join("") + '</select><button class="btn xs danger" data-act="mem.rm" data-id="' + u + '" title="' + tt("Remover", "Remove") + '">✕</button>' : '<span class="badge">' + esc(ri[1]) + "</span>") +
+        (S.user.uid === S.family.owner && !self && m.role === "admin" ? '<button class="btn xs ghost" data-act="mem.owner" data-id="' + u + '" title="' + tt("Passar a criação", "Hand over ownership") + '">🏠</button>' : "") + "</div>";
+    }).join("") + "</div>" +
+      '<details class="small" style="margin-top:10px"><summary>' + tt("O que cada papel pode fazer", "What each role can do") + '</summary><div class="list">' + Object.entries(ROLE_INFO()).map(([k, r]) => '<div class="li"><div class="ico">' + r[0] + '</div><div class="main"><div class="t">' + esc(r[1]) + '</div><div class="s" style="white-space:normal">' + esc(r[2]) + "</div></div></div>").join("") + "</div></details>" +
+      (S.user.uid !== S.family.owner ? '<div class="row" style="margin-top:10px"><button class="btn ghost sm" data-act="fam.leave">🚪 ' + tt("Sair desta família", "Leave this family") + "</button></div>" : "") + "</div>";
+    if (admin) h += '<div class="card"><h3>⚙️ ' + tt("Regras de entrada", "Joining rules") + '</h3><div class="fgrid"><label class="fld"><span>' + tt("Quem precisa aprovar cada entrada", "Who must approve each join") + '</span><select data-chg="pol.set" data-k="approvals"><option value="1"' + (pol.approvals == 1 ? " selected" : "") + ">" + tt("1 chefe ou responsável", "1 head or guardian") + '</option><option value="2"' + (pol.approvals == 2 ? " selected" : "") + ">" + tt("2 chefes/responsáveis diferentes", "2 different heads/guardians") + '</option></select><small class="hint">' + tt("Com 2, se a família tiver só um chefe, vale 1.", "With 2, if there's only one head, 1 applies.") + '</small></label><label class="fld"><span>' + tt("Prazo padrão dos convites", "Default invite deadline") + '</span><select data-chg="pol.set" data-k="ttlH">' + [[24, "24 h"], [72, "3 " + tt("dias", "days")], [168, "7 " + tt("dias", "days")]].map((x) => '<option value="' + x[0] + '"' + (pol.ttlH == x[0] ? " selected" : "") + ">" + x[1] + "</option>").join("") + "</select></label></div></div>";
+    if (guard) h += '<div class="card"><h3>📜 ' + tt("Histórico de segurança", "Security log") + "</h3>" + ((S.audit || []).length ? '<div class="list">' + S.audit.slice(0, 25).map((a) => '<div class="li"><div class="main"><div class="t" style="white-space:normal;font-weight:500">' + esc(AUDIT_TXT(a.action)) + (a.detail ? ' <span class="faint">· ' + esc(a.detail) + "</span>" : "") + '</div><div class="s">' + esc(a.byName || "") + " · " + fmtDateTime(a.at) + "</div></div></div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nada registrado ainda.", "Nothing logged yet.") + "</div>") + "</div>";
     return h;
   }
 };
+const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code") }[k] || k);
 ACT["person.new"] = () => editPerson(null);
 ACT["person.edit"] = (d) => { const p = People.get(d.id); if (p) editPerson(JSON.parse(JSON.stringify(p))); };
-ACT["inv.share"] = () => shareText(tt("Convite OmniLifeONE", "OmniLifeONE invite"), tt("Entre na nossa família no OmniLifeONE: ", "Join our family on OmniLifeONE: ") + Cloud.inviteLink());
-ACT["inv.copy"] = () => copyText(Cloud.inviteLink());
+/* novo convite */
+ACT["inv.new"] = async () => {
+  const admin = S.role === "admin"; const pol = Cloud.policy();
+  const linked = Object.values(S.family.members || {}).map((m) => m.personId);
+  const free = People.list("humans").filter((p) => !linked.includes(p.id));
+  const roles = (admin ? ["admin", "responsavel"] : []).concat(["membro", "crianca"]);
+  const r = await formModal({ title: "💌 " + tt("Novo convite", "New invite"), fields: [
+    { type: "note", html: "🔐 " + tt("O link leva um código secreto. Mesmo que seja repassado, a pessoa só entra depois que você (ou outro chefe) conferir o código que aparece na tela dela.", "The link carries a secret code. Even if forwarded, the person only gets in after you (or another head) check the code on their screen.") },
+    { k: "person", label: tt("Para quem", "For whom"), type: "select", opts: [["", tt("Pessoa nova (ainda não cadastrada)", "New person (not added yet)")]].concat(free.map((p) => [p.id, (p.nick || p.name) + " · " + (ROLES()[p.role] || "")])) },
+    { k: "forName", label: tt("Nome (se for pessoa nova)", "Name (if new person)"), ph: tt("Ex.: Vó Cida", "e.g. Grandma") },
+    { k: "role", label: tt("Papel", "Role"), type: "select", opts: roles.map((x) => [x, ROLE_INFO()[x][0] + " " + ROLE_INFO()[x][1]]), hint: admin ? "" : tt("Só um chefe convida outro chefe ou responsável.", "Only a head can invite another head or guardian.") },
+    { k: "ttlH", label: tt("Vale por", "Valid for"), type: "select", opts: [[24, "24 h"], [72, "3 " + tt("dias", "days")], [168, "7 " + tt("dias", "days")]] },
+    { k: "maxUses", label: tt("Quantas pessoas podem usar", "How many people can use it"), type: "select", opts: [[1, tt("1 pessoa (mais seguro)", "1 person (safest)")], [3, tt("até 3 pessoas", "up to 3 people")], [5, tt("até 5 pessoas", "up to 5 people")], [10, tt("até 10 (grupo da família)", "up to 10 (family group)")]] }
+  ], values: { role: "membro", ttlH: pol.ttlH, maxUses: 1, person: "" }, okText: tt("Criar convite", "Create invite"),
+    after: (el) => { const ps = el.querySelector('[name="person"]'), rl = el.querySelector('[name="role"]'); ps.onchange = () => { const p = People.get(ps.value); if (p) { el.querySelector('[name="forName"]').value = p.nick || p.name; if (p.role === "crianca") rl.value = "crianca"; } }; } });
+  if (!r) return;
+  try {
+    const iv = await Cloud.createInvite({ role: r.role, personId: r.person, forName: r.forName || (People.get(r.person) || {}).name || "", ttlH: +r.ttlH, maxUses: +r.maxUses });
+    showInvite(iv);
+  } catch (e) { toast(Cloud.errMsg(e)); }
+};
+async function showInvite(iv) {
+  const link = Cloud.inviteLink(iv.code);
+  const txt = tt("Oi" + (iv.forName ? ", " + iv.forName.split(" ")[0] : "") + "! Você foi convidado(a) para a família " + (S.family.name || "") + " no OmniLifeONE (organizador da casa). Toque no link, entre com sua conta Google ou e-mail e me diga o código de 4 números que aparecer na sua tela: ", "Hi" + (iv.forName ? " " + iv.forName.split(" ")[0] : "") + "! You're invited to the " + (S.family.name || "") + " family on OmniLifeONE. Tap the link, sign in with Google or e-mail and tell me the 4-digit code on your screen: ") + link + tt(" (vale até ", " (valid until ") + fmtDateTime(new Date(iv.expiresAt).toISOString()) + ")";
+  const m = modal({ title: "💌 " + tt("Convite pronto", "Invite ready"), body: '<p class="small">' + ROLE_INFO()[iv.role][0] + " <b>" + esc(ROLE_INFO()[iv.role][1]) + "</b>" + (iv.forName ? " · " + esc(iv.forName) : "") + " · " + iv.maxUses + " " + tt("pessoa(s)", "person(s)") + " · " + tt("até ", "until ") + fmtDateTime(new Date(iv.expiresAt).toISOString()) + '</p><div class="row"><button class="btn" data-w>💬 WhatsApp</button><button class="btn ghost" data-s>↗ ' + tt("Compartilhar", "Share") + '</button><button class="btn ghost" data-e>📧 E-mail</button><button class="btn ghost" data-c>📋 ' + tt("Copiar", "Copy") + '</button></div><div class="center" style="margin-top:12px"><div class="qr" id="ivqr"></div><div class="tiny faint">' + tt("Ou mostre este QR code para a pessoa apontar a câmera.", "Or show this QR code for the person to scan.") + "</div></div>", foot: '<button class="btn" data-x>OK</button>' });
+  m.el.querySelector("[data-w]").onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
+  m.el.querySelector("[data-s]").onclick = () => shareText(tt("Convite OmniLifeONE", "OmniLifeONE invite"), txt);
+  m.el.querySelector("[data-e]").onclick = () => { location.href = "mailto:?subject=" + encodeURIComponent(tt("Convite para a família no OmniLifeONE", "Invite to the family on OmniLifeONE")) + "&body=" + encodeURIComponent(txt); };
+  m.el.querySelector("[data-c]").onclick = () => copyText(link);
+  try { $("#ivqr", m.el).innerHTML = await QR.svg(link); } catch (e) {}
+}
+ACT["inv.show"] = (d) => { const iv = (S.invites || []).find((i) => i.code === d.id); if (iv) showInvite(iv); };
+ACT["inv.revoke"] = async (d) => { if (await confirmBox(tt("Cancelar este convite? Quem ainda não pediu entrada não consegue mais usar o link.", "Revoke this invite? Anyone who hasn't requested yet can no longer use the link."), tt("Cancelar convite", "Revoke"), true)) { try { await Cloud.revokeInvite(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+/* conferir e aprovar um pedido */
 ACT["join.ok"] = async (d) => {
   const req = (S.joinRequests || []).find((r) => r.uid === d.id); if (!req) return;
-  const unlinked = People.list("humans").filter((p) => !Object.values(S.family.members || {}).some((m) => m.personId === p.id));
-  const r = await formModal({ title: "🙋 " + esc(req.name || req.email), fields: [{ k: "role", label: tt("Papel", "Role"), type: "select", opts: [["responsavel", roleName("responsavel") + " — " + tt("vê e aprova tudo", "sees and approves all")], ["membro", roleName("membro") + " — " + tt("adulto, sem cofre e sem aprovar pedidos", "adult, no vault, no approvals")], ["crianca", roleName("crianca") + " — " + tt("com controle parental", "with parental controls")]] }, { k: "person", label: tt("É qual pessoa da família?", "Which family member is this?"), type: "select", opts: [["", "＋ " + tt("Criar pessoa nova", "Create new person")]].concat(unlinked.map((p) => [p.id, p.name])) }], values: { role: "membro" }, okText: tt("Aprovar", "Approve") });
-  if (r) { try { await Cloud.approve(req, r.role, r.person); } catch (e) { toast(Cloud.errMsg(e)); } }
+  if ((req.approvals || {})[S.user.uid]) return toast(tt("Você já aprovou. Falta outro chefe/responsável confirmar.", "You already approved. Another head/guardian must confirm."));
+  const admin = S.role === "admin";
+  const prop = req.proposal || {};
+  const linked = Object.values(S.family.members || {}).map((m) => m.personId);
+  const unlinked = People.list("humans").filter((p) => !linked.includes(p.id));
+  const roles = (admin ? ["admin", "responsavel"] : []).concat(["membro", "crianca"]);
+  const firstCheck = !req.verified;
+  const r = await formModal({ title: "🙋 " + esc(req.name || req.email), fields: [
+    { type: "note", html: esc(req.email || "") + " · " + tt("convite de ", "invited by ") + "<b>" + esc(req.by || "—") + "</b>" + (req.forName ? " · " + tt("para ", "for ") + esc(req.forName) : "") + (Object.keys(req.approvals || {}).length ? "<br>✅ " + tt("Já aprovado por ", "Already approved by ") + esc(Object.values(req.approvals).map((a) => a.name).join(", ")) : "") },
+    firstCheck ? { k: "code", label: "🔐 " + tt("Código que aparece na tela da pessoa", "Code shown on the person's screen"), type: "text", req: true, ph: "0000", hint: tt("Pergunte à pessoa, ao vivo ou por telefone. Não aprove se não souber quem é.", "Ask the person, live or by phone. Don't approve if you don't know who it is.") } : { type: "note", tone: "ok", html: "🔐 " + tt("Código já conferido por outro chefe.", "Code already checked by another head.") },
+    { k: "role", label: tt("Papel", "Role"), type: "select", opts: roles.map((x) => [x, ROLE_INFO()[x][0] + " " + ROLE_INFO()[x][1]]) },
+    { k: "person", label: tt("É qual pessoa da família?", "Which family member is this?"), type: "select", opts: [["", "＋ " + tt("Criar pessoa nova", "Create new person")]].concat(unlinked.map((p) => [p.id, p.name])) },
+    { k: "consent", label: tt("Sou pai, mãe ou responsável legal e autorizo o uso dos dados desta criança/jovem no app (LGPD, art. 14).", "I'm a parent or legal guardian and authorize the use of this child's data in the app (LGPD, art. 14)."), type: "check" }
+  ], values: { role: prop.role || (roles.includes(req.role) ? req.role : "membro"), person: prop.personId || req.personId || "" }, okText: tt("Aprovar", "Approve"),
+    onOk: async (o) => {
+      if (firstCheck && String(o.code).trim() !== String(req.verify)) {
+        const tries = (req.tries || 0) + 1; req.tries = tries;
+        try { await FB.F.updateDoc(FB.ref("families", S.family.id, "joinRequests", req.uid), { tries }); } catch (e) {}
+        await Cloud.audit("codigo.errado", (req.name || req.email) + " · " + tries + "/3");
+        if (tries >= 3) { await Cloud.reject(req, tt("3 códigos errados", "3 wrong codes")); toast(tt("3 códigos errados: o pedido foi recusado por segurança.", "3 wrong codes: the request was declined for safety."), 5000); return true; }
+        toast(tt("Código não confere. Confirme com a pessoa (tentativa ", "Code doesn't match. Check with the person (attempt ") + tries + "/3).", 4500); return false;
+      }
+      if (o.role === "crianca" && !o.consent) { toast(tt("Para criança/jovem, marque o consentimento do responsável.", "For a child/teen, tick the guardian consent.")); return false; }
+      if ((o.role === "admin" || o.role === "responsavel") && !admin) { toast(tt("Só um chefe aprova outro chefe ou responsável.", "Only a head can approve another head or guardian.")); return false; }
+    } });
+  if (!r || (r.code && String(r.code).trim() !== String(req.verify) && !req.verified)) return;
+  try { await Cloud.approve(req, { role: r.role, personId: r.person, consent: r.role === "crianca" ? { by: Cloud.myName(), byUid: S.user.uid, at: new Date().toISOString(), basis: "LGPD art. 14 §1" } : null }); } catch (e) { toast(Cloud.errMsg(e)); }
 };
-ACT["join.no"] = async (d) => { const req = (S.joinRequests || []).find((r) => r.uid === d.id); if (req && await confirmBox(tt("Recusar este pedido?", "Decline this request?"), tt("Recusar", "Decline"), true)) await Cloud.reject(req); };
-ACT["mem.role"] = async (d, el) => { try { await Cloud.setRole(d.id, el.value); toast(tt("Papel atualizado ✓", "Role updated ✓")); } catch (e) { toast(Cloud.errMsg(e)); } };
-ACT["mem.rm"] = async (d) => { if (await confirmBox(tt("Remover este login da família? (a pessoa continua cadastrada)", "Remove this login? (the person record stays)"), tt("Remover", "Remove"), true)) { try { await Cloud.removeMember(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["join.no"] = async (d) => { const req = (S.joinRequests || []).find((r) => r.uid === d.id); if (!req) return; const why = await askText(tt("Recusar pedido", "Decline request"), tt("Motivo (opcional)", "Reason (optional)"), ""); if (why === null) return; await Cloud.reject(req, why); };
+ACT["mem.role"] = async (d, el) => { try { await Cloud.setRole(d.id, el.value); } catch (e) { toast(Cloud.errMsg(e)); } render(); };
+ACT["mem.rm"] = async (d) => { if (await confirmBox(tt("Remover este login da família? Ele perde o acesso na hora (a pessoa continua cadastrada).", "Remove this login? They lose access immediately (the person record stays)."), tt("Remover", "Remove"), true)) { try { await Cloud.removeMember(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["mem.owner"] = async (d) => { const m = S.family.members[d.id]; if (m && await confirmBox(tt("Passar a criação da família para ", "Hand over family ownership to ") + esc(m.name || m.email) + tt("? Você continua chefe, mas ela passa a ser a criadora.", "? You stay a head, but they become the creator."), tt("Passar", "Hand over"))) { try { await Cloud.transferOwner(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["fam.leave"] = async () => { if (await confirmBox(tt("Sair desta família? Você perde o acesso aos dados dela neste e nos outros aparelhos.", "Leave this family? You lose access to its data on all devices."), tt("Sair", "Leave"), true)) { try { await Cloud.leave(); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["pol.set"] = async (d, el) => { try { await Cloud.setPolicy({ [d.k]: +el.value }); toast("✓"); } catch (e) { toast(Cloud.errMsg(e)); } };
 
 /* =====================================================================
    LEMBRETES RÁPIDOS — atalho ⚡ com favoritos, frequentes e repetição
@@ -4503,6 +4730,26 @@ SCREENS.security = {
 
 /* ---------- ajuda e tutoriais (passo a passo, PT/EN) ---------- */
 const HELP = () => ({
+  familia: { t: "👨‍👩‍👧 " + tt("Família — como as pessoas entram, com segurança", "Family — how people join, safely"), steps: [
+    tt("<b>Criar a família:</b> quem abre o app primeiro entra com Google ou e-mail e toca em “Criar família”. Essa pessoa vira <b>👑 Chefe</b> e “criadora” da família.", "<b>Create the family:</b> whoever opens the app first signs in with Google or e-mail and taps “Create family”. They become <b>👑 Head</b> and the family's “creator”."),
+    tt("<b>Papéis:</b> 👑 <b>Chefe</b> (administra tudo — pode haver vários: pai, mãe, avó…), 🛡️ <b>Responsável/tutor</b> (vê tudo, aprova pedidos e a entrada de adultos e crianças, abre o cofre), 🧑 <b>Membro adulto</b> e 🧒 <b>Criança/jovem</b> (com controle parental). Além do papel, cada pessoa pode ter um ou mais <b>títulos</b> (Chefe da família, Mãe, Tutor legal…) em ✏️.", "<b>Roles:</b> 👑 <b>Head</b> (manages everything — there can be several: dad, mom, grandma…), 🛡️ <b>Guardian/tutor</b> (sees all, approves requests and adult/child joins, opens the vault), 🧑 <b>Adult member</b> and 🧒 <b>Child/teen</b> (with parental controls). Besides the role, each person can have one or more <b>titles</b> (Head of family, Mother, Legal guardian…) in ✏️."),
+    tt("<b>Convidar:</b> em Família → Convites → <b>＋ Novo convite</b>, escolha para quem (pessoa já cadastrada ou nova), o papel, o prazo (24 h, 3 ou 7 dias) e quantas pessoas podem usar (1 é o mais seguro; até 10 para um grupo). Só um chefe convida outro chefe ou responsável.", "<b>Invite:</b> in Family → Invites → <b>＋ New invite</b>, choose who (existing or new person), the role, the deadline (24 h, 3 or 7 days) and how many people can use it (1 is safest; up to 10 for a group). Only a head can invite another head or guardian."),
+    tt("<b>Enviar e compartilhar:</b> WhatsApp, e-mail, “Compartilhar”, copiar o link ou mostrar o QR code. O convite pode ser repassado (ex.: você manda no grupo e cada um entra), dentro do limite de pessoas e do prazo. Dá para reenviar (↗) ou cancelar (⊘) a qualquer hora.", "<b>Send and share:</b> WhatsApp, e-mail, “Share”, copy the link or show the QR code. The invite can be forwarded (e.g. you post it in the group and each one joins), within the people limit and deadline. You can resend (↗) or revoke (⊘) anytime."),
+    tt("<b>Quem recebe</b> toca no link, entra com Google ou e-mail e vê um <b>código de 4 números</b>. Ele fica esperando a aprovação — a tela abre sozinha quando aprovarem.", "<b>The invitee</b> taps the link, signs in with Google or e-mail and sees a <b>4-digit code</b>. They wait for approval — the screen opens by itself once approved."),
+    tt("<b>Confirmar (o passo que dá segurança):</b> em Família → Pedidos de entrada → <b>Conferir</b>, pergunte à pessoa, por telefone ou pessoalmente, o código que aparece na tela dela e digite. Se não conferir 3 vezes, o pedido é recusado sozinho. Assim, mesmo que o link caia na mão de um estranho, ele não entra.", "<b>Confirm (the step that makes it safe):</b> in Family → Join requests → <b>Review</b>, ask the person, by phone or in person, for the code on their screen and type it. After 3 wrong tries the request is declined. So even if the link reaches a stranger, they can't get in."),
+    tt("<b>Dois chefes (opcional):</b> em Regras de entrada, escolha “2 chefes/responsáveis diferentes”. Aí cada entrada precisa de duas aprovações — bom para famílias grandes ou pais separados.", "<b>Two heads (optional):</b> in Joining rules, choose “2 different heads/guardians”. Then every join needs two approvals — good for big families or separated parents."),
+    tt("<b>Crianças:</b> ao aprovar uma criança/jovem, o responsável marca o consentimento (LGPD, art. 14). Fica registrado quem autorizou e quando. Depois ajuste o controle parental no ✏️ da criança.", "<b>Children:</b> when approving a child/teen, the guardian ticks the consent (LGPD, art. 14). Who authorized and when is recorded. Then adjust parental controls in the child's ✏️."),
+    tt("<b>Mudar papéis e sair:</b> só chefes mudam papéis e removem logins; a família sempre tem pelo menos um chefe, e o criador é sempre chefe (ele pode passar a criação 🏠 para outro chefe). Qualquer outra pessoa pode tocar em “Sair desta família”.", "<b>Changing roles and leaving:</b> only heads change roles and remove logins; the family always keeps at least one head, and the creator is always a head (they can hand over 🏠 to another head). Anyone else can tap “Leave this family”."),
+    tt("<b>Histórico de segurança:</b> convites criados e cancelados, aprovações, recusas, códigos errados, mudanças de papel e saídas ficam registrados em Família → Histórico. Ninguém consegue apagar.", "<b>Security log:</b> invites created and revoked, approvals, declines, wrong codes, role changes and departures are logged in Family → Log. Nobody can delete it."),
+    tt("<b>Sem nuvem (só neste aparelho):</b> cada pessoa tem um perfil com PIN ou digital no mesmo celular; chefes são marcados com 👑 no ✏️ de cada responsável.", "<b>Without the cloud (this device only):</b> each person has a profile with PIN or fingerprint on the same phone; heads are marked with 👑 in each guardian's ✏️.")
+  ], note: tt("Dicas: prefira convite para 1 pessoa e com prazo curto; nunca aprove sem conferir o código; cancele convites que não foram usados; revise o histórico de vez em quando.", "Tips: prefer 1-person, short-deadline invites; never approve without checking the code; revoke unused invites; review the log from time to time."), more: [["familia-entrar", "🙋 " + tt("Para quem foi convidado", "For the invitee")]] },
+  "familia-entrar": { t: "🙋 " + tt("Recebi um convite — e agora?", "I got an invite — what now?"), steps: [
+    tt("Toque no link do convite (ou aponte a câmera para o QR code).", "Tap the invite link (or point the camera at the QR code)."),
+    tt("Entre com sua conta Google ou com e-mail e senha. Criança sem conta Google pode usar e-mail.", "Sign in with your Google account or e-mail and password. A child without Google can use e-mail."),
+    tt("Aparece um código de 4 números. Diga esse código <b>só para quem te convidou</b>, por telefone ou pessoalmente.", "A 4-digit code shows up. Tell it <b>only to whoever invited you</b>, by phone or in person."),
+    tt("Espere a aprovação: a tela abre sozinha. Se a família pede 2 aprovações, aparece o andamento (ex.: 1/2).", "Wait for approval: the screen opens by itself. If the family requires 2 approvals, you'll see the progress (e.g. 1/2)."),
+    tt("“Convite não vale mais”? Ele passou do prazo, atingiu o limite de pessoas ou foi cancelado. Peça um novo.", "“Invite no longer valid”? It expired, hit its people limit or was revoked. Ask for a new one.")
+  ] },
   cheguei: { t: "✅ " + tt("Aviso “Cheguei” — para que serve e como usar", "“I'm here” check-in — what it's for and how to use it"), steps: [
     tt("<b>Para que serve:</b> saber, sem precisar ligar, que os filhos (ou qualquer pessoa da família) chegaram bem — na escola, no curso, na casa de um amigo ou de volta em casa.", "<b>What it's for:</b> knowing, without calling, that the kids (or anyone in the family) arrived safely — at school, class, a friend's home or back home."),
     tt("<b>Quem chega</b> abre Segurança → Cheguei (ou o botão ✅ no Início) e toca em <b>✅ Cheguei</b>. Escolhe o lugar e, se quiser, manda a localização (📍). A família recebe na hora.", "<b>Whoever arrives</b> opens Safety → Check-in (or the ✅ button on Home) and taps <b>✅ I'm here</b>. Picks the place and, optionally, sends the location (📍). The family gets it right away."),

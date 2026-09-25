@@ -5,9 +5,14 @@ service cloud.firestore {
     function fam(fid) { return get(/databases/$(database)/documents/families/$(fid)).data; }
     function isMember(fid) { return signedIn() && request.auth.uid in fam(fid).members; }
     function myRole(fid) { return fam(fid).members[request.auth.uid].role; }
+    function isAdmin(fid) { return isMember(fid) && myRole(fid) == 'admin'; }
     function isGuardian(fid) { return isMember(fid) && myRole(fid) in ['admin', 'responsavel']; }
     function isAdult(fid) { return isMember(fid) && myRole(fid) in ['admin', 'responsavel', 'membro']; }
     function visOk(fid, data) { return isGuardian(fid) || data.vis != 'restrito'; }
+    function inviteOk(fid, code) {
+      let p = /databases/$(database)/documents/families/$(fid)/invites/$(code);
+      return exists(p) && get(p).data.active == true && get(p).data.expiresAt > request.time.toMillis() && get(p).data.uses < get(p).data.maxUses;
+    }
 
     match /users/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
@@ -18,12 +23,45 @@ service cloud.firestore {
         && request.resource.data.owner == request.auth.uid
         && request.resource.data.members.keys().hasOnly([request.auth.uid])
         && request.resource.data.members[request.auth.uid].role == 'admin';
-      allow update: if isGuardian(fid) && request.resource.data.owner == resource.data.owner;
+
+      // Chefes (admin): mudam tudo, mas o criador continua chefe e só ele passa a criação para outro chefe.
+      function ownerOk() {
+        let o = request.resource.data.owner;
+        return o in request.resource.data.members && request.resource.data.members[o].role == 'admin'
+          && (o == resource.data.owner || request.auth.uid == resource.data.owner);
+      }
+      // Responsáveis: só podem aprovar a entrada de membro adulto ou criança (um por vez).
+      function guardianAddsMember() {
+        let d = request.resource.data.diff(resource.data);
+        let m = request.resource.data.members.diff(resource.data.members);
+        return d.affectedKeys().hasOnly(['members']) && m.removedKeys().size() == 0 && m.changedKeys().size() == 0
+          && m.addedKeys().size() == 1 && request.resource.data.members[m.addedKeys().toList()[0]].role in ['membro', 'crianca'];
+      }
+      // Qualquer um (menos o criador) pode sair da família sozinho.
+      function leavingSelf() {
+        let d = request.resource.data.diff(resource.data);
+        let m = request.resource.data.members.diff(resource.data.members);
+        return d.affectedKeys().hasOnly(['members']) && m.addedKeys().size() == 0 && m.changedKeys().size() == 0
+          && m.removedKeys().hasOnly([request.auth.uid]) && request.auth.uid != resource.data.owner;
+      }
+      allow update: if (isAdmin(fid) && ownerOk()) || (isGuardian(fid) && guardianAddsMember()) || (isMember(fid) && leavingSelf());
       allow delete: if signedIn() && resource.data.owner == request.auth.uid;
 
+      // Convites: quem tem o código (o segredo) consegue ler aquele convite; só chefes e responsáveis criam e revogam.
+      match /invites/{code} {
+        allow get: if signedIn();
+        allow list, create, update, delete: if isGuardian(fid);
+      }
+      // Pedido de entrada: só com convite válido (ativo, dentro do prazo e com vagas).
       match /joinRequests/{uid} {
-        allow create, update: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn() && request.auth.uid == uid && request.resource.data.code is string && inviteOk(fid, request.resource.data.code);
+        allow update: if isGuardian(fid);
         allow read, delete: if (signedIn() && request.auth.uid == uid) || isGuardian(fid);
+      }
+      // Histórico de segurança: só se acrescenta; ninguém edita nem apaga.
+      match /audit/{id} {
+        allow read: if isGuardian(fid);
+        allow create: if isMember(fid) && request.resource.data.byUid == request.auth.uid;
       }
       match /vault/{id} {
         allow read, write: if isGuardian(fid);
@@ -40,10 +78,10 @@ service cloud.firestore {
         allow write: if isMember(fid);
       }
       match /{col}/{id} {
-        allow read: if !(col in ['vault', 'joinRequests']) && isMember(fid) && visOk(fid, resource.data);
-        allow create, update: if !(col in ['vault', 'requests', 'joinRequests'])
+        allow read: if !(col in ['vault', 'joinRequests', 'invites', 'audit']) && isMember(fid) && visOk(fid, resource.data);
+        allow create, update: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit'])
           && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files', 'checkins']));
-        allow delete: if !(col in ['vault', 'requests', 'joinRequests']) && isAdult(fid);
+        allow delete: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit']) && isAdult(fid);
       }
     }
   }
