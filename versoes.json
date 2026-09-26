@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.5.0",
+  "d": "2026-09-26",
+  "hora": "16:10:00",
+  "pt": [
+   "📷 Compras → Foto ou Arquivo/PDF: leia lista escrita (até de letra de mão, com a IA), recibo ou cupom fiscal, extrato ou fatura e foto de produtos — várias fotos ou arquivos de uma vez",
+   "🤔 O app pergunta do que se trata e mostra tudo numa tela de conferência antes de salvar: dá para corrigir nomes, quantidades e desmarcar o que não quer",
+   "📏 Tamanho e peso de cada item: “✓ lido” quando está escrito, “≈ palpite” quando é estimado pela foto, pela última compra ou pelo mais comum — confira mais ou menos com um toque",
+   "🧾 Recibo vira compra registrada (preços, despensa, histórico e MoneyTrio) e tira da lista o que foi comprado; extrato registra só as compras marcadas, sem repetir as que já estavam no histórico",
+   "🔒 Extrato só vai para a IA se você marcar; sem IA, tudo é lido no próprio aparelho"
+  ],
+  "en": [
+   "📷 Shopping → Photo or File/PDF: read a written list (even handwriting, with AI), a receipt, a bank/card statement or a photo of products — several photos or files at once",
+   "🤔 The app asks what it is and shows everything on a review screen before saving: fix names and quantities and untick what you don't want",
+   "📏 Size and weight of each item: “✓ read” when it's written, “≈ guess” when estimated from the photo, the last purchase or the most common size — check roughly with one tap",
+   "🧾 A receipt becomes a saved purchase (prices, pantry, history and MoneyTrio) and removes bought items from the list; a statement saves only the ticked purchases, skipping those already in history",
+   "🔒 Statements only go to the AI if you tick it; without AI, everything is read on the device"
+  ]
+ },
+ {
   "v": "2.4.8",
   "d": "2026-09-26",
   "hora": "15:00:00",
