@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.4.1",
+  "d": "2026-09-26",
+  "hora": "12:00:00",
+  "pt": [
+   "📱 Android: a Barra de atalhos (e o resto do app) não fica mais clara e ilegível quando o navegador está com tema escuro próprio — o app usa o tema escuro dele"
+  ],
+  "en": [
+   "📱 Android: the shortcut bar (and the rest of the app) no longer turns light and unreadable when the browser forces its own dark theme — the app uses its own dark theme"
+  ]
+ },
+ {
   "v": "2.4.0",
   "d": "2026-09-25",
   "hora": "22:40:00",
