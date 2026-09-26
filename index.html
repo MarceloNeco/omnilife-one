@@ -578,16 +578,36 @@ footer.app{border-top:0;opacity:.8}
 #aone{position:fixed;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:60;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none}
 @media(min-width:821px){#aone{right:22px;bottom:22px}}
 #aone.hidden{display:none}
+.duascal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+.duascal .dc{border:1px solid var(--border);background:color-mix(in srgb,var(--c) 14%,var(--surface));border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;color:var(--text);min-height:58px}
+.duascal .dc.today{outline:2px solid var(--c);outline-offset:1px}
+.duascal .wd{font-size:.68rem;color:var(--text3);text-transform:capitalize}.duascal .dn{font-weight:800}.duascal .ho{font-size:.7rem;font-weight:800;color:var(--c)}
+.card.pcinst{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-color:color-mix(in srgb,var(--accent) 35%,var(--border));background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 9%,var(--surface)),var(--surface))}
+.card.pcinst .pci{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent);flex:none}
+.card.pcinst .pci .ico{width:24px;height:24px}
+.card.pcinst .pct{flex:1 1 220px;display:flex;flex-direction:column;gap:2px}
+.card.pcinst .pct span{font-size:.86rem;color:var(--text2)}
 #aone.talk{z-index:210}
 #aone>*{pointer-events:auto}
 .aone-btn{width:58px;height:58px;border-radius:50%;border:1px solid color-mix(in srgb,#c9a24a 45%,var(--border));background:radial-gradient(circle at 50% 38%,#232838,#11141c 72%);box-shadow:0 6px 18px rgba(0,0,0,.28),0 0 0 3px color-mix(in srgb,#c9a24a 14%,transparent);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;position:relative;animation:aoneFloat 4.5s ease-in-out infinite}
 .aone-btn img{height:46px;width:auto;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));pointer-events:none}
+.aone-btn,.aone-btn img{transition:width .25s cubic-bezier(.2,.8,.2,1),height .25s cubic-bezier(.2,.8,.2,1)}
+#aone.talk .aone-btn{width:116px;height:116px;animation:none;box-shadow:0 10px 28px rgba(0,0,0,.35),0 0 0 4px color-mix(in srgb,#c9a24a 22%,transparent)}
+#aone.talk .aone-btn img{height:92px}
+.a-rm .aone-btn,.a-rm .aone-btn img{transition:none}
+@media(prefers-reduced-motion:reduce){.aone-btn,.aone-btn img{transition:none}}
+.aone-here{border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border));background:color-mix(in srgb,var(--accent) 7%,var(--surface));border-radius:14px;padding:10px 12px;margin:6px 0 8px}
+.aone-here .t{font-weight:800;font-size:.92rem;margin-bottom:2px}
+.aone-here p{margin:0 0 8px;font-size:.84rem}
+.aone-here .acts{display:flex;flex-wrap:wrap;gap:6px}
+.aone-here .acts button{border:1px solid var(--accent);background:var(--surface);color:var(--text);border-radius:999px;padding:7px 12px;font-weight:700;font-size:.82rem;cursor:pointer;min-height:36px}
+.aone-here .acts button.pri{background:var(--accent);color:var(--accent-ink)}
 .aone-btn:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
 .aone-btn .dot{position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--bg)}
 @keyframes aoneFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes aonePop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
 .aone-chip{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:7px 12px;font-weight:700;font-size:.8rem;box-shadow:0 4px 14px rgba(0,0,0,.18);cursor:pointer}
-.aone-bub{width:min(340px,calc(100vw - 24px));max-height:min(70vh,560px);overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:18px 18px 6px 18px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:14px 14px 12px;animation:aonePop .2s ease;position:relative}
+.aone-bub{width:min(340px,calc(100vw - 24px));max-height:min(70vh,560px,calc(100vh - 250px));overflow:auto;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:18px 18px 6px 18px;box-shadow:0 14px 40px rgba(0,0,0,.28);padding:14px 14px 12px;animation:aonePop .2s ease;position:relative}
 .aone-bub h4{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
 .aone-bub h4 img{height:26px;width:auto}
 .aone-bub p{margin:4px 0 8px;font-size:.9rem;line-height:1.4}
@@ -694,8 +714,11 @@ body.aone-on main{padding-bottom:110px!important}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "2.1.0";
-const AD_URL = "https://marceloneco.github.io/";
+const APP_VERSION = "2.3.0";
+/* endereço-base da plataforma: o próprio site (funciona no domínio novo e no antigo); cópia baixada usa o domínio */
+const SITE_DOMAIN = "solverone.com.br";
+const SITE_BASE = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? location.origin + "/" : "https://" + SITE_DOMAIN + "/";
+const AD_URL = SITE_BASE;
 const FB_VERSION = "12.18.0";
 /* Cole aqui a configuração do Firebase para que TODA a família use sem precisar colar nada.
    (Também dá pra colar em Ajustes > Nuvem.) */
@@ -714,7 +737,7 @@ const LS = {
   mtKeys: "investifyme.chaves.v1",
   bridge: "ecossistema.ponte.v1"
 };
-const COLS = ["people","health","items","shop","requests","purchases","prices","events","routine","tasks","contacts","places","things","maint","vault","guides","docs","files","settings","msgs","reminders","checkins","expects"];
+const COLS = ["people","health","items","shop","requests","purchases","prices","events","routine","tasks","contacts","places","things","maint","vault","guides","docs","files","settings","msgs","reminders","checkins","expects","coexp","comsg"];
 const LIBS = {
   tesseract: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",
   tf: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
@@ -724,7 +747,7 @@ const LIBS = {
 };
 
 /* ---------- ícones de traço (desenhados para o OmniLifeONE; iguais em todo aparelho, ao contrário de emoji) ---------- */
-const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
+const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
 function ico(name, cls) { const p = ICONS[name]; if (!p) return ""; return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>"; }
 /* ---------- estado global ---------- */
 const S = {
@@ -1349,7 +1372,7 @@ const CloudDriver = {
     const F = FB.F;
     let resolveFirst; const firstDone = new Promise((r) => (resolveFirst = r));
     let pending = 0;
-    const cols = COLS.filter((c) => c !== "vault" || isGuardian());
+    const cols = COLS.filter((c) => c !== "vault" || canVault());
     for (const col of cols) {
       let q = F.collection(FB.db, "families", S.family.id, col);
       if (!isGuardian()) q = F.query(q, F.where("vis", "==", "familia"));
@@ -1417,7 +1440,7 @@ const Cloud = {
       "auth/email-already-in-use": tt("Esse e-mail já tem conta. Use Entrar.", "E-mail already registered. Sign in."),
       "auth/weak-password": tt("Senha fraca: use 6 ou mais caracteres.", "Weak password: use 6+ characters."),
       "auth/invalid-email": tt("E-mail inválido.", "Invalid e-mail."),
-      "auth/unauthorized-domain": tt("Este endereço não está autorizado no Firebase (Authentication > Configurações > Domínios autorizados).", "This domain is not authorized in Firebase."),
+      "auth/unauthorized-domain": tt("Este endereço (" + location.hostname + ") não está autorizado no Firebase. No console do Firebase: Authentication → Configurações → Domínios autorizados → Adicionar domínio → " + location.hostname + ".", "This address (" + location.hostname + ") isn't authorized in Firebase: Authentication → Settings → Authorized domains → Add domain."),
       "auth/operation-not-allowed": tt("Esse tipo de login não foi ativado no Firebase.", "This sign-in method is not enabled in Firebase."),
       "auth/popup-blocked": tt("O navegador bloqueou a janela. Permita pop-ups e tente de novo.", "Popup blocked. Allow popups and retry."),
       "permission-denied": tt("Sem permissão. Confira se as regras do Firestore foram publicadas.", "Permission denied. Check the Firestore rules.")
@@ -1489,6 +1512,7 @@ const Cloud = {
   attachJoin(fid) {
     this.joinUnsub && this.joinUnsub(); this.joinUnsub = null; S.joinRequests = [];
     (this.extraUnsubs || []).forEach((u) => { try { u(); } catch (e) {} }); this.extraUnsubs = []; S.invites = []; S.audit = [];
+    Gov.attach(fid); Devices.attach(fid);
     if (!isGuardian()) return;
     this.extraUnsubs.push(FB.F.onSnapshot(FB.F.collection(FB.db, "families", fid, "invites"), (snap) => { S.invites = snap.docs.map((d) => d.data()); scheduleRender(); }, () => {}));
     this.extraUnsubs.push(FB.F.onSnapshot(FB.F.query(FB.F.collection(FB.db, "families", fid, "audit"), FB.F.orderBy("at", "desc"), FB.F.limit(40)), (snap) => { S.audit = snap.docs.map((d) => d.data()); scheduleRender(); }, () => {}));
@@ -1604,8 +1628,10 @@ const Cloud = {
   },
   async reject(req, why) { await FB.F.deleteDoc(FB.ref("families", S.family.id, "joinRequests", req.uid)); await this.audit("entrada.recusada", (req.name || req.email) + (why ? " · " + why : "")); },
   /* c) papéis: só chefes mudam; sempre fica pelo menos um chefe; o criador é sempre chefe */
-  async setRole(uidM, role) {
+  async setRole(uidM, role, force) {
     const m = S.family.members[uidM]; if (!m) return;
+    /* chefe não rebaixa outro chefe sozinho: vira pedido (Gov) */
+    if (!force && m.role === "admin" && role !== "admin" && uidM !== S.user.uid) return Gov.headChange(uidM, "rebaixar", role);
     if (uidM === S.family.owner && role !== "admin") return toast(tt("O criador da família é sempre chefe. Para mudar, passe a criação para outro chefe.", "The family creator is always a head. To change that, hand over ownership to another head."), 5000);
     if (m.role === "admin" && role !== "admin" && this.admins().length <= 1) return toast(tt("A família precisa de pelo menos um chefe.", "The family needs at least one head."));
     await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM + ".role"]: role });
@@ -1613,15 +1639,16 @@ const Cloud = {
     await this.audit("papel.alterado", (m.name || m.email) + ": " + roleName(m.role) + " → " + roleName(role));
     toast(tt("Papel atualizado ✓", "Role updated ✓"));
   },
-  async removeMember(uidM) { const m = S.family.members[uidM]; await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM]: FB.F.deleteField() }); await this.audit("membro.removido", m ? m.name || m.email : uidM); },
+  async removeMember(uidM, force) { const m = S.family.members[uidM]; if (!force && m && m.role === "admin" && uidM !== S.user.uid) return Gov.headChange(uidM, "remover"); await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + uidM]: FB.F.deleteField() }); await this.audit("membro.removido", m ? m.name || m.email : uidM); },
   async leave() {
     await this.audit("membro.saiu", this.myName());
     await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + S.user.uid]: FB.F.deleteField() });
     try { await FB.F.setDoc(FB.ref("users", S.user.uid), { lastFamily: FB.F.deleteField(), families: FB.F.arrayRemove(S.family.id) }, { merge: true }); } catch (e) {}
     lsDel(LS.lastFam); toast(tt("Você saiu da família.", "You left the family.")); ACT["cloud.logout"]();
   },
-  async transferOwner(uidM) {
+  async transferOwner(uidM, force) {
     const m = S.family.members[uidM]; if (!m || m.role !== "admin") return toast(tt("Primeiro torne a pessoa chefe.", "Make the person a head first."));
+    if (!force) return Gov.proposeTransfer(uidM);
     await FB.F.updateDoc(FB.ref("families", S.family.id), { owner: uidM });
     await this.audit("criacao.transferida", this.myName() + " → " + (m.name || m.email));
     toast(tt("Criação da família transferida ✓", "Family ownership transferred ✓"));
@@ -1675,7 +1702,31 @@ service cloud.firestore {
         return d.affectedKeys().hasOnly(['members']) && m.addedKeys().size() == 0 && m.changedKeys().size() == 0
           && m.removedKeys().hasOnly([request.auth.uid]) && request.auth.uid != resource.data.owner;
       }
-      allow update: if (isAdmin(fid) && ownerOk()) || (isGuardian(fid) && guardianAddsMember()) || (isMember(fid) && leavingSelf());
+      // Chefe não rebaixa nem remove outro chefe sozinho: precisa de pedido (gov/hd_<uid>) aprovado por outro chefe
+      // ou vencido (48 h) sem veto. Mudar a si mesmo ou quem não é chefe continua direto.
+      function govOk(t) {
+        let p = /databases/$(database)/documents/families/$(fid)/gov/$('hd_' + t);
+        return exists(p) && (get(p).data.status == 'aprovado' || (get(p).data.status == 'pendente' && get(p).data.execAfterMs < request.time.toMillis()));
+      }
+      function headsOk() {
+        let m = request.resource.data.members.diff(resource.data.members);
+        let ch = m.changedKeys().union(m.removedKeys());
+        return ch.size() == 0 || (ch.size() == 1 && (resource.data.members[ch.toList()[0]].role != 'admin'
+          || ch.toList()[0] == request.auth.uid
+          || (ch.toList()[0] in request.resource.data.members && request.resource.data.members[ch.toList()[0]].role == 'admin')
+          || govOk(ch.toList()[0])));
+      }
+      // Acesso de emergência: o contato de emergência libera o próprio acesso ao cofre só depois da espera, se ninguém vetou.
+      function emergencySelf() {
+        let d = request.resource.data.diff(resource.data);
+        let m = request.resource.data.members.diff(resource.data.members);
+        let p = /databases/$(database)/documents/families/$(fid)/gov/$('em_' + request.auth.uid);
+        return d.affectedKeys().hasOnly(['members']) && m.changedKeys().hasOnly([request.auth.uid]) && m.addedKeys().size() == 0 && m.removedKeys().size() == 0
+          && request.resource.data.members[request.auth.uid].diff(resource.data.members[request.auth.uid]).affectedKeys().hasOnly(['emergencyVault'])
+          && request.auth.uid in resource.data.policy.emContacts
+          && exists(p) && get(p).data.status == 'pendente' && get(p).data.execAfterMs < request.time.toMillis();
+      }
+      allow update: if (isAdmin(fid) && ownerOk() && headsOk()) || (isGuardian(fid) && guardianAddsMember()) || (isMember(fid) && leavingSelf()) || (isMember(fid) && emergencySelf());
       allow delete: if signedIn() && resource.data.owner == request.auth.uid;
 
       // Convites: quem tem o código (o segredo) consegue ler aquele convite; só chefes e responsáveis criam e revogam.
@@ -1695,7 +1746,46 @@ service cloud.firestore {
         allow create: if isMember(fid) && request.resource.data.byUid == request.auth.uid;
       }
       match /vault/{id} {
-        allow read, write: if isGuardian(fid);
+        allow read: if isGuardian(fid) || (isMember(fid) && fam(fid).members[request.auth.uid].emergencyVault == true);
+        allow write: if isGuardian(fid);
+      }
+      // Pedidos de governança (rebaixar/remover chefe, passar a criação, emergência).
+      function govNew(gid) {
+        let g = request.resource.data;
+        return g.by == request.auth.uid && g.status == 'pendente' && (
+          (isAdmin(fid) && g.type in ['rebaixar', 'remover'] && gid == 'hd_' + g.target && g.execAfterMs >= request.time.toMillis() + 47 * 3600000)
+          || (isAdmin(fid) && g.type == 'transferir' && request.auth.uid == fam(fid).owner)
+          || (isMember(fid) && g.type == 'emergencia' && gid == 'em_' + request.auth.uid && request.auth.uid in fam(fid).policy.emContacts
+              && g.execAfterMs >= request.time.toMillis() + fam(fid).policy.emWaitDays * 86400000 - 3600000));
+      }
+      function govAnswer() {
+        let d = request.resource.data.diff(resource.data);
+        let s = request.resource.data.status;
+        return d.affectedKeys().hasOnly(['status', 'approvals', 'answeredAt', 'doneAt']) && (
+          (resource.data.target == request.auth.uid && s in ['aceito', 'recusado', 'vetado'])
+          || (resource.data.by == request.auth.uid && s in ['cancelado', 'executado', 'liberado'])
+          || (isAdmin(fid) && s == 'aprovado' && resource.data.by != request.auth.uid && resource.data.target != request.auth.uid)
+          || (isGuardian(fid) && s == 'vetado' && resource.data.by != request.auth.uid)
+          || (isAdmin(fid) && s == 'executado'));
+      }
+      match /gov/{gid} {
+        allow read: if isMember(fid);
+        allow create: if govNew(gid);
+        allow update: if govAnswer() || (resource.data.status in ['vetado', 'cancelado', 'executado', 'recusado', 'liberado'] && govNew(gid));
+      }
+      // Aparelhos conectados: cada um registra o seu; chefe desconecta; o aparelho não se "religa" sozinho.
+      match /devices/{did} {
+        allow read: if isGuardian(fid) || (isMember(fid) && resource.data.uid == request.auth.uid);
+        allow create: if isMember(fid) && request.resource.data.uid == request.auth.uid && !('revoked' in request.resource.data);
+        allow update: if isAdmin(fid) || (isMember(fid) && resource.data.uid == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['revoked', 'revokedBy', 'revokedAt', 'uid']))
+          || (isMember(fid) && resource.data.uid == request.auth.uid && request.resource.data.revoked == true);
+        allow delete: if isAdmin(fid);
+      }
+      // Duas casas: registro de combinados só recebe itens novos; ninguém edita nem apaga.
+      match /comsg/{id} {
+        allow read: if isMember(fid);
+        allow create: if isAdult(fid) && request.resource.data.at is string;
       }
       match /requests/{id} {
         allow read: if isMember(fid) && visOk(fid, resource.data);
@@ -1709,10 +1799,10 @@ service cloud.firestore {
         allow write: if isMember(fid);
       }
       match /{col}/{id} {
-        allow read: if !(col in ['vault', 'joinRequests', 'invites', 'audit']) && isMember(fid) && visOk(fid, resource.data);
-        allow create, update: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit'])
+        allow read: if !(col in ['vault', 'joinRequests', 'invites', 'audit', 'gov', 'devices', 'comsg']) && isMember(fid) && visOk(fid, resource.data);
+        allow create, update: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit', 'gov', 'devices', 'comsg'])
           && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files', 'checkins']));
-        allow delete: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit']) && isAdult(fid);
+        allow delete: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit', 'gov', 'devices', 'comsg']) && isAdult(fid);
       }
     }
   }
@@ -2455,12 +2545,12 @@ const Drawer = {
     const tabs = S.booted ? visibleTabs() : [];
     const subs = DRAWER_SUBS();
     const quick = S.booted && S.mode !== "advertiser" ? [["zap", tt("Lembrete rápido", "Quick reminder"), "rem.new"], ["inbox", tt("Novo recado", "New message"), "msg.new"], ["list", tt("Nova tarefa", "New task"), "task.new"], ["pin", tt("Avisar que cheguei", "Check in"), "chk.arrive"], ["bell", tt("Alertas", "Alerts"), "bell"], ["sos", tt("Emergência (SOS)", "Emergency (SOS)"), "sos"], ["search", tt("Buscar em tudo", "Search everything"), "search.open"], ["help", tt("Ajuda e tutoriais", "Help & tutorials"), "help"], ["speaker", tt("Ler esta tela", "Read this screen"), "a11y.read"]] : [];
-    const more = S.booted ? [["share", tt("Compartilhar o app", "Share the app"), "app.share"], ["apps", tt("Meus outros apps", "My other apps"), "app.others"]] : [];
+    const more = S.booted ? (Offline.pc() && !Offline.installed() ? [["monitor", tt("Instalar no computador", "Install on this computer"), "off.install"]] : []).concat([["share", tt("Compartilhar o app", "Share the app"), "app.share"], ["apps", tt("Meus outros apps", "My other apps"), "app.others"]]) : [];
     $("#drawerin").innerHTML = '<div class="dhead">' + ART.mark() + "<b>OmniLife<span style=\"color:var(--accent)\">ONE</span></b><button class=\"xbtn\" type=\"button\" data-dclose aria-label=\"" + tt("Fechar menu", "Close menu") + '">×</button></div>' +
       (quick.length ? '<div class="dsec">' + tt("Atalhos", "Shortcuts") + "</div>" + quick.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + (ico(q[0]) || q[0]) + "</span>" + esc(q[1]) + "</button>").join("") : "") +
       (tabs.length ? '<div class="dsec">' + tt("Todas as funções", "Everything") + "</div>" : "") +
       tabs.map((t) => { const b = tabBadge(t.id); const sb = (subs[t.id] || []); return '<button class="ditem' + (S.route.tab === t.id ? " active" : "") + '" type="button" data-dtab="' + t.id + '"><span class="ic">' + (ico(t.id) || t.ic) + "</span>" + esc(t.t) + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>" + (sb.length ? '<div class="dsub">' + sb.map((x) => '<button type="button" data-dtab="' + t.id + '" data-dsub="' + x[0] + '">' + esc(x[1]) + "</button>").join("") + "</div>" : ""); }).join("") +
-      (more.length ? '<div class="dsec">' + tt("Mais", "More") + "</div>" + more.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + ico(q[0]) + "</span>" + esc(q[1]) + "</button>").join("") + '<a class="ditem" href="https://marceloneco.github.io/" target="_blank" rel="noopener"><span class="ic">' + ico("globe") + "</span>" + tt("Portal SolverONE ↗", "SolverONE Portal ↗") + "</a>" : "");
+      (more.length ? '<div class="dsec">' + tt("Mais", "More") + "</div>" + more.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + ico(q[0]) + "</span>" + esc(q[1]) + "</button>").join("") + '<a class="ditem" href="' + SITE_BASE + '" target="_blank" rel="noopener"><span class="ic">' + ico("globe") + "</span>" + tt("Portal SolverONE ↗", "SolverONE Portal ↗") + "</a>" : "");
     $("#drawermore span").textContent = tt("Mais opções abaixo", "More options below");
     this.hint();
   },
@@ -2567,11 +2657,11 @@ function renderHeader() {
    Lista: anuncios.json deste repositório → anuncios.json do portal → apps do portal.
    O app nunca anuncia a si mesmo. Família Premium e anunciante não veem anúncio. */
 const ADS_DEFAULT = () => [
-  { id: "moneytrio", titulo: "MoneyTRIO", texto: tt("Finanças pessoais: orçamento, investimentos e IR", "Personal finance: budget, investments and taxes"), provocacao: tt("Você sabe para onde foi o seu dinheiro este mês?", "Do you know where your money went this month?"), emoji: "💰", link: "https://marceloneco.github.io/investify-me/" },
-  { id: "rise-one", titulo: "RiseONE", texto: tt("Treino, corrida e dieta, com metas e evolução", "Workouts, running and diet, with goals"), provocacao: tt("Quanto tempo faz que você não se exercita de verdade?", "How long since you really worked out?"), emoji: "🏋️", link: "https://marceloneco.github.io/rise-one/" },
-  { id: "eleicoes-2026", titulo: tt("Eleições 2026", "Elections 2026"), texto: tt("Dados públicos transformados em informação clara", "Public data turned into clear information"), provocacao: tt("Você já comparou o que cada candidato promete?", "Have you compared what each candidate promises?"), emoji: "🗳️", link: "https://marceloneco.github.io/planos-candidatos-2026/" },
-  { id: "contador-de-historias", titulo: tt("Contador de Histórias", "Storyteller"), texto: tt("Cria e narra histórias de dormir", "Creates and reads bedtime stories"), provocacao: tt("Qual vai ser a história de hoje à noite?", "What's tonight's story?"), emoji: "📖", link: "https://marceloneco.github.io/contador-de-historias/" },
-  { id: "cifras-violao", titulo: tt("Cifras e Acordes", "Chords"), texto: tt("Cifras, troca de tom e dicionário de acordes", "Chords, key change and chord dictionary"), provocacao: tt("Aquela música no violão: você lembra os acordes?", "That song on the guitar: remember the chords?"), emoji: "🎸", link: "https://marceloneco.github.io/cifras-violao/" }
+  { id: "moneytrio", titulo: "MoneyTRIO", texto: tt("Finanças pessoais: orçamento, investimentos e IR", "Personal finance: budget, investments and taxes"), provocacao: tt("Você sabe para onde foi o seu dinheiro este mês?", "Do you know where your money went this month?"), emoji: "💰", link: SITE_BASE + "investify-me/" },
+  { id: "rise-one", titulo: "RiseONE", texto: tt("Treino, corrida e dieta, com metas e evolução", "Workouts, running and diet, with goals"), provocacao: tt("Quanto tempo faz que você não se exercita de verdade?", "How long since you really worked out?"), emoji: "🏋️", link: SITE_BASE + "rise-one/" },
+  { id: "eleicoes-2026", titulo: tt("Eleições 2026", "Elections 2026"), texto: tt("Dados públicos transformados em informação clara", "Public data turned into clear information"), provocacao: tt("Você já comparou o que cada candidato promete?", "Have you compared what each candidate promises?"), emoji: "🗳️", link: SITE_BASE + "planos-candidatos-2026/" },
+  { id: "contador-de-historias", titulo: tt("Contador de Histórias", "Storyteller"), texto: tt("Cria e narra histórias de dormir", "Creates and reads bedtime stories"), provocacao: tt("Qual vai ser a história de hoje à noite?", "What's tonight's story?"), emoji: "📖", link: SITE_BASE + "contador-de-historias/" },
+  { id: "cifras-violao", titulo: tt("Cifras e Acordes", "Chords"), texto: tt("Cifras, troca de tom e dicionário de acordes", "Chords, key change and chord dictionary"), provocacao: tt("Aquela música no violão: você lembra os acordes?", "That song on the guitar: remember the chords?"), emoji: "🎸", link: SITE_BASE + "cifras-violao/" }
 ];
 const Ads = {
   list: null, cfg: { velocidade: 40, popupAntesDoLogin: true, popupDepoisDoLogin: true, segundosParaFechar: 3, intervaloMinutos: 30 },
@@ -2695,6 +2785,7 @@ const Alerts = {
     Maint.list().filter((m) => m._days != null && m._days <= 7).forEach((m) => out.push({ level: m._days < 0 ? "bad" : "warn", ic: "🛠", t: m.title + " — " + (m._days < 0 ? tt("atrasada", "overdue") : relDay(m.next)), go: ["house", "maint"] }));
     DB.all("docs").filter((d) => d.expires && diffDays(td, d.expires) <= 60).forEach((d) => { const n = diffDays(td, d.expires); out.push({ level: n < 0 ? "bad" : "warn", ic: "📄", t: d.title + " (" + People.name(d.owner) + ") — " + (n < 0 ? tt("vencido", "expired") : tt("vence ", "expires ") + fmtDate(d.expires)), go: ["docs"] }); });
     if (!isChild()) Contacts.missing().slice(0, 6).forEach((m) => out.push({ level: "info", ic: "📇", t: m.msg, go: ["contacts", "list", m.id] }));
+    try { Gov.alerts().concat(Grow.alerts()).forEach((a) => out.push(a)); } catch (e) {}
     Agenda.occurrences(td, addDays(td, 1)).slice(0, 6).forEach((o) => out.push({ level: "info", ic: "📅", t: o.title + " — " + relDay(o.date) + (o.time ? " " + fmtTime(o.time) : ""), go: ["agenda"] }));
     return out;
   }
@@ -2734,6 +2825,7 @@ const GATES = {
         '<button class="rolecard" data-act="gate.visitor"><span class="e">👀</span><span><b>' + tt("Visitante", "Visitor") + "</b><small>" + tt("Sem senha e sem guardar dados pessoais. Com anúncios. Abre com uma família de exemplo.", "No password, no personal data kept. With ads. Opens with a sample family.") + "</small></span></button>" +
         '<button class="rolecard" data-act="gate.advertiser"><span class="e">📣</span><span><b>' + tt("Anunciante", "Advertiser") + "</b><small>" + tt("Área de gestão dos seus anúncios.", "Manage your ads.") + "</small></span></button>" +
         "</div></div>" +
+        (Move.onNew() && !lsGet(LS.localMe, null) ? '<div class="card tight"><div class="between"><span class="small muted">📦 ' + tt("Usava o OmniLifeONE no endereço antigo (marceloneco.github.io) só neste aparelho? Traga seus dados com o arquivo de backup.", "Used OmniLifeONE at the old address (marceloneco.github.io) on this device only? Bring your data with the backup file.") + '</span><button class="btn ghost sm" data-act="help" data-t="novo-endereco">' + tt("Como trazer", "How to bring it") + "</button></div></div>" : "") +
         (!cloud ? '<div class="card tight"><div class="between"><span class="small muted">☁️ ' + tt("Quer sincronizar entre os celulares da família? Configure a nuvem (Firebase gratuito).", "Want to sync across family phones? Set up the cloud (free Firebase).") + '</span><button class="btn ghost sm" data-act="cloud.setup">' + tt("Configurar", "Set up") + "</button></div></div>" : "") +
         '<p class="tiny faint center">' + tt("Ao continuar, você concorda com o aviso legal no rodapé.", "By continuing you agree with the legal notice in the footer.") + "</p>";
     }
@@ -2971,6 +3063,7 @@ function render() {
   offBadge();
   /* títulos limpos: o emoji do começo do título da tela sai (o ícone já está no menu) */
   $$(".pagehead h1", root).forEach((h) => { const n = h.firstChild; if (n && n.nodeType === 3) n.textContent = n.textContent.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, ""); });
+  try { const ac = Areas.chip(S.route.tab), sub = $(".pagehead .sub", root); if (ac && sub && !sub.querySelector(".badge")) sub.insertAdjacentHTML("beforeend", " " + ac); } catch (e) {}
   updateBadges();
   try { AOne.after(); } catch (e) { console.error(e); }
 }
@@ -3005,8 +3098,8 @@ function wireHeader() {
   $("#bellbtn").onclick = () => ACT.bell();
   $("#sharebtn").onclick = () => shareText(APP_NAME, tt("Conheça o OmniLifeONE: ", "Check out OmniLifeONE: ") + location.href.split("#")[0]);
   ACT["app.share"] = () => $("#sharebtn").click();
-  ACT["app.others"] = () => { const b = $("#setbtn"); popMenu(b, [{ hd: tt("Meus apps", "My apps") }, { ic: "💰", t: "MoneyTrio", href: "https://marceloneco.github.io/investify-me/" }, { ic: "🏋️", t: "RiseONE", href: "https://marceloneco.github.io/rise-one/" }, { ic: "🌐", t: tt("Portal", "Portal"), href: "https://marceloneco.github.io/" }]); };
-  $("#appsbtn").onclick = (e) => popMenu(e.currentTarget, [{ hd: tt("Meus apps", "My apps") }, { ic: "💰", t: "MoneyTrio", href: "https://marceloneco.github.io/investify-me/" }, { ic: "🏋️", t: "RiseONE", href: "https://marceloneco.github.io/rise-one/" }, { ic: "🌐", t: tt("Portal", "Portal"), href: "https://marceloneco.github.io/" }]);
+  ACT["app.others"] = () => { const b = $("#setbtn"); popMenu(b, [{ hd: tt("Meus apps", "My apps") }, { ic: "💰", t: "MoneyTrio", href: SITE_BASE + "investify-me/" }, { ic: "🏋️", t: "RiseONE", href: SITE_BASE + "rise-one/" }, { ic: "🌐", t: tt("Portal", "Portal"), href: SITE_BASE + "" }]); };
+  $("#appsbtn").onclick = (e) => popMenu(e.currentTarget, [{ hd: tt("Meus apps", "My apps") }, { ic: "💰", t: "MoneyTrio", href: SITE_BASE + "investify-me/" }, { ic: "🏋️", t: "RiseONE", href: SITE_BASE + "rise-one/" }, { ic: "🌐", t: tt("Portal", "Portal"), href: SITE_BASE + "" }]);
   $("#whoami").onclick = (e) => whoMenu(e.currentTarget);
   $("#legalbtn").onclick = (e) => { e.preventDefault(); legal(); };
 }
@@ -4357,8 +4450,8 @@ const Guides = {
 /* ---------- telas ---------- */
 SCREENS.house = {
   render(sub, arg) {
-    sub = sub || "where"; if (sub === "vault" && !isGuardian()) sub = "where";
-    const segs = [["where", "🔎 " + tt("Onde está?", "Where is it?")], ["maint", "🛠 " + tt("Manutenção", "Maintenance")]].concat(isGuardian() ? [["vault", "🔐 " + tt("Cofre", "Vault")]] : []).concat([["guides", "📘 " + tt("Guias", "Guides")]]);
+    sub = sub || "where"; if (sub === "vault" && !canVault()) sub = "where";
+    const segs = [["where", "🔎 " + tt("Onde está?", "Where is it?")], ["maint", "🛠 " + tt("Manutenção", "Maintenance")]].concat(canVault() ? [["vault", "🔐 " + tt("Cofre", "Vault")]] : []).concat([["guides", "📘 " + tt("Guias", "Guides")]]);
     return '<div class="pagehead"><div><h1>🏡 ' + tt("Casa", "House") + '</h1><div class="sub">' + tt("Onde fica cada coisa, o que precisa de manutenção e o que é secreto", "Where everything is, what needs maintenance and what's secret") + "</div></div></div>" +
       '<div class="seg">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="house" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" + (HouseViews[sub] || HouseViews.where)(arg);
   },
@@ -4414,7 +4507,7 @@ const HouseViews = {
   vault() {
     const meta = Vault.meta();
     if (!meta) return '<div class="card accent"><h3>🔐 ' + tt("Cofre digital da família", "Family digital vault") + "</h3><p>" + tt("Apólices, escrituras, senha do Wi-Fi, contratos e senhas importantes — criptografados no aparelho com uma senha mestra antes de ir para a nuvem. Só responsáveis acessam.", "Insurance policies, deeds, Wi-Fi password, contracts and important passwords — encrypted on the device with a master password before reaching the cloud. Guardians only.") + '</p><div class="note warn">⚠️ ' + tt("Se esquecer a senha mestra, ninguém consegue abrir o cofre — nem o autor do app. Anote em lugar seguro.", "If you forget the master password, nobody can open the vault. Write it down somewhere safe.") + '</div><button class="btn big" style="margin-top:10px" data-act="vault.setup">' + tt("Criar cofre", "Create vault") + "</button></div>";
-    if (!S.vaultKey) return '<div class="card center"><div style="font-size:2.4rem">🔒</div><h3>' + tt("Cofre trancado", "Vault locked") + '</h3><div class="stack" style="max-width:340px;margin:0 auto"><input type="password" id="vpw" placeholder="' + tt("Senha mestra", "Master password") + '"><button class="btn" data-act="vault.unlock">' + tt("Abrir", "Unlock") + '</button><button class="btn ghost" id="vbio" data-act="vault.bio">👆 ' + tt("Abrir com biometria", "Unlock with biometrics") + "</button></div></div>";
+    if (!S.vaultKey) return '<div class="card center"><div style="font-size:2.4rem">🔒</div><h3>' + tt("Cofre trancado", "Vault locked") + '</h3><div class="stack" style="max-width:340px;margin:0 auto"><input type="password" id="vpw" placeholder="' + tt("Senha mestra", "Master password") + '"><button class="btn" data-act="vault.unlock">' + tt("Abrir", "Unlock") + '</button><button class="btn ghost" id="vbio" data-act="vault.bio">👆 ' + tt("Abrir com biometria", "Unlock with biometrics") + "</button>" + (DB.col("vault").get("_em") && !isGuardian() ? '<button class="btn ghost" data-act="gov.emcode">🆘 ' + tt("Abrir com o código de emergência", "Open with the emergency code") + "</button>" : "") + "</div></div>";
     return '<div class="card"><div class="between"><h3>🔓 ' + tt("Cofre aberto", "Vault open") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋</button><button class="btn sm ghost" data-act="vault.lock">🔒 ' + tt("Trancar", "Lock") + '</button></div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div></div><div class="card tight small muted"><button class="linkbtn" data-act="vault.rememberbio">👆 ' + tt("Liberar este cofre por biometria neste aparelho", "Allow biometric unlock on this device") + "</button> · " + tt("As senhas ficam criptografadas (AES-256) — o Firebase só vê texto embaralhado.", "Entries are encrypted (AES-256) — Firebase only sees scrambled text.") + "</div>";
   },
   async vaultAfter(root) {
@@ -4767,9 +4860,13 @@ SCREENS.family = {
     if (bd.length) h += '<div class="card"><h3>🎂 ' + tt("Próximos aniversários", "Upcoming birthdays") + '</h3><div class="chips">' + bd.map((x) => '<span class="chip">' + People.emoji(x.p) + " " + esc(x.p.nick || x.p.name) + " · " + fmtDate(x.n.date, "short") + " · " + x.n.turns + tt(" anos", "y") + " · " + FamData.bdayTxt(x.n) + "</span>").join("") + "</div></div>";
     h += '<div class="grid gauto">' + ppl.map((p) => { const acc = S.family && S.family.members ? Object.entries(S.family.members).find(([u, m]) => m.personId === p.id) : null; return '<div class="card" style="margin:0"><div class="between"><div class="row nw">' + People.av(p.id, "lg") + '<div style="min-width:0"><b>' + esc(p.name) + '</b><div class="small muted">' + esc(ROLES()[p.role] || "") + (p.birth ? " · " + ageTxt(p.birth) : "") + '</div>' + ((p.titles || []).length || (S.mode === "local" && p.isAdmin) ? '<div class="chips" style="margin-top:4px">' + (S.mode === "local" && p.isAdmin ? '<span class="badge warn">👑 ' + tt("chefe", "head") + "</span>" : "") + (p.titles || []).map((t) => '<span class="badge acc">' + esc(t) + "</span>").join("") + "</div>" : "") + '</div></div><button class="btn sm ghost" data-act="person.edit" data-id="' + p.id + '">✏️</button></div>' +
       '<div class="small" style="margin-top:8px">' + [p.phone ? '📱 <a href="' + telHref(p.phone) + '">' + esc(p.phone) + "</a>" : "", p.birth ? (() => { const n = FamData.nextBday(p); return "🎂 " + fmtDate(p.birth) + (n ? " · " + tt("faz ", "turns ") + n.turns + " " + FamData.bdayTxt(n) : ""); })() : "🎂 <span class=\"faint\">" + tt("sem data de nascimento", "no birth date") + "</span>",
-      p.role !== "pet" ? (FamData.ok(p) ? '<span class="small" style="color:var(--ok)">✅ ' + tt("dados conferidos", "details checked") + "</span>" : '<span class="small" style="color:var(--warn)">🧩 ' + tt("dados a conferir", "details to check") + "</span>") + (!isChild() ? ' <button class="linkbtn small" data-act="fam.check" data-id="' + p.id + '">' + tt("Conferir", "Check") + "</button>" : "") : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
+      p.role !== "pet" ? (FamData.ok(p) ? '<span class="small" style="color:var(--ok)">✅ ' + tt("dados conferidos", "details checked") + "</span>" : '<span class="small" style="color:var(--warn)">🧩 ' + tt("dados a conferir", "details to check") + "</span>") + (!isChild() ? ' <button class="linkbtn small" data-act="fam.check" data-id="' + p.id + '">' + tt("Conferir", "Check") + "</button>" : "") : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" + (isGuardian() && p.id !== S.meId ? ' <button class="linkbtn small" data-act="pin.reset" data-id="' + p.id + '">' + tt("esqueceu? limpar PIN", "forgot? clear PIN") + "</button>" : "") : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
+    h += Grow.view();
+    if (S.mode === "cloud") { lsSet("omnilife.govSeen", new Date().toISOString()); h += Gov.view(); }
+    h += Duas.view() + Areas.view();
+    if (isGuardian()) h += '<div class="card tight"><label class="fld" style="max-width:320px;margin:0"><span>🎓 ' + tt("Idade para passar de criança a adulto", "Age to switch from child to adult") + '</span><select data-chg="grow.age">' + [16, 18, 21].map((n) => '<option value="' + n + '"' + (Grow.age() === n ? " selected" : "") + ">" + n + " " + tt("anos", "years") + "</option>").join("") + "</select></label></div>";
     if (S.mode !== "visitor") h += '<div style="margin-top:14px"></div>' + Plan.card();
-    if (S.mode === "cloud") h += FamilyViews.cloud();
+    if (S.mode === "cloud") h += FamilyViews.cloud() + Devices.view();
     else if (S.mode === "local") h += '<div class="card" style="margin-top:14px"><div class="between"><h3>📱 ' + tt("Modo neste aparelho", "This-device mode") + '</h3><button class="btn ghost sm" data-act="help" data-t="familia">❓ ' + tt("Tutorial", "Tutorial") + '</button></div><p class="small muted">' + tt("Cada pessoa entra pelo seu perfil (com PIN ou digital) aqui mesmo. Chefes (👑) marcam isso em ✏️ de cada responsável. Para cada um usar o próprio celular com login e receber os pedidos na hora, ligue a nuvem em Ajustes → Nuvem.", "Each person uses their profile (PIN or fingerprint) on this device. Heads (👑) are set in each guardian's ✏️. For everyone to use their own phone and get requests instantly, enable the cloud in Settings → Cloud.") + '</p><button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="cloud">☁️ ' + tt("Ligar a nuvem", "Enable cloud") + "</button></div>";
     else if (S.mode === "visitor") h += '<div class="card" style="margin-top:14px"><div class="note warn">' + tt("No modo visitante não há logins nem convites.", "Visitor mode has no logins or invites.") + "</div></div>";
     return h;
@@ -4806,7 +4903,7 @@ const FamilyViews = {
       const p = People.get(m.personId); const titles = (p && p.titles) || [];
       return '<div class="li"><div class="ico">' + ri[0] + '</div><div class="main"><div class="t">' + esc(m.name || People.name(m.personId)) + (owner ? ' <span class="badge warn">🏠 ' + tt("criador", "creator") + "</span>" : "") + (self ? ' <span class="badge acc">' + tt("você", "you") + "</span>" : "") + '</div><div class="s">' + esc(m.email || "") + (titles.length ? " · " + titles.map(esc).join(", ") : "") + (m.since ? " · " + tt("desde ", "since ") + fmtDate(m.since.slice(0, 10)) : "") + "</div></div>" +
         (admin && !owner && !self ? '<select data-chg="mem.role" data-id="' + u + '" style="width:auto" aria-label="' + tt("Papel", "Role") + '">' + ["admin", "responsavel", "membro", "crianca"].map((r) => '<option value="' + r + '"' + (m.role === r ? " selected" : "") + ">" + ROLE_INFO()[r][0] + " " + ROLE_INFO()[r][1] + "</option>").join("") + '</select><button class="btn xs danger" data-act="mem.rm" data-id="' + u + '" title="' + tt("Remover", "Remove") + '">✕</button>' : '<span class="badge">' + esc(ri[1]) + "</span>") +
-        (S.user.uid === S.family.owner && !self && m.role === "admin" ? '<button class="btn xs ghost" data-act="mem.owner" data-id="' + u + '" title="' + tt("Passar a criação", "Hand over ownership") + '">🏠</button>' : "") + "</div>";
+        (S.user.uid === S.family.owner && !self && m.role === "admin" ? '<button class="btn xs ghost" data-act="mem.owner" data-id="' + u + '" title="' + tt("Passar a criação", "Hand over ownership") + '">🏠</button>' : "") + (isGuardian() && !self ? '<button class="btn xs ghost" data-act="mem.help" data-id="' + u + '" title="' + tt("Ajudar a entrar de novo", "Help them get back in") + '">🔑</button>' : "") + "</div>";
     }).join("") + "</div>" +
       '<details class="small" style="margin-top:10px"><summary>' + tt("O que cada papel pode fazer", "What each role can do") + '</summary><div class="list">' + Object.entries(ROLE_INFO()).map(([k, r]) => '<div class="li"><div class="ico">' + r[0] + '</div><div class="main"><div class="t">' + esc(r[1]) + '</div><div class="s" style="white-space:normal">' + esc(r[2]) + "</div></div></div>").join("") + "</div></details>" +
       (S.user.uid !== S.family.owner ? '<div class="row" style="margin-top:10px"><button class="btn ghost sm" data-act="fam.leave">🚪 ' + tt("Sair desta família", "Leave this family") + "</button></div>" : "") + "</div>";
@@ -4884,10 +4981,321 @@ ACT["join.ok"] = async (d) => {
 };
 ACT["join.no"] = async (d) => { const req = (S.joinRequests || []).find((r) => r.uid === d.id); if (!req) return; const why = await askText(tt("Recusar pedido", "Decline request"), tt("Motivo (opcional)", "Reason (optional)"), ""); if (why === null) return; await Cloud.reject(req, why); };
 ACT["mem.role"] = async (d, el) => { try { await Cloud.setRole(d.id, el.value); } catch (e) { toast(Cloud.errMsg(e)); } render(); };
-ACT["mem.rm"] = async (d) => { if (await confirmBox(tt("Remover este login da família? Ele perde o acesso na hora (a pessoa continua cadastrada).", "Remove this login? They lose access immediately (the person record stays)."), tt("Remover", "Remove"), true)) { try { await Cloud.removeMember(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
-ACT["mem.owner"] = async (d) => { const m = S.family.members[d.id]; if (m && await confirmBox(tt("Passar a criação da família para ", "Hand over family ownership to ") + esc(m.name || m.email) + tt("? Você continua chefe, mas ela passa a ser a criadora.", "? You stay a head, but they become the creator."), tt("Passar", "Hand over"))) { try { await Cloud.transferOwner(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["mem.rm"] = async (d) => { if (await confirmBox((S.family.members[d.id] && S.family.members[d.id].role === "admin" ? tt("Remover este chefe da família? Como é um chefe, vira um pedido: outro chefe aprova (ou vale em 48 h) e a pessoa pode vetar.", "Remove this head? As they're a head, it becomes a request: another head approves (or it applies in 48 h) and they can veto.") : tt("Remover este login da família? Ele perde o acesso na hora (a pessoa continua cadastrada).", "Remove this login? They lose access immediately (the person record stays).")), tt("Remover", "Remove"), true)) { try { await Cloud.removeMember(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["mem.owner"] = async (d) => { const m = S.family.members[d.id]; if (m && await confirmBox(tt("Passar a criação da família para ", "Hand over family ownership to ") + esc(m.name || m.email) + tt("? Você continua chefe. Ela recebe um convite e a troca só acontece quando ela aceitar.", "? You stay a head. They get an invite and the change only happens when they accept."), tt("Passar", "Hand over"))) { try { await Cloud.transferOwner(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
 ACT["fam.leave"] = async () => { if (await confirmBox(tt("Sair desta família? Você perde o acesso aos dados dela neste e nos outros aparelhos.", "Leave this family? You lose access to its data on all devices."), tt("Sair", "Leave"), true)) { try { await Cloud.leave(); } catch (e) { toast(Cloud.errMsg(e)); } } };
 ACT["pol.set"] = async (d, el) => { try { await Cloud.setPolicy({ [d.k]: +el.value }); toast("✓"); } catch (e) { toast(Cloud.errMsg(e)); } };
+/* =====================================================================
+   GOVERNANÇA DA FAMÍLIA — administração entre os responsáveis (v2.3.0)
+   Benchmarks: Apple Family Sharing, Google Family Link, 1Password Families,
+   Bitwarden (acesso de emergência) e apps de pais separados (OurFamilyWizard).
+   1) Chefe não derruba chefe sozinho: rebaixar/remover outro chefe vira pedido
+      (outro chefe aprova, ou vale depois de 48 h se ninguém vetar; o próprio alvo pode vetar).
+   2) Todos os chefes recebem aviso das mudanças sensíveis (histórico de segurança).
+   3) Ajudar alguém a entrar de novo (e-mail de troca de senha, convite para a mesma pessoa,
+      ou limpar o PIN no modo deste aparelho).
+   4) Acesso de emergência ao cofre com espera (envelope: código + liberação depois de X dias).
+   5) Passar a criação da família só vale quando a outra pessoa aceita.
+   6) Criança que cresce: aviso para passar a adulto na idade escolhida.
+   7) Aparelhos conectados, com "desconectar" à distância.
+   8) Duas casas (pais separados): calendário de guarda, despesas divididas e registro que não se apaga.
+   9) Responsável por área (Compras, Saúde…).
+   Na nuvem, as regras do Firebase (regras-firestore-OmniLifeONE.txt) garantem 1, 4 e 5.
+   ===================================================================== */
+const GOV_WAIT_H = 48;
+function canVault() { return isGuardian() || !!(S.mode === "cloud" && S.family && S.user && ((S.family.members || {})[S.user.uid] || {}).emergencyVault); }
+const Gov = {
+  list: [],
+  pol() { return Object.assign({ approvals: 1, ttlH: 72, emWaitDays: 2, emContacts: [], gradAge: 18 }, (S.family && S.family.policy) || {}); },
+  isAdminUid(u) { return !!(S.family && S.family.members && S.family.members[u] && S.family.members[u].role === "admin"); },
+  name(u) { const m = S.family && S.family.members && S.family.members[u]; return m ? (m.name || m.email || People.name(m.personId)) : "?"; },
+  attach(fid) {
+    this.list = [];
+    try {
+      Cloud.extraUnsubs.push(FB.F.onSnapshot(FB.F.collection(FB.db, "families", fid, "gov"), (snap) => {
+        const before = new Set(this.list.map((g) => g.id + g.status));
+        this.list = snap.docs.map((d) => d.data());
+        if (S.booted) this.list.filter((g) => !before.has(g.id + g.status) && g.by !== S.user.uid && (g.target === S.user.uid || isGuardian())).forEach((g) => Notify.show("🛡 " + tt("Família: pedido de segurança", "Family: security request"), this.txt(g), "gov-" + g.id + g.status));
+        this.tick(); scheduleRender();
+      }, () => {}));
+    } catch (e) {}
+  },
+  due(g) { return g.execAfterMs && Date.now() >= g.execAfterMs; },
+  txt(g) {
+    const t = { rebaixar: tt("rebaixar o chefe ", "demote head ") + this.name(g.target) + " → " + roleName(g.data && g.data.role), remover: tt("remover o chefe ", "remove head ") + this.name(g.target), transferir: tt("passar a criação da família para ", "hand family ownership to ") + this.name(g.target), emergencia: this.name(g.by) + tt(" pediu acesso de emergência ao cofre", " requested emergency vault access") }[g.type] || g.type;
+    return t;
+  },
+  statusTxt(g) { return ({ pendente: tt("aguardando", "pending"), aprovado: tt("aprovado", "approved"), vetado: tt("vetado", "vetoed"), aceito: tt("aceito", "accepted"), recusado: tt("recusado", "declined"), executado: tt("feito", "done"), cancelado: tt("cancelado", "cancelled"), liberado: tt("liberado", "released") })[g.status] || g.status; },
+  async put(g) { await FB.F.setDoc(FB.ref("families", S.family.id, "gov", g.id), JSON.parse(JSON.stringify(g))); },
+  async upd(id, p) { await FB.F.updateDoc(FB.ref("families", S.family.id, "gov", id), p); },
+  /* 1) pedido para rebaixar/remover outro chefe */
+  async headChange(target, type, role) {
+    const others = Cloud.admins().map(([u]) => u).filter((u) => u !== S.user.uid && u !== target);
+    const g = { id: "hd_" + target, type, target, by: S.user.uid, byName: Cloud.myName(), at: new Date().toISOString(), execAfterMs: Date.now() + GOV_WAIT_H * 3600e3, status: "pendente", approvals: {}, data: { role: role || null }, needOther: others.length > 0 };
+    await this.put(g);
+    await Cloud.audit("chefe.pedido", this.txt(g));
+    toast(others.length ? tt("Pedido criado. Outro chefe precisa aprovar (ou vale em 48 h se ninguém vetar). A pessoa foi avisada.", "Request created. Another head must approve (or it applies in 48 h if nobody vetoes). The person was notified.") : tt("Pedido criado. Vale em 48 h se a pessoa não vetar. Ela foi avisada.", "Request created. It applies in 48 h unless the person vetoes. They were notified."), 6500);
+  },
+  async approve(g) { await this.upd(g.id, { status: "aprovado", ["approvals." + S.user.uid]: { name: Cloud.myName(), at: new Date().toISOString() } }); await Cloud.audit("chefe.aprovado", this.txt(g)); await this.tick(); },
+  async veto(g) { await this.upd(g.id, { status: "vetado", answeredAt: new Date().toISOString() }); await Cloud.audit("pedido.vetado", this.txt(g)); toast(tt("Pedido vetado.", "Request vetoed.")); },
+  async cancel(g) { await this.upd(g.id, { status: "cancelado" }); await Cloud.audit("pedido.cancelado", this.txt(g)); },
+  /* 5) transferência que precisa ser aceita */
+  async proposeTransfer(target) {
+    const g = { id: "tr_" + S.family.id, type: "transferir", target, by: S.user.uid, byName: Cloud.myName(), at: new Date().toISOString(), status: "pendente", data: {} };
+    await this.put(g); await Cloud.audit("criacao.proposta", this.txt(g));
+    toast(tt("Convite enviado. A criação só passa quando a pessoa aceitar.", "Invite sent. Ownership only moves once they accept."), 5000);
+  },
+  async answerTransfer(g, ok) { await this.upd(g.id, { status: ok ? "aceito" : "recusado", answeredAt: new Date().toISOString() }); await Cloud.audit(ok ? "criacao.aceita" : "criacao.recusada", this.txt(g)); toast(ok ? tt("Aceito. Assim que o criador atual abrir o app, a troca é feita.", "Accepted. As soon as the current owner opens the app, the change is made.") : tt("Recusado.", "Declined."), 5000); },
+  /* executa o que ficou pronto (chamado a cada mudança) */
+  async tick() {
+    if (this._busy || S.mode !== "cloud" || !S.family) return; this._busy = true;
+    try {
+      for (const g of this.list) {
+        if ((g.type === "rebaixar" || g.type === "remover") && S.role === "admin" && g.target !== S.user.uid && (g.status === "aprovado" || (g.status === "pendente" && this.due(g)))) {
+          if (!S.family.members[g.target]) { await this.upd(g.id, { status: "executado" }); continue; }
+          if (g.type === "remover") await Cloud.removeMember(g.target, true); else await Cloud.setRole(g.target, g.data.role || "membro", true);
+          await this.upd(g.id, { status: "executado", doneAt: new Date().toISOString() });
+        }
+        if (g.type === "transferir" && g.status === "aceito" && S.user.uid === S.family.owner) {
+          if (this.isAdminUid(g.target)) { await Cloud.transferOwner(g.target, true); await this.upd(g.id, { status: "executado", doneAt: new Date().toISOString() }); }
+        }
+        if (g.type === "emergencia" && g.by === S.user.uid && g.status === "pendente" && this.due(g) && !((S.family.members[S.user.uid] || {}).emergencyVault)) {
+          await FB.F.updateDoc(FB.ref("families", S.family.id), { ["members." + S.user.uid + ".emergencyVault"]: true });
+          await this.upd(g.id, { status: "liberado" }); await Cloud.audit("emergencia.liberada", Cloud.myName());
+          toast("🆘 " + tt("Acesso de emergência liberado. Abra Casa → Cofre e use o código que recebeu.", "Emergency access released. Open Home → Vault and use the code you received."), 8000);
+        }
+      }
+    } catch (e) { console.warn("gov", e); } finally { this._busy = false; }
+  },
+  /* 4) acesso de emergência */
+  async requestEmergency() {
+    const p = this.pol(); if (!(p.emContacts || []).includes(S.user.uid)) return toast(tt("Você não está na lista de contatos de emergência desta família.", "You're not on this family's emergency contact list."));
+    if (!(await confirmBox(tt("Pedir acesso de emergência ao cofre? Os chefes serão avisados e podem negar. Se ninguém negar, o acesso é liberado em ", "Request emergency vault access? The heads will be notified and can deny it. If nobody denies, access is released in ") + p.emWaitDays + tt(" dia(s).", " day(s)."), tt("Pedir acesso", "Request access")))) return;
+    const g = { id: "em_" + S.user.uid, type: "emergencia", target: "cofre", by: S.user.uid, byName: Cloud.myName(), at: new Date().toISOString(), execAfterMs: Date.now() + p.emWaitDays * 864e5, status: "pendente", data: {} };
+    await this.put(g); await Cloud.audit("emergencia.pedida", Cloud.myName());
+    toast(tt("Pedido feito. Os chefes foram avisados.", "Request made. The heads were notified."), 4000);
+  },
+  /* envelope: a senha mestra do cofre cifrada com um código que vai para o contato de emergência (fora do app) */
+  async makeEnvelope() {
+    if (!S.vaultKey) return toast(tt("Abra o cofre primeiro (Casa → Cofre).", "Open the vault first (Home → Vault)."));
+    const r = await formModal({ title: "🆘 " + tt("Código de emergência do cofre", "Vault emergency code"), fields: [{ type: "note", html: tt("Digite a senha mestra do cofre. O app cria um <b>código</b> para você entregar ao contato de emergência (em papel ou por mensagem). Sozinho o código não abre nada: só funciona depois que o acesso de emergência for liberado.", "Type the vault master password. The app makes a <b>code</b> for you to give the emergency contact (on paper or by message). The code alone opens nothing: it only works after emergency access is released.") }, { k: "p", label: tt("Senha mestra do cofre", "Vault master password"), type: "password", req: true }], okText: tt("Gerar código", "Make code") });
+    if (!r) return;
+    if (!(await Vault.unlock(r.p))) return toast(tt("Senha do cofre incorreta.", "Wrong vault password."));
+    const code = Cloud.newCode(16).replace(/(.{4})(?=.)/g, "$1-"); const salt = b64FromBuf(crypto.getRandomValues(new Uint8Array(16)));
+    const k = await Vault.derive(code.replace(/-/g, ""), salt, 210000); const enc = await Vault.encStr(r.p, k);
+    await DB.put("vault", { id: "_em", salt, iter: 210000, enc, at: new Date().toISOString(), vis: "restrito" });
+    if (S.mode === "cloud") await Cloud.audit("emergencia.codigo", Cloud.myName());
+    modal({ title: "🆘 " + tt("Guarde e entregue este código", "Keep and hand over this code"), body: '<p>' + tt("Entregue ao contato de emergência. Ele aparece só agora.", "Give it to the emergency contact. It is shown only now.") + '</p><div class="codebig" style="font:700 1.3rem/1.4 ui-monospace,monospace;letter-spacing:.06em;text-align:center;padding:14px;border:2px dashed var(--accent);border-radius:12px;word-break:break-all">' + esc(code) + '</div><div class="row" style="margin-top:10px"><button class="btn ghost sm" id="emcp">📋 ' + tt("Copiar", "Copy") + '</button><a class="btn ghost sm" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(tt("Código de emergência do cofre OmniLifeONE (guarde): ", "OmniLifeONE vault emergency code (keep safe): ") + code) + '">💬 WhatsApp</a></div>', foot: '<button class="btn" data-x>OK</button>' }).el.querySelector("#emcp").onclick = () => { try { navigator.clipboard.writeText(code); toast("✓"); } catch (e) {} };
+  },
+  async openWithCode() {
+    const env = DB.col("vault").get("_em"); if (!env) return toast(tt("Nenhum código de emergência foi criado para este cofre.", "No emergency code was created for this vault."));
+    const code = await askText(tt("Abrir o cofre com o código de emergência", "Open the vault with the emergency code"), tt("Código recebido", "Code you received"), ""); if (!code) return;
+    try { const k = await Vault.derive(code.replace(/[\s-]/g, "").toUpperCase(), env.salt, env.iter); const pass = await Vault.decStr(env.enc, k); if (await Vault.unlock(pass)) { toast("🔓 " + tt("Cofre aberto.", "Vault open.")); if (S.mode === "cloud") Cloud.audit("emergencia.usada", Cloud.myName()); render(); } else toast(tt("Não abriu.", "Didn't open.")); } catch (e) { toast(tt("Código incorreto.", "Wrong code.")); }
+  },
+  /* cartões na tela Família (nuvem) */
+  view() {
+    if (S.mode !== "cloud" || !S.family) return "";
+    const me = S.user.uid, admin = S.role === "admin", guard = isGuardian(), p = this.pol();
+    const act = this.list.filter((g) => ["pendente", "aprovado", "aceito"].includes(g.status)).sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    let h = "";
+    if (act.length && (guard || act.some((g) => g.target === me || g.by === me))) {
+      h += '<div class="card warnc"><h3>🛡 ' + tt("Pedidos de segurança", "Security requests") + '</h3><div class="list">' + act.filter((g) => guard || g.target === me || g.by === me).map((g) => {
+        const left = g.execAfterMs ? Math.max(0, Math.ceil((g.execAfterMs - Date.now()) / 3600e3)) : null;
+        let btns = "";
+        if (g.type === "transferir" && g.target === me && g.status === "pendente") btns = '<button class="btn xs" data-act="gov.accept" data-id="' + g.id + '">✓ ' + tt("Aceitar", "Accept") + '</button><button class="btn xs ghost" data-act="gov.refuse" data-id="' + g.id + '">' + tt("Recusar", "Decline") + "</button>";
+        else if ((g.type === "rebaixar" || g.type === "remover") && g.status === "pendente") btns = (g.target === me ? '<button class="btn xs danger" data-act="gov.veto" data-id="' + g.id + '">✋ ' + tt("Vetar", "Veto") + "</button>" : "") + (admin && g.by !== me && g.target !== me ? '<button class="btn xs" data-act="gov.ok" data-id="' + g.id + '">✓ ' + tt("Aprovar", "Approve") + '</button><button class="btn xs ghost" data-act="gov.veto" data-id="' + g.id + '">✋ ' + tt("Vetar", "Veto") + "</button>" : "");
+        else if (g.type === "emergencia" && g.status === "pendente" && guard && g.by !== me) btns = '<button class="btn xs danger" data-act="gov.veto" data-id="' + g.id + '">✋ ' + tt("Negar", "Deny") + "</button>";
+        if (g.by === me && g.status === "pendente") btns += '<button class="btn xs ghost" data-act="gov.cancel" data-id="' + g.id + '">' + tt("Cancelar", "Cancel") + "</button>";
+        return '<div class="li"><div class="ico">' + ({ rebaixar: "⬇️", remover: "🚪", transferir: "🏠", emergencia: "🆘" }[g.type] || "🛡") + '</div><div class="main"><div class="t" style="white-space:normal">' + esc(this.txt(g)) + '</div><div class="s">' + tt("pedido de ", "requested by ") + esc(g.byName || this.name(g.by)) + " · " + fmtDateTime(g.at) + " · " + this.statusTxt(g) + (left != null && g.status === "pendente" ? " · " + (left ? tt("vale em ", "applies in ") + left + " h" : tt("prazo terminou", "time is up")) : "") + '</div></div><div class="row">' + btns + "</div></div>";
+      }).join("") + "</div></div>";
+    }
+    /* 4) emergência: configuração (chefes) e pedido (contato) */
+    const adults = Object.entries(S.family.members || {}).filter(([u, m]) => m.role !== "crianca");
+    if (admin) h += '<div class="card"><h3>🆘 ' + tt("Acesso de emergência ao cofre", "Emergency vault access") + '</h3><p class="small muted">' + tt("Se algo acontecer com os chefes, uma pessoa de confiança pode pedir acesso. Os chefes são avisados e podem negar; se ninguém negar, libera depois da espera. Ela abre o cofre com um código que você entrega antes (fora do app).", "If something happens to the heads, a trusted person can request access. The heads are notified and can deny; if nobody does, it's released after the waiting period. They open the vault with a code you hand over beforehand (outside the app).") + '</p><div class="grouph">' + tt("Contatos de emergência", "Emergency contacts") + '</div><div class="chips" id="emc">' + adults.filter(([u]) => !this.isAdminUid(u)).map(([u, m]) => '<span class="chip' + ((p.emContacts || []).includes(u) ? " on" : "") + '" data-act="gov.emc" data-id="' + u + '">' + esc(m.name || m.email) + "</span>").join("") + (adults.filter(([u]) => !this.isAdminUid(u)).length ? "" : '<span class="small faint">' + tt("Convide um adulto (responsável ou membro) para escolher aqui.", "Invite an adult (guardian or member) to pick here.") + "</span>") + '</div><div class="row" style="margin-top:10px"><label class="fld" style="max-width:220px"><span>' + tt("Espera antes de liberar", "Wait before release") + '</span><select data-chg="pol.set" data-k="emWaitDays">' + [1, 2, 7, 14].map((n) => '<option value="' + n + '"' + (+p.emWaitDays === n ? " selected" : "") + ">" + n + " " + tt(n > 1 ? "dias" : "dia", n > 1 ? "days" : "day") + "</option>").join("") + '</select></label><button class="btn ghost sm" data-act="gov.env">🔑 ' + (DB.col("vault").get("_em") ? tt("Gerar novo código", "Make a new code") : tt("Gerar código para o contato", "Make the contact's code")) + "</button></div></div>";
+    if (!guard && (p.emContacts || []).includes(me)) {
+      const mine = this.list.find((g) => g.id === "em_" + me && ["pendente", "liberado"].includes(g.status));
+      h += '<div class="card"><h3>🆘 ' + tt("Você é contato de emergência", "You're an emergency contact") + '</h3>' + (canVault() ? '<p class="small">✅ ' + tt("Acesso liberado. Abra Casa → Cofre e use o código que recebeu.", "Access released. Open Home → Vault and use the code you received.") + '</p><button class="btn sm" data-act="go" data-tab="house" data-sub="vault">🔐 ' + tt("Abrir o cofre", "Open the vault") + "</button>" : mine ? '<p class="small">⏳ ' + tt("Pedido feito. Libera em ", "Requested. Releases in ") + Math.max(0, Math.ceil((mine.execAfterMs - Date.now()) / 3600e3)) + " h " + tt("se ninguém negar.", "unless someone denies.") + "</p>" : '<p class="small muted">' + tt("Só use numa emergência real: os chefes serão avisados.", "Only use in a real emergency: the heads will be notified.") + '</p><button class="btn danger sm" data-act="gov.em">🆘 ' + tt("Pedir acesso de emergência", "Request emergency access") + "</button>") + "</div>";
+    }
+    return h;
+  },
+  /* alertas (Inbox e Início) */
+  alerts() {
+    const out = []; if (S.mode !== "cloud" || !S.family || !S.user) return out; const me = S.user.uid;
+    this.list.filter((g) => g.status === "pendente").forEach((g) => {
+      if (g.target === me && g.type === "transferir") out.push({ level: "warn", ic: "🏠", t: (g.byName || "") + tt(" quer passar a criação da família para você", " wants to hand family ownership to you"), go: ["family"] });
+      else if (g.target === me) out.push({ level: "bad", ic: "🛡", t: tt("Pedido sobre você: ", "Request about you: ") + this.txt(g), go: ["family"] });
+      else if (isGuardian() && g.by !== me) out.push({ level: g.type === "emergencia" ? "bad" : "warn", ic: g.type === "emergencia" ? "🆘" : "🛡", t: this.txt(g), go: ["family"] });
+    });
+    /* 2) mudanças sensíveis feitas por outra pessoa nos últimos 3 dias */
+    if (isGuardian()) {
+      const seen = lsGet("omnilife.govSeen", ""), from = new Date(Date.now() - 3 * 864e5).toISOString();
+      (S.audit || []).filter((a) => a.byUid !== me && a.at > from && a.at > seen && GOV_SENS.includes(a.action)).slice(0, 5).forEach((a) => out.push({ level: "warn", ic: "🔐", t: AUDIT_TXT(a.action) + (a.detail ? " — " + a.detail : "") + " (" + (a.byName || "") + ")", go: ["family"] }));
+    }
+    return out;
+  }
+};
+const GOV_SENS = ["papel.alterado", "membro.removido", "regras.alteradas", "criacao.transferida", "chefe.pedido", "emergencia.pedida", "emergencia.liberada", "emergencia.usada", "aparelho.desconectado", "convite.criado"];
+ACT["gov.ok"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g && await confirmBox(tt("Aprovar: ", "Approve: ") + Gov.txt(g) + "?", tt("Aprovar", "Approve"))) { try { await Gov.approve(g); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["gov.veto"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g && await confirmBox(tt("Vetar: ", "Veto: ") + Gov.txt(g) + "?", tt("Vetar", "Veto"), true)) { try { await Gov.veto(g); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["gov.cancel"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g) { try { await Gov.cancel(g); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["gov.accept"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g) { try { await Gov.answerTransfer(g, true); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["gov.refuse"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g) { try { await Gov.answerTransfer(g, false); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["gov.em"] = async () => { try { await Gov.requestEmergency(); } catch (e) { toast(Cloud.errMsg(e)); } };
+ACT["gov.env"] = () => Gov.makeEnvelope();
+ACT["gov.emcode"] = () => Gov.openWithCode();
+ACT["gov.emc"] = async (d) => { const cur = Gov.pol().emContacts || []; const nxt = cur.includes(d.id) ? cur.filter((x) => x !== d.id) : cur.concat(d.id); try { await FB.F.updateDoc(FB.ref("families", S.family.id), { "policy.emContacts": nxt }); await Cloud.audit("regras.alteradas", tt("contatos de emergência: ", "emergency contacts: ") + nxt.map((u) => Gov.name(u)).join(", ")); } catch (e) { toast(Cloud.errMsg(e)); } };
+
+/* ---------- 3) ajudar a entrar de novo ---------- */
+ACT["mem.help"] = async (d) => {
+  const m = S.family.members[d.id]; if (!m) return;
+  const body = '<p class="small">' + tt("Escolha o que aconteceu com ", "Choose what happened to ") + "<b>" + esc(m.name || m.email) + '</b>:</p><div class="aone-opts">' +
+    (m.email ? '<button type="button" data-h="mail">📧 <span>' + tt("Esqueceu a senha", "Forgot the password") + '<span class="s">' + tt("Enviar e-mail para ", "Send e-mail to ") + esc(m.email) + tt(" trocar a senha (conta com e-mail e senha)", " to reset the password (e-mail/password account)") + "</span></span></button>" : "") +
+    '<button type="button" data-h="inv">💌 <span>' + tt("Perdeu a conta ou o celular / criou conta nova", "Lost the account or phone / made a new account") + '<span class="s">' + tt("Gera um convite de uso único, válido por 24 h, já ligado à mesma pessoa (com o mesmo papel). Depois de entrar, remova o login antigo.", "Makes a single-use invite, valid 24 h, tied to the same person and role. After they're in, remove the old login.") + "</span></span></button>" +
+    '<button type="button" data-h="dev">📱 <span>' + tt("Desconectar um aparelho perdido", "Disconnect a lost device") + '<span class="s">' + tt("Veja os aparelhos da pessoa e desconecte à distância.", "See the person's devices and disconnect remotely.") + "</span></span></button></div>";
+  const md = modal({ title: "🔑 " + tt("Ajudar a entrar de novo", "Help them get back in"), body, foot: '<button class="btn ghost" data-x>' + tt("Fechar", "Close") + "</button>" });
+  md.el.onclick = async (e) => {
+    const b = e.target.closest("[data-h]"); if (!b) return;
+    if (b.dataset.h === "mail") { md.close(); await Cloud.reset(m.email); Cloud.audit("acesso.ajuda", tt("e-mail de senha para ", "password e-mail to ") + (m.name || m.email)); }
+    else if (b.dataset.h === "inv") { md.close(); try { const inv = await Cloud.createInvite({ role: m.role, forName: m.name || "", personId: m.personId, maxUses: 1, ttlH: 24 }); if (inv && inv.code) showInvite(inv); } catch (er) { toast(Cloud.errMsg(er)); } }
+    else if (b.dataset.h === "dev") { md.close(); S.devFilter = d.id; render(); setTimeout(() => { const c = $("#devcard"); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }, 80); }
+  };
+};
+/* no modo deste aparelho: o responsável limpa o PIN de quem esqueceu */
+ACT["pin.reset"] = async (d) => {
+  const p = People.get(d.id); if (!p || !isGuardian()) return;
+  if (!(await confirmBox(tt("Limpar o PIN de ", "Clear the PIN of ") + esc(p.nick || p.name) + tt("? Na próxima vez, a pessoa entra sem PIN e cria um novo em ✏️.", "? Next time they sign in without a PIN and set a new one in ✏️."), tt("Limpar PIN", "Clear PIN")))) return;
+  const q = Object.assign({}, p); delete q.pinHash; await DB.put("people", q);
+  try { S.prefs.bioProf && delete S.prefs.bioProf[p.id]; savePrefs(); } catch (e) {}
+  toast("✓ " + tt("PIN limpo.", "PIN cleared."));
+};
+
+/* ---------- 7) aparelhos conectados ---------- */
+const Devices = {
+  KEY: "omnilife.deviceId",
+  id() { let v = null; try { v = localStorage.getItem(this.KEY); } catch (e) {} if (!v) { v = "d" + Cloud.newCode(10).toLowerCase(); try { localStorage.setItem(this.KEY, v); } catch (e) {} } return v; },
+  list: [],
+  label() { const u = navigator.userAgent; const os = /Android/.test(u) ? "Android" : /iPhone|iPad/.test(u) ? "iPhone/iPad" : /Windows/.test(u) ? "Windows" : /Mac/.test(u) ? "Mac" : /Linux/.test(u) ? "Linux" : tt("aparelho", "device"); const br = Offline.browser(); return os + " · " + ({ chrome: "Chrome", edge: "Edge", safari: "Safari", firefox: "Firefox", opera: "Opera" }[br] || br) + (Offline.installed() ? " · app" : ""); },
+  async attach(fid) {
+    this.list = [];
+    const id = this.id(), ref = FB.ref("families", fid, "devices", id);
+    try { await FB.F.setDoc(ref, { id, uid: S.user.uid, name: this.label(), kind: Voice.desktop() ? "computador" : "celular", lastAt: new Date().toISOString(), firstAt: (lsGet("omnilife.devFirst", "") || (lsSet("omnilife.devFirst", new Date().toISOString()), new Date().toISOString())) }, { merge: true }); } catch (e) {}
+    try {
+      Cloud.extraUnsubs.push(FB.F.onSnapshot(ref, (s) => { const d = s.exists() && s.data(); if (d && d.revoked) { toast("📴 " + tt("Este aparelho foi desconectado da família por um responsável.", "This device was disconnected from the family by a guardian."), 8000); try { sessionStorage.clear(); } catch (e) {} ACT["cloud.logout"](); } }, () => {}));
+      const q = isGuardian() ? FB.F.collection(FB.db, "families", fid, "devices") : FB.F.query(FB.F.collection(FB.db, "families", fid, "devices"), FB.F.where("uid", "==", S.user.uid));
+      Cloud.extraUnsubs.push(FB.F.onSnapshot(q, (snap) => { this.list = snap.docs.map((x) => x.data()).filter((x) => !x.revoked); scheduleRender(); }, () => {}));
+    } catch (e) {}
+  },
+  async revoke(id) { const d = this.list.find((x) => x.id === id); await FB.F.updateDoc(FB.ref("families", S.family.id, "devices", id), { revoked: true, revokedBy: S.user.uid, revokedAt: new Date().toISOString() }); await Cloud.audit("aparelho.desconectado", (d ? d.name + " · " + Gov.name(d.uid) : id)); toast("✓ " + tt("Aparelho desconectado. Ele sai da conta na próxima vez que abrir o app.", "Device disconnected. It signs out next time it opens the app."), 5000); },
+  view() {
+    if (S.mode !== "cloud" || !S.family) return "";
+    const me = S.user.uid, admin = S.role === "admin"; const mine = this.id();
+    let L = this.list.slice().sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
+    if (S.devFilter) L = L.filter((x) => x.uid === S.devFilter);
+    return '<div class="card" id="devcard"><div class="between"><h3>📱 ' + tt("Aparelhos conectados", "Connected devices") + "</h3>" + (S.devFilter ? '<button class="linkbtn small" data-act="dev.all">' + tt("ver todos", "see all") + "</button>" : "") + '</div><div class="list">' + (L.length ? L.map((x) => '<div class="li"><div class="ico">' + (x.kind === "computador" ? "💻" : "📱") + '</div><div class="main"><div class="t">' + esc(x.name) + (x.id === mine ? ' <span class="badge acc">' + tt("este", "this one") + "</span>" : "") + '</div><div class="s">' + esc(Gov.name(x.uid)) + " · " + tt("último uso ", "last used ") + fmtDateTime(x.lastAt) + "</div></div>" + (x.id !== mine && (admin || x.uid === me) ? '<button class="btn xs ghost" data-act="dev.rm" data-id="' + x.id + '">' + tt("Desconectar", "Disconnect") + "</button>" : "") + "</div>").join("") : '<div class="empty tiny">' + tt("Nenhum aparelho listado ainda.", "No devices listed yet.") + "</div>") + "</div></div>";
+  }
+};
+ACT["dev.rm"] = async (d) => { if (await confirmBox(tt("Desconectar este aparelho? Ele sai da família na próxima vez que abrir o app.", "Disconnect this device? It leaves the family next time it opens the app."), tt("Desconectar", "Disconnect"), true)) { try { await Devices.revoke(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["dev.all"] = () => { S.devFilter = null; render(); };
+
+/* ---------- 6) criança que cresce ---------- */
+const Grow = {
+  age() { return +(S.mode === "cloud" ? Gov.pol().gradAge : (DB.setting().gradAge || 18)) || 18; },
+  due() { const seen = DB.setting().gradSeen || {}; const a = this.age(); return People.list("kids").filter((p) => p.birth && ageOf(p.birth) >= a && !seen[p.id]); },
+  alerts() { return isGuardian() ? this.due().map((p) => ({ level: "warn", ic: "🎓", t: (p.nick || p.name) + tt(" já tem ", " is now ") + ageOf(p.birth) + tt(" anos: passar para adulto?", ": switch to adult?"), go: ["family"] })) : []; },
+  view() {
+    if (!isGuardian()) return "";
+    const L = this.due();
+    let h = L.map((p) => '<div class="card warnc"><div class="between"><div><b>🎓 ' + esc(p.nick || p.name) + tt(" fez ", " turned ") + ageOf(p.birth) + tt(" anos", "") + '</b><div class="small muted">' + tt("Hora de passar para adulto: sai do controle parental e ganha o próprio espaço (continua na família).", "Time to switch to adult: parental controls end and they get their own space (still in the family).") + '</div></div><div class="row"><button class="btn sm" data-act="grow.do" data-id="' + p.id + '">' + tt("Passar para adulto", "Switch to adult") + '</button><button class="btn ghost sm" data-act="grow.skip" data-id="' + p.id + '">' + tt("Agora não", "Not now") + "</button></div></div></div>").join("");
+    return h;
+  },
+  async promote(id) {
+    const p = People.get(id); if (!p) return;
+    const q = Object.assign({}, p, { role: "adulto" }); delete q.controls; await DB.put("people", q);
+    if (S.mode === "cloud" && S.family) { const acc = Object.entries(S.family.members || {}).find(([u, m]) => m.personId === id); if (acc && acc[1].role === "crianca") { try { await Cloud.setRole(acc[0], "membro", true); } catch (e) { toast(Cloud.errMsg(e)); } } }
+    toast("🎓 " + (p.nick || p.name) + tt(" agora é adulto(a) na família.", " is now an adult in the family."));
+  }
+};
+ACT["grow.do"] = async (d) => { if (await confirmBox(tt("Passar para adulto? O controle parental deixa de valer.", "Switch to adult? Parental controls stop applying."), tt("Passar", "Switch"))) Grow.promote(d.id); };
+ACT["grow.skip"] = async (d) => { const s = Object.assign({}, DB.setting().gradSeen || {}, { [d.id]: 1 }); await DB.saveSetting({ gradSeen: s }); };
+ACT["grow.age"] = async (d, el) => { const v = +el.value || 18; if (S.mode === "cloud") { try { await Cloud.setPolicy({ gradAge: v }); } catch (e) { toast(Cloud.errMsg(e)); } } else await DB.saveSetting({ gradAge: v }); toast("✓"); };
+
+/* ---------- 9) responsável por área ---------- */
+const Areas = {
+  LIST() { return [["shop", "🛒", tt("Compras e despensa", "Shopping & pantry")], ["agenda", "📅", tt("Agenda e rotina", "Calendar & routine")], ["health", "❤️", tt("Saúde", "Health")], ["security", "🛡️", tt("Segurança", "Safety")], ["house", "🏡", tt("Casa e manutenção", "Home & maintenance")], ["docs", "🗂️", tt("Documentos", "Documents")], ["duas", "🏠🏠", tt("Duas casas", "Two homes")]]; },
+  map() { return DB.setting().areaOwners || {}; },
+  of(a) { return (this.map()[a] || []).filter((id) => People.get(id)); },
+  chip(tab) { const o = this.of(tab); return o.length ? '<span class="badge" title="' + tt("Quem cuida desta área", "Who looks after this area") + '">🧭 ' + o.map((id) => esc(People.name(id))).join(", ") + "</span>" : ""; },
+  view() {
+    if (!isGuardian()) return "";
+    const ad = People.list("humans").filter((p) => p.role !== "crianca"), m = this.map();
+    return '<div class="card"><h3>🧭 ' + tt("Quem cuida de cada área", "Who looks after each area") + '</h3><p class="small muted">' + tt("Divide a carga entre os responsáveis. O nome aparece no topo da área, e os avisos daquela área vão primeiro para essa pessoa.", "Shares the load among the adults. Their name shows at the top of the area, and that area's alerts go to them first.") + '</p><div class="list">' + this.LIST().map((a) => '<div class="li"><div class="ico">' + a[1] + '</div><div class="main"><div class="t">' + a[2] + '</div><div class="chips" style="margin-top:4px">' + ad.map((p) => '<span class="chip' + ((m[a[0]] || []).includes(p.id) ? " on" : "") + '" data-act="area.tog" data-a="' + a[0] + '" data-id="' + p.id + '">' + esc(p.nick || p.name) + "</span>").join("") + "</div></div></div>").join("") + "</div></div>";
+  }
+};
+ACT["area.tog"] = async (d) => { const m = Object.assign({}, Areas.map()); const cur = m[d.a] || []; m[d.a] = cur.includes(d.id) ? cur.filter((x) => x !== d.id) : cur.concat(d.id); await DB.saveSetting({ areaOwners: m }); };
+
+/* ---------- 8) duas casas (pais separados) ---------- */
+const Duas = {
+  cfg() { return Object.assign({ on: false, casas: [{ nome: tt("Casa da mãe", "Mom's home"), resp: "" }, { nome: tt("Casa do pai", "Dad's home"), resp: "" }], kids: [], padrao: "semana", inicio: today(), divisao: 50 }, DB.setting().duas || {}); },
+  async save(p) { await DB.saveSetting({ duas: Object.assign(this.cfg(), p) }); },
+  PADROES() { return [["semana", tt("Semanas alternadas", "Alternating weeks")], ["223", "2-2-3", ], ["5225", "5-2-2-5"], ["fds", tt("Fins de semana alternados (resto na casa 1)", "Alternating weekends (rest at home 1)")], ["manual", tt("Combinado dia a dia", "Day by day")]]; },
+  /* 0 = casa 1, 1 = casa 2 */
+  who(dateIso) {
+    const c = this.cfg(); const ov = (c.trocas || {})[dateIso]; if (ov != null) return ov;
+    const d = diffDays(c.inicio, dateIso); const n = ((d % 14) + 14) % 14;
+    if (c.padrao === "semana") return n < 7 ? 0 : 1;
+    if (c.padrao === "223") return [0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1][n];
+    if (c.padrao === "5225") return [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1][n];
+    if (c.padrao === "fds") { const wd = new Date(dateIso + "T12:00").getDay(); return (wd === 0 || wd === 6) && n >= 7 ? 1 : 0; }
+    return 0;
+  },
+  exps() { return DB.all("coexp").sort((a, b) => String(b.date).localeCompare(String(a.date))); },
+  saldo() {
+    /* quanto a casa 2 deve à casa 1 (negativo = casa 1 deve à casa 2) */
+    let s = 0; this.exps().filter((e) => !e.acertado).forEach((e) => { const v = +e.valor || 0, p = (e.split == null ? this.cfg().divisao : +e.split) / 100; if (+e.pagou === 0) s += v * (1 - p); else s -= v * p; });
+    return Math.round(s * 100) / 100;
+  },
+  view() {
+    const c = this.cfg();
+    if (!c.on) return '<div class="card"><div class="between"><div><h3>🏠🏠 ' + tt("Duas casas (pais separados)", "Two homes (separated parents)") + '</h3><div class="small muted">' + tt("Calendário de guarda, despesas divididas com comprovante e um registro de combinados que não se apaga.", "Custody calendar, split expenses with receipts and an agreements log that can't be deleted.") + "</div></div>" + (isGuardian() ? '<button class="btn ghost sm" data-act="duas.on">' + tt("Ativar", "Turn on") + "</button>" : "") + "</div></div>";
+    const td = today(); const days = [...Array(14)].map((_, i) => addDays(td, i));
+    const kids = (c.kids || []).map((id) => People.get(id)).filter(Boolean);
+    const sal = this.saldo(); const cor = ["var(--accent)", "var(--ok,#2e9e5b)"];
+    let h = '<div class="card" id="duascard"><div class="between"><h3>🏠🏠 ' + tt("Duas casas", "Two homes") + " " + Areas.chip("duas") + '</h3><div class="row"><button class="btn ghost sm" data-act="duas.cfg">⚙ ' + tt("Combinar", "Set up") + '</button></div></div>' +
+      '<div class="small muted">' + (kids.length ? kids.map((p) => esc(p.nick || p.name)).join(", ") : tt("Escolha as crianças em ⚙ Combinar.", "Pick the children in ⚙ Set up.")) + " · " + esc((this.PADROES().find((x) => x[0] === c.padrao) || [])[1] || "") + '</div>' +
+      '<div class="duascal" role="list">' + days.map((d) => { const w = this.who(d); const wd = WDL[S.lang][new Date(d + "T12:00").getDay()].slice(0, 3); return '<button type="button" role="listitem" class="dc' + (d === td ? " today" : "") + '" data-act="duas.swap" data-d="' + d + '" title="' + esc(c.casas[w].nome) + '" style="--c:' + cor[w] + '"><span class="wd">' + wd + '</span><span class="dn">' + d.slice(8) + '</span><span class="ho">' + (w ? "2" : "1") + "</span></button>"; }).join("") + '</div><div class="small" style="margin-top:6px"><span style="color:' + cor[0] + '">■</span> 1 = ' + esc(c.casas[0].nome) + ' · <span style="color:' + cor[1] + '">■</span> 2 = ' + esc(c.casas[1].nome) + ' · <span class="faint">' + tt("toque num dia para trocar só aquele dia", "tap a day to swap just that day") + "</span></div>" +
+      '<div class="between" style="margin-top:14px"><h4 style="margin:0">💸 ' + tt("Despesas das crianças", "Children's expenses") + '</h4><button class="btn sm" data-act="duas.exp">＋ ' + tt("Despesa", "Expense") + "</button></div>" +
+      '<div class="note ' + (sal ? "warn" : "") + '" style="margin:8px 0">' + (sal > 0 ? esc(c.casas[1].nome) + tt(" deve ", " owes ") + money(sal) + tt(" para ", " to ") + esc(c.casas[0].nome) : sal < 0 ? esc(c.casas[0].nome) + tt(" deve ", " owes ") + money(-sal) + tt(" para ", " to ") + esc(c.casas[1].nome) : tt("Tudo acertado ✓", "All settled ✓")) + (sal ? ' <button class="linkbtn small" data-act="duas.settle">' + tt("marcar como acertado", "mark as settled") + "</button>" : "") + "</div>" +
+      '<div class="list">' + (this.exps().slice(0, 12).map((e) => '<div class="li' + (e.acertado ? " done" : "") + '"><div class="ico">' + (e.files && e.files.length ? "🧾" : "💸") + '</div><div class="main"><div class="t">' + esc(e.desc) + " · " + money(e.valor) + '</div><div class="s">' + fmtDate(e.date) + " · " + tt("pagou: ", "paid by: ") + esc(c.casas[+e.pagou || 0].nome) + " · " + (e.split == null ? c.divisao : e.split) + "/" + (100 - (e.split == null ? c.divisao : e.split)) + (e.acertado ? " · ✓ " + tt("acertado", "settled") : "") + "</div>" + (e.files && e.files.length ? '<div data-thumbs="' + e.files.join(",") + '"></div>' : "") + "</div></div>").join("") || '<div class="empty tiny">' + tt("Nenhuma despesa ainda.", "No expenses yet.") + "</div>") + "</div>" +
+      '<div class="between" style="margin-top:14px"><h4 style="margin:0">📜 ' + tt("Registro de combinados", "Agreements log") + '</h4><button class="btn ghost sm" data-act="duas.msg">＋ ' + tt("Registrar", "Log") + '</button></div><p class="tiny faint">' + tt("O que entra aqui não pode ser editado nem apagado, com data e hora — útil para evitar mal-entendidos.", "Entries can't be edited or deleted, with date and time — helps avoid misunderstandings.") + '</p><div class="list">' + (DB.all("comsg").sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 15).map((m) => '<div class="li"><div class="ico">📝</div><div class="main"><div class="t" style="white-space:normal;font-weight:500">' + esc(m.text) + '</div><div class="s">' + esc(People.name(m.by)) + " · " + fmtDateTime(m.at) + "</div></div></div>").join("") || '<div class="empty tiny">' + tt("Nada registrado.", "Nothing logged.") + "</div>") + "</div></div>";
+    return h;
+  }
+};
+ACT["duas.on"] = async () => { await Duas.save({ on: true, kids: People.list("kids").map((p) => p.id) }); ACT["duas.cfg"](); };
+ACT["duas.cfg"] = async () => {
+  const c = Duas.cfg(); const ad = People.list("humans").filter((p) => p.role !== "crianca");
+  const r = await formModal({ title: "🏠🏠 " + tt("Combinar as duas casas", "Set up the two homes"), fields: [
+    { k: "c1", label: tt("Nome da casa 1", "Home 1 name"), def: c.casas[0].nome }, { k: "r1", label: tt("Responsável da casa 1", "Home 1 adult"), type: "select", opts: [["", "—"]].concat(ad.map((p) => [p.id, p.nick || p.name])), def: c.casas[0].resp },
+    { k: "c2", label: tt("Nome da casa 2", "Home 2 name"), def: c.casas[1].nome }, { k: "r2", label: tt("Responsável da casa 2", "Home 2 adult"), type: "select", opts: [["", "—"]].concat(ad.map((p) => [p.id, p.nick || p.name])), def: c.casas[1].resp },
+    { k: "kids", label: tt("Crianças", "Children"), type: "members", filter: "kids", def: c.kids },
+    { k: "padrao", label: tt("Como é a guarda", "Custody pattern"), type: "select", opts: Duas.PADROES(), def: c.padrao }, { k: "inicio", label: tt("Primeiro dia na casa 1", "First day at home 1"), type: "date", def: c.inicio },
+    { k: "divisao", label: tt("Quanto a casa 1 paga das despesas (%)", "Home 1 share of expenses (%)"), type: "number", def: c.divisao },
+    { k: "off", label: tt("Desligar Duas casas", "Turn off Two homes"), type: "check" }], values: {} });
+  if (!r) return;
+  if (r.off) return Duas.save({ on: false });
+  await Duas.save({ casas: [{ nome: r.c1 || c.casas[0].nome, resp: r.r1 || "" }, { nome: r.c2 || c.casas[1].nome, resp: r.r2 || "" }], kids: r.kids || [], padrao: r.padrao, inicio: r.inicio || today(), divisao: Math.max(0, Math.min(100, +r.divisao || 50)) });
+};
+ACT["duas.swap"] = async (d) => { const c = Duas.cfg(); const tr = Object.assign({}, c.trocas || {}); const cur = Duas.who(d.d); tr[d.d] = cur ? 0 : 1; await Duas.save({ trocas: tr }); await DB.put("comsg", { id: uid("cm"), by: S.meId, at: new Date().toISOString(), text: "🔁 " + fmtDate(d.d) + ": " + tt("troca de casa → ", "home swap → ") + c.casas[tr[d.d]].nome }); };
+ACT["duas.exp"] = async () => {
+  const c = Duas.cfg(); let files = [];
+  const r = await formModal({ title: "💸 " + tt("Despesa das crianças", "Children's expense"), fields: [{ k: "desc", label: tt("O que foi", "What"), req: true, ph: tt("Ex.: material escolar", "e.g. school supplies") }, { k: "valor", label: tt("Valor (R$)", "Amount"), type: "number", step: "0.01", req: true }, { k: "date", label: tt("Data", "Date"), type: "date", def: today() }, { k: "pagou", label: tt("Quem pagou", "Paid by"), type: "select", opts: [["0", c.casas[0].nome], ["1", c.casas[1].nome]] }, { k: "split", label: tt("Parte da casa 1 (%)", "Home 1 share (%)"), type: "number", def: c.divisao }, { type: "html", html: '<button type="button" class="btn ghost sm" id="expf">🧾 ' + tt("Anexar comprovante", "Attach receipt") + '</button> <span class="small" id="expn"></span>' }],
+    after: (el) => { $("#expf", el).onclick = async () => { const fs = await Files.pick("image/*,application/pdf", true); for (const f of fs) { const id = await Files.save(f, { max: 1600 }); if (id) files.push(id); } $("#expn", el).textContent = files.length ? "✓ " + files.length : ""; }; } });
+  if (!r) return;
+  await DB.put("coexp", { id: uid("ce"), desc: r.desc, valor: +r.valor || 0, date: r.date || today(), pagou: +r.pagou || 0, split: r.split === "" ? null : Math.max(0, Math.min(100, +r.split)), files, by: S.meId, at: new Date().toISOString() });
+  await DB.put("comsg", { id: uid("cm"), by: S.meId, at: new Date().toISOString(), text: "💸 " + r.desc + " · " + money(r.valor) + " (" + tt("pagou ", "paid by ") + c.casas[+r.pagou || 0].nome + ")" });
+};
+ACT["duas.settle"] = async () => { if (!(await confirmBox(tt("Marcar todas as despesas em aberto como acertadas?", "Mark all open expenses as settled?"), tt("Acertar", "Settle")))) return; const v = Duas.saldo(); for (const e of Duas.exps().filter((x) => !x.acertado)) await DB.put("coexp", Object.assign({}, e, { acertado: new Date().toISOString() })); await DB.put("comsg", { id: uid("cm"), by: S.meId, at: new Date().toISOString(), text: "✅ " + tt("Acerto de contas: ", "Settlement: ") + money(Math.abs(v)) }); };
+ACT["duas.msg"] = async () => { const t = await askText(tt("Registrar combinado", "Log an agreement"), tt("O que foi combinado", "What was agreed"), ""); if (!t) return; await DB.put("comsg", { id: uid("cm"), by: S.meId, at: new Date().toISOString(), text: t }); };
+
 
 /* =====================================================================
    LEMBRETES RÁPIDOS — atalho ⚡ com favoritos, frequentes e repetição
@@ -5903,6 +6311,31 @@ const HELP = () => ({
     tt("Toque em <b>Compartilhar</b> (o quadrado com a seta para cima, embaixo da tela).", "Tap <b>Share</b> (the square with the up arrow)."),
     tt("Role e toque em <b>Adicionar à Tela de Início</b> → <b>Adicionar</b>.", "Scroll and tap <b>Add to Home Screen</b> → <b>Add</b>.")
   ], note: tt("No iPhone, os avisos do app só funcionam com ele na Tela de Início.", "On iPhone, app notifications only work from the Home Screen.") },
+  "familia-seguranca": { t: "🛡 " + tt("Administração segura entre os responsáveis", "Safe administration among the adults"), steps: [
+    tt("<b>Chefe não derruba chefe sozinho:</b> rebaixar ou remover outro chefe vira um pedido. Outro chefe aprova, ou vale depois de 48 h se ninguém vetar — e a própria pessoa pode vetar.", "<b>No head removes another alone:</b> demoting or removing a head becomes a request. Another head approves, or it applies after 48 h if nobody vetoes — and the person can veto."),
+    tt("<b>Todos os chefes são avisados</b> de mudanças sensíveis (papéis, remoções, regras, convites, emergência, aparelhos).", "<b>All heads are notified</b> of sensitive changes (roles, removals, rules, invites, emergency, devices)."),
+    tt("<b>Passar a criação</b> da família só vale quando a outra pessoa aceita.", "<b>Handing over ownership</b> only happens when the other person accepts."),
+    tt("<b>Ajudar a entrar de novo</b> (🔑 ao lado do login): e-mail de troca de senha ou convite de uso único para a mesma pessoa. No modo deste aparelho, o responsável pode limpar o PIN.", "<b>Help someone back in</b> (🔑 next to the login): password e-mail or a single-use invite for the same person. In this-device mode, a guardian can clear the PIN."),
+    tt("<b>Acesso de emergência ao cofre:</b> escolha um contato de confiança e a espera. Entregue a ele o código (fora do app). Se ele pedir e ninguém negar até o fim da espera, o cofre abre com o código.", "<b>Emergency vault access:</b> pick a trusted contact and a waiting period. Give them the code (outside the app). If they request it and nobody denies before the wait ends, the vault opens with the code."),
+    tt("<b>Aparelhos conectados:</b> veja onde cada um está logado e desconecte um celular perdido.", "<b>Connected devices:</b> see where each person is signed in and disconnect a lost phone."),
+    tt("<b>Criança que cresce:</b> na idade escolhida (16, 18 ou 21), o app sugere passar para adulto.", "<b>Growing up:</b> at the chosen age (16, 18 or 21), the app suggests switching to adult."),
+    tt("<b>Duas casas</b> (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga.", "<b>Two homes</b> (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted."),
+    tt("<b>Quem cuida de cada área:</b> divida Compras, Saúde, Casa… entre os adultos; o nome aparece no topo da área.", "<b>Who looks after each area:</b> split Shopping, Health, Home… among the adults; their name shows at the top of the area.")
+  ], note: tt("Na nuvem, as regras do Firebase garantem as partes de segurança. Depois de atualizar o app, cole de novo as regras (arquivo regras-firestore-OmniLifeONE.txt) no console do Firebase.", "In the cloud, Firebase rules enforce the security parts. After updating the app, paste the rules again (regras-firestore-OmniLifeONE.txt) in the Firebase console.") },
+  "novo-endereco": { t: "📦 " + tt("Trazer os dados do endereço antigo", "Bring data from the old address"), steps: [
+    tt("O OmniLifeONE agora fica em <b>" + SITE_DOMAIN + "</b>. Quem usa a <b>nuvem</b> (Google/e-mail) não precisa fazer nada: é só entrar de novo.", "OmniLifeONE now lives at <b>" + SITE_DOMAIN + "</b>. If you use the <b>cloud</b> (Google/e-mail), there's nothing to do: just sign in again."),
+    tt("Quem usava <b>só neste aparelho</b>: o navegador guarda os dados separados por endereço. Você precisa do arquivo de backup (<b>OmniLifeONE-backup-….json</b>) feito no endereço antigo em Ajustes → Dados → Exportar.", "If you used <b>this device only</b>: the browser keeps data separate per address. You need the backup file (<b>OmniLifeONE-backup-….json</b>) made at the old address in Settings → Data → Export."),
+    tt("Aqui no endereço novo: toque em <b>PIN (só neste aparelho)</b>, crie seu perfil e depois vá em <b>⚙ → Dados → Importar</b> e escolha o arquivo.", "Here at the new address: tap <b>PIN (this device only)</b>, create your profile, then go to <b>⚙ → Data → Import</b> and pick the file."),
+    tt("Depois: ative a digital de novo (⚙ → Geral → Segurança) e reinstale o ícone (⚙ → App e sem internet).", "Then: re-enable fingerprint (⚙ → General → Security) and reinstall the icon (⚙ → App & offline).")
+  ] },
+  "atalho-pc": { t: "💻 " + tt("Instalar como app no computador", "Install as an app on your computer"), steps: ({
+    chrome: [tt("No <b>Google Chrome</b>, olhe a barra de endereço: à direita aparece o ícone <b>Instalar</b> (um monitor com seta ⤓). Clique nele → <b>Instalar</b>.", "In <b>Google Chrome</b>, look at the address bar: on the right there's an <b>Install</b> icon (a monitor with an arrow). Click it → <b>Install</b>."), tt("Não viu o ícone? Clique nos <b>três pontinhos ⋮</b> → <b>Transmitir, salvar e compartilhar</b> → <b>Instalar página como app</b>.", "Don't see it? Click the <b>three dots ⋮</b> → <b>Cast, save, and share</b> → <b>Install page as app</b>.")],
+    edge: [tt("No <b>Microsoft Edge</b>, clique no ícone <b>Instalar</b> que aparece na barra de endereço (à direita).", "In <b>Microsoft Edge</b>, click the <b>Install</b> icon in the address bar (on the right)."), tt("Ou: <b>três pontinhos …</b> → <b>Aplicativos</b> → <b>Instalar este site como um aplicativo</b>.", "Or: <b>three dots …</b> → <b>Apps</b> → <b>Install this site as an app</b>.")],
+    safari: [tt("No <b>Safari</b> do Mac (macOS Sonoma ou mais novo): menu <b>Arquivo</b> → <b>Adicionar ao Dock</b>.", "In Mac <b>Safari</b> (macOS Sonoma or newer): <b>File</b> menu → <b>Add to Dock</b>."), tt("Confirme o nome e clique em <b>Adicionar</b>. O app fica no Dock e na pasta Aplicativos.", "Confirm the name and click <b>Add</b>. The app goes to the Dock and the Applications folder.")],
+    firefox: [tt("O <b>Firefox</b> no computador não instala sites como app.", "<b>Firefox</b> on desktop doesn't install sites as apps."), tt("Abra este mesmo endereço no <b>Google Chrome</b> ou no <b>Microsoft Edge</b> (já vem no Windows) e clique em <b>Instalar</b>. Seus dados da nuvem aparecem lá também.", "Open this same address in <b>Google Chrome</b> or <b>Microsoft Edge</b> (built into Windows) and click <b>Install</b>. Your cloud data shows up there too.")],
+    opera: [tt("No <b>Opera</b> a instalação nem sempre aparece. Use o <b>Google Chrome</b> ou o <b>Microsoft Edge</b> e clique em <b>Instalar</b> na barra de endereço.", "In <b>Opera</b> installing isn't always available. Use <b>Google Chrome</b> or <b>Microsoft Edge</b> and click <b>Install</b> in the address bar.")],
+    outro: [tt("Use o <b>Google Chrome</b> ou o <b>Microsoft Edge</b> e clique em <b>Instalar</b> na barra de endereço.", "Use <b>Google Chrome</b> or <b>Microsoft Edge</b> and click <b>Install</b> in the address bar.")]
+  }[Offline.browser()] || []).concat([tt("Pronto: o OmniLifeONE abre em <b>janela própria</b>, com ícone na <b>área de trabalho</b>, na <b>barra de tarefas</b> e no <b>menu Iniciar</b> (no Mac, no Dock). Com internet abre sempre a versão mais nova; sem internet, a cópia guardada.", "Done: OmniLifeONE opens in <b>its own window</b>, with an icon on the <b>desktop</b>, <b>taskbar</b> and <b>Start menu</b> (on Mac, the Dock). Online it always opens the newest version; offline, the saved copy."), tt("Dica: clique com o <b>botão direito</b> no ícone para abrir direto a Lista, o Cheguei, a Inbox ou um Lembrete. Para fixar: botão direito → <b>Fixar na barra de tarefas</b>.", "Tip: <b>right-click</b> the icon to jump straight to the List, Check-in, Inbox or a Reminder. To pin: right-click → <b>Pin to taskbar</b>.")]) },
   "atalho-android": { t: "📲 " + tt("Ícone na tela inicial — Android", "Home-screen icon — Android"), steps: [
     tt("Abra o OmniLifeONE no <b>Chrome</b>.", "Open OmniLifeONE in <b>Chrome</b>."),
     tt("Toque nos <b>três pontinhos ⋮</b> no canto de cima.", "Tap the <b>three dots ⋮</b> at the top."),
@@ -6108,7 +6541,7 @@ const Msgs = {
 /* ---------- versões (o que entrou em cada uma) ----------
    A lista fica embutida aqui e também em versoes.json (padrão de todos os apps). Se o
    versoes.json do site for mais novo, ele vale. */
-const VERSOES_EMB = [{"v": "2.1.0", "d": "2026-09-25", "hora": "19:27:00", "pt": ["💡 Chegou o AssistONE: o assistente no canto da tela, ligado por padrão", "Balões para começar o passo a passo (guarda onde parou), fazer um tour rápido, procurar qualquer coisa (com sugestão quando escreve errado) e ver a ajuda da tela", "Dicas curtas em cada tela, uma vez só; liga e desliga em ⚙ → Geral → AssistONE"], "en": ["💡 Meet AssistONE: the assistant in the corner of the screen, on by default", "Balloons to start the walkthrough (saves your place), take a quick tour, find anything (with spelling suggestions) and get help for the screen", "Short tips on each screen, shown once; turn it on or off in ⚙ → General → AssistONE"]}, {"v": "2.0.1", "d": "2026-09-25", "hora": "19:11:00", "pt": ["👆 Tela de entrada com todas as formas de entrar: digital ou rosto, Google, e-mail e senha e PIN", "Depois do primeiro acesso, a digital vira um toque só na entrada; na nuvem, o app oferece ativar a digital logo após entrar"], "en": ["👆 Sign-in screen with every way in: fingerprint or face, Google, e-mail and password, and PIN", "After the first sign-in, fingerprint becomes one tap; in the cloud, the app offers to enable it right after signing in"]}, {"v": "2.0.0", "d": "2026-09-25", "hora": "18:58:00", "pt": ["✨ Visual novo, calmo e moderno, pensado primeiro para o celular: ícones de traço, cartões macios, menos distração e tema que segue o aparelho (claro de dia, escuro à noite)", "🏠 Início reorganizado: 4 ações grandes (Lista, Cheguei, Inbox, Lembrete), campo para pôr na lista, atalhos numa linha e um só bloco “Para você agora”", "🔝 Cabeçalho padrão: 🔍 busca, ⚙ configurações, 🏠 Início e 👤 conta; SOS, alertas, compartilhar e outros apps foram para o Início e o ☰ (com link para o Portal)", "↩️ Na tela inicial, o Voltar pede um segundo toque para sair", "🎤 Lista por voz corrigida: o que você fala entra no campo, separado por vírgulas, para conferir e tocar em Pôr", "📲 Usar sem internet: salvar o app no aparelho, criar o ícone na tela inicial e aviso quando estiver sem sinal", "🤖 Cofre de IA completo: texto, voz → texto, texto → voz e fotos, com guia passo a passo ilustrado para cada provedor e “Usar para”", "📚 Documentos: enviar vários arquivos de uma vez (arrastar, colar, câmera em sequência), com conferência e aviso de duplicados", "🧩 Aviso de compatibilidade do aparelho/navegador só quando houver problema", "🔒 Recarregar a página não pede PIN de novo por 30 min; quem entra volta para a tela onde estava", "📜 Registro de alterações no aparelho e relatório de erros opcional", "🆕 Novidades agrupadas por dia e recolhidas em Ajustes"], "en": ["✨ New calm, modern look designed mobile-first: line icons, soft cards, fewer distractions and a theme that follows the device", "🏠 Reorganized Home: 4 big actions (List, Check-in, Inbox, Reminder), add-to-list field, one-line shortcuts and a single “For you now” block", "🔝 Standard header: 🔍 search, ⚙ settings, 🏠 Home and 👤 account; SOS, alerts, share and other apps moved to Home and ☰ (with a Portal link)", "↩️ On the home screen, Back asks for a second press to leave", "🎤 Voice list fixed: what you say goes into the field, comma-separated, to check and tap Add", "📲 Use offline: save the app on the device, create the home-screen icon and an offline notice", "🤖 Full AI vault: text, voice → text, text → voice and photos, with an illustrated step-by-step guide per provider and “Use for”", "📚 Documents: upload many files at once (drag, paste, camera sequence), with review and duplicate warnings", "🧩 Device/browser compatibility notice only when there's a problem", "🔒 Reloading doesn't ask for the PIN again for 30 min; signing in brings you back to where you were", "📜 On-device change log and optional error report", "🆕 What's new grouped by day and collapsed in Settings"]}, {"v": "1.6.0", "d": "2026-09-25", "pt": ["↩️ Botão Voltar do celular navega dentro do app: fecha a janela ou o menu aberto, e das abas volta para o Início antes de sair", "🤖 IA com vários provedores grátis: Google Gemini, OpenRouter, Groq, Mistral (e OpenAI ou personalizado), com “Ver modelos que esta chave aceita” e nova tentativa quando a IA está ocupada", "🎤 Voz transcrita também pelo Groq (Whisper), além do Gemini", "🧒 Nomes das crianças são trocados por códigos antes de ir para a IA (LGPD)", "♿ Ajustes → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta", "📶 Ajustes → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados", "📢 Avisos do administrador (recados.json) na Inbox", "🗑 Apagar minha conta (nuvem), além do backup", "🔧 Modo sem internet não apaga mais o dos outros apps do portal"], "en": ["↩️ Phone Back button navigates inside the app: closes the open window or menu, and from tabs goes Home before leaving", "🤖 AI with several free providers: Google Gemini, OpenRouter, Groq, Mistral (plus OpenAI or custom), with “See models this key accepts” and retry when busy", "🎤 Voice transcribed by Groq (Whisper) too, besides Gemini", "🧒 Children's names are replaced by codes before going to the AI", "♿ Settings → Accessibility: text size, high contrast, reduce motion, underline links, reading mode and read the screen aloud", "📶 Settings → Network: large downloads and AI on Wi-Fi or data", "📢 Admin notices (recados.json) in the Inbox", "🗑 Delete my account (cloud), besides backup", "🔧 Offline mode no longer wipes the other portal apps' offline data"]}, {"v": "1.5.2", "d": "2026-09-25", "pt": ["Link fixo embaixo do campo Recado do Cheguei: “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — leva direto para Ajustes → IA"], "en": ["Permanent link under the Cheguei note field: “🎤 not working on a computer? Turn on the free AI for voice (optional)” — goes straight to Settings → AI"]}, {"v": "1.5.1", "d": "2026-09-25", "pt": ["🎤 Todo microfone explica antes de frustrar: no primeiro toque (no computador, sem IA) aparece a dica com o link opcional “Configurar a IA agora”, “Depois” e “Não mostrar mais”", "Se a voz falhar sem IA, o app mostra o motivo e o mesmo link; em Ajustes → IA aparece o passo a passo para a voz"], "en": ["🎤 Every mic explains before it frustrates: on the first tap (computer, no AI) a tip shows the optional “Set up the AI now” link, “Later” and “Don't show again”", "If voice fails without AI, the app explains why and shows the same link; Settings → AI shows the voice step-by-step"]}, {"v": "1.5.0", "d": "2026-09-25", "pt": ["📥 Inbox: recados, avisos do Cheguei e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados", "🔎 Lupa de busca no topo: procura em tudo (funções, pessoas, contatos, compras, agenda, tarefas, lembretes, recados, documentos, objetos e ajudas). Atalho: tecla / ou Ctrl+K", "🆕 Versões em Ajustes, com o que entrou em cada uma", "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Ajustes → IA) transcreve a gravação; medidor mostra se o microfone capta som"], "en": ["📥 Inbox: messages, check-ins and alerts in one place, with All, Messages, Check-ins, Alerts, Sent and Archived tabs", "🔎 Search at the top: finds everything (features, people, contacts, shopping, calendar, tasks, reminders, messages, documents, objects and help). Shortcut: / or Ctrl+K", "🆕 Versions in Settings, with what each one brought", "🎤 Dictation that works on computers: if Chrome returns no text, Gemini AI (Settings → AI) transcribes the recording; a meter shows whether the mic picks up sound"]}, {"v": "1.4.2", "d": "2026-09-25", "pt": ["📅 Dia da chegada com dia da semana, mudável", "🎤 ✓ OK sempre encerra o ditado e o app explica o motivo quando o reconhecimento de voz falha"], "en": ["📅 Arrival day with weekday, changeable", "🎤 ✓ OK always stops dictation and the app explains why speech recognition failed"]}, {"v": "1.4.1", "d": "2026-09-24", "pt": ["✅ Cheguei com mais lugares (Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… e Outro)", "“Complemente a informação” com sugestões do que já foi escrito", "🕐 Horário em roda para ajustar", "📣 Escolha de quem recebe a notificação e por onde (Notificação, WhatsApp, Telegram, SMS, e-mail); contatos da agenda e novo contato com país e DDD", "📇 Meus contatos"], "en": ["✅ Check-in with more places (Bar, Friends' home, Airport, Bus station, Subway… and Other)", "“Add details” with suggestions from what you typed before", "🕐 Scroll wheel to adjust the time", "📣 Choose who gets notified and how (Push, WhatsApp, Telegram, SMS, e-mail); phone contacts and new contact with country and area code", "📇 My contacts"]}, {"v": "1.4.0", "d": "2026-09-24", "pt": ["👑 Vários chefes da família com direitos de administrador", "✉️ Convites com prazo, limite de pessoas e papel; compartilháveis por WhatsApp, e-mail, link ou QR", "🔢 Código de confirmação de 4 números e aprovação por 1 ou 2 chefes", "🧒 Consentimento do responsável para crianças (LGPD art. 14)", "📜 Histórico de segurança", "❓ Tutoriais de entrada na família"], "en": ["👑 Several family heads with admin rights", "✉️ Invites with deadline, people limit and role; shareable by WhatsApp, e-mail, link or QR", "🔢 4-digit confirmation code and approval by 1 or 2 heads", "🧒 Guardian consent for children (LGPD art. 14)", "📜 Security log", "❓ Family joining tutorials"]}, {"v": "1.3.0", "d": "2026-09-24", "pt": ["🛡️ Nova área Segurança", "✅ Aviso “Cheguei” e “Estou saindo”, com horários combinados e alerta de atraso", "👁 Modo Vigilante com flash piscando e tela escura", "📣 Alertas: Telegram, WhatsApp, e-mail e ntfy num lugar só"], "en": ["🛡️ New Safety area", "✅ “I'm here” and “I'm leaving” check-ins, with scheduled times and late alerts", "👁 Watch mode with flashing light and dark screen", "📣 Alerts: Telegram, WhatsApp, e-mail and ntfy in one place"]}, {"v": "1.2.4", "d": "2026-09-24", "pt": ["Vigilante: Telegram e WhatsApp desligados por padrão", "Cadastro de quem recebe os alertas (família ou outra pessoa), com seleção múltipla", "Ajuda passo a passo de Telegram e WhatsApp"], "en": ["Watch mode: Telegram and WhatsApp off by default", "Register who gets alerts (family or someone else), multi-select", "Step-by-step help for Telegram and WhatsApp"]}, {"v": "1.2.3", "d": "2026-09-24", "pt": ["Vigilante: alarme, mensagem ou os dois", "4 toques de alarme, silenciar na hora", "Telegram com foto e WhatsApp automático"], "en": ["Watch mode: alarm, message or both", "4 alarm tones, silence instantly", "Telegram with photo and automatic WhatsApp"]}, {"v": "1.2.2", "d": "2026-09-24", "pt": ["☰ só depois de entrar", "Aviso “↓ Mais opções abaixo” no menu", "Digital ou rosto no lugar do PIN"], "en": ["☰ only after signing in", "“↓ More options below” hint in the menu", "Fingerprint or face instead of PIN"]}, {"v": "1.2.1", "d": "2026-09-24", "pt": ["☰ no topo com todas as funções", "Barra de baixo só com favoritos", "Abertura suave dos menus"], "en": ["☰ at the top with every feature", "Bottom bar with favorites only", "Smooth menu opening"]}, {"v": "1.2.0", "d": "2026-09-24", "pt": ["📨 Recados entre a família com prioridade e lido/não lido", "✅ Tarefas feitas, postergadas ou canceladas, com foto", "⚡ Lembretes rápidos", "👁 Modo Vigilante", "🎂 Dados e aniversários da família", "💎 Plano da família", "Faixa do topo com PT | EN e anúncios (da 1.1.0)"], "en": ["📨 Family messages with priority and read receipts", "✅ Tasks done, postponed or cancelled, with photo", "⚡ Quick reminders", "👁 Watch mode", "🎂 Family data and birthdays", "💎 Family plan", "Top strip with PT | EN and ads (from 1.1.0)"]}, {"v": "1.0.1", "d": "2026-09-22", "pt": ["Ajustes e correções da primeira versão"], "en": ["Tweaks and fixes to the first version"]}, {"v": "1.0.0", "d": "2026-09-18", "pt": ["Primeira versão: compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e família"], "en": ["First version: shopping and pantry, calendar, contacts, health, documents, “Where is it?”, vault and family"]}];
+const VERSOES_EMB = [{"v": "2.3.0", "d": "2026-09-25", "hora": "21:23:00", "pt": ["🛡 Administração segura entre os responsáveis: chefe não rebaixa nem remove outro chefe sozinho (outro chefe aprova, ou vale em 48 h se ninguém vetar; a pessoa pode vetar)", "🔔 Todos os chefes são avisados de mudanças sensíveis; passar a criação da família só vale quando a outra pessoa aceita", "🔑 Ajudar a entrar de novo: e-mail de troca de senha, convite de uso único para a mesma pessoa, ou limpar o PIN no modo deste aparelho", "🆘 Acesso de emergência ao cofre com espera e código entregue ao contato de confiança", "📱 Aparelhos conectados, com desconectar à distância", "🎓 Criança que cresce: aviso para passar a adulto na idade escolhida", "🏠🏠 Duas casas (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga", "🧭 Quem cuida de cada área (Compras, Saúde, Casa…)", "🌐 Pronto para o novo endereço solverone.com.br, com aviso para guardar os dados de quem usa só no aparelho"], "en": ["🛡 Safe administration among adults: a head can't demote or remove another head alone (another head approves, or it applies in 48 h unless vetoed; the person can veto)", "🔔 All heads are notified of sensitive changes; handing over family ownership only happens when the other person accepts", "🔑 Help someone back in: password e-mail, single-use invite for the same person, or clear the PIN in this-device mode", "🆘 Emergency vault access with a waiting period and a code handed to a trusted contact", "📱 Connected devices, with remote disconnect", "🎓 Growing up: prompt to switch to adult at the chosen age", "🏠🏠 Two homes (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted", "🧭 Who looks after each area (Shopping, Health, Home…)", "🌐 Ready for the new address solverone.com.br, with a prompt to save data for this-device users"]}, {"v": "2.2.0", "d": "2026-09-25", "hora": "20:49:00", "pt": ["💻 Instalar como app no computador: ícone na área de trabalho, janela própria, barra de tarefas/Dock e menu Iniciar — em um clique no Chrome e no Edge, com passo a passo para Safari (Mac) e Firefox", "Aviso no Início (só no computador, some com “Agora não”), item no ☰, passo no AssistONE e na busca", "Botão direito no ícone do app: atalhos para Lista, Cheguei, Inbox e Agenda"], "en": ["💻 Install as an app on your computer: desktop icon, own window, taskbar/Dock and Start menu — one click in Chrome and Edge, with steps for Safari (Mac) and Firefox", "Notice on Home (computer only, hidden with “Not now”), ☰ item, AssistONE step and search", "Right-click the app icon: shortcuts to List, Check-in, Inbox and Calendar"]}, {"v": "2.1.1", "d": "2026-09-25", "hora": "20:42:00", "pt": ["💡 AssistONE dobra de tamanho quando você toca nele", "O balão começa com a ajuda da tela onde você está, com atalhos para o que dá para fazer ali (ex.: na Lista, “Adicionar falando”)"], "en": ["💡 AssistONE doubles in size when you tap it", "The balloon starts with help for the screen you're on, with shortcuts for what you can do there (e.g. on the List, “Add by voice”)"]}, {"v": "2.1.0", "d": "2026-09-25", "hora": "19:27:00", "pt": ["💡 Chegou o AssistONE: o assistente no canto da tela, ligado por padrão", "Balões para começar o passo a passo (guarda onde parou), fazer um tour rápido, procurar qualquer coisa (com sugestão quando escreve errado) e ver a ajuda da tela", "Dicas curtas em cada tela, uma vez só; liga e desliga em ⚙ → Geral → AssistONE"], "en": ["💡 Meet AssistONE: the assistant in the corner of the screen, on by default", "Balloons to start the walkthrough (saves your place), take a quick tour, find anything (with spelling suggestions) and get help for the screen", "Short tips on each screen, shown once; turn it on or off in ⚙ → General → AssistONE"]}, {"v": "2.0.1", "d": "2026-09-25", "hora": "19:11:00", "pt": ["👆 Tela de entrada com todas as formas de entrar: digital ou rosto, Google, e-mail e senha e PIN", "Depois do primeiro acesso, a digital vira um toque só na entrada; na nuvem, o app oferece ativar a digital logo após entrar"], "en": ["👆 Sign-in screen with every way in: fingerprint or face, Google, e-mail and password, and PIN", "After the first sign-in, fingerprint becomes one tap; in the cloud, the app offers to enable it right after signing in"]}, {"v": "2.0.0", "d": "2026-09-25", "hora": "18:58:00", "pt": ["✨ Visual novo, calmo e moderno, pensado primeiro para o celular: ícones de traço, cartões macios, menos distração e tema que segue o aparelho (claro de dia, escuro à noite)", "🏠 Início reorganizado: 4 ações grandes (Lista, Cheguei, Inbox, Lembrete), campo para pôr na lista, atalhos numa linha e um só bloco “Para você agora”", "🔝 Cabeçalho padrão: 🔍 busca, ⚙ configurações, 🏠 Início e 👤 conta; SOS, alertas, compartilhar e outros apps foram para o Início e o ☰ (com link para o Portal)", "↩️ Na tela inicial, o Voltar pede um segundo toque para sair", "🎤 Lista por voz corrigida: o que você fala entra no campo, separado por vírgulas, para conferir e tocar em Pôr", "📲 Usar sem internet: salvar o app no aparelho, criar o ícone na tela inicial e aviso quando estiver sem sinal", "🤖 Cofre de IA completo: texto, voz → texto, texto → voz e fotos, com guia passo a passo ilustrado para cada provedor e “Usar para”", "📚 Documentos: enviar vários arquivos de uma vez (arrastar, colar, câmera em sequência), com conferência e aviso de duplicados", "🧩 Aviso de compatibilidade do aparelho/navegador só quando houver problema", "🔒 Recarregar a página não pede PIN de novo por 30 min; quem entra volta para a tela onde estava", "📜 Registro de alterações no aparelho e relatório de erros opcional", "🆕 Novidades agrupadas por dia e recolhidas em Ajustes"], "en": ["✨ New calm, modern look designed mobile-first: line icons, soft cards, fewer distractions and a theme that follows the device", "🏠 Reorganized Home: 4 big actions (List, Check-in, Inbox, Reminder), add-to-list field, one-line shortcuts and a single “For you now” block", "🔝 Standard header: 🔍 search, ⚙ settings, 🏠 Home and 👤 account; SOS, alerts, share and other apps moved to Home and ☰ (with a Portal link)", "↩️ On the home screen, Back asks for a second press to leave", "🎤 Voice list fixed: what you say goes into the field, comma-separated, to check and tap Add", "📲 Use offline: save the app on the device, create the home-screen icon and an offline notice", "🤖 Full AI vault: text, voice → text, text → voice and photos, with an illustrated step-by-step guide per provider and “Use for”", "📚 Documents: upload many files at once (drag, paste, camera sequence), with review and duplicate warnings", "🧩 Device/browser compatibility notice only when there's a problem", "🔒 Reloading doesn't ask for the PIN again for 30 min; signing in brings you back to where you were", "📜 On-device change log and optional error report", "🆕 What's new grouped by day and collapsed in Settings"]}, {"v": "1.6.0", "d": "2026-09-25", "pt": ["↩️ Botão Voltar do celular navega dentro do app: fecha a janela ou o menu aberto, e das abas volta para o Início antes de sair", "🤖 IA com vários provedores grátis: Google Gemini, OpenRouter, Groq, Mistral (e OpenAI ou personalizado), com “Ver modelos que esta chave aceita” e nova tentativa quando a IA está ocupada", "🎤 Voz transcrita também pelo Groq (Whisper), além do Gemini", "🧒 Nomes das crianças são trocados por códigos antes de ir para a IA (LGPD)", "♿ Ajustes → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta", "📶 Ajustes → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados", "📢 Avisos do administrador (recados.json) na Inbox", "🗑 Apagar minha conta (nuvem), além do backup", "🔧 Modo sem internet não apaga mais o dos outros apps do portal"], "en": ["↩️ Phone Back button navigates inside the app: closes the open window or menu, and from tabs goes Home before leaving", "🤖 AI with several free providers: Google Gemini, OpenRouter, Groq, Mistral (plus OpenAI or custom), with “See models this key accepts” and retry when busy", "🎤 Voice transcribed by Groq (Whisper) too, besides Gemini", "🧒 Children's names are replaced by codes before going to the AI", "♿ Settings → Accessibility: text size, high contrast, reduce motion, underline links, reading mode and read the screen aloud", "📶 Settings → Network: large downloads and AI on Wi-Fi or data", "📢 Admin notices (recados.json) in the Inbox", "🗑 Delete my account (cloud), besides backup", "🔧 Offline mode no longer wipes the other portal apps' offline data"]}, {"v": "1.5.2", "d": "2026-09-25", "pt": ["Link fixo embaixo do campo Recado do Cheguei: “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — leva direto para Ajustes → IA"], "en": ["Permanent link under the Cheguei note field: “🎤 not working on a computer? Turn on the free AI for voice (optional)” — goes straight to Settings → AI"]}, {"v": "1.5.1", "d": "2026-09-25", "pt": ["🎤 Todo microfone explica antes de frustrar: no primeiro toque (no computador, sem IA) aparece a dica com o link opcional “Configurar a IA agora”, “Depois” e “Não mostrar mais”", "Se a voz falhar sem IA, o app mostra o motivo e o mesmo link; em Ajustes → IA aparece o passo a passo para a voz"], "en": ["🎤 Every mic explains before it frustrates: on the first tap (computer, no AI) a tip shows the optional “Set up the AI now” link, “Later” and “Don't show again”", "If voice fails without AI, the app explains why and shows the same link; Settings → AI shows the voice step-by-step"]}, {"v": "1.5.0", "d": "2026-09-25", "pt": ["📥 Inbox: recados, avisos do Cheguei e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados", "🔎 Lupa de busca no topo: procura em tudo (funções, pessoas, contatos, compras, agenda, tarefas, lembretes, recados, documentos, objetos e ajudas). Atalho: tecla / ou Ctrl+K", "🆕 Versões em Ajustes, com o que entrou em cada uma", "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Ajustes → IA) transcreve a gravação; medidor mostra se o microfone capta som"], "en": ["📥 Inbox: messages, check-ins and alerts in one place, with All, Messages, Check-ins, Alerts, Sent and Archived tabs", "🔎 Search at the top: finds everything (features, people, contacts, shopping, calendar, tasks, reminders, messages, documents, objects and help). Shortcut: / or Ctrl+K", "🆕 Versions in Settings, with what each one brought", "🎤 Dictation that works on computers: if Chrome returns no text, Gemini AI (Settings → AI) transcribes the recording; a meter shows whether the mic picks up sound"]}, {"v": "1.4.2", "d": "2026-09-25", "pt": ["📅 Dia da chegada com dia da semana, mudável", "🎤 ✓ OK sempre encerra o ditado e o app explica o motivo quando o reconhecimento de voz falha"], "en": ["📅 Arrival day with weekday, changeable", "🎤 ✓ OK always stops dictation and the app explains why speech recognition failed"]}, {"v": "1.4.1", "d": "2026-09-24", "pt": ["✅ Cheguei com mais lugares (Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… e Outro)", "“Complemente a informação” com sugestões do que já foi escrito", "🕐 Horário em roda para ajustar", "📣 Escolha de quem recebe a notificação e por onde (Notificação, WhatsApp, Telegram, SMS, e-mail); contatos da agenda e novo contato com país e DDD", "📇 Meus contatos"], "en": ["✅ Check-in with more places (Bar, Friends' home, Airport, Bus station, Subway… and Other)", "“Add details” with suggestions from what you typed before", "🕐 Scroll wheel to adjust the time", "📣 Choose who gets notified and how (Push, WhatsApp, Telegram, SMS, e-mail); phone contacts and new contact with country and area code", "📇 My contacts"]}, {"v": "1.4.0", "d": "2026-09-24", "pt": ["👑 Vários chefes da família com direitos de administrador", "✉️ Convites com prazo, limite de pessoas e papel; compartilháveis por WhatsApp, e-mail, link ou QR", "🔢 Código de confirmação de 4 números e aprovação por 1 ou 2 chefes", "🧒 Consentimento do responsável para crianças (LGPD art. 14)", "📜 Histórico de segurança", "❓ Tutoriais de entrada na família"], "en": ["👑 Several family heads with admin rights", "✉️ Invites with deadline, people limit and role; shareable by WhatsApp, e-mail, link or QR", "🔢 4-digit confirmation code and approval by 1 or 2 heads", "🧒 Guardian consent for children (LGPD art. 14)", "📜 Security log", "❓ Family joining tutorials"]}, {"v": "1.3.0", "d": "2026-09-24", "pt": ["🛡️ Nova área Segurança", "✅ Aviso “Cheguei” e “Estou saindo”, com horários combinados e alerta de atraso", "👁 Modo Vigilante com flash piscando e tela escura", "📣 Alertas: Telegram, WhatsApp, e-mail e ntfy num lugar só"], "en": ["🛡️ New Safety area", "✅ “I'm here” and “I'm leaving” check-ins, with scheduled times and late alerts", "👁 Watch mode with flashing light and dark screen", "📣 Alerts: Telegram, WhatsApp, e-mail and ntfy in one place"]}, {"v": "1.2.4", "d": "2026-09-24", "pt": ["Vigilante: Telegram e WhatsApp desligados por padrão", "Cadastro de quem recebe os alertas (família ou outra pessoa), com seleção múltipla", "Ajuda passo a passo de Telegram e WhatsApp"], "en": ["Watch mode: Telegram and WhatsApp off by default", "Register who gets alerts (family or someone else), multi-select", "Step-by-step help for Telegram and WhatsApp"]}, {"v": "1.2.3", "d": "2026-09-24", "pt": ["Vigilante: alarme, mensagem ou os dois", "4 toques de alarme, silenciar na hora", "Telegram com foto e WhatsApp automático"], "en": ["Watch mode: alarm, message or both", "4 alarm tones, silence instantly", "Telegram with photo and automatic WhatsApp"]}, {"v": "1.2.2", "d": "2026-09-24", "pt": ["☰ só depois de entrar", "Aviso “↓ Mais opções abaixo” no menu", "Digital ou rosto no lugar do PIN"], "en": ["☰ only after signing in", "“↓ More options below” hint in the menu", "Fingerprint or face instead of PIN"]}, {"v": "1.2.1", "d": "2026-09-24", "pt": ["☰ no topo com todas as funções", "Barra de baixo só com favoritos", "Abertura suave dos menus"], "en": ["☰ at the top with every feature", "Bottom bar with favorites only", "Smooth menu opening"]}, {"v": "1.2.0", "d": "2026-09-24", "pt": ["📨 Recados entre a família com prioridade e lido/não lido", "✅ Tarefas feitas, postergadas ou canceladas, com foto", "⚡ Lembretes rápidos", "👁 Modo Vigilante", "🎂 Dados e aniversários da família", "💎 Plano da família", "Faixa do topo com PT | EN e anúncios (da 1.1.0)"], "en": ["📨 Family messages with priority and read receipts", "✅ Tasks done, postponed or cancelled, with photo", "⚡ Quick reminders", "👁 Watch mode", "🎂 Family data and birthdays", "💎 Family plan", "Top strip with PT | EN and ads (from 1.1.0)"]}, {"v": "1.0.1", "d": "2026-09-22", "pt": ["Ajustes e correções da primeira versão"], "en": ["Tweaks and fixes to the first version"]}, {"v": "1.0.0", "d": "2026-09-18", "pt": ["Primeira versão: compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e família"], "en": ["First version: shopping and pantry, calendar, contacts, health, documents, “Where is it?”, vault and family"]}];
 const Versions = {
   KEY: "omnilife.versionSeen.v1",
   list() { return (S.versoes && S.versoes.length ? S.versoes : VERSOES_EMB); },
@@ -6142,6 +6575,10 @@ const Search = {
     add(G("fn"), "🆕", tt("Versões e novidades", "Versions & what's new"), tt("Ajustes", "Settings"), () => go("settings", "versions"));
     add(G("fn"), "✅", tt("Avisar que cheguei", "Check in"), tt("Segurança", "Safety"), () => Cheguei.arrive());
     add(G("fn"), "⚡", tt("Lembrete rápido", "Quick reminder"), "", () => $("#quickbtn").click());
+    add(G("fn"), "💻", tt("Instalar no computador (atalho na área de trabalho)", "Install on computer (desktop shortcut)"), tt("app, ícone, atalho", "app, icon, shortcut"), () => Offline.install(), "desktop area de trabalho atalho icone instalar pwa janela barra de tarefas dock menu iniciar tela inicial");
+    add(G("fn"), "🏠", tt("Duas casas (pais separados)", "Two homes (separated parents)"), tt("guarda, despesas, combinados", "custody, expenses, agreements"), () => { go("family"); setTimeout(() => { const c = $("#duascard"); if (c) c.scrollIntoView({ block: "start" }); }, 200); }, "guarda compartilhada coparentalidade divorcio separados pensao despesas");
+    add(G("fn"), "🆘", tt("Acesso de emergência ao cofre", "Emergency vault access"), tt("Família", "Family"), () => go("family"), "emergencia cofre contato confianca");
+    add(G("fn"), "📱", tt("Aparelhos conectados", "Connected devices"), tt("Família", "Family"), () => go("family"), "desconectar celular perdido sessao logins");
     add(G("fn"), "💡", "AssistONE", tt("assistente, passo a passo, tour, dicas", "assistant, walkthrough, tour, tips"), () => ACT["aone.open"](), "clipe ajudante onboarding wizard tutorial");
     People.list().forEach((p) => add(G("pp"), People.emoji(p), p.nick || p.name, "", () => go("family"), [p.name, p.phone, p.email].join(" ")));
     if (canTab("contacts")) Contacts.list().forEach((c) => add(G("ct"), "📇", c.name, [c.org, (c.phones || [])[0], c.email].filter(Boolean).join(" · "), () => go("contacts", "list", c.id), c.address));
@@ -6249,10 +6686,32 @@ const AOne = {
     this.sync();
   },
   head(t) { return "<h4><img alt='' src='" + AONE_IMG + "'>" + t + "</h4>"; },
+  /* ---- ajuda específica da tela onde a pessoa está (vem primeiro no balão) ---- */
+  HERE() {
+    const A = (k) => () => ACT[k]({}), G = (t, sub) => () => go(t, sub || null), H = (k) => () => Help.open(k);
+    return {
+      home: [tt("Você está no Início", "You're on Home"), tt("Aqui fica o resumo do dia. Posso te mostrar onde fica cada coisa ou já fazer algo rápido.", "Your day at a glance. I can show you around or do something quick."), [["🧭 " + tt("Tour desta tela", "Tour this screen"), () => this.tour(), 1], ["⚡ " + tt("Lembrete rápido", "Quick reminder"), A("rem.new")], ["✅ " + tt("Avisar que cheguei", "Check in"), () => Cheguei.arrive()]].concat(Offline.pc() && !Offline.installed() ? [["💻 " + tt("Instalar no computador", "Install on this computer"), () => Offline.install()]] : [])],
+      inbox: [tt("Inbox: recados e avisos", "Inbox: messages & alerts"), tt("Tudo o que chega para você fica aqui: recados, avisos e “Cheguei”.", "Everything for you lands here: messages, alerts and check-ins."), [["✉️ " + tt("Mandar um recado", "Send a message"), A("msg.new"), 1], ["❓ " + tt("Como funciona", "How it works"), H("inbox")]]],
+      shop: [tt("Lista de compras", "Shopping list"), tt("Dá para falar vários itens de uma vez: “arroz, feijão, leite”.", "You can say several items at once: “rice, beans, milk”."), [["🎤 " + tt("Adicionar falando", "Add by voice"), A("shop.voice"), 1], ["🥫 " + tt("Ver a despensa", "See the pantry"), G("shop", "pantry")], ["🙋 " + tt("Pedidos", "Requests"), G("shop", "requests")]]],
+      agenda: [tt("Agenda da família", "Family calendar"), tt("Compromissos, tarefas, lembretes e a rotina da casa.", "Events, tasks, reminders and the house routine."), [["📅 " + tt("Novo compromisso", "New event"), A("ev.new"), 1], ["✅ " + tt("Nova tarefa", "New task"), A("task.new")], ["📌 " + tt("Novo lembrete", "New reminder"), A("rem.new")]]],
+      contacts: [tt("Contatos", "Contacts"), tt("Médicos, escola, serviços da casa e emergência num lugar só.", "Doctors, school, home services and emergency in one place."), [["➕ " + tt("Novo contato", "New contact"), A("ct.new"), 1], ["📍 " + tt("Serviços perto de casa", "Services near home"), G("contacts", "services")]]],
+      health: [tt("Saúde da família", "Family health"), tt("Carteira vital com tipo sanguíneo, alergias e remédios de cada pessoa.", "Health wallet with blood type, allergies and meds for each person."), [["❤️ " + tt("Abrir a carteira vital", "Open the health wallet"), G("health"), 1]]],
+      security: [tt("Segurança", "Safety"), tt("“Cheguei”, “Estou saindo”, SOS e os avisos para a família.", "Check-in, “I'm leaving”, SOS and family alerts."), [["✅ " + tt("Avisar que cheguei", "Check in"), () => Cheguei.arrive(), 1], ["🚶 " + tt("Estou saindo", "I'm leaving"), () => Cheguei.leave()], ["❓ " + tt("Como funciona", "How it works"), H("cheguei")]]],
+      house: [tt("Casa", "Home"), tt("Onde está cada coisa, manutenção e o cofre da casa.", "Where things are, maintenance and the house vault."), [["🔎 " + tt("Onde está?", "Where is it?"), G("house", "where"), 1], ["🛠 " + tt("Manutenção", "Maintenance"), G("house", "maint")]]],
+      docs: [tt("Documentos", "Documents"), tt("Mande várias fotos ou PDFs de uma vez; eu aviso se algum estiver repetido.", "Send many photos or PDFs at once; I'll flag duplicates."), [["📚 " + tt("Enviar vários de uma vez", "Upload many at once"), A("doc.batch"), 1], ["➕ " + tt("Novo documento", "New document"), A("doc.new")]]],
+      family: [tt("Família", "Family"), tt("Pessoas, logins, convites, papéis dos responsáveis, duas casas e controle parental.", "People, logins, invites, guardian roles, two homes and parental controls."), [["➕ " + tt("Pessoa ou pet", "Person or pet"), A("person.new"), 1], ["🛡 " + tt("Administração segura", "Safe administration"), H("familia-seguranca")], ["❓ " + tt("Como convidar alguém", "How to invite someone"), H("familia")]]],
+      settings: [tt("Ajustes", "Settings"), tt("Idioma, tema, IA, acessibilidade, avisos, sem internet e versões.", "Language, theme, AI, accessibility, alerts, offline and versions."), [["🤖 " + tt("Configurar a IA", "Set up AI"), G("settings", "ai"), 1], ["♿ " + tt("Acessibilidade", "Accessibility"), G("settings", "a11y")], [(Offline.pc() ? "💻 " + tt("App no computador", "App on computer") : "📲 " + tt("Usar sem internet", "Use offline")), G("settings", "offline")]]]
+    };
+  },
+  hereHtml() {
+    const x = this.HERE()[S.route.tab]; if (!x) return "";
+    this._here = x[2];
+    return '<div class="aone-here"><div class="t">📍 ' + esc(x[0]) + "</div><p>" + esc(x[1]) + '</p><div class="acts">' + x[2].map((a, i) => '<button type="button" data-h="' + i + '"' + (a[2] ? ' class="pri"' : "") + ">" + esc(a[0]) + "</button>").join("") + "</div></div>";
+  },
   /* ---- balão principal ---- */
   open(first) {
     this.mount(); if (!this.on()) { this.save({ on: true }); }
-    const w = this.cfg().wiz;
+    const w = this.cfg().wiz, here = this.hereHtml();
     const opts = [
       w && w.active ? ["wiz", "▶️", tt("Continuar de onde paramos", "Continue where we stopped"), tt("Passo ", "Step ") + (w.i + 1) + tt(" de ", " of ") + this.steps().length, 1] : ["wizstart", "🚀", tt("Começar: deixar o app pronto", "Start: get the app ready"), tt("Passo a passo, em poucos minutos", "Step by step, in a few minutes"), 1],
       ["tour", "🧭", tt("Tour rápido pela tela", "Quick tour of the screen"), tt("Mostro onde fica cada coisa", "I'll show you where things are")],
@@ -6260,10 +6719,13 @@ const AOne = {
       ["help", "❓", tt("Ajuda desta tela", "Help for this screen"), ""],
       ["later", "💤", tt("Agora não", "Not now"), ""]
     ];
+    /* com ajuda da tela no topo, o resto vira secundário e sem repetição */
+    const optsF = here ? opts.filter((o) => !(o[0] === "tour" && S.route.tab === "home")).map((o) => o[0] === "help" ? [o[0], o[1], tt("Mais ajuda sobre esta tela", "More help on this screen"), ""] : [o[0], o[1], o[2], o[3]]) : opts;
     const hi = first ? tt("Olá! Eu sou o AssistONE 👋", "Hi! I'm AssistONE 👋") : tt("Em que posso ajudar?", "How can I help?");
-    const sub = first ? tt("Estou aqui para ajudar você a usar o OmniLifeONE. Quer que eu te guie?", "I'm here to help you use OmniLifeONE. Want me to guide you?") : tt("Escolha uma opção ou procure qualquer coisa.", "Pick an option or search for anything.");
-    this.show(this.head(hi) + "<p>" + sub + '</p><div class="aone-opts">' + opts.map((o) => '<button type="button" data-o="' + o[0] + '"' + (o[4] ? ' class="pri"' : "") + "><span>" + o[1] + "</span><span>" + o[2] + (o[3] ? '<span class="s">' + o[3] + "</span>" : "") + "</span></button>").join("") + '</div><div class="aone-row"><button type="button" class="linkbtn tiny" data-o="off">' + tt("Desligar o AssistONE", "Turn AssistONE off") + "</button></div>", "menu");
+    const sub = first ? tt("Estou aqui para ajudar você a usar o OmniLifeONE. Veja o que dá para fazer nesta tela, ou escolha outra ajuda.", "I'm here to help you use OmniLifeONE. Here's what you can do on this screen, or pick other help.") : tt("Veja o que dá para fazer nesta tela, ou escolha outra ajuda.", "Here's what you can do on this screen, or pick other help.");
+    this.show(this.head(hi) + "<p>" + sub + "</p>" + here + '<div class="aone-opts">' + optsF.map((o) => '<button type="button" data-o="' + o[0] + '"' + (o[4] ? ' class="pri"' : "") + "><span>" + o[1] + "</span><span>" + o[2] + (o[3] ? '<span class="s">' + o[3] + "</span>" : "") + "</span></button>").join("") + '</div><div class="aone-row"><button type="button" class="linkbtn tiny" data-o="off">' + tt("Desligar o AssistONE", "Turn AssistONE off") + "</button></div>", "menu");
     this.bub.onclick = (e) => {
+      const hb = e.target.closest("[data-h]"); if (hb) { const a = (this._here || [])[+hb.dataset.h]; this.close(); if (a) setTimeout(() => a[1](), 60); return; }
       const b = e.target.closest("[data-o]"); if (!b) return; const o = b.dataset.o;
       if (o === "wizstart") this.wizStart(); else if (o === "wiz") this.wizShow();
       else if (o === "tour") { this.close(); this.tour(); }
@@ -6272,7 +6734,7 @@ const AOne = {
       else if (o === "later") this.close();
       else if (o === "off") this.setOn(false);
     };
-    setTimeout(() => { const f = $(".aone-opts button", this.bub); if (f) f.focus(); }, 50);
+    setTimeout(() => { const f = $(".aone-here button", this.bub) || $(".aone-opts button", this.bub); if (f) f.focus(); }, 50);
   },
   setOn(v) {
     this.save({ on: !!v }); this.close();
@@ -6332,6 +6794,7 @@ const AOne = {
       { id: "saude", ic: "❤️", t: tt("Preencha a carteira vital", "Fill in the health wallet"), d: tt("Tipo sanguíneo, alergias e remédios à mão numa emergência.", "Blood type, allergies and meds at hand in an emergency."), done: () => DB.all("health").length > 0, go: ["health"] },
       { id: "ia", ic: "🤖", t: tt("(Opcional) Ligue a IA", "(Optional) Turn on AI"), d: tt("Para falar com o app no computador e ler documentos. Tem opções grátis.", "To talk to the app on a computer and read documents. There are free options."), done: () => safe(() => !!AI.provedorPara("texto")), go: ["settings", "ai"] }
     ];
+    if (Offline.pc()) L.push({ id: "pcapp", ic: "💻", t: tt("Instale como app no computador", "Install as an app on your computer"), d: tt("Ícone na área de trabalho e janela própria: abre direto, sem procurar no navegador.", "Desktop icon and its own window: opens directly, no hunting in the browser."), done: () => Offline.installed() || !!S.prefs.pcInst, run: () => Offline.install() });
     if (!Voice.desktop()) L.push({ id: "offline", ic: "📲", t: tt("Use sem internet e ponha o ícone na tela", "Use offline and add the home-screen icon"), d: tt("Abre mais rápido e funciona até sem sinal.", "Opens faster and works without signal."), done: () => safe(() => Offline.installed() || !!Offline.meta().at), go: ["settings", "offline"] });
     if (S.mode === "local") L.push({ id: "nuvem", ic: "☁️", t: tt("(Opcional) Ligue a nuvem", "(Optional) Turn on the cloud"), d: tt("Para a família toda ver as mesmas listas em vários aparelhos.", "So the whole family sees the same lists on many devices."), done: () => safe(() => FB.has()), go: ["settings", "cloud"] });
     return L;
@@ -6569,10 +7032,19 @@ const Offline = {
     toast("✓ " + tt("Pronto: o app abre mesmo sem internet.", "Done: the app opens even offline."), 4500); render();
   },
   async clear() { await this.sw({ type: "clear" }); lsDel(this.KEY); toast(tt("Cópia apagada.", "Copy deleted.")); render(); },
+  /* computador: qual navegador, para explicar o caminho certo quando não der em um clique */
+  pc() { return Voice.desktop() && !this.ios(); },
+  browser() { const u = navigator.userAgent; return /Edg\//.test(u) ? "edge" : /OPR\//.test(u) ? "opera" : /Firefox\//.test(u) ? "firefox" : /Chrome\//.test(u) ? "chrome" : /Safari\//.test(u) && /Mac/.test(u) ? "safari" : "outro"; },
   async install() {
-    if (this.installed()) return toast(tt("Já está na tela inicial.", "Already on the home screen."));
-    if (this.bip) { this.bip.prompt(); try { const c = await this.bip.userChoice; if (c && c.outcome === "accepted") toast("✓ " + tt("Ícone criado na tela inicial.", "Icon added to the home screen.")); } catch (e) {} this.bip = null; render(); return; }
-    Help.open(this.ios() ? "atalho-ios" : "atalho-android");
+    if (this.installed()) return toast(this.pc() ? tt("Você já está usando o app instalado no computador ✓", "You're already using the installed app on this computer ✓") : tt("Já está na tela inicial.", "Already on the home screen."));
+    if (this.bip) { this.bip.prompt(); try { const c = await this.bip.userChoice; if (c && c.outcome === "accepted") { S.prefs.pcInst = 1; savePrefs(); toast("✓ " + (this.pc() ? tt("Instalado! O ícone do OmniLifeONE está na área de trabalho e no menu Iniciar (no Mac, na pasta Aplicativos).", "Installed! The OmniLifeONE icon is on your desktop and Start menu (on Mac, in Applications).") : tt("Ícone criado na tela inicial.", "Icon added to the home screen.")), 6000); } } catch (e) {} this.bip = null; render(); return; }
+    Help.open(this.pc() ? "atalho-pc" : this.ios() ? "atalho-ios" : "atalho-android");
+  },
+  /* cartão no Início, só no computador, enquanto não estiver instalado (some com "Agora não") */
+  pcCard() {
+    if (!this.pc() || this.installed() || S.prefs.pcHide || S.prefs.pcInst || S.mode === "visitor") return "";
+    const one = !!this.bip || this.browser() === "chrome" || this.browser() === "edge";
+    return '<div class="card pcinst"><div class="pci">' + ico("monitor") + '</div><div class="pct"><b>' + tt("Use como app no computador", "Use it as an app on your computer") + "</b><span>" + tt("Ícone na área de trabalho, janela própria e abre direto — sem procurar no navegador.", "Desktop icon, its own window, opens directly — no hunting in the browser.") + '</span></div><div class="row"><button class="btn sm" data-act="off.install">' + (one ? tt("Instalar agora", "Install now") : tt("Ver como instalar", "See how to install")) + '</button><button class="btn ghost sm" data-act="pc.hide">' + tt("Agora não", "Not now") + "</button></div></div>";
   },
   /* plano B só no computador: um arquivo .html com o app todo */
   async download() {
@@ -6585,11 +7057,12 @@ const Offline = {
   view() {
     const m = this.meta(), inst = this.installed();
     const size = m.bytes ? (m.bytes / 1048576).toFixed(1).replace(".", ",") + " MB" : "";
-    return '<div class="card"><h3>📲 ' + tt("Usar sem internet", "Use offline") + '</h3><p class="small muted">' + tt("Com sinal, o app abre sempre a versão mais nova da web; sem sinal, abre a cópia guardada no aparelho — sozinho, sem você escolher.", "Online, the app always opens the newest web version; offline, it opens the copy saved on this device — automatically.") + "</p>" +
+    return '<div class="card"><h3>' + (this.pc() ? "💻 " + tt("App no computador e sem internet", "Computer app & offline") : "📲 " + tt("Usar sem internet", "Use offline")) + '</h3><p class="small muted">' + tt("Com sinal, o app abre sempre a versão mais nova da web; sem sinal, abre a cópia guardada no aparelho — sozinho, sem você escolher.", "Online, the app always opens the newest web version; offline, it opens the copy saved on this device — automatically.") + "</p>" +
       '<div class="list">' +
       '<div class="li"><div class="ico">💾</div><div class="main"><div class="t">' + tt("Cópia no aparelho", "Copy on this device") + '</div><div class="s">' + (m.at ? tt("versão ", "version ") + esc(m.v) + tt(", salva em ", ", saved on ") + fmtDate(m.at.slice(0, 10)) + (size ? " · " + size : "") : tt("ainda não salva", "not saved yet")) + '</div></div><div class="row">' + (m.at ? '<button class="btn ghost sm" data-act="off.save">' + tt("Atualizar", "Update") + '</button><button class="btn ghost sm" data-act="off.clear">' + tt("Apagar", "Delete") + "</button>" : '<button class="btn sm" data-act="off.save">' + tt("Salvar no aparelho", "Save to device") + "</button>") + "</div></div>" +
-      '<div class="li"><div class="ico">🏠</div><div class="main"><div class="t">' + tt("Ícone na tela inicial", "Home-screen icon") + '</div><div class="s">' + (inst ? tt("Já está na tela inicial ✓", "Already on the home screen ✓") : this.ios() ? tt("iPhone/iPad: 3 passos no Safari", "iPhone/iPad: 3 steps in Safari") : tt("um toque para criar o atalho", "one tap to create the shortcut")) + "</div></div>" + (inst ? "" : '<button class="btn sm" data-act="off.install">' + tt("Criar atalho", "Create shortcut") + "</button>") + "</div>" +
-      (Voice.desktop() ? '<div class="li"><div class="ico">📄</div><div class="main"><div class="t">' + tt("Baixar cópia (arquivo)", "Download a copy (file)") + '</div><div class="s">' + tt("Só no computador. Guarda os dados separados do site.", "Computer only. Keeps data separate from the site.") + '</div></div><button class="btn ghost sm" data-act="off.download">' + tt("Baixar", "Download") + "</button></div>" : "") +
+      (this.pc() ? '<div class="li"><div class="ico">💻</div><div class="main"><div class="t">' + tt("App no computador (ícone na área de trabalho)", "App on your computer (desktop icon)") + '</div><div class="s">' + (inst ? tt("Instalado ✓ — você está usando o app", "Installed ✓ — you're using the app") : tt("Abre em janela própria, com ícone na área de trabalho, na barra de tarefas/Dock e no menu Iniciar. Botão direito no ícone: atalhos para Lista, Cheguei, Inbox e Lembrete.", "Opens in its own window, with an icon on the desktop, taskbar/Dock and Start menu. Right-click the icon for shortcuts to List, Check-in, Inbox and Reminder.")) + "</div></div>" + (inst ? "" : '<button class="btn sm" data-act="off.install">💻 ' + tt("Instalar", "Install") + "</button>") + "</div>"
+      : '<div class="li"><div class="ico">🏠</div><div class="main"><div class="t">' + tt("Ícone na tela inicial", "Home-screen icon") + '</div><div class="s">' + (inst ? tt("Já está na tela inicial ✓", "Already on the home screen ✓") : this.ios() ? tt("iPhone/iPad: 3 passos no Safari", "iPhone/iPad: 3 steps in Safari") : tt("um toque para criar o atalho", "one tap to create the shortcut")) + "</div></div>" + (inst ? "" : '<button class="btn sm" data-act="off.install">' + tt("Criar atalho", "Create shortcut") + "</button>") + "</div>") +
+      (Voice.desktop() ? '<div class="li"><div class="ico">📄</div><div class="main"><div class="t">' + tt("Baixar cópia (arquivo)", "Download a copy (file)") + '</div><div class="s">' + tt("Plano B, só se o app instalado não servir. Guarda os dados separados do site.", "Plan B, only if the installed app doesn't work. Keeps data separate from the site.") + '</div></div><button class="btn ghost sm" data-act="off.download">' + tt("Baixar", "Download") + "</button></div>" : "") +
       "</div>" + (navigator.onLine ? "" : '<p class="small" style="margin-top:8px">📴 ' + tt("Sem internet agora — usando a cópia do aparelho.", "Offline now — using the copy on this device.") + "</p>") + "</div>";
   }
 };
@@ -6601,6 +7074,21 @@ ACT["off.save"] = () => Offline.save();
 ACT["off.clear"] = () => Offline.clear();
 ACT["off.install"] = () => Offline.install();
 ACT["off.download"] = () => Offline.download();
+/* ---------- mudança de endereço: marceloneco.github.io → solverone.com.br ----------
+   Os dados "só neste aparelho" ficam presos ao endereço (cada endereço tem sua própria memória no
+   navegador). Por isso, no endereço antigo, um aviso pede para guardar um backup; no novo, o app
+   ensina a trazer. Dados na nuvem aparecem sozinhos nos dois. */
+const Move = {
+  onOld() { return /(^|\.)github\.io$/i.test(location.hostname); },
+  onNew() { return location.hostname.replace(/^www\./, "") === SITE_DOMAIN; },
+  card() {
+    if (!this.onOld() || S.mode === "visitor" || S.prefs.moveHide) return "";
+    const cloud = S.mode === "cloud";
+    return '<div class="card warnc"><div class="between"><div><b>🏠 ' + tt("Endereço novo: ", "New address: ") + SITE_DOMAIN + '</b><div class="small">' + (cloud ? tt("Seus dados estão na nuvem e aparecem lá sozinhos. No endereço novo, só vai precisar entrar de novo, ativar a digital e reinstalar o ícone.", "Your data is in the cloud and shows up there automatically. At the new address you just sign in again, re-enable fingerprint and reinstall the icon.") : tt("Seus dados estão só neste aparelho. Guarde um backup agora para levar ao endereço novo (lá: Ajustes → Dados → Importar).", "Your data is only on this device. Save a backup now to take to the new address (there: Settings → Data → Import).")) + '</div></div><div class="row">' + (cloud ? "" : '<button class="btn sm" data-act="bk.export" data-files="1">💾 ' + tt("Guardar meus dados", "Save my data") + "</button>") + '<a class="btn ghost sm" href="https://' + SITE_DOMAIN + location.pathname + '" target="_blank" rel="noopener">' + tt("Abrir o novo", "Open the new one") + ' ↗</a><button class="btn ghost sm" data-act="move.hide">' + tt("Ok", "Ok") + "</button></div></div></div>";
+  }
+};
+ACT["move.hide"] = () => { S.prefs.moveHide = 1; savePrefs(); render(); };
+ACT["pc.hide"] = () => { S.prefs.pcHide = 1; savePrefs(); render(); toast(tt("Tudo bem. Dá para instalar depois em ⚙ → Sem internet, no ☰ ou pelo AssistONE.", "OK. You can install later in ⚙ → Offline, the ☰ menu or AssistONE."), 5000); };
 
 /* ---------- Avisos da plataforma (recados.json na raiz do repositório) ----------
    Para falar com todo mundo sem servidor: o administrador sobe o recados.json. Cada aviso tem
@@ -6704,6 +7192,7 @@ SCREENS.home = {
       '<button data-act="chk.arrive"><span class="qi ok">' + ico("pin") + '</span><span class="ql">' + tt("Cheguei", "I'm here") + "</span></button>" +
       '<button data-act="go" data-tab="inbox"><span class="qi info">' + ico("inbox") + "</span>" + (nIn ? '<span class="qn hot">' + nIn + "</span>" : "") + '<span class="ql">Inbox</span></button>' +
       '<button data-act="rem.new"><span class="qi warn">' + ico("zap") + '</span><span class="ql">' + tt("Lembrete rápido", "Quick reminder") + "</span></button></div>";
+    h += Move.card() + Offline.pcCard();
     h += '<div class="quickadd">' + ico("plus") + '<input type="text" id="addin" placeholder="' + tt("Pôr na lista: leite, pão 2…", "Add to list: milk, bread 2…") + '" autocomplete="off" aria-label="' + tt("Pôr na lista", "Add to list") + '"><button class="mic iconbtn" data-act="shop.voice" aria-label="' + tt("Falar", "Speak") + '">' + ico("mic") + '</button><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div>";
     const sc = [["leave", tt("Estou saindo", "I'm leaving"), "chk.leave"], ["where", tt("Onde está?", "Where is it?"), "go:house:where"]];
     if (!isChild()) sc.push(["spark", tt("Colar e organizar", "Paste & organize"), "go:contacts:parse"]);
@@ -6753,7 +7242,7 @@ const Setup = {
       [Where.places().length > 0, "🗺", tt("Mapear a casa (Onde está?)", "Map the house (Where is it?)"), ["house", "where"]],
       [DB.all("docs").length > 0, "🗂️", tt("Guardar os documentos", "Store documents"), ["docs"]],
       [S.mode !== "local" || FB.has(), "☁️", tt("Ligar a nuvem para sincronizar", "Enable cloud sync"), ["settings", "cloud"]]
-    ].concat(Voice.desktop() ? [] : [[Offline.installed() || !!Offline.meta().at, "📲", tt("Usar sem internet e ícone na tela inicial", "Use offline and home-screen icon"), ["settings", "offline"]]]);
+    ].concat(Offline.pc() ? [[Offline.installed() || !!S.prefs.pcInst, "💻", tt("Instalar como app no computador", "Install as an app on this computer"), ["settings", "offline"]]] : []).concat(Voice.desktop() ? [] : [[Offline.installed() || !!Offline.meta().at, "📲", tt("Usar sem internet e ícone na tela inicial", "Use offline and home-screen icon"), ["settings", "offline"]]]);
   },
   card() {
     const st = this.steps(); const done = st.filter((x) => x[0]).length;
@@ -6769,7 +7258,7 @@ ACT["setup.hide"] = () => { S.prefs.hideSetup = true; savePrefs(); render(); };
 SCREENS.settings = {
   render(sub) {
     sub = sub || "general";
-    const segs = [["general", "⚙️ " + tt("Geral", "General")], ["cloud", "☁️ " + tt("Nuvem", "Cloud")], ["ai", "🤖 IA"], ["a11y", "♿ " + tt("Acessibilidade", "Accessibility")], ["net", "📶 " + tt("Rede", "Network")], ["offline", "📲 " + tt("Sem internet", "Offline")], ["alerts", "🔔 " + tt("Avisos", "Alerts")], ["integr", "🔗 " + tt("Integrações", "Integrations")], ["data", "💾 " + tt("Dados", "Data")], ["versions", "🆕 " + tt("Versões", "Versions") + (Versions.isNew() ? ' <span class="nbadge">1</span>' : "")]];
+    const segs = [["general", "⚙️ " + tt("Geral", "General")], ["cloud", "☁️ " + tt("Nuvem", "Cloud")], ["ai", "🤖 IA"], ["a11y", "♿ " + tt("Acessibilidade", "Accessibility")], ["net", "📶 " + tt("Rede", "Network")], ["offline", Offline.pc() ? "💻 " + tt("App e sem internet", "App & offline") : "📲 " + tt("Sem internet", "Offline")], ["alerts", "🔔 " + tt("Avisos", "Alerts")], ["integr", "🔗 " + tt("Integrações", "Integrations")], ["data", "💾 " + tt("Dados", "Data")], ["versions", "🆕 " + tt("Versões", "Versions") + (Versions.isNew() ? ' <span class="nbadge">1</span>' : "")]];
     if (S.mode === "advertiser") return '<div class="pagehead"><h1>⚙️ ' + tt("Ajustes", "Settings") + "</h1></div>" + SetViews.general();
     return '<div class="pagehead"><h1>⚙️ ' + tt("Ajustes", "Settings") + "</h1></div>" + '<div class="seg segscroll">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="settings" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" + Compat.view() + (SetViews[sub] || SetViews.general)();
   }
@@ -6828,7 +7317,7 @@ const SetViews = {
   },
   integr() {
     const mt = Bridge.cfg();
-    return '<div class="card"><h3>💰 MoneyTrio (BudgetONE)</h3><p class="small">' + tt("Ao finalizar uma compra ou registrar uma manutenção com custo, o OmniLifeONE deixa o lançamento numa “ponte” no seu navegador. O MoneyTrio (mesmo endereço marceloneco.github.io) importa de lá — o gasto e os preços de referência. Os repositórios continuam separados.", "When you finish a purchase or log a maintenance cost, OmniLifeONE leaves the entry on a “bridge” in your browser. MoneyTrio (same address) imports it — the expense and reference prices. Repositories stay separate.") + '</p><label class="check"><input type="checkbox" data-chg="mt.on"' + (mt.enabled ? " checked" : "") + "> " + tt("Enviar gastos para o MoneyTrio", "Send expenses to MoneyTrio") + '</label><div class="fgrid" style="margin-top:8px"><label class="fld"><span>' + tt("Grupo do mercado", "Groceries group") + '</span><select id="mtg">' + ["HABITACAO", "PESSOAL", "DEPENDENTES", "SAUDE", "LAZER"].map((g) => '<option value="' + g + '"' + (mt.grupo === g ? " selected" : "") + ">" + g + "</option>").join("") + '</select></label><label class="fld"><span>' + tt("Subtipo", "Subtype") + '</span><input type="text" id="mts" value="' + esc(mt.sub) + '"></label></div><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="mt.save">' + tt("Salvar", "Save") + '</button><a class="btn ghost sm" href="https://marceloneco.github.io/investify-me/" target="_blank" rel="noopener">' + tt("Abrir MoneyTrio", "Open MoneyTrio") + '</a></div><p class="tiny faint" style="margin-top:6px">' + tt("Na ponte agora: ", "In the bridge now: ") + Bridge.pending() + tt(" lançamento(s) aguardando o MoneyTrio. ", " entries waiting for MoneyTrio. ") + (Bridge.hasMoneyTrio() ? tt("Preços de referência do MoneyTrio: ", "MoneyTrio reference prices: ") + Bridge.mtPrices().length : tt("MoneyTrio ainda não usado neste navegador.", "MoneyTrio not used in this browser yet.")) + "</p></div>" +
+    return '<div class="card"><h3>💰 MoneyTrio (BudgetONE)</h3><p class="small">' + tt("Ao finalizar uma compra ou registrar uma manutenção com custo, o OmniLifeONE deixa o lançamento numa “ponte” no seu navegador. O MoneyTrio (mesmo endereço marceloneco.github.io) importa de lá — o gasto e os preços de referência. Os repositórios continuam separados.", "When you finish a purchase or log a maintenance cost, OmniLifeONE leaves the entry on a “bridge” in your browser. MoneyTrio (same address) imports it — the expense and reference prices. Repositories stay separate.") + '</p><label class="check"><input type="checkbox" data-chg="mt.on"' + (mt.enabled ? " checked" : "") + "> " + tt("Enviar gastos para o MoneyTrio", "Send expenses to MoneyTrio") + '</label><div class="fgrid" style="margin-top:8px"><label class="fld"><span>' + tt("Grupo do mercado", "Groceries group") + '</span><select id="mtg">' + ["HABITACAO", "PESSOAL", "DEPENDENTES", "SAUDE", "LAZER"].map((g) => '<option value="' + g + '"' + (mt.grupo === g ? " selected" : "") + ">" + g + "</option>").join("") + '</select></label><label class="fld"><span>' + tt("Subtipo", "Subtype") + '</span><input type="text" id="mts" value="' + esc(mt.sub) + '"></label></div><div class="row" style="margin-top:8px"><button class="btn ghost sm" data-act="mt.save">' + tt("Salvar", "Save") + '</button><a class="btn ghost sm" href="' + SITE_BASE + 'investify-me/" target="_blank" rel="noopener">' + tt("Abrir MoneyTrio", "Open MoneyTrio") + '</a></div><p class="tiny faint" style="margin-top:6px">' + tt("Na ponte agora: ", "In the bridge now: ") + Bridge.pending() + tt(" lançamento(s) aguardando o MoneyTrio. ", " entries waiting for MoneyTrio. ") + (Bridge.hasMoneyTrio() ? tt("Preços de referência do MoneyTrio: ", "MoneyTrio reference prices: ") + Bridge.mtPrices().length : tt("MoneyTrio ainda não usado neste navegador.", "MoneyTrio not used in this browser yet.")) + "</p></div>" +
       '<div class="card"><h3>🗣 ' + tt("Alexa / Google Assistente", "Alexa / Google Assistant") + '</h3><p class="small">' + tt("Dentro do app, use o 🎤 para perguntar “onde está a chave reserva?” ou falar itens da lista. A integração com a Alexa da casa (skill própria) exige um servidor e publicação na Amazon; a estrutura de perguntas e respostas já está pronta para essa etapa.", "Inside the app, use 🎤 to ask “where's the spare key?” or dictate list items. Integrating with Alexa (a custom skill) needs a server and Amazon publishing; the Q&A structure is ready for that step.") + "</p></div>" +
       '<div class="card"><h3>📁 Google Drive / OneDrive</h3><p class="small">' + tt("A família já sincroniza pela nuvem Firebase. Para ter uma cópia extra no seu Google Drive, use o botão abaixo (precisa ter entrado com Google). Para OneDrive, exporte o backup (Dados → Exportar) e salve pelo celular.", "The family already syncs through Firebase. For an extra copy in your Google Drive use the button below (requires Google sign-in). For OneDrive, export the backup (Data → Export) and save it from your phone.") + '</p><button class="btn ghost sm" data-act="drive.backup">📁 ' + tt("Salvar backup no Google Drive", "Save backup to Google Drive") + "</button></div>" +
       '<div class="card"><h3>🛒 ' + tt("Mercados e delivery", "Stores & delivery") + '</h3><p class="small">' + tt("Em Compras → Onde comprar você compara preços que a família registrou e abre a busca de cada item em lojas online. Carrinho automático em mercados parceiros fica pronto para quando houver API oficial.", "In Shopping → Where to buy you compare logged prices and open each item's search in online stores. Auto-filled carts need official partner APIs.") + "</p></div>";

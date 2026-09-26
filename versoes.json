@@ -1,5 +1,60 @@
 [
  {
+  "v": "2.3.0",
+  "d": "2026-09-25",
+  "hora": "21:23:00",
+  "pt": [
+   "🛡 Administração segura entre os responsáveis: chefe não rebaixa nem remove outro chefe sozinho (outro chefe aprova, ou vale em 48 h se ninguém vetar; a pessoa pode vetar)",
+   "🔔 Todos os chefes são avisados de mudanças sensíveis; passar a criação da família só vale quando a outra pessoa aceita",
+   "🔑 Ajudar a entrar de novo: e-mail de troca de senha, convite de uso único para a mesma pessoa, ou limpar o PIN no modo deste aparelho",
+   "🆘 Acesso de emergência ao cofre com espera e código entregue ao contato de confiança",
+   "📱 Aparelhos conectados, com desconectar à distância",
+   "🎓 Criança que cresce: aviso para passar a adulto na idade escolhida",
+   "🏠🏠 Duas casas (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga",
+   "🧭 Quem cuida de cada área (Compras, Saúde, Casa…)",
+   "🌐 Pronto para o novo endereço solverone.com.br, com aviso para guardar os dados de quem usa só no aparelho"
+  ],
+  "en": [
+   "🛡 Safe administration among adults: a head can't demote or remove another head alone (another head approves, or it applies in 48 h unless vetoed; the person can veto)",
+   "🔔 All heads are notified of sensitive changes; handing over family ownership only happens when the other person accepts",
+   "🔑 Help someone back in: password e-mail, single-use invite for the same person, or clear the PIN in this-device mode",
+   "🆘 Emergency vault access with a waiting period and a code handed to a trusted contact",
+   "📱 Connected devices, with remote disconnect",
+   "🎓 Growing up: prompt to switch to adult at the chosen age",
+   "🏠🏠 Two homes (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted",
+   "🧭 Who looks after each area (Shopping, Health, Home…)",
+   "🌐 Ready for the new address solverone.com.br, with a prompt to save data for this-device users"
+  ]
+ },
+ {
+  "v": "2.2.0",
+  "d": "2026-09-25",
+  "hora": "20:49:00",
+  "pt": [
+   "💻 Instalar como app no computador: ícone na área de trabalho, janela própria, barra de tarefas/Dock e menu Iniciar — em um clique no Chrome e no Edge, com passo a passo para Safari (Mac) e Firefox",
+   "Aviso no Início (só no computador, some com “Agora não”), item no ☰, passo no AssistONE e na busca",
+   "Botão direito no ícone do app: atalhos para Lista, Cheguei, Inbox e Agenda"
+  ],
+  "en": [
+   "💻 Install as an app on your computer: desktop icon, own window, taskbar/Dock and Start menu — one click in Chrome and Edge, with steps for Safari (Mac) and Firefox",
+   "Notice on Home (computer only, hidden with “Not now”), ☰ item, AssistONE step and search",
+   "Right-click the app icon: shortcuts to List, Check-in, Inbox and Calendar"
+  ]
+ },
+ {
+  "v": "2.1.1",
+  "d": "2026-09-25",
+  "hora": "20:42:00",
+  "pt": [
+   "💡 AssistONE dobra de tamanho quando você toca nele",
+   "O balão começa com a ajuda da tela onde você está, com atalhos para o que dá para fazer ali (ex.: na Lista, “Adicionar falando”)"
+  ],
+  "en": [
+   "💡 AssistONE doubles in size when you tap it",
+   "The balloon starts with help for the screen you're on, with shortcuts for what you can do there (e.g. on the List, “Add by voice”)"
+  ]
+ },
+ {
   "v": "2.1.0",
   "d": "2026-09-25",
   "hora": "19:27:00",

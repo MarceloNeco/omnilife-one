@@ -44,7 +44,31 @@ service cloud.firestore {
         return d.affectedKeys().hasOnly(['members']) && m.addedKeys().size() == 0 && m.changedKeys().size() == 0
           && m.removedKeys().hasOnly([request.auth.uid]) && request.auth.uid != resource.data.owner;
       }
-      allow update: if (isAdmin(fid) && ownerOk()) || (isGuardian(fid) && guardianAddsMember()) || (isMember(fid) && leavingSelf());
+      // Chefe não rebaixa nem remove outro chefe sozinho: precisa de pedido (gov/hd_<uid>) aprovado por outro chefe
+      // ou vencido (48 h) sem veto. Mudar a si mesmo ou quem não é chefe continua direto.
+      function govOk(t) {
+        let p = /databases/$(database)/documents/families/$(fid)/gov/$('hd_' + t);
+        return exists(p) && (get(p).data.status == 'aprovado' || (get(p).data.status == 'pendente' && get(p).data.execAfterMs < request.time.toMillis()));
+      }
+      function headsOk() {
+        let m = request.resource.data.members.diff(resource.data.members);
+        let ch = m.changedKeys().union(m.removedKeys());
+        return ch.size() == 0 || (ch.size() == 1 && (resource.data.members[ch.toList()[0]].role != 'admin'
+          || ch.toList()[0] == request.auth.uid
+          || (ch.toList()[0] in request.resource.data.members && request.resource.data.members[ch.toList()[0]].role == 'admin')
+          || govOk(ch.toList()[0])));
+      }
+      // Acesso de emergência: o contato de emergência libera o próprio acesso ao cofre só depois da espera, se ninguém vetou.
+      function emergencySelf() {
+        let d = request.resource.data.diff(resource.data);
+        let m = request.resource.data.members.diff(resource.data.members);
+        let p = /databases/$(database)/documents/families/$(fid)/gov/$('em_' + request.auth.uid);
+        return d.affectedKeys().hasOnly(['members']) && m.changedKeys().hasOnly([request.auth.uid]) && m.addedKeys().size() == 0 && m.removedKeys().size() == 0
+          && request.resource.data.members[request.auth.uid].diff(resource.data.members[request.auth.uid]).affectedKeys().hasOnly(['emergencyVault'])
+          && request.auth.uid in resource.data.policy.emContacts
+          && exists(p) && get(p).data.status == 'pendente' && get(p).data.execAfterMs < request.time.toMillis();
+      }
+      allow update: if (isAdmin(fid) && ownerOk() && headsOk()) || (isGuardian(fid) && guardianAddsMember()) || (isMember(fid) && leavingSelf()) || (isMember(fid) && emergencySelf());
       allow delete: if signedIn() && resource.data.owner == request.auth.uid;
 
       // Convites: quem tem o código (o segredo) consegue ler aquele convite; só chefes e responsáveis criam e revogam.
@@ -64,7 +88,46 @@ service cloud.firestore {
         allow create: if isMember(fid) && request.resource.data.byUid == request.auth.uid;
       }
       match /vault/{id} {
-        allow read, write: if isGuardian(fid);
+        allow read: if isGuardian(fid) || (isMember(fid) && fam(fid).members[request.auth.uid].emergencyVault == true);
+        allow write: if isGuardian(fid);
+      }
+      // Pedidos de governança (rebaixar/remover chefe, passar a criação, emergência).
+      function govNew(gid) {
+        let g = request.resource.data;
+        return g.by == request.auth.uid && g.status == 'pendente' && (
+          (isAdmin(fid) && g.type in ['rebaixar', 'remover'] && gid == 'hd_' + g.target && g.execAfterMs >= request.time.toMillis() + 47 * 3600000)
+          || (isAdmin(fid) && g.type == 'transferir' && request.auth.uid == fam(fid).owner)
+          || (isMember(fid) && g.type == 'emergencia' && gid == 'em_' + request.auth.uid && request.auth.uid in fam(fid).policy.emContacts
+              && g.execAfterMs >= request.time.toMillis() + fam(fid).policy.emWaitDays * 86400000 - 3600000));
+      }
+      function govAnswer() {
+        let d = request.resource.data.diff(resource.data);
+        let s = request.resource.data.status;
+        return d.affectedKeys().hasOnly(['status', 'approvals', 'answeredAt', 'doneAt']) && (
+          (resource.data.target == request.auth.uid && s in ['aceito', 'recusado', 'vetado'])
+          || (resource.data.by == request.auth.uid && s in ['cancelado', 'executado', 'liberado'])
+          || (isAdmin(fid) && s == 'aprovado' && resource.data.by != request.auth.uid && resource.data.target != request.auth.uid)
+          || (isGuardian(fid) && s == 'vetado' && resource.data.by != request.auth.uid)
+          || (isAdmin(fid) && s == 'executado'));
+      }
+      match /gov/{gid} {
+        allow read: if isMember(fid);
+        allow create: if govNew(gid);
+        allow update: if govAnswer() || (resource.data.status in ['vetado', 'cancelado', 'executado', 'recusado', 'liberado'] && govNew(gid));
+      }
+      // Aparelhos conectados: cada um registra o seu; chefe desconecta; o aparelho não se "religa" sozinho.
+      match /devices/{did} {
+        allow read: if isGuardian(fid) || (isMember(fid) && resource.data.uid == request.auth.uid);
+        allow create: if isMember(fid) && request.resource.data.uid == request.auth.uid && !('revoked' in request.resource.data);
+        allow update: if isAdmin(fid) || (isMember(fid) && resource.data.uid == request.auth.uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['revoked', 'revokedBy', 'revokedAt', 'uid']))
+          || (isMember(fid) && resource.data.uid == request.auth.uid && request.resource.data.revoked == true);
+        allow delete: if isAdmin(fid);
+      }
+      // Duas casas: registro de combinados só recebe itens novos; ninguém edita nem apaga.
+      match /comsg/{id} {
+        allow read: if isMember(fid);
+        allow create: if isAdult(fid) && request.resource.data.at is string;
       }
       match /requests/{id} {
         allow read: if isMember(fid) && visOk(fid, resource.data);
@@ -78,10 +141,10 @@ service cloud.firestore {
         allow write: if isMember(fid);
       }
       match /{col}/{id} {
-        allow read: if !(col in ['vault', 'joinRequests', 'invites', 'audit']) && isMember(fid) && visOk(fid, resource.data);
-        allow create, update: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit'])
+        allow read: if !(col in ['vault', 'joinRequests', 'invites', 'audit', 'gov', 'devices', 'comsg']) && isMember(fid) && visOk(fid, resource.data);
+        allow create, update: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit', 'gov', 'devices', 'comsg'])
           && (isAdult(fid) || (isMember(fid) && col in ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files', 'checkins']));
-        allow delete: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit']) && isAdult(fid);
+        allow delete: if !(col in ['vault', 'requests', 'joinRequests', 'invites', 'audit', 'gov', 'devices', 'comsg']) && isAdult(fid);
       }
     }
   }

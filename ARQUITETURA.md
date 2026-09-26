@@ -1,7 +1,7 @@
 # OmniLifeONE — arquitetura (leia antes de mexer)
 
 Briefing para qualquer pessoa ou IA que for alterar este repositório.
-Site estático no GitHub Pages (marceloneco.github.io/omnilife-one). Sem servidor, sem build,
+Site estático no GitHub Pages: solverone.com.br/omnilife-one (antes marceloneco.github.io/omnilife-one; o GitHub redireciona). Sem servidor, sem build,
 sem framework: HTML, CSS e JavaScript puros.
 
 ## Arquivos
@@ -52,6 +52,9 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Sess` — sessão da aba (recarregar não pede PIN por 30 min) e volta ao mesmo lugar depois de entrar.
 - `Batch` — vários arquivos de uma vez (Documentos), com fila, duplicados e conferência.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento.
+- `Gov` — governança da família (nuvem): pedidos em `families/{fid}/gov` — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<fid>` (passar a criação: só com aceite), `em_<uid>` (acesso de emergência ao cofre com espera). `Gov.tick()` executa o que ficou pronto. As regras do Firebase garantem (govOk, headsOk, emergencySelf).
+- `Devices` — aparelhos conectados (`families/{fid}/devices`), desconectar à distância. `Grow` — criança que cresce (idade em `policy.gradAge` / `settings.gradAge`). `Areas` — quem cuida de cada área (`settings.areaOwners`). `Duas` — duas casas: `settings.duas`, coleções `coexp` (despesas) e `comsg` (registro que só recebe itens novos).
+- `Move` + `SITE_BASE`/`SITE_DOMAIN` — mudança para solverone.com.br: links usam o próprio endereço; no endereço antigo, aviso para guardar backup.
 - `AOne` — AssistONE: personagem flutuante (ligado por padrão, `S.prefs.aone`), balões (começar/wizard, tour, busca com `Search.find` + "você quis dizer", ajuda da tela), dicas por tela uma vez só, cartão em ⚙ → Geral. Chamado no fim de `render()` por `AOne.after()`.
 
 ## Publicar uma versão nova
