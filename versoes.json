@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.8.0",
+  "d": "2026-09-26",
+  "hora": "19:50:00",
+  "pt": [
+   "🔑 Ida e volta ao site da chave de IA: o botão “Abrir o site ↗” guarda onde você estava; ao voltar (mesmo com a aba recarregada ou o app reaberto), o cofre reabre no mesmo provedor com o botão “📋 Colar”. No computador o site abre numa janela na metade direita e o cofre fica à esquerda",
+   "🔁 Quando um provedor fica sem cota ou créditos, o app tenta todos os outros que têm chave e o mesmo recurso (foto → texto, texto e voz 🎤), avisando qual está usando; só depois cai para a leitura no próprio aparelho",
+   "🤖 Claude (Anthropic) no cofre com os modelos atuais (Opus 5 e Sonnet 5 de reserva): pago por uso, sem plano grátis na API — o guia mostra o passo a passo",
+   "🎒 Grade escolar: na conferência o app pergunta para quem é — escolha na lista da família ou digite um nome (quem ainda não está cadastrado, ou um menor sem usuário); dá para ter várias grades, com ＋ Nova grade"
+  ],
+  "en": [
+   "🔑 Round trip to the AI key site: “Open the site ↗” remembers where you were; when you come back (even if the tab reloaded or the app was reopened), the vault reopens on the same provider with a “📋 Paste” button. On computers the site opens in a window on the right half and the vault stays on the left",
+   "🔁 When a provider runs out of quota or credits, the app tries every other one with a key and the same capability (photo → text, text and voice 🎤), saying which one it's using; only then does it fall back to on-device reading",
+   "🤖 Claude (Anthropic) in the vault with the current models (Opus 5, Sonnet 5 as backup): pay as you go, no free API tier — the guide shows the steps",
+   "🎒 School timetable: on the review screen the app asks whose it is — pick from the family list or type a name (someone not registered yet, or a minor without a login); you can keep several timetables, with ＋ New timetable"
+  ]
+ },
+ {
   "v": "2.7.0",
   "d": "2026-09-26",
   "hora": "18:40:00",
