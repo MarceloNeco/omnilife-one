@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.4.7",
+  "d": "2026-09-26",
+  "hora": "14:40:00",
+  "pt": [
+   "🔑 Chave de IA com formato diferente do esperado (ex.: ElevenLabs sem “sk_”) não é mais barrada: o app testa direto no provedor e salva se ele aceitar"
+  ],
+  "en": [
+   "🔑 AI keys in an unexpected format (e.g. ElevenLabs without “sk_”) are no longer blocked: the app tests them with the provider and saves them if accepted"
+  ]
+ },
+ {
   "v": "2.4.6",
   "d": "2026-09-26",
   "hora": "14:20:00",
