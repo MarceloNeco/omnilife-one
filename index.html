@@ -512,6 +512,7 @@ input:focus,select:focus,textarea:focus{background:var(--surface)}
 .seg button{border-radius:11px;padding:8px 12px}
 .seg button.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
 /* Abas que não cabem: a borda do lado que tem mais esmaece e aparece um botão ‹ › de vidro */
+.aikeys{font-size:.84rem;padding:10px 12px;border-radius:12px;margin-bottom:10px;background:var(--surface2);color:var(--text2)} .aikeys.on{background:var(--ok-soft);color:var(--text)}
 .segwrap{position:relative;margin-bottom:14px}
 .segwrap>.seg{margin-bottom:0}
 .segwrap.mr>.seg{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 72px),transparent calc(100% - 6px));mask-image:linear-gradient(90deg,#000 calc(100% - 72px),transparent calc(100% - 6px))}
@@ -2183,8 +2184,10 @@ const AI = {
     People.list("kids").forEach((p) => [p.name, p.nick].filter(Boolean).sort((a, b) => b.length - a.length).forEach((n) => { if (n.length < 2) return; const code = "[NOME" + (map.length + 1) + "]"; const re = new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"); if (re.test(t)) { t = t.replace(re, code); map.push([code, n]); } }));
     return { t, un: (x) => { let o = typeof x === "string" ? x : JSON.stringify(x); map.forEach(([c, n]) => { o = o.split(c).join(n); }); return typeof x === "string" ? o : JSON.parse(o); } };
   },
-  async fetchRetry(url, opt) {
-    const waits = [6000, 15000, 30000];
+  async fetchRetry(url, opt, quick) {
+    /* chamada com "quick" na frente: há outra IA de reserva, então espera pouco antes de desistir desta */
+    if (typeof url === "boolean" || url === undefined) { const q = url; url = opt; opt = quick; quick = q; }
+    const waits = quick ? [3000] : [6000, 15000, 30000];
     for (let i = 0; ; i++) {
       const r = await fetch(url, opt);
       if ((r.status === 429 || r.status === 503) && i < waits.length) { toast("⏳ " + tt("A IA está ocupada, tentando de novo…", "AI is busy, retrying…"), 3000); await new Promise((ok) => setTimeout(ok, waits[i])); continue; }
@@ -2195,36 +2198,52 @@ const AI = {
   async ask(prompt, images, json) {
     if (!Net.canAI()) throw new Error(Net.cfg().ia === "nunca" ? tt("A IA está desligada em Ajustes → Rede e dados.", "AI is turned off in Settings → Network.") : tt("A IA está desligada nos dados móveis (Ajustes → Rede e dados). Conecte no Wi-Fi ou mude a opção.", "AI is off on mobile data (Settings → Network). Use Wi-Fi or change the option."));
     const hasImg = images && images.some((im) => /^image\//.test(im.mime));
-    const id = (hasImg && this.provedorPara("visao")) || this.prov(), P = this.P(id), key = this.key(id);
-    if (!key) throw new Error(tt("Configure a IA em Ajustes → IA.", "Set up AI in Settings → AI."));
+    const first = (hasImg && this.provedorPara("visao")) || this.prov();
+    if (!this.key(first)) throw new Error(tt("Configure a IA em Ajustes → IA.", "Set up AI in Settings → AI."));
     const mk = this.mask(prompt);
+    /* se a IA escolhida esgotou a cota grátis, os créditos ou recusou a chave, chaveia para a
+       próxima que tem chave (na ordem de ORDER); com reserva disponível, não fica esperando 51 s */
+    const cap = hasImg ? "visao" : "texto";
+    const ids = [first].concat(this.ORDER[cap].filter((x) => x !== first && Keys.get(x) && (x !== "custom" || this.base(x))));
+    let txt;
+    for (let i = 0; i < ids.length; i++) {
+      try { txt = await this.run(ids[i], mk, images, json, hasImg, i < ids.length - 1); break; }
+      catch (e) {
+        if (!e.status || i === ids.length - 1) throw e;
+        toast("🔁 " + this.P(ids[i]).name + " " + ([402, 429].includes(e.status) ? tt("está sem cota agora", "is out of quota right now") : tt("não respondeu", "didn't respond")) + " — " + tt("usando ", "using ") + this.P(ids[i + 1]).name, 4000);
+      }
+    }
+    txt = mk.un(txt);
+    if (!json) return txt;
+    try { return JSON.parse(txt); } catch (e) { const m = txt.match(/[\[{][\s\S]*[\]}]/); return m ? JSON.parse(m[0]) : null; }
+  },
+  /* um provedor: modelo escolhido e, se falhar, o modelo reserva dele */
+  async run(id, mk, images, json, hasImg, quick) {
+    const P = this.P(id), key = this.key(id);
     const once = async (model) => {
       if (P.fmt === "gemini") {
         const parts = [{ text: mk.t }]; (images || []).forEach((im) => parts.push({ inline_data: { mime_type: im.mime, data: im.b64 } }));
         const body = { contents: [{ role: "user", parts }], generationConfig: json ? { responseMimeType: "application/json", temperature: 0.2 } : { temperature: 0.5 } };
-        const r = await this.fetchRetry("https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body: JSON.stringify(body) });
+        const r = await this.fetchRetry(quick, "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body: JSON.stringify(body) });
         if (!r.ok) { const e = new Error("IA " + r.status + ": " + (await r.text()).slice(0, 180)); e.status = r.status; throw e; }
         const j = await r.json(); return (((j.candidates || [])[0] || {}).content || { parts: [] }).parts.map((p) => p.text || "").join("");
       }
       if (P.fmt === "anthropic") {
         const content = [{ type: "text", text: mk.t }].concat((images || []).filter((im) => /^image\//.test(im.mime)).map((im) => ({ type: "image", source: { type: "base64", media_type: im.mime, data: im.b64 } })));
-        const r = await this.fetchRetry("https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: "user", content }] }) });
+        const r = await this.fetchRetry(quick, "https://api.anthropic.com/v1/messages", { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" }, body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: "user", content }] }) });
         if (!r.ok) { const e = new Error("IA " + r.status + ": " + (await r.text()).slice(0, 180)); e.status = r.status; throw e; }
         const j = await r.json(); return (j.content || []).map((c) => c.text || "").join("");
       }
       const content = hasImg ? [{ type: "text", text: mk.t }].concat(images.filter((im) => /^image\//.test(im.mime)).map((im) => ({ type: "image_url", image_url: { url: "data:" + im.mime + ";base64," + im.b64 } }))) : mk.t;
       const headers = { "Content-Type": "application/json", Authorization: "Bearer " + key };
       if (id === "openrouter") { headers["HTTP-Referer"] = location.origin; headers["X-Title"] = APP_NAME; }
-      const r = await this.fetchRetry(this.base(id).replace(/\/$/, "") + "/chat/completions", { method: "POST", headers, body: JSON.stringify({ model, messages: [{ role: "user", content }], temperature: json ? 0.2 : 0.5 }) });
+      const r = await this.fetchRetry(quick, this.base(id).replace(/\/$/, "") + "/chat/completions", { method: "POST", headers, body: JSON.stringify({ model, messages: [{ role: "user", content }], temperature: json ? 0.2 : 0.5 }) });
       if (!r.ok) { const e = new Error("IA " + r.status + ": " + (await r.text()).slice(0, 180)); e.status = r.status; throw e; }
       const j = await r.json(); return (((j.choices || [])[0] || {}).message || {}).content || "";
     };
-    const model = this.model(id); let txt;
-    try { txt = await once(model); }
-    catch (e) { if (P.alt && P.alt !== model && [400, 404, 429, 503].includes(e.status)) txt = await once(P.alt); else throw e; }
-    txt = mk.un(txt);
-    if (!json) return txt;
-    try { return JSON.parse(txt); } catch (e) { const m = txt.match(/[\[{][\s\S]*[\]}]/); return m ? JSON.parse(m[0]) : null; }
+    const model = this.model(id);
+    try { return await once(model); }
+    catch (e) { if (P.alt && P.alt !== model && [400, 404, 429, 503].includes(e.status)) return await once(P.alt); throw e; }
   },
   async models(id) {
     id = id || this.prov(); const P = this.P(id), key = this.key(id); if (!key) throw new Error(tt("Cole a chave primeiro.", "Paste the key first."));
@@ -2255,6 +2274,9 @@ const AI = {
       anthropic: () => fetch("https://api.anthropic.com/v1/models", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" } }) };
     const f = H[P.fmt] || H[id] || (() => fetch(this.base(id).replace(/\/$/, "") + "/models", { headers: { Authorization: "Bearer " + key } }));
     const r = await f();
+    /* ElevenLabs cria chaves com permissões escolhidas (ex.: só "Text to Speech"): o teste lê a
+       conta e volta 401 "missing_permissions" — a chave é válida, só não pode ler a conta */
+    if (P.fmt === "elevenlabs" && r.status === 401 && /missing_permissions/i.test(await r.clone().text().catch(() => ""))) return true;
     if (r.status === 401 || r.status === 403) throw new Error(tt("O provedor recusou a chave. Copie inteira de novo ou crie outra.", "The provider rejected the key. Copy it again or create a new one."));
     if (!r.ok) throw new Error(tt("Resposta ", "Response ") + r.status);
     return true;
@@ -2361,7 +2383,8 @@ const KeyVault = {
     if (fromVoice && !AI.canAudio()) h += '<div class="card accent"><h3>🎤 ' + tt("Para a voz funcionar no computador", "To make voice work on a computer") + '</h3><ol class="small"><li>' + tt("Toque em <b>Google Gemini</b> (ou Groq) abaixo e em <b>Abrir o site ↗</b>.", "Tap <b>Google Gemini</b> (or Groq) below, then <b>Open the site ↗</b>.") + "</li><li>" + tt("Crie a chave e copie (o guia mostra onde tocar).", "Create the key and copy it (the guide shows where to tap).") + "</li><li>" + tt("Cole e toque em <b>Salvar e testar</b>. Depois volte e toque no 🎤 de novo.", "Paste and tap <b>Save and test</b>. Then go back and tap 🎤 again.") + "</li></ol></div>";
     h += '<div class="card"><h3>🤖 ' + tt("IA e voz", "AI and voice") + '</h3><p class="small muted">' + tt("Opcional. Sem chave, o app já lê textos e fotos no aparelho. Com uma chave grátis ele entende bilhetes, reconhece itens, transcreve o 🎤 e pode ler com vozes naturais. Cole uma vez: vale para todos os seus apps.", "Optional. Without a key the app already reads text and photos on-device. With a free key it understands notes, recognizes items, transcribes 🎤 and can read with natural voices. Paste once: works in all your apps.") + '</p><div class="note small" style="margin:8px 0 12px"><b>' + tt("Em uso agora:", "In use now:") + "</b> " + now + "</div>" +
       '<div class="chips" style="margin-bottom:10px">' + [["", tt("Todos", "All")]].concat(Object.keys(C).map((c) => [c, C[c][0] + " " + C[c][1]])).map((x) => '<span class="chip' + (f === x[0] ? " on" : "") + '" data-act="keys.filter" data-v="' + x[0] + '">' + x[1] + "</span>").join("") + "</div>" +
-      '<div class="list">' + Object.keys(P).filter((id) => !f || P[id].cap.includes(f)).map((id) => { const p = P[id], has = p.semChave || !!Keys.get(id); return '<div class="li click" data-act="keys.open" data-id="' + id + '"><div class="main"><div class="t">' + esc(p.name) + " " + (p.free === true ? '<span class="badge ok">' + tt("grátis", "free") + "</span>" : p.free === false ? '<span class="badge warn">' + tt("pago", "paid") + "</span>" : "") + (has && !p.semChave ? ' <span class="badge acc">🔑</span>' : "") + '</div><div class="s">' + p.cap.map((c) => C[c][0]).join(" ") + " · " + esc(p.note) + "</div></div>" + ico("chev", "chev") + "</div>"; }).join("") + "</div>" +
+      (() => { const ok = Object.keys(P).filter((id) => !P[id].semChave && Keys.get(id)); return '<div class="aikeys ' + (ok.length ? "on" : "") + '">' + (ok.length ? "✓ " + tt("Com chave salva", "Key saved") + " (" + ok.length + "): <b>" + ok.map((id) => esc(P[id].name)).join(", ") + "</b>" : tt("Nenhuma chave salva ainda — escolha uma IA grátis abaixo.", "No keys saved yet — pick a free AI below.")) + "</div>"; })() +
+      '<div class="list">' + Object.keys(P).filter((id) => !f || P[id].cap.includes(f)).sort((x, y) => (Keys.get(y) && !P[y].semChave ? 1 : 0) - (Keys.get(x) && !P[x].semChave ? 1 : 0)).map((id) => { const p = P[id], has = p.semChave || !!Keys.get(id); return '<div class="li click" data-act="keys.open" data-id="' + id + '"><div class="main"><div class="t">' + esc(p.name) + " " + (p.free === true ? '<span class="badge ok">' + tt("grátis", "free") + "</span>" : p.free === false ? '<span class="badge warn">' + tt("pago", "paid") + "</span>" : "") + (p.semChave ? "" : has ? ' <span class="badge ok">✓ ' + tt("chave salva", "key saved") + "</span>" : ' <span class="badge faint">' + tt("sem chave", "no key") + "</span>") + '</div><div class="s">' + p.cap.map((c) => C[c][0]).join(" ") + " · " + esc(p.note) + "</div></div>" + ico("chev", "chev") + "</div>"; }).join("") + "</div>" +
       '<p class="tiny faint" style="margin-top:10px">🔒 ' + tt("Chaves ficam só neste navegador. Nomes de crianças viram códigos antes de ir para a IA. A resposta da IA pode errar — confira.", "Keys stay in this browser. Children's names become codes before going to the AI. AI answers can be wrong — double-check.") + "</p></div>";
     return h;
   }
