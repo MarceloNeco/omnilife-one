@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.4.8",
+  "d": "2026-09-26",
+  "hora": "15:00:00",
+  "pt": [
+   "🔑 Quando o provedor recusa a chave, o app diz o que houve: sem conexão para testar, ou que o colado não é a chave (ex.: o ID da chave copiado da lista) e como pegar a chave certa"
+  ],
+  "en": [
+   "🔑 When the provider rejects a key, the app says what happened: no connection to test, or that what was pasted isn't the key (e.g. the key ID copied from the list) and how to get the right one"
+  ]
+ },
+ {
   "v": "2.4.7",
   "d": "2026-09-26",
   "hora": "14:40:00",
