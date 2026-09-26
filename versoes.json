@@ -1,5 +1,33 @@
 [
  {
+  "v": "2.7.0",
+  "d": "2026-09-26",
+  "hora": "18:40:00",
+  "pt": [
+   "📷 Compras → Por foto (antes “Geladeira”): tire várias fotos da geladeira, da despensa e do armário de limpeza ou de higiene; o app identifica os produtos já na categoria certa, junta tudo numa lista só e “Atualizar despensa” registra o que tem em casa (a Despensa mostra “📷 visto” com a data)",
+   "🎒 Agenda → Escola: calendário escolar por filho. Tire a foto da grade de aulas presa na geladeira (ou envie imagem/PDF) e a IA monta a grade de cada dia da semana; você confere, corrige e salva. Sem IA, digite uma aula por linha. As aulas de hoje e de amanhã aparecem no Início, e o AssistONE, a busca e a ajuda já conhecem a função"
+  ],
+  "en": [
+   "📷 Shopping → By photo (formerly “Fridge scan”): take several photos of the fridge, the pantry and the cleaning or toiletries cupboard; the app spots the products already in the right category, merges everything into one list and “Update pantry” records what's at home (the Pantry shows “📷 seen” with the date)",
+   "🎒 Calendar → School: a school timetable per child. Photograph the class schedule on the fridge (or send an image/PDF) and the AI builds each weekday's schedule; you check, fix and save. Without AI, type one class per line. Today's and tomorrow's classes show up on Home, and AssistONE, search and help know the feature"
+  ]
+ },
+ {
+  "v": "2.6.0",
+  "d": "2026-09-26",
+  "hora": "17:30:00",
+  "pt": [
+   "✨ Visual mais suave e limpo, pensado para o celular: cantos mais redondos, cartões sem borda com sombra leve, botões redondos no topo, campo “Pôr na lista” em pílula, janelas, menu ☰ e AssistONE no mesmo estilo",
+   "📝 Menos texto na tela: no celular as telas mostram só o título (a explicação de cada tela continua no AssistONE), e as explicações longas de Ajustes, Inbox e cofre de IA ficam recolhidas num “› Saiba mais” — nada foi tirado, só recolhido",
+   "🔔 Avisos rápidos (os balões pretos) menores e mais discretos"
+  ],
+  "en": [
+   "✨ Softer, cleaner look designed for phones: rounder corners, borderless cards with a light shadow, round header buttons, pill-shaped “Add to list” field, dialogs, ☰ menu and AssistONE in the same style",
+   "📝 Less text on screen: on phones each screen shows only its title (the explanation stays in AssistONE), and long explanations in Settings, Inbox and the AI vault are collapsed under “› Learn more” — nothing was removed, only tucked away",
+   "🔔 Quick notices (the black bubbles) are smaller and more discreet"
+  ]
+ },
+ {
   "v": "2.5.0",
   "d": "2026-09-26",
   "hora": "16:10:00",
