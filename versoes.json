@@ -1,5 +1,18 @@
 [
  {
+  "v": "2.4.2",
+  "d": "2026-09-26",
+  "hora": "12:30:00",
+  "pt": [
+   "📱 Android (Samsung Internet): na Barra de atalhos os ícones não ficam mais numa bolinha branca e os cartões não ficam cinza-claro; o ícone do app no topo também não fica mais com fundo claro",
+   "✂️ Nomes da Barra de atalhos cabem inteiros no celular (Documentos, Segurança)"
+  ],
+  "en": [
+   "📱 Android (Samsung Internet): shortcut bar icons no longer sit in a white bubble and cards no longer turn light gray; the app icon at the top no longer gets a light background",
+   "✂️ Shortcut bar names fit in full on phones"
+  ]
+ },
+ {
   "v": "2.4.1",
   "d": "2026-09-26",
   "hora": "12:00:00",
