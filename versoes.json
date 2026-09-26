@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.4.5",
+  "d": "2026-09-26",
+  "hora": "13:50:00",
+  "pt": [
+   "🔁 Se a IA escolhida ficar sem cota grátis, sem créditos ou recusar a chave, o app passa sozinho para a próxima IA que tem chave e avisa na tela qual está usando",
+   "🔑 Ajustes → IA mostra no topo quais IAs já têm chave salva, e elas aparecem primeiro na lista, com o selo “✓ chave salva” (as outras, “sem chave”)",
+   "🔊 ElevenLabs: chaves criadas só com permissão de “Text to Speech” agora são aceitas"
+  ],
+  "en": [
+   "🔁 If the chosen AI runs out of free quota or credits, or rejects the key, the app switches by itself to the next AI with a key and tells you which one it's using",
+   "🔑 Settings → AI shows at the top which AIs have a saved key, listed first with a “✓ key saved” badge (the others, “no key”)",
+   "🔊 ElevenLabs: keys created with only the “Text to Speech” permission are now accepted"
+  ]
+ },
+ {
   "v": "2.4.4",
   "d": "2026-09-26",
   "hora": "00:31:00",
