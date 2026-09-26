@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.6.0",
+  "d": "2026-09-26",
+  "hora": "17:30:00",
+  "pt": [
+   "✨ Visual mais suave e limpo, pensado para o celular: cantos mais redondos, cartões sem borda com sombra leve, botões redondos no topo, campo “Pôr na lista” em pílula, janelas, menu ☰ e AssistONE no mesmo estilo",
+   "📝 Menos texto na tela: no celular as telas mostram só o título (a explicação de cada tela continua no AssistONE), e as explicações longas de Ajustes, Inbox e cofre de IA ficam recolhidas num “› Saiba mais” — nada foi tirado, só recolhido",
+   "🔔 Avisos rápidos (os balões pretos) menores e mais discretos"
+  ],
+  "en": [
+   "✨ Softer, cleaner look designed for phones: rounder corners, borderless cards with a light shadow, round header buttons, pill-shaped “Add to list” field, dialogs, ☰ menu and AssistONE in the same style",
+   "📝 Less text on screen: on phones each screen shows only its title (the explanation stays in AssistONE), and long explanations in Settings, Inbox and the AI vault are collapsed under “› Learn more” — nothing was removed, only tucked away",
+   "🔔 Quick notices (the black bubbles) are smaller and more discreet"
+  ]
+ },
+ {
   "v": "2.5.0",
   "d": "2026-09-26",
   "hora": "16:10:00",

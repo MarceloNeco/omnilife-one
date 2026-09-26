@@ -46,6 +46,8 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Versions` — tela de versões (lê `versoes.json`, com a lista embutida `VERSOES_EMB` como reserva; agrupa por dia).
 - `ICONS` / `ico(nome)` — ícones de traço do cabeçalho, barra de baixo, ☰ e Início (SVG desenhado para o app).
 - CSS "DESIGN 2.0" no fim do `<style>` — camada visual atual (tokens de cor, cartões, Início). Mude cores ali.
+- CSS "DESIGN 2.5" logo depois (v2.6.0) — cantos mais redondos, cartões sem borda, botões redondos no topo, “Saiba mais” recolhível. Para mudar o quanto é redondo, mexa em `--radius` ali. No celular, a frase de subtítulo das telas (`.pagehead .subtxt`) fica escondida por CSS; o `render()` é quem a envolve nesse `span`.
+- `moreBox(título, html)` — explicação longa recolhida num `<details class="more">` (“› Saiba mais”). Use em vez de parágrafos longos de ajuda dentro dos cartões.
 - `CAPS`, `AI_PROV`, `AI`, `aiSTT`, `aiTTS`, `KeyVault` — cofre de chaves com capacidades e guia por provedor.
 - `Offline` — Usar sem internet (fala com o `sw.js` por mensagem) e atalho na tela inicial.
 - `Compat` — quadro de compatibilidade do aparelho/navegador (só aparece com problema).
