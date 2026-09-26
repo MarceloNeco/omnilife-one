@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.4.6",
+  "d": "2026-09-26",
+  "hora": "14:20:00",
+  "pt": [
+   "🔑 Colar chave de IA ficou à prova de erro: tocar no campo seleciona a chave antiga (colar substitui em vez de juntar), espaços e caracteres invisíveis da cópia saem sozinhos, e a chave que o provedor recusa não fica marcada como salva"
+  ],
+  "en": [
+   "🔑 Pasting AI keys is now foolproof: tapping the field selects the old key (paste replaces instead of appending), spaces and invisible characters from copying are removed, and a key the provider rejects is no longer marked as saved"
+  ]
+ },
+ {
   "v": "2.4.5",
   "d": "2026-09-26",
   "hora": "13:50:00",
