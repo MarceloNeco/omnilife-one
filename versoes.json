@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.4.0",
+  "d": "2026-09-25",
+  "hora": "22:40:00",
+  "pt": [
+   "⭐ Barra de atalhos com arrastar e soltar (Ajustes → Geral): monte até 5, troque a ordem arrastando, tire arrastando para fora — salva sozinho; ↺ volta ao padrão (com Desfazer). Também funciona só com toques",
+   "☰ Menu reorganizado em grupos (Dia a dia, Cuidar da família, Casa e papéis, Ajustes, Ajuda e mais), com as partes de cada função num ▸ que abre e fecha, e 4 ações rápidas no topo",
+   "📥 Inbox virou ícone no topo, com bolha colorida: vermelha se houver algo urgente, âmbar se importante, azul no resto. Dentro, tudo por prioridade e depois do mais novo ao mais antigo, incluindo os alertas",
+   "🌐 PT|EN foi para o cabeçalho no computador e para dentro do ☰ no celular; a faixa de cima agora é só do anúncio e some inteira no ×",
+   "🛒 “Pôr na lista” entende melhor a fala (tira “é”, “coloca”, “na lista”, “por favor”…, entende “dois litros de leite”) e confirma na hora, sem janela: “✓ Leite entrou na lista · Ver lista ›”"
+  ],
+  "en": [
+   "⭐ Drag-and-drop shortcut bar (Settings → General): build up to 5, reorder by dragging, drag out to remove — saves by itself; ↺ resets to default (with Undo). Works with taps too",
+   "☰ Menu reorganized into groups (Everyday, Family care, Home & papers, Settings, Help & more), with each feature's parts in a ▸ that opens and closes, and 4 quick actions at the top",
+   "📥 Inbox is now a top icon with a colored bubble: red if something is urgent, amber if important, blue otherwise. Inside, everything by priority, then newest first, including alerts",
+   "🌐 PT|EN moved to the header on computers and into ☰ on phones; the top strip is now only for the ad and closes entirely with ×",
+   "🛒 “Add to list” understands speech better (drops fillers like “um”, “put”, “on the list”, “please”…, understands “two liters of milk”) and confirms right away, no pop-up: “✓ Milk added · See list ›”"
+  ]
+ },
+ {
   "v": "2.3.0",
   "d": "2026-09-25",
   "hora": "21:23:00",

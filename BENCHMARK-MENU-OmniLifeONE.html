@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Benchmark do menu ☰ — OmniLifeONE</title>
+<style>
+body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:860px;margin:0 auto;padding:20px 16px 60px;line-height:1.55;color:#1b1e28;background:#f6f7fb}
+h1{font-size:1.5rem}h2{font-size:1.1rem;margin-top:28px}
+.card{background:#fff;border:1px solid #e3e5ee;border-radius:14px;padding:14px 16px;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem}th,td{border-bottom:1px solid #e3e5ee;padding:8px 6px;text-align:left;vertical-align:top}
+th{background:#f0f1f7}code{background:#eef0f7;padding:1px 5px;border-radius:5px}
+.tree{font-family:ui-monospace,Consolas,monospace;font-size:.9rem;white-space:pre;overflow-x:auto}
+@media(prefers-color-scheme:dark){body{background:#12141b;color:#e8e9f0}.card{background:#1b1e28;border-color:#2b2f3c}th{background:#232735}td,th{border-color:#2b2f3c}code{background:#2b2f3c}}
+</style></head><body>
+<h1>☰ Benchmark do menu — OmniLifeONE 2.4.0</h1>
+<p>Problema: o menu tinha 9 atalhos soltos + 11 funções com todas as partes abertas (mais de 50 botões), e ninguém achava nada.</p>
+
+<h2>O que os melhores fazem</h2>
+<table>
+<tr><th>Referência</th><th>Regra</th><th>Como entrou no app</th></tr>
+<tr><td>Material Design 3 (Google) — gaveta de navegação</td><td>Destinos agrupados com título de seção e divisória; o item atual destacado</td><td>5 grupos com título; item da tela atual em destaque</td></tr>
+<tr><td>Toptal — menus de vários níveis</td><td>No celular, no máximo 1–2 níveis; acordeão quando é um nível só; o grupo onde a pessoa está já vem aberto</td><td>Partes de cada função num ▸ que abre e fecha; o da tela atual abre sozinho</td></tr>
+<tr><td>NN/g — mega menus e categorias</td><td>Categorias com nomes de gente, agrupadas pelo que a pessoa quer fazer (não pela estrutura do sistema)</td><td>“Dia a dia”, “Cuidar da família”, “Casa e papéis”</td></tr>
+<tr><td>Apple HIG — barra de abas</td><td>No máximo 5 destinos na barra de baixo; o resto em outro lugar</td><td>Barra de atalhos com até 5, montada pela pessoa</td></tr>
+<tr><td>Padrão de “ações rápidas” (Material 3 e apps de rotina)</td><td>Ações do dia a um toque, separadas da lista de destinos</td><td>4 ações rápidas no topo do ☰: Lembrete, Recado, Cheguei, SOS</td></tr>
+</table>
+
+<h2>Como ficou</h2>
+<div class="card tree">[PT|EN só no celular]                         ×
+⚡ Lembrete   📥 Recado   📍 Cheguei   ⚠️ SOS
+
+DIA A DIA
+  🏠 Início
+  🛒 Compras ▸  (Lista, Despensa, Pedidos, Geladeira, Onde comprar, Histórico)
+  📅 Agenda ▸   (Calendário, Tarefas, Lembretes, Rotina, Delegômetro, Assume a Casa)
+  📥 Inbox ▸    (Tudo, Recados, Cheguei, Alertas, Enviados)
+CUIDAR DA FAMÍLIA
+  🛡 Segurança ▸ (Cheguei, Modo Vigilante, Alertas)
+  ❤️ Saúde · 👨‍👩‍👧 Família · 📇 Contatos
+CASA E PAPÉIS
+  🔑 Casa ▸     (Onde está?, Manutenção, Cofre, Guias)
+  🗂 Documentos
+AJUSTES
+  ⚙ Ajustes ▸   (Geral, IA, Acessibilidade, Rede, Sem internet, Nuvem, Avisos, Dados, Versões)
+AJUDA E MAIS
+  Ajuda e tutoriais · Ler esta tela · Instalar no computador · Compartilhar · Outros apps · Portal</div>
+<p>Saíram do menu o que já tem lugar fixo: “Buscar em tudo” (lupa do topo), “Alertas” (dentro da Inbox) e “Nova tarefa” (Agenda → Tarefas).</p>
+
+<h2>Regra para os outros apps</h2>
+<div class="card">Sub-itens só quando o app tem mais de ~7 funções ou funções com várias partes (OmniLifeONE, MoneyTRIO, RiseONE). Apps pequenos (CifrasONE, Contador) ficam com lista simples, mas com os mesmos títulos de grupo quando passarem de 7 itens. Para mudar a organização no OmniLifeONE: <code>DRAWER_GROUPS</code> e <code>DRAWER_SUBS</code> no <code>index.html</code>.</div>
+
+<h2>Fontes</h2>
+<ul>
+<li><a href="https://m3.material.io/components/navigation-drawer/guidelines">Material Design 3 — Navigation drawer</a></li>
+<li><a href="https://www.toptal.com/designers/ux/multilevel-menu-design">Toptal — Multilevel menu design best practices</a></li>
+<li><a href="https://www.nngroup.com/articles/mega-menus-work-well/">NN/g — Mega menus work well</a></li>
+<li><a href="https://www.patternfly.org/components/notification-badge/design-guidelines/">PatternFly — Notification badge (cores da bolha)</a></li>
+</ul>
+</body></html>

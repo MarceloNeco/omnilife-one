@@ -647,15 +647,108 @@ body.aone-on main{padding-bottom:110px!important}
 .a-rm .aone-btn,.a-rm .aone-bub,.a-rm .aone-tbub{animation:none}
 .a-rm .aone-spot{transition:none}
 @media print{#aone,.aone-spot,.aone-tbub{display:none !important}}
+/* ===== 2.4.0 ===== */
+/* faixa do topo: só anúncio (PT|EN foi para o cabeçalho e para o ☰) */
+#adbar.hidden{display:none!important}
+#adbar .adzone{flex:1;min-width:0}
+header.app .langsw{align-self:center;margin-right:4px}
+@media(max-width:820px){ body.booted header.app .langsw{display:none} }
+#drawer .dlang{display:none;margin-left:auto}
+@media(max-width:820px){ #drawer .dlang{display:flex} }
+#drawer .dlang .langsw button{min-height:34px;min-width:40px}
+/* Inbox no topo, com bolha colorida pela prioridade */
+#inboxbtn{display:inline-flex!important}
+#inboxbtn.hidden{display:none!important}
+.iconbtn .dot.lv0{background:var(--bad);color:#fff}
+.iconbtn .dot.lv1{background:#f5a524;color:#241600}
+.iconbtn .dot.lv2{background:#3b82f6;color:#fff}
+.prioh{font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px 4px 4px}
+.prioh:first-child{padding-top:0}
+.prioh.p0{color:var(--bad)} .prioh.p1{color:#c98300} html[data-theme="dark"] .prioh.p1{color:#f5b73b}
+/* menu ☰ em grupos com acordeão */
+#drawer .dquick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:4px 2px 8px}
+#drawer .dquick button{display:flex;flex-direction:column;align-items:center;gap:5px;background:none;border:0;color:var(--text);font-size:.72rem;font-weight:600;padding:6px 2px;border-radius:14px;cursor:pointer;min-height:64px}
+#drawer .dquick button:hover,#drawer .dquick button:focus-visible{background:var(--surface2)}
+#drawer .dquick .qi{width:40px;height:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent)}
+#drawer .dquick .qi.ok{background:rgba(34,197,94,.13);color:#16a34a} #drawer .dquick .qi.info{background:rgba(59,130,246,.13);color:#3b82f6} #drawer .dquick .qi.bad{background:rgba(239,68,68,.13);color:var(--bad)}
+#drawer .drow{display:flex;align-items:center;gap:2px}
+#drawer .drow .ditem{flex:1;min-width:0}
+#drawer .ditem .dl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#drawer .dexp{flex-shrink:0;width:44px;height:44px;border:0;background:none;color:var(--text3);border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#drawer .dexp:hover,#drawer .dexp:focus-visible{background:var(--surface2);color:var(--text)}
+#drawer .dexp .ico{width:18px;height:18px;transition:transform .2s var(--ease,ease)}
+#drawer .dgrp.open .dexp .ico{transform:rotate(90deg)}
+#drawer .dsub{display:none;flex-direction:column;gap:0;padding:0 0 6px 0;margin:0 0 4px 32px;border-left:2px solid var(--border)}
+#drawer .dgrp.open .dsub{display:flex;animation:dsubIn .18s ease-out}
+#drawer .dsub button{background:none;border:0;border-radius:10px;text-align:left;padding:8px 12px;min-height:38px;font-size:.88rem;color:var(--text2);font-weight:500;cursor:pointer}
+#drawer .dsub button:hover,#drawer .dsub button:focus-visible{background:var(--surface2);color:var(--text)}
+#drawer .dsub button.on{color:var(--accent);font-weight:700}
+@keyframes dsubIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){ #drawer .dgrp.open .dsub{animation:none} #drawer .dexp .ico{transition:none} }
+/* barra de atalhos: arrastar e soltar */
+.bared .bd-reset{width:40px;height:40px}
+.bared .bd-reset[disabled]{opacity:.35;cursor:default}
+.bd-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.35fr);gap:14px;align-items:start;margin-top:6px}
+.bd-lbl{font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:8px}
+.bd-avail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-height:60px;padding:6px;border-radius:14px;border:1px dashed transparent;transition:border-color .15s,background .15s}
+.bd-avail.over{border-color:var(--bad);background:rgba(239,68,68,.06)}
+.bd-item{display:flex;align-items:center;gap:8px;min-height:44px;width:100%;padding:8px 10px;border-radius:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-weight:600;font-size:.88rem;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;text-align:left}
+.bd-item:hover{border-color:var(--accent)}
+.bd-item .ic{display:flex;color:var(--text2)} .bd-item .ic .ico{width:20px;height:20px}
+.bd-item .lb{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bd-item .grip{width:14px;height:14px;color:var(--text3)}
+.bd-item.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);background:var(--accent-soft)}
+.bd-item.dragging{opacity:.35}
+.bd-ghost{position:fixed;left:0;top:0;z-index:400;pointer-events:none;box-shadow:var(--shadow);border-color:var(--accent);opacity:.95}
+.bd-arrow{align-self:center;color:var(--text3);font-size:.78rem;font-weight:600;white-space:nowrap;padding-top:22px}
+.bd-arrow .m{display:none}
+.bd-bar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:10px;border-radius:16px;background:var(--surface2);border:1px solid var(--border)}
+.bd-slot{min-height:64px;border-radius:12px;border:1.5px dashed var(--border2,var(--border));display:flex;align-items:stretch;justify-content:center;transition:border-color .15s,background .15s,transform .15s}
+.bd-slot.full{border-style:solid;border-color:transparent}
+.bd-slot.over{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.04)}
+.bd-slot .bd-item{flex-direction:column;justify-content:center;gap:4px;padding:6px 4px;text-align:center;font-size:.72rem;background:var(--surface)}
+.bd-slot .bd-item .lb{max-width:100%}
+.bd-slot .bd-item.swap{animation:bdPulse 1s ease-in-out infinite}
+@keyframes bdPulse{50%{box-shadow:0 0 0 3px var(--accent-soft)}}
+.bd-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text3);font-size:.7rem}
+.bd-empty .ico{width:16px;height:16px}
+.bd-phone{display:flex;gap:14px;justify-content:center;align-items:center;margin:10px auto 0;width:max-content;padding:8px 18px 12px;border-radius:0 0 18px 18px;border:2px solid var(--border);border-top:0;color:var(--text2);position:relative}
+.bd-phone::after{content:"";position:absolute;bottom:4px;left:50%;width:36px;height:3px;border-radius:2px;background:var(--border2,var(--border));transform:translateX(-50%)}
+.bd-phone .ico{width:18px;height:18px}
+.bd-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:8px 10px;border-radius:12px;background:var(--accent-soft)}
+.bd-tools.hidden{display:none}
+.bd-status{min-height:1.4em;margin-top:8px;color:var(--ok,#16a34a);font-weight:600}
+.bared.dragon{user-select:none}
+@media(max-width:820px){
+  .bd-wrap{grid-template-columns:1fr;gap:6px}
+  .bd-avail{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+  .bd-arrow{padding:0;text-align:center}
+  .bd-arrow .d{display:none} .bd-arrow .m{display:inline}
+  .bd-bar{gap:4px;padding:8px 6px;border-radius:18px 18px 22px 22px}
+  .bd-slot{min-height:60px}
+  .bd-slot .bd-item{font-size:.64rem;padding:4px 2px}
+  .bd-phone{display:none}
+}
+@media(prefers-reduced-motion:reduce){ .bd-slot{transition:none} .bd-slot .bd-item.swap{animation:none} }
+/* "Pôr na lista": confirmação na hora, sem janela */
+.addfb{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:22px;margin:-8px 4px 12px;font-size:.84rem;color:var(--text2)}
+.addfb:empty{display:none}
+.addfb.on{color:var(--text);animation:fbIn .25s ease-out}
+.addfb .ok{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:#16a34a;color:#fff;font-size:.72rem;font-weight:800}
+.addfb .linkbtn{font-weight:700}
+.card .addfb{margin:8px 0 0}
+@keyframes fbIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.bump{animation:bump .5s ease}
+@keyframes bump{30%{transform:scale(1.25)}}
+@media(prefers-reduced-motion:reduce){ .addfb.on,.bump{animation:none} }
 </style>
 </head>
 <body>
 
-<!-- ===== FAIXA DO TOPO: [PT|EN] · [ANÚNCIO] · [carrossel] · [×] =====
-     O × fecha só o anúncio até o fim da sessão; o botão de idioma fica sempre. -->
+<!-- ===== FAIXA DO TOPO: [ANÚNCIO] · [carrossel] · [×] =====
+     Só anúncio: o × fecha a faixa inteira até o fim da sessão. PT|EN fica no cabeçalho (computador) e no ☰ (celular). -->
 <div id="adbar">
   <div class="adinner">
-    <div class="langsw" id="langsw" role="group" aria-label="Idioma / Language"><button type="button" data-l="pt">PT</button><button type="button" data-l="en">EN</button></div>
     <div class="adzone" id="adzone">
       <span class="adtag" id="adtag">ANÚNCIO</span>
       <div class="adview" id="adview"><div class="adtrack" id="adtrack"></div></div>
@@ -676,12 +769,13 @@ body.aone-on main{padding-bottom:110px!important}
     <button class="iconbtn" id="sosbtn" title="Emergência"><span>🚨</span><span class="t">SOS</span></button>
 
     <button class="iconbtn" id="quickbtn" title="Lembrete rápido">⚡</button>
-    <button class="iconbtn" id="inboxbtn" title="Inbox">📥</button>
     <button class="iconbtn" id="bellbtn" title="Avisos">🔔</button>
     <button class="iconbtn" id="themebtn" title="Tema">🌙</button>
     <button class="iconbtn" id="appsbtn" title="Apps">▦</button>
     <button class="iconbtn" id="sharebtn" title="Compartilhar">↗</button>
+    <div class="langsw" id="langsw" role="group" aria-label="Idioma / Language"><button type="button" data-l="pt">PT</button><button type="button" data-l="en">EN</button></div>
     <button class="iconbtn" id="searchbtn" type="button" title="Buscar" aria-label="Buscar">🔎</button>
+    <button class="iconbtn" id="inboxbtn" type="button" title="Inbox" aria-label="Inbox">📥</button>
     <button class="iconbtn" id="setbtn" type="button" title="Configurações" aria-label="Configurações">⚙</button>
     <button class="iconbtn" id="homebtn" type="button" title="Início" aria-label="Início">🏠</button>
     <button class="whoami" id="whoami" aria-label="Conta"><span class="av" id="whoav">?</span><span class="nm" id="whonm">—</span></button>
@@ -714,7 +808,7 @@ body.aone-on main{padding-bottom:110px!important}
    quando configurado. Integra com MoneyTrio pelo mesmo endereço.
    ===================================================================== */
 const APP_NAME = "OmniLifeONE";
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.4.0";
 /* endereço-base da plataforma: o próprio site (funciona no domínio novo e no antigo); cópia baixada usa o domínio */
 const SITE_DOMAIN = "solverone.com.br";
 const SITE_BASE = /^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? location.origin + "/" : "https://" + SITE_DOMAIN + "/";
@@ -747,7 +841,7 @@ const LIBS = {
 };
 
 /* ---------- ícones de traço (desenhados para o OmniLifeONE; iguais em todo aparelho, ao contrário de emoji) ---------- */
-const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
+const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "reset": "<path d=\"M4 4v5h5\"/><path d=\"M5.3 14.5A7.5 7.5 0 1 0 6.6 7L4 9\"/>", "grip": "<circle cx=\"9\" cy=\"6\" r=\"1.2\"/><circle cx=\"15\" cy=\"6\" r=\"1.2\"/><circle cx=\"9\" cy=\"12\" r=\"1.2\"/><circle cx=\"15\" cy=\"12\" r=\"1.2\"/><circle cx=\"9\" cy=\"18\" r=\"1.2\"/><circle cx=\"15\" cy=\"18\" r=\"1.2\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
 function ico(name, cls) { const p = ICONS[name]; if (!p) return ""; return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>"; }
 /* ---------- estado global ---------- */
 const S = {
@@ -2477,7 +2571,7 @@ function themeResolve() { const p = S.themePref || "auto"; if (p === "light" || 
 function applyTheme() { document.documentElement.dataset.theme = S.theme; const m = $('meta[name="theme-color"]'); if (m) m.content = S.theme === "light" ? "#f5f6fa" : "#0e1016"; try { ART.apply(true); } catch (e) { console.warn(e); } }
 function setLang(l) { S.lang = l; S.prefs.lang = l; savePrefs(); try { localStorage.setItem(LS.portalLang, l); } catch (e) {} document.documentElement.lang = l === "pt" ? "pt-BR" : "en"; if (S.booted) render(); else if (S.gate) setGate(S.gate, S.gateArg); staticTexts(); }
 function staticTexts() {
-  $$("#langsw button").forEach((b) => b.classList.toggle("on", b.dataset.l === S.lang));
+  $$(".langsw button").forEach((b) => b.classList.toggle("on", b.dataset.l === S.lang));
   $("#adtag").textContent = tt("ANÚNCIO", "AD");
   $("#adclose").title = tt("Fechar anúncio", "Close ad");
   $("#quickbtn").title = tt("Lembrete rápido", "Quick reminder");
@@ -2528,8 +2622,9 @@ function renderNav() {
   $("#bottombar").innerHTML = bb.map((t) => { const b = tabBadge(t.id); return '<button class="' + (S.route.tab === t.id ? "active" : "") + '" data-act="go" data-tab="' + t.id + '"' + (S.route.tab === t.id ? ' aria-current="page"' : "") + '><span class="ic">' + (ico(t.id) || t.ic) + '</span><span class="lb">' + esc(t.t) + "</span>" + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>"; }).join("");
   if ($("#drawer").classList.contains("open")) Drawer.fill();
 }
-const BOTTOM_DEFAULT = ["home", "inbox", "shop", "agenda", "house"];
-function bottomPick() { const p = S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom.slice(0, 5) : BOTTOM_DEFAULT.slice(); return [...new Set(p.filter(Boolean))]; }
+/* padrão = as funções mais usadas do app; a Inbox fica no ícone do topo, não na barra */
+const BOTTOM_DEFAULT = ["home", "shop", "agenda", "security", "house"];
+function bottomPick() { let p = (S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : BOTTOM_DEFAULT).filter((id) => id && id !== "inbox"); if (!p.length) p = BOTTOM_DEFAULT.slice(); return [...new Set(p)].slice(0, 5); }
 
 /* ---------- menu ☰ (gaveta lateral com todas as funções) ---------- */
 const DRAWER_SUBS = () => ({
@@ -2644,6 +2739,7 @@ function renderHeader() {
   $("#quickbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   /* o ☰ só aparece depois de entrar: antes disso não há funções para mostrar */
   $("#hambbtn").classList.toggle("hidden", !S.booted);
+  document.body.classList.toggle("booted", !!S.booted);
   if (!S.booted) Drawer.close();
   $("#inboxbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
   $("#searchbtn").classList.toggle("hidden", !S.booted || S.mode === "advertiser");
@@ -2691,6 +2787,7 @@ const Ads = {
     const ads = this.where("faixa");
     const show = this.shows() && !ssGet("omnilife.adclosed") && ads.length && !document.fullscreenElement;
     zone.classList.toggle("hidden", !show);
+    $("#adbar").classList.toggle("hidden", !show);
     if (!show) return;
     const key = S.lang + ads.map((a) => a.id).join();
     if (this._k === key) return; this._k = key;
@@ -3077,7 +3174,6 @@ function handoverStrip() {
 
 /* ---------- botões do cabeçalho ---------- */
 function wireHeader() {
-  $("#langsw").onclick = (e) => { const b = e.target.closest("[data-l]"); if (b && b.dataset.l !== S.lang) setLang(b.dataset.l); };
   $("#themebtn").onclick = () => ACT["set.theme"]({});
   $("#adclose").onclick = () => { ssSet("omnilife.adclosed", "1"); Ads.bar(); };
   $("#quickbtn").onclick = () => Reminders.quick();
@@ -3092,7 +3188,7 @@ function wireHeader() {
   $("#setbtn").onclick = () => { if (S.booted) go("settings"); };
   offBadge();
   /* ícones de traço no cabeçalho (iguais em todo aparelho) */
-  $("#hambbtn").innerHTML = ico("menu"); $("#searchbtn").innerHTML = ico("search"); $("#setbtn").innerHTML = ico("settings"); $("#homebtn").innerHTML = ico("home");
+  $("#hambbtn").innerHTML = ico("menu"); $("#searchbtn").innerHTML = ico("search"); $("#setbtn").innerHTML = ico("settings"); $("#homebtn").innerHTML = ico("home"); $("#inboxbtn").innerHTML = ico("inbox");
   window.addEventListener("scroll", () => { const h = $("header.app"); if (h) h.classList.toggle("scrolled", window.scrollY > 4); }, { passive: true });
   $("#sosbtn").onclick = () => Health.sos();
   $("#bellbtn").onclick = () => ACT.bell();
@@ -3369,7 +3465,7 @@ const ShopViews = {
     const g = {}; open.forEach((s) => (g[s.cat || "outros"] = g[s.cat || "outros"] || []).push(s));
     const soon = Pantry.soon(3);
     const names = Pantry.items().map((i) => i.name);
-    let h = '<div class="card"><div class="row nw"><div class="searchbox"><span class="lead">＋</span><input type="text" id="addin" list="dlitems" placeholder="' + tt("Adicionar item (ex.: leite 2)", "Add item (e.g. milk 2)") + '" autocomplete="off"><datalist id="dlitems">' + names.map((n) => '<option value="' + esc(n) + '">').join("") + '</datalist><button class="mic" data-act="shop.voice" title="' + tt("Falar", "Speak") + '">🎤</button></div><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div>" +
+    let h = '<div class="card"><div class="row nw"><div class="searchbox"><span class="lead">＋</span><input type="text" id="addin" list="dlitems" placeholder="' + tt("Adicionar item (ex.: leite 2)", "Add item (e.g. milk 2)") + '" autocomplete="off"><datalist id="dlitems">' + names.map((n) => '<option value="' + esc(n) + '">').join("") + '</datalist><button class="mic" data-act="shop.voice" title="' + tt("Falar", "Speak") + '">🎤</button></div><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div>" + AddFb.html(false) +
       (isChild() && !childCtl().addDirect ? '<div class="tiny muted" style="margin-top:6px">' + tt("O que você adicionar vira um pedido para os responsáveis aprovarem.", "What you add becomes a request for guardians to approve.") + "</div>" : "") + "</div>";
     const trip = Reminders.trip("mercado");
     if (trip.length) h += '<div class="card tight"><b>📌 ' + tt("Lembretes para a próxima ida ao mercado", "Reminders for the next grocery trip") + '</b><div class="list">' + trip.map((r) => '<div class="li"><input type="checkbox" aria-label="' + tt("Feito", "Done") + '" data-act="rem.done" data-id="' + r.id + '"><div class="main click" data-act="rem.edit" data-id="' + r.id + '"><div class="t">' + esc(r.title) + '</div><div class="s">' + esc(r.sub || "") + "</div></div>" + (r.shopId && DB.get("shop", r.shopId) ? '<span class="badge acc">' + tt("na lista", "on list") + "</span>" : '<button class="btn xs ghost" data-act="rem.toshop" data-id="' + r.id + '">🛒 ' + tt("pôr na lista", "add to list") + "</button>") + "</div>").join("") + "</div></div>";
@@ -6541,7 +6637,7 @@ const Msgs = {
 /* ---------- versões (o que entrou em cada uma) ----------
    A lista fica embutida aqui e também em versoes.json (padrão de todos os apps). Se o
    versoes.json do site for mais novo, ele vale. */
-const VERSOES_EMB = [{"v": "2.3.0", "d": "2026-09-25", "hora": "21:23:00", "pt": ["🛡 Administração segura entre os responsáveis: chefe não rebaixa nem remove outro chefe sozinho (outro chefe aprova, ou vale em 48 h se ninguém vetar; a pessoa pode vetar)", "🔔 Todos os chefes são avisados de mudanças sensíveis; passar a criação da família só vale quando a outra pessoa aceita", "🔑 Ajudar a entrar de novo: e-mail de troca de senha, convite de uso único para a mesma pessoa, ou limpar o PIN no modo deste aparelho", "🆘 Acesso de emergência ao cofre com espera e código entregue ao contato de confiança", "📱 Aparelhos conectados, com desconectar à distância", "🎓 Criança que cresce: aviso para passar a adulto na idade escolhida", "🏠🏠 Duas casas (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga", "🧭 Quem cuida de cada área (Compras, Saúde, Casa…)", "🌐 Pronto para o novo endereço solverone.com.br, com aviso para guardar os dados de quem usa só no aparelho"], "en": ["🛡 Safe administration among adults: a head can't demote or remove another head alone (another head approves, or it applies in 48 h unless vetoed; the person can veto)", "🔔 All heads are notified of sensitive changes; handing over family ownership only happens when the other person accepts", "🔑 Help someone back in: password e-mail, single-use invite for the same person, or clear the PIN in this-device mode", "🆘 Emergency vault access with a waiting period and a code handed to a trusted contact", "📱 Connected devices, with remote disconnect", "🎓 Growing up: prompt to switch to adult at the chosen age", "🏠🏠 Two homes (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted", "🧭 Who looks after each area (Shopping, Health, Home…)", "🌐 Ready for the new address solverone.com.br, with a prompt to save data for this-device users"]}, {"v": "2.2.0", "d": "2026-09-25", "hora": "20:49:00", "pt": ["💻 Instalar como app no computador: ícone na área de trabalho, janela própria, barra de tarefas/Dock e menu Iniciar — em um clique no Chrome e no Edge, com passo a passo para Safari (Mac) e Firefox", "Aviso no Início (só no computador, some com “Agora não”), item no ☰, passo no AssistONE e na busca", "Botão direito no ícone do app: atalhos para Lista, Cheguei, Inbox e Agenda"], "en": ["💻 Install as an app on your computer: desktop icon, own window, taskbar/Dock and Start menu — one click in Chrome and Edge, with steps for Safari (Mac) and Firefox", "Notice on Home (computer only, hidden with “Not now”), ☰ item, AssistONE step and search", "Right-click the app icon: shortcuts to List, Check-in, Inbox and Calendar"]}, {"v": "2.1.1", "d": "2026-09-25", "hora": "20:42:00", "pt": ["💡 AssistONE dobra de tamanho quando você toca nele", "O balão começa com a ajuda da tela onde você está, com atalhos para o que dá para fazer ali (ex.: na Lista, “Adicionar falando”)"], "en": ["💡 AssistONE doubles in size when you tap it", "The balloon starts with help for the screen you're on, with shortcuts for what you can do there (e.g. on the List, “Add by voice”)"]}, {"v": "2.1.0", "d": "2026-09-25", "hora": "19:27:00", "pt": ["💡 Chegou o AssistONE: o assistente no canto da tela, ligado por padrão", "Balões para começar o passo a passo (guarda onde parou), fazer um tour rápido, procurar qualquer coisa (com sugestão quando escreve errado) e ver a ajuda da tela", "Dicas curtas em cada tela, uma vez só; liga e desliga em ⚙ → Geral → AssistONE"], "en": ["💡 Meet AssistONE: the assistant in the corner of the screen, on by default", "Balloons to start the walkthrough (saves your place), take a quick tour, find anything (with spelling suggestions) and get help for the screen", "Short tips on each screen, shown once; turn it on or off in ⚙ → General → AssistONE"]}, {"v": "2.0.1", "d": "2026-09-25", "hora": "19:11:00", "pt": ["👆 Tela de entrada com todas as formas de entrar: digital ou rosto, Google, e-mail e senha e PIN", "Depois do primeiro acesso, a digital vira um toque só na entrada; na nuvem, o app oferece ativar a digital logo após entrar"], "en": ["👆 Sign-in screen with every way in: fingerprint or face, Google, e-mail and password, and PIN", "After the first sign-in, fingerprint becomes one tap; in the cloud, the app offers to enable it right after signing in"]}, {"v": "2.0.0", "d": "2026-09-25", "hora": "18:58:00", "pt": ["✨ Visual novo, calmo e moderno, pensado primeiro para o celular: ícones de traço, cartões macios, menos distração e tema que segue o aparelho (claro de dia, escuro à noite)", "🏠 Início reorganizado: 4 ações grandes (Lista, Cheguei, Inbox, Lembrete), campo para pôr na lista, atalhos numa linha e um só bloco “Para você agora”", "🔝 Cabeçalho padrão: 🔍 busca, ⚙ configurações, 🏠 Início e 👤 conta; SOS, alertas, compartilhar e outros apps foram para o Início e o ☰ (com link para o Portal)", "↩️ Na tela inicial, o Voltar pede um segundo toque para sair", "🎤 Lista por voz corrigida: o que você fala entra no campo, separado por vírgulas, para conferir e tocar em Pôr", "📲 Usar sem internet: salvar o app no aparelho, criar o ícone na tela inicial e aviso quando estiver sem sinal", "🤖 Cofre de IA completo: texto, voz → texto, texto → voz e fotos, com guia passo a passo ilustrado para cada provedor e “Usar para”", "📚 Documentos: enviar vários arquivos de uma vez (arrastar, colar, câmera em sequência), com conferência e aviso de duplicados", "🧩 Aviso de compatibilidade do aparelho/navegador só quando houver problema", "🔒 Recarregar a página não pede PIN de novo por 30 min; quem entra volta para a tela onde estava", "📜 Registro de alterações no aparelho e relatório de erros opcional", "🆕 Novidades agrupadas por dia e recolhidas em Ajustes"], "en": ["✨ New calm, modern look designed mobile-first: line icons, soft cards, fewer distractions and a theme that follows the device", "🏠 Reorganized Home: 4 big actions (List, Check-in, Inbox, Reminder), add-to-list field, one-line shortcuts and a single “For you now” block", "🔝 Standard header: 🔍 search, ⚙ settings, 🏠 Home and 👤 account; SOS, alerts, share and other apps moved to Home and ☰ (with a Portal link)", "↩️ On the home screen, Back asks for a second press to leave", "🎤 Voice list fixed: what you say goes into the field, comma-separated, to check and tap Add", "📲 Use offline: save the app on the device, create the home-screen icon and an offline notice", "🤖 Full AI vault: text, voice → text, text → voice and photos, with an illustrated step-by-step guide per provider and “Use for”", "📚 Documents: upload many files at once (drag, paste, camera sequence), with review and duplicate warnings", "🧩 Device/browser compatibility notice only when there's a problem", "🔒 Reloading doesn't ask for the PIN again for 30 min; signing in brings you back to where you were", "📜 On-device change log and optional error report", "🆕 What's new grouped by day and collapsed in Settings"]}, {"v": "1.6.0", "d": "2026-09-25", "pt": ["↩️ Botão Voltar do celular navega dentro do app: fecha a janela ou o menu aberto, e das abas volta para o Início antes de sair", "🤖 IA com vários provedores grátis: Google Gemini, OpenRouter, Groq, Mistral (e OpenAI ou personalizado), com “Ver modelos que esta chave aceita” e nova tentativa quando a IA está ocupada", "🎤 Voz transcrita também pelo Groq (Whisper), além do Gemini", "🧒 Nomes das crianças são trocados por códigos antes de ir para a IA (LGPD)", "♿ Ajustes → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta", "📶 Ajustes → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados", "📢 Avisos do administrador (recados.json) na Inbox", "🗑 Apagar minha conta (nuvem), além do backup", "🔧 Modo sem internet não apaga mais o dos outros apps do portal"], "en": ["↩️ Phone Back button navigates inside the app: closes the open window or menu, and from tabs goes Home before leaving", "🤖 AI with several free providers: Google Gemini, OpenRouter, Groq, Mistral (plus OpenAI or custom), with “See models this key accepts” and retry when busy", "🎤 Voice transcribed by Groq (Whisper) too, besides Gemini", "🧒 Children's names are replaced by codes before going to the AI", "♿ Settings → Accessibility: text size, high contrast, reduce motion, underline links, reading mode and read the screen aloud", "📶 Settings → Network: large downloads and AI on Wi-Fi or data", "📢 Admin notices (recados.json) in the Inbox", "🗑 Delete my account (cloud), besides backup", "🔧 Offline mode no longer wipes the other portal apps' offline data"]}, {"v": "1.5.2", "d": "2026-09-25", "pt": ["Link fixo embaixo do campo Recado do Cheguei: “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — leva direto para Ajustes → IA"], "en": ["Permanent link under the Cheguei note field: “🎤 not working on a computer? Turn on the free AI for voice (optional)” — goes straight to Settings → AI"]}, {"v": "1.5.1", "d": "2026-09-25", "pt": ["🎤 Todo microfone explica antes de frustrar: no primeiro toque (no computador, sem IA) aparece a dica com o link opcional “Configurar a IA agora”, “Depois” e “Não mostrar mais”", "Se a voz falhar sem IA, o app mostra o motivo e o mesmo link; em Ajustes → IA aparece o passo a passo para a voz"], "en": ["🎤 Every mic explains before it frustrates: on the first tap (computer, no AI) a tip shows the optional “Set up the AI now” link, “Later” and “Don't show again”", "If voice fails without AI, the app explains why and shows the same link; Settings → AI shows the voice step-by-step"]}, {"v": "1.5.0", "d": "2026-09-25", "pt": ["📥 Inbox: recados, avisos do Cheguei e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados", "🔎 Lupa de busca no topo: procura em tudo (funções, pessoas, contatos, compras, agenda, tarefas, lembretes, recados, documentos, objetos e ajudas). Atalho: tecla / ou Ctrl+K", "🆕 Versões em Ajustes, com o que entrou em cada uma", "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Ajustes → IA) transcreve a gravação; medidor mostra se o microfone capta som"], "en": ["📥 Inbox: messages, check-ins and alerts in one place, with All, Messages, Check-ins, Alerts, Sent and Archived tabs", "🔎 Search at the top: finds everything (features, people, contacts, shopping, calendar, tasks, reminders, messages, documents, objects and help). Shortcut: / or Ctrl+K", "🆕 Versions in Settings, with what each one brought", "🎤 Dictation that works on computers: if Chrome returns no text, Gemini AI (Settings → AI) transcribes the recording; a meter shows whether the mic picks up sound"]}, {"v": "1.4.2", "d": "2026-09-25", "pt": ["📅 Dia da chegada com dia da semana, mudável", "🎤 ✓ OK sempre encerra o ditado e o app explica o motivo quando o reconhecimento de voz falha"], "en": ["📅 Arrival day with weekday, changeable", "🎤 ✓ OK always stops dictation and the app explains why speech recognition failed"]}, {"v": "1.4.1", "d": "2026-09-24", "pt": ["✅ Cheguei com mais lugares (Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… e Outro)", "“Complemente a informação” com sugestões do que já foi escrito", "🕐 Horário em roda para ajustar", "📣 Escolha de quem recebe a notificação e por onde (Notificação, WhatsApp, Telegram, SMS, e-mail); contatos da agenda e novo contato com país e DDD", "📇 Meus contatos"], "en": ["✅ Check-in with more places (Bar, Friends' home, Airport, Bus station, Subway… and Other)", "“Add details” with suggestions from what you typed before", "🕐 Scroll wheel to adjust the time", "📣 Choose who gets notified and how (Push, WhatsApp, Telegram, SMS, e-mail); phone contacts and new contact with country and area code", "📇 My contacts"]}, {"v": "1.4.0", "d": "2026-09-24", "pt": ["👑 Vários chefes da família com direitos de administrador", "✉️ Convites com prazo, limite de pessoas e papel; compartilháveis por WhatsApp, e-mail, link ou QR", "🔢 Código de confirmação de 4 números e aprovação por 1 ou 2 chefes", "🧒 Consentimento do responsável para crianças (LGPD art. 14)", "📜 Histórico de segurança", "❓ Tutoriais de entrada na família"], "en": ["👑 Several family heads with admin rights", "✉️ Invites with deadline, people limit and role; shareable by WhatsApp, e-mail, link or QR", "🔢 4-digit confirmation code and approval by 1 or 2 heads", "🧒 Guardian consent for children (LGPD art. 14)", "📜 Security log", "❓ Family joining tutorials"]}, {"v": "1.3.0", "d": "2026-09-24", "pt": ["🛡️ Nova área Segurança", "✅ Aviso “Cheguei” e “Estou saindo”, com horários combinados e alerta de atraso", "👁 Modo Vigilante com flash piscando e tela escura", "📣 Alertas: Telegram, WhatsApp, e-mail e ntfy num lugar só"], "en": ["🛡️ New Safety area", "✅ “I'm here” and “I'm leaving” check-ins, with scheduled times and late alerts", "👁 Watch mode with flashing light and dark screen", "📣 Alerts: Telegram, WhatsApp, e-mail and ntfy in one place"]}, {"v": "1.2.4", "d": "2026-09-24", "pt": ["Vigilante: Telegram e WhatsApp desligados por padrão", "Cadastro de quem recebe os alertas (família ou outra pessoa), com seleção múltipla", "Ajuda passo a passo de Telegram e WhatsApp"], "en": ["Watch mode: Telegram and WhatsApp off by default", "Register who gets alerts (family or someone else), multi-select", "Step-by-step help for Telegram and WhatsApp"]}, {"v": "1.2.3", "d": "2026-09-24", "pt": ["Vigilante: alarme, mensagem ou os dois", "4 toques de alarme, silenciar na hora", "Telegram com foto e WhatsApp automático"], "en": ["Watch mode: alarm, message or both", "4 alarm tones, silence instantly", "Telegram with photo and automatic WhatsApp"]}, {"v": "1.2.2", "d": "2026-09-24", "pt": ["☰ só depois de entrar", "Aviso “↓ Mais opções abaixo” no menu", "Digital ou rosto no lugar do PIN"], "en": ["☰ only after signing in", "“↓ More options below” hint in the menu", "Fingerprint or face instead of PIN"]}, {"v": "1.2.1", "d": "2026-09-24", "pt": ["☰ no topo com todas as funções", "Barra de baixo só com favoritos", "Abertura suave dos menus"], "en": ["☰ at the top with every feature", "Bottom bar with favorites only", "Smooth menu opening"]}, {"v": "1.2.0", "d": "2026-09-24", "pt": ["📨 Recados entre a família com prioridade e lido/não lido", "✅ Tarefas feitas, postergadas ou canceladas, com foto", "⚡ Lembretes rápidos", "👁 Modo Vigilante", "🎂 Dados e aniversários da família", "💎 Plano da família", "Faixa do topo com PT | EN e anúncios (da 1.1.0)"], "en": ["📨 Family messages with priority and read receipts", "✅ Tasks done, postponed or cancelled, with photo", "⚡ Quick reminders", "👁 Watch mode", "🎂 Family data and birthdays", "💎 Family plan", "Top strip with PT | EN and ads (from 1.1.0)"]}, {"v": "1.0.1", "d": "2026-09-22", "pt": ["Ajustes e correções da primeira versão"], "en": ["Tweaks and fixes to the first version"]}, {"v": "1.0.0", "d": "2026-09-18", "pt": ["Primeira versão: compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e família"], "en": ["First version: shopping and pantry, calendar, contacts, health, documents, “Where is it?”, vault and family"]}];
+const VERSOES_EMB = [{"v": "2.4.0", "d": "2026-09-25", "hora": "22:40:00", "pt": ["⭐ Barra de atalhos com arrastar e soltar (Ajustes → Geral): monte até 5, troque a ordem arrastando, tire arrastando para fora — salva sozinho; ↺ volta ao padrão (com Desfazer). Também funciona só com toques", "☰ Menu reorganizado em grupos (Dia a dia, Cuidar da família, Casa e papéis, Ajustes, Ajuda e mais), com as partes de cada função num ▸ que abre e fecha, e 4 ações rápidas no topo", "📥 Inbox virou ícone no topo, com bolha colorida: vermelha se houver algo urgente, âmbar se importante, azul no resto. Dentro, tudo por prioridade e depois do mais novo ao mais antigo, incluindo os alertas", "🌐 PT|EN foi para o cabeçalho no computador e para dentro do ☰ no celular; a faixa de cima agora é só do anúncio e some inteira no ×", "🛒 “Pôr na lista” entende melhor a fala (tira “é”, “coloca”, “na lista”, “por favor”…, entende “dois litros de leite”) e confirma na hora, sem janela: “✓ Leite entrou na lista · Ver lista ›”"], "en": ["⭐ Drag-and-drop shortcut bar (Settings → General): build up to 5, reorder by dragging, drag out to remove — saves by itself; ↺ resets to default (with Undo). Works with taps too", "☰ Menu reorganized into groups (Everyday, Family care, Home & papers, Settings, Help & more), with each feature's parts in a ▸ that opens and closes, and 4 quick actions at the top", "📥 Inbox is now a top icon with a colored bubble: red if something is urgent, amber if important, blue otherwise. Inside, everything by priority, then newest first, including alerts", "🌐 PT|EN moved to the header on computers and into ☰ on phones; the top strip is now only for the ad and closes entirely with ×", "🛒 “Add to list” understands speech better (drops fillers like “um”, “put”, “on the list”, “please”…, understands “two liters of milk”) and confirms right away, no pop-up: “✓ Milk added · See list ›”"]}, {"v": "2.3.0", "d": "2026-09-25", "hora": "21:23:00", "pt": ["🛡 Administração segura entre os responsáveis: chefe não rebaixa nem remove outro chefe sozinho (outro chefe aprova, ou vale em 48 h se ninguém vetar; a pessoa pode vetar)", "🔔 Todos os chefes são avisados de mudanças sensíveis; passar a criação da família só vale quando a outra pessoa aceita", "🔑 Ajudar a entrar de novo: e-mail de troca de senha, convite de uso único para a mesma pessoa, ou limpar o PIN no modo deste aparelho", "🆘 Acesso de emergência ao cofre com espera e código entregue ao contato de confiança", "📱 Aparelhos conectados, com desconectar à distância", "🎓 Criança que cresce: aviso para passar a adulto na idade escolhida", "🏠🏠 Duas casas (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga", "🧭 Quem cuida de cada área (Compras, Saúde, Casa…)", "🌐 Pronto para o novo endereço solverone.com.br, com aviso para guardar os dados de quem usa só no aparelho"], "en": ["🛡 Safe administration among adults: a head can't demote or remove another head alone (another head approves, or it applies in 48 h unless vetoed; the person can veto)", "🔔 All heads are notified of sensitive changes; handing over family ownership only happens when the other person accepts", "🔑 Help someone back in: password e-mail, single-use invite for the same person, or clear the PIN in this-device mode", "🆘 Emergency vault access with a waiting period and a code handed to a trusted contact", "📱 Connected devices, with remote disconnect", "🎓 Growing up: prompt to switch to adult at the chosen age", "🏠🏠 Two homes (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted", "🧭 Who looks after each area (Shopping, Health, Home…)", "🌐 Ready for the new address solverone.com.br, with a prompt to save data for this-device users"]}, {"v": "2.2.0", "d": "2026-09-25", "hora": "20:49:00", "pt": ["💻 Instalar como app no computador: ícone na área de trabalho, janela própria, barra de tarefas/Dock e menu Iniciar — em um clique no Chrome e no Edge, com passo a passo para Safari (Mac) e Firefox", "Aviso no Início (só no computador, some com “Agora não”), item no ☰, passo no AssistONE e na busca", "Botão direito no ícone do app: atalhos para Lista, Cheguei, Inbox e Agenda"], "en": ["💻 Install as an app on your computer: desktop icon, own window, taskbar/Dock and Start menu — one click in Chrome and Edge, with steps for Safari (Mac) and Firefox", "Notice on Home (computer only, hidden with “Not now”), ☰ item, AssistONE step and search", "Right-click the app icon: shortcuts to List, Check-in, Inbox and Calendar"]}, {"v": "2.1.1", "d": "2026-09-25", "hora": "20:42:00", "pt": ["💡 AssistONE dobra de tamanho quando você toca nele", "O balão começa com a ajuda da tela onde você está, com atalhos para o que dá para fazer ali (ex.: na Lista, “Adicionar falando”)"], "en": ["💡 AssistONE doubles in size when you tap it", "The balloon starts with help for the screen you're on, with shortcuts for what you can do there (e.g. on the List, “Add by voice”)"]}, {"v": "2.1.0", "d": "2026-09-25", "hora": "19:27:00", "pt": ["💡 Chegou o AssistONE: o assistente no canto da tela, ligado por padrão", "Balões para começar o passo a passo (guarda onde parou), fazer um tour rápido, procurar qualquer coisa (com sugestão quando escreve errado) e ver a ajuda da tela", "Dicas curtas em cada tela, uma vez só; liga e desliga em ⚙ → Geral → AssistONE"], "en": ["💡 Meet AssistONE: the assistant in the corner of the screen, on by default", "Balloons to start the walkthrough (saves your place), take a quick tour, find anything (with spelling suggestions) and get help for the screen", "Short tips on each screen, shown once; turn it on or off in ⚙ → General → AssistONE"]}, {"v": "2.0.1", "d": "2026-09-25", "hora": "19:11:00", "pt": ["👆 Tela de entrada com todas as formas de entrar: digital ou rosto, Google, e-mail e senha e PIN", "Depois do primeiro acesso, a digital vira um toque só na entrada; na nuvem, o app oferece ativar a digital logo após entrar"], "en": ["👆 Sign-in screen with every way in: fingerprint or face, Google, e-mail and password, and PIN", "After the first sign-in, fingerprint becomes one tap; in the cloud, the app offers to enable it right after signing in"]}, {"v": "2.0.0", "d": "2026-09-25", "hora": "18:58:00", "pt": ["✨ Visual novo, calmo e moderno, pensado primeiro para o celular: ícones de traço, cartões macios, menos distração e tema que segue o aparelho (claro de dia, escuro à noite)", "🏠 Início reorganizado: 4 ações grandes (Lista, Cheguei, Inbox, Lembrete), campo para pôr na lista, atalhos numa linha e um só bloco “Para você agora”", "🔝 Cabeçalho padrão: 🔍 busca, ⚙ configurações, 🏠 Início e 👤 conta; SOS, alertas, compartilhar e outros apps foram para o Início e o ☰ (com link para o Portal)", "↩️ Na tela inicial, o Voltar pede um segundo toque para sair", "🎤 Lista por voz corrigida: o que você fala entra no campo, separado por vírgulas, para conferir e tocar em Pôr", "📲 Usar sem internet: salvar o app no aparelho, criar o ícone na tela inicial e aviso quando estiver sem sinal", "🤖 Cofre de IA completo: texto, voz → texto, texto → voz e fotos, com guia passo a passo ilustrado para cada provedor e “Usar para”", "📚 Documentos: enviar vários arquivos de uma vez (arrastar, colar, câmera em sequência), com conferência e aviso de duplicados", "🧩 Aviso de compatibilidade do aparelho/navegador só quando houver problema", "🔒 Recarregar a página não pede PIN de novo por 30 min; quem entra volta para a tela onde estava", "📜 Registro de alterações no aparelho e relatório de erros opcional", "🆕 Novidades agrupadas por dia e recolhidas em Ajustes"], "en": ["✨ New calm, modern look designed mobile-first: line icons, soft cards, fewer distractions and a theme that follows the device", "🏠 Reorganized Home: 4 big actions (List, Check-in, Inbox, Reminder), add-to-list field, one-line shortcuts and a single “For you now” block", "🔝 Standard header: 🔍 search, ⚙ settings, 🏠 Home and 👤 account; SOS, alerts, share and other apps moved to Home and ☰ (with a Portal link)", "↩️ On the home screen, Back asks for a second press to leave", "🎤 Voice list fixed: what you say goes into the field, comma-separated, to check and tap Add", "📲 Use offline: save the app on the device, create the home-screen icon and an offline notice", "🤖 Full AI vault: text, voice → text, text → voice and photos, with an illustrated step-by-step guide per provider and “Use for”", "📚 Documents: upload many files at once (drag, paste, camera sequence), with review and duplicate warnings", "🧩 Device/browser compatibility notice only when there's a problem", "🔒 Reloading doesn't ask for the PIN again for 30 min; signing in brings you back to where you were", "📜 On-device change log and optional error report", "🆕 What's new grouped by day and collapsed in Settings"]}, {"v": "1.6.0", "d": "2026-09-25", "pt": ["↩️ Botão Voltar do celular navega dentro do app: fecha a janela ou o menu aberto, e das abas volta para o Início antes de sair", "🤖 IA com vários provedores grátis: Google Gemini, OpenRouter, Groq, Mistral (e OpenAI ou personalizado), com “Ver modelos que esta chave aceita” e nova tentativa quando a IA está ocupada", "🎤 Voz transcrita também pelo Groq (Whisper), além do Gemini", "🧒 Nomes das crianças são trocados por códigos antes de ir para a IA (LGPD)", "♿ Ajustes → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta", "📶 Ajustes → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados", "📢 Avisos do administrador (recados.json) na Inbox", "🗑 Apagar minha conta (nuvem), além do backup", "🔧 Modo sem internet não apaga mais o dos outros apps do portal"], "en": ["↩️ Phone Back button navigates inside the app: closes the open window or menu, and from tabs goes Home before leaving", "🤖 AI with several free providers: Google Gemini, OpenRouter, Groq, Mistral (plus OpenAI or custom), with “See models this key accepts” and retry when busy", "🎤 Voice transcribed by Groq (Whisper) too, besides Gemini", "🧒 Children's names are replaced by codes before going to the AI", "♿ Settings → Accessibility: text size, high contrast, reduce motion, underline links, reading mode and read the screen aloud", "📶 Settings → Network: large downloads and AI on Wi-Fi or data", "📢 Admin notices (recados.json) in the Inbox", "🗑 Delete my account (cloud), besides backup", "🔧 Offline mode no longer wipes the other portal apps' offline data"]}, {"v": "1.5.2", "d": "2026-09-25", "pt": ["Link fixo embaixo do campo Recado do Cheguei: “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — leva direto para Ajustes → IA"], "en": ["Permanent link under the Cheguei note field: “🎤 not working on a computer? Turn on the free AI for voice (optional)” — goes straight to Settings → AI"]}, {"v": "1.5.1", "d": "2026-09-25", "pt": ["🎤 Todo microfone explica antes de frustrar: no primeiro toque (no computador, sem IA) aparece a dica com o link opcional “Configurar a IA agora”, “Depois” e “Não mostrar mais”", "Se a voz falhar sem IA, o app mostra o motivo e o mesmo link; em Ajustes → IA aparece o passo a passo para a voz"], "en": ["🎤 Every mic explains before it frustrates: on the first tap (computer, no AI) a tip shows the optional “Set up the AI now” link, “Later” and “Don't show again”", "If voice fails without AI, the app explains why and shows the same link; Settings → AI shows the voice step-by-step"]}, {"v": "1.5.0", "d": "2026-09-25", "pt": ["📥 Inbox: recados, avisos do Cheguei e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados", "🔎 Lupa de busca no topo: procura em tudo (funções, pessoas, contatos, compras, agenda, tarefas, lembretes, recados, documentos, objetos e ajudas). Atalho: tecla / ou Ctrl+K", "🆕 Versões em Ajustes, com o que entrou em cada uma", "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Ajustes → IA) transcreve a gravação; medidor mostra se o microfone capta som"], "en": ["📥 Inbox: messages, check-ins and alerts in one place, with All, Messages, Check-ins, Alerts, Sent and Archived tabs", "🔎 Search at the top: finds everything (features, people, contacts, shopping, calendar, tasks, reminders, messages, documents, objects and help). Shortcut: / or Ctrl+K", "🆕 Versions in Settings, with what each one brought", "🎤 Dictation that works on computers: if Chrome returns no text, Gemini AI (Settings → AI) transcribes the recording; a meter shows whether the mic picks up sound"]}, {"v": "1.4.2", "d": "2026-09-25", "pt": ["📅 Dia da chegada com dia da semana, mudável", "🎤 ✓ OK sempre encerra o ditado e o app explica o motivo quando o reconhecimento de voz falha"], "en": ["📅 Arrival day with weekday, changeable", "🎤 ✓ OK always stops dictation and the app explains why speech recognition failed"]}, {"v": "1.4.1", "d": "2026-09-24", "pt": ["✅ Cheguei com mais lugares (Bar, Casa de amigos, Aeroporto, Rodoviária, Metrô… e Outro)", "“Complemente a informação” com sugestões do que já foi escrito", "🕐 Horário em roda para ajustar", "📣 Escolha de quem recebe a notificação e por onde (Notificação, WhatsApp, Telegram, SMS, e-mail); contatos da agenda e novo contato com país e DDD", "📇 Meus contatos"], "en": ["✅ Check-in with more places (Bar, Friends' home, Airport, Bus station, Subway… and Other)", "“Add details” with suggestions from what you typed before", "🕐 Scroll wheel to adjust the time", "📣 Choose who gets notified and how (Push, WhatsApp, Telegram, SMS, e-mail); phone contacts and new contact with country and area code", "📇 My contacts"]}, {"v": "1.4.0", "d": "2026-09-24", "pt": ["👑 Vários chefes da família com direitos de administrador", "✉️ Convites com prazo, limite de pessoas e papel; compartilháveis por WhatsApp, e-mail, link ou QR", "🔢 Código de confirmação de 4 números e aprovação por 1 ou 2 chefes", "🧒 Consentimento do responsável para crianças (LGPD art. 14)", "📜 Histórico de segurança", "❓ Tutoriais de entrada na família"], "en": ["👑 Several family heads with admin rights", "✉️ Invites with deadline, people limit and role; shareable by WhatsApp, e-mail, link or QR", "🔢 4-digit confirmation code and approval by 1 or 2 heads", "🧒 Guardian consent for children (LGPD art. 14)", "📜 Security log", "❓ Family joining tutorials"]}, {"v": "1.3.0", "d": "2026-09-24", "pt": ["🛡️ Nova área Segurança", "✅ Aviso “Cheguei” e “Estou saindo”, com horários combinados e alerta de atraso", "👁 Modo Vigilante com flash piscando e tela escura", "📣 Alertas: Telegram, WhatsApp, e-mail e ntfy num lugar só"], "en": ["🛡️ New Safety area", "✅ “I'm here” and “I'm leaving” check-ins, with scheduled times and late alerts", "👁 Watch mode with flashing light and dark screen", "📣 Alerts: Telegram, WhatsApp, e-mail and ntfy in one place"]}, {"v": "1.2.4", "d": "2026-09-24", "pt": ["Vigilante: Telegram e WhatsApp desligados por padrão", "Cadastro de quem recebe os alertas (família ou outra pessoa), com seleção múltipla", "Ajuda passo a passo de Telegram e WhatsApp"], "en": ["Watch mode: Telegram and WhatsApp off by default", "Register who gets alerts (family or someone else), multi-select", "Step-by-step help for Telegram and WhatsApp"]}, {"v": "1.2.3", "d": "2026-09-24", "pt": ["Vigilante: alarme, mensagem ou os dois", "4 toques de alarme, silenciar na hora", "Telegram com foto e WhatsApp automático"], "en": ["Watch mode: alarm, message or both", "4 alarm tones, silence instantly", "Telegram with photo and automatic WhatsApp"]}, {"v": "1.2.2", "d": "2026-09-24", "pt": ["☰ só depois de entrar", "Aviso “↓ Mais opções abaixo” no menu", "Digital ou rosto no lugar do PIN"], "en": ["☰ only after signing in", "“↓ More options below” hint in the menu", "Fingerprint or face instead of PIN"]}, {"v": "1.2.1", "d": "2026-09-24", "pt": ["☰ no topo com todas as funções", "Barra de baixo só com favoritos", "Abertura suave dos menus"], "en": ["☰ at the top with every feature", "Bottom bar with favorites only", "Smooth menu opening"]}, {"v": "1.2.0", "d": "2026-09-24", "pt": ["📨 Recados entre a família com prioridade e lido/não lido", "✅ Tarefas feitas, postergadas ou canceladas, com foto", "⚡ Lembretes rápidos", "👁 Modo Vigilante", "🎂 Dados e aniversários da família", "💎 Plano da família", "Faixa do topo com PT | EN e anúncios (da 1.1.0)"], "en": ["📨 Family messages with priority and read receipts", "✅ Tasks done, postponed or cancelled, with photo", "⚡ Quick reminders", "👁 Watch mode", "🎂 Family data and birthdays", "💎 Family plan", "Top strip with PT | EN and ads (from 1.1.0)"]}, {"v": "1.0.1", "d": "2026-09-22", "pt": ["Ajustes e correções da primeira versão"], "en": ["Tweaks and fixes to the first version"]}, {"v": "1.0.0", "d": "2026-09-18", "pt": ["Primeira versão: compras e despensa, agenda, contatos, saúde, documentos, “Onde está?”, cofre e família"], "en": ["First version: shopping and pantry, calendar, contacts, health, documents, “Where is it?”, vault and family"]}];
 const Versions = {
   KEY: "omnilife.versionSeen.v1",
   list() { return (S.versoes && S.versoes.length ? S.versoes : VERSOES_EMB); },
@@ -7143,23 +7239,22 @@ SCREENS.inbox = {
   render(sub) {
     sub = sub || "all";
     const un = Msgs.unread().length, nc = Inbox.newChk().length, nn = Notices.unread().length;
-    const al = Alerts.list().filter((a) => a.level !== "info");
-    const segs = [["all", "📥 " + tt("Tudo", "All") + (un + nc + nn ? ' <span class="nbadge">' + (un + nc + nn) + "</span>" : "")], ["in", "📨 " + tt("Recados", "Messages") + (un ? ' <span class="nbadge">' + un + "</span>" : "")], ["chk", "✅ " + tt("Cheguei", "Check-ins") + (nc ? ' <span class="nbadge">' + nc + "</span>" : "")], ["alerts", "🔔 " + tt("Alertas", "Alerts") + (al.length ? ' <span class="nbadge">' + al.length + "</span>" : "")], ["out", "📤 " + tt("Enviados", "Sent")], ["arch", "🗄 " + tt("Arquivados", "Archived")]];
+    const na = Inbox.newAlerts().length;
+    const segs = [["all", "📥 " + tt("Tudo", "All") + (un + nc + nn + na ? ' <span class="nbadge">' + (un + nc + nn + na) + "</span>" : "")], ["in", "📨 " + tt("Recados", "Messages") + (un ? ' <span class="nbadge">' + un + "</span>" : "")], ["chk", "✅ " + tt("Cheguei", "Check-ins") + (nc ? ' <span class="nbadge">' + nc + "</span>" : "")], ["alerts", "🔔 " + tt("Alertas", "Alerts") + (na ? ' <span class="nbadge">' + na + "</span>" : "")], ["out", "📤 " + tt("Enviados", "Sent")], ["arch", "🗄 " + tt("Arquivados", "Archived")]];
     let h = '<div class="pagehead"><div><h1>📥 Inbox</h1><div class="sub">' + tt("Recados, avisos do Cheguei e alertas da família num lugar só", "Messages, check-ins and family alerts in one place") + '</div></div><div class="row"><button class="btn ghost sm" data-act="chk.arrive">✅ ' + tt("Cheguei", "I'm here") + '</button><button class="btn" data-act="msg.new">＋ ' + tt("Recado", "Message") + "</button></div></div>" +
       '<div class="seg segscroll">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="inbox" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>";
     const empty = (e, t) => '<div class="empty"><div class="e">' + e + "</div>" + t + "</div>";
     if (sub === "all") {
-      if (al.length) h += '<div class="card"><div class="between"><h3>🔔 ' + tt("Alertas agora", "Alerts now") + '</h3><button class="linkbtn small" data-act="go" data-tab="inbox" data-sub="alerts">' + tt("ver todos", "see all") + '</button></div><div class="list">' + al.slice(0, 4).map((a) => Inbox.alertRow(a)).join("") + "</div></div>";
       const myTasks = DB.all("tasks").filter((t) => Tasks.isOpen(t) && t.assignee === S.meId);
       if (myTasks.length) h += '<div class="card tight click" data-act="go" data-tab="agenda" data-sub="tasks"><div class="between"><span>✅ <b>' + myTasks.length + "</b> " + tt("tarefa(s) aberta(s) para você", "open task(s) for you") + "</span><span class=\"faint\">›</span></div></div>";
       const f = Inbox.feed();
-      h += '<div class="card"><div class="between"><h3>🕑 ' + tt("Mensagens e avisos", "Messages and check-ins") + "</h3>" + (nc ? '<button class="linkbtn small" data-act="inbox.readall">✓ ' + tt("marcar avisos como vistos", "mark check-ins as seen") + "</button>" : "") + "</div>" + (f.length ? '<div class="list" aria-live="polite">' + f.slice(0, 60).map((x) => x.html).join("") + "</div>" : empty("📭", tt("Nada por aqui ainda. Recados e avisos de “Cheguei” aparecem aqui.", "Nothing here yet. Messages and check-ins show up here."))) + "</div>";
+      h += '<div class="card"><div class="between"><h3>📥 ' + tt("Por prioridade, mais recentes primeiro", "By priority, newest first") + "</h3>" + (nc ? '<button class="linkbtn small" data-act="inbox.readall">✓ ' + tt("marcar avisos como vistos", "mark check-ins as seen") + "</button>" : "") + "</div>" + (f.length ? '<div class="list" aria-live="polite">' + Inbox.feedHtml(f.slice(0, 80)) + "</div>" : empty("📭", tt("Nada por aqui ainda. Recados e avisos de “Cheguei” aparecem aqui.", "Nothing here yet. Messages and check-ins show up here."))) + "</div>";
     } else if (sub === "chk") {
       const l = Inbox.checkins();
       h += '<div class="card"><div class="between"><h3>✅ ' + tt("Chegadas e saídas (7 dias)", "Arrivals and departures (7 days)") + '</h3><button class="linkbtn small" data-act="go" data-tab="security" data-sub="cheguei">' + tt("horários combinados ›", "scheduled times ›") + "</button></div>" + (l.length ? '<div class="list">' + l.map((c) => Inbox.chkRow(c)).join("") + "</div>" : empty("✅", tt("Nenhum aviso nos últimos 7 dias.", "No check-ins in the last 7 days."))) + "</div>";
     } else if (sub === "alerts") {
-      const all = Alerts.list();
-      h += '<div class="card">' + (all.length ? '<div class="list">' + all.map((a) => Inbox.alertRow(a)).join("") + "</div>" : empty("🔔", tt("Nenhum alerta. Tudo em ordem!", "No alerts. All good!"))) + "</div>";
+      const all = Alerts.list().sort((x, y) => Inbox.rankAlert(x) - Inbox.rankAlert(y)); const sn = Inbox.alSeen();
+      h += '<div class="card">' + (all.length ? '<div class="list">' + all.map((a) => Inbox.alertRow(a, a.level !== "info" && !sn.includes(Inbox.alertKey(a)))).join("") + "</div>" : empty("🔔", tt("Nenhum alerta. Tudo em ordem!", "No alerts. All good!"))) + "</div>";
     } else {
       const list = sub === "out" ? Msgs.sent() : sub === "arch" ? Msgs.archived() : Msgs.inbox();
       h += '<div class="card">' + (list.length ? '<div class="list" aria-live="polite">' + list.map((m) => Msgs.row(m, sub === "out" ? "out" : "in")).join("") + "</div>" : empty("📭", sub === "out" ? tt("Você ainda não mandou recados.", "You haven't sent any messages yet.") : tt("Nenhum recado por aqui.", "No messages here."))) + "</div>";
@@ -7168,11 +7263,280 @@ SCREENS.inbox = {
     /* ao abrir Tudo ou Cheguei, os avisos novos passam a contar como vistos (depois de mostrar os destaques) */
     if ((sub === "all" || sub === "chk") && nc) setTimeout(() => { Inbox.markSeen(); updateBadges(); }, 4000);
     if (sub === "all" && Notices.unread().length) setTimeout(() => { Notices.markAll(); updateBadges(); }, 4000);
+    if ((sub === "all" || sub === "alerts") && na) setTimeout(() => { Inbox.markAlerts(); updateBadges(); }, 4000);
     return h;
   }
 };
 ACT["msg.new"] = () => Msgs.compose();
 ACT["msg.open"] = (d) => Msgs.open(d.id);
+
+/* =====================================================================
+   2.4.0 — menu ☰ em grupos, barra de favoritos com arrastar e soltar,
+   Inbox no topo com bolha por prioridade e "Pôr na lista" com confirmação
+   ===================================================================== */
+
+/* ---------- menu ☰ em grupos (benchmark: Material 3, NN/g, Toptal) ----------
+   - grupos com título (Dia a dia, Cuidar da família, Casa e papéis, Ajuda e app);
+   - cada função abre direto; as partes dela ficam num acordeão (▸), um nível só;
+   - o grupo da tela atual já vem aberto; ações rápidas em 4 botões no topo. */
+const DRAWER_GROUPS = () => [
+  { id: "dia", t: tt("Dia a dia", "Everyday"), tabs: ["home", "shop", "agenda", "inbox"] },
+  { id: "cuidar", t: tt("Cuidar da família", "Family care"), tabs: ["security", "health", "family", "contacts"] },
+  { id: "casa", t: tt("Casa e papéis", "Home & papers"), tabs: ["house", "docs"] },
+  { id: "app", t: tt("Ajustes", "Settings"), tabs: ["settings", "ads"] }
+];
+const LANGSW = () => '<div class="langsw" role="group" aria-label="Idioma / Language"><button type="button" data-l="pt" class="' + (S.lang === "pt" ? "on" : "") + '">PT</button><button type="button" data-l="en" class="' + (S.lang === "en" ? "on" : "") + '">EN</button></div>';
+Drawer.openSet = new Set();
+Drawer.fill = function () {
+  const tabs = S.booted ? visibleTabs() : [];
+  const subs = DRAWER_SUBS();
+  const cur = S.route && S.route.tab;
+  const quick = S.booted && S.mode !== "advertiser" ? [["zap", tt("Lembrete", "Reminder"), "rem.new", ""], ["inbox", tt("Recado", "Message"), "msg.new", "info"], ["pin", tt("Cheguei", "I'm here"), "chk.arrive", "ok"], ["sos", "SOS", "sos", "bad"]] : [];
+  const item = (t) => {
+    const b = tabBadge(t.id); const sb = subs[t.id] || []; const open = this.openSet.has(t.id);
+    return '<div class="dgrp' + (open ? " open" : "") + '"><div class="drow"><button class="ditem' + (cur === t.id ? " active" : "") + '" type="button" data-dtab="' + t.id + '"' + (cur === t.id ? ' aria-current="page"' : "") + '><span class="ic">' + (ico(t.id) || t.ic) + '</span><span class="dl">' + esc(t.t) + "</span>" + (b ? '<span class="nbadge">' + b + "</span>" : "") + "</button>" +
+      (sb.length ? '<button class="dexp" type="button" data-dexp="' + t.id + '" aria-expanded="' + open + '" aria-controls="dsub-' + t.id + '" aria-label="' + tt("Partes de ", "Parts of ") + esc(t.t) + '">' + ico("chev") + "</button>" : "") + "</div>" +
+      (sb.length ? '<div class="dsub" id="dsub-' + t.id + '">' + sb.map((x) => '<button type="button" data-dtab="' + t.id + '" data-dsub="' + x[0] + '"' + (cur === t.id && S.route.sub === x[0] ? ' class="on"' : "") + ">" + esc(x[1]) + "</button>").join("") + "</div>" : "") + "</div>";
+  };
+  const used = new Set();
+  let groups = DRAWER_GROUPS().map((g) => { const ts = g.tabs.map((id) => tabs.find((t) => t.id === id)).filter(Boolean); ts.forEach((t) => used.add(t.id)); return { t: g.t, ts }; });
+  const rest = tabs.filter((t) => !used.has(t.id)); if (rest.length) groups[0].ts = groups[0].ts.concat(rest);
+  groups = groups.filter((g) => g.ts.length);
+  const more = S.booted ? [["help", tt("Ajuda e tutoriais", "Help & tutorials"), "help"], ["speaker", tt("Ler esta tela", "Read this screen"), "a11y.read"]].concat(Offline.pc() && !Offline.installed() ? [["monitor", tt("Instalar no computador", "Install on this computer"), "off.install"]] : []).concat([["share", tt("Compartilhar o app", "Share the app"), "app.share"], ["apps", tt("Meus outros apps", "My other apps"), "app.others"]]) : [];
+  $("#drawerin").innerHTML = '<div class="dhead">' + ART.mark() + "<b>OmniLife<span style=\"color:var(--accent)\">ONE</span></b>" + '<span class="dlang">' + LANGSW() + "</span>" + '<button class="xbtn" type="button" data-dclose aria-label="' + tt("Fechar menu", "Close menu") + '">×</button></div>' +
+    (quick.length ? '<div class="dquick">' + quick.map((q) => '<button type="button" data-dact="' + q[2] + '"><span class="qi ' + q[3] + '">' + ico(q[0]) + "</span>" + esc(q[1]) + "</button>").join("") + "</div>" : "") +
+    groups.map((g) => '<div class="dsec">' + esc(g.t) + "</div>" + g.ts.map(item).join("")).join("") +
+    (more.length ? '<div class="dsec">' + tt("Ajuda e mais", "Help & more") + "</div>" + more.map((q) => '<button class="ditem" type="button" data-dact="' + q[2] + '"><span class="ic">' + ico(q[0]) + '</span><span class="dl">' + esc(q[1]) + "</span></button>").join("") + '<a class="ditem" href="' + SITE_BASE + '" target="_blank" rel="noopener"><span class="ic">' + ico("globe") + '</span><span class="dl">' + tt("Portal SolverONE ↗", "SolverONE Portal ↗") + "</span></a>" : "");
+  $("#drawermore span").textContent = tt("Mais opções abaixo", "More options below");
+  this.hint();
+};
+(function () {
+  const open0 = Drawer.open.bind(Drawer);
+  Drawer.open = function () { const cur = S.route && S.route.tab; if (cur && DRAWER_SUBS()[cur]) this.openSet.add(cur); open0(); };
+  document.addEventListener("click", (e) => {
+    const x = e.target.closest("#drawer [data-dexp]"); if (!x) return;
+    e.stopPropagation();
+    const id = x.dataset.dexp; const g = x.closest(".dgrp"); const on = !g.classList.contains("open");
+    g.classList.toggle("open", on); x.setAttribute("aria-expanded", on);
+    if (on) Drawer.openSet.add(id); else Drawer.openSet.delete(id);
+    Drawer.hint();
+  }, true);
+  /* PT|EN: o mesmo seletor no cabeçalho (computador) e dentro do ☰ (celular) */
+  document.addEventListener("click", (e) => { const b = e.target.closest(".langsw [data-l]"); if (!b) return; e.stopPropagation(); if (b.dataset.l !== S.lang) setLang(b.dataset.l); }, true);
+})();
+
+/* ---------- Barra de favoritos: arrastar e soltar ----------
+   Disponíveis → Barra (até 5). Arrastar também troca a ordem e, arrastando para fora, tira.
+   Cada mudança salva na hora. Alternativa de toque (WCAG 2.5.7): tocar em Disponível põe;
+   tocar num item da barra mostra ◀ ▶ ✕. ↺ volta ao padrão (as funções mais usadas). */
+const BarEd = {
+  sel: null, pend: null, undo: null,
+  choices() { return visibleTabs().filter((t) => t.id !== "inbox"); },
+  cur() { const ok = this.choices().map((t) => t.id); return bottomPick().filter((id) => ok.includes(id)); },
+  def() { const ok = this.choices().map((t) => t.id); return BOTTOM_DEFAULT.filter((id) => ok.includes(id)); },
+  isDef() { return this.cur().join() === this.def().join(); },
+  lbl(t) { return '<span class="ic">' + (ico(t.id) || t.ic) + '</span><span class="lb">' + esc(t.t) + "</span>"; },
+  html() { return '<div class="card bared" id="bared">' + this.inner() + "</div>"; },
+  inner() {
+    const all = this.choices(), cur = this.cur();
+    const byId = (id) => all.find((t) => t.id === id);
+    const avail = all.filter((t) => !cur.includes(t.id));
+    const slots = [0, 1, 2, 3, 4].map((i) => { const t = byId(cur[i]); return '<div class="bd-slot' + (t ? " full" : "") + '" data-i="' + i + '">' + (t ? '<button type="button" class="bd-item' + (this.sel === i ? " sel" : "") + (this.pend ? " swap" : "") + '" data-id="' + t.id + '" data-from="bar" data-i="' + i + '" aria-label="' + esc(t.t) + ", " + tt("posição ", "position ") + (i + 1) + '">' + this.lbl(t) + "</button>" : '<span class="bd-empty">' + ico("plus") + "<small>" + tt("Vazio", "Empty") + "</small></span>") + "</div>"; }).join("");
+    const t = this.sel != null ? byId(cur[this.sel]) : null;
+    return '<div class="between"><h3>⭐ ' + tt("Barra de atalhos", "Shortcut bar") + '</h3><button type="button" class="iconbtn bd-reset" data-act="bar.reset" title="' + tt("Voltar ao padrão", "Reset to default") + '" aria-label="' + tt("Voltar ao padrão", "Reset to default") + '"' + (this.isDef() ? " disabled" : "") + ">" + ico("reset") + "</button></div>" +
+      '<p class="small muted">' + tt("Arraste para montar sua barra (até 5) e para trocar a ordem. Salva sozinho. No celular ela fica embaixo; no computador, logo abaixo do cabeçalho. Todo o resto está no ☰.", "Drag to build your bar (up to 5) and to change the order. Saves by itself. On a phone it sits at the bottom; on a computer, under the header. Everything else is in ☰.") + "</p>" +
+      '<div class="bd-wrap"><div class="bd-col"><div class="bd-lbl">' + tt("Disponíveis", "Available") + '</div><div class="bd-avail" data-zone="avail">' + (avail.length ? avail.map((t) => '<button type="button" class="bd-item' + (this.pend === t.id ? " sel" : "") + '" data-id="' + t.id + '" data-from="avail">' + ico("grip", "grip") + this.lbl(t) + "</button>").join("") : '<span class="small faint">' + tt("Todos já estão na barra.", "All are on the bar.") + "</span>") + "</div></div>" +
+      '<div class="bd-arrow" aria-hidden="true"><span class="d">' + tt("arraste para cá", "drag here") + " →</span><span class=\"m\">↓ " + tt("arraste para baixo", "drag down") + "</span></div>" +
+      '<div class="bd-col"><div class="bd-lbl">' + tt("Sua barra", "Your bar") + ' <span class="faint">(' + cur.length + "/5)</span></div>" + '<div class="bd-bar" data-zone="bar">' + slots + "</div>" +
+      '<div class="bd-phone" aria-hidden="true">' + cur.map((id) => { const x = byId(id); return x ? '<span>' + (ico(x.id) || x.ic) + "</span>" : ""; }).join("") + "</div></div></div>" +
+      '<div class="bd-tools' + (t ? "" : " hidden") + '">' + (t ? "<b>" + esc(t.t) + '</b><button type="button" class="btn xs ghost" data-act="bar.mv" data-d="-1"' + (this.sel ? "" : " disabled") + ">◀ " + tt("Mover", "Move") + '</button><button type="button" class="btn xs ghost" data-act="bar.mv" data-d="1"' + (this.sel < cur.length - 1 ? "" : " disabled") + ">" + tt("Mover", "Move") + ' ▶</button><button type="button" class="btn xs ghost" data-act="bar.rm">✕ ' + tt("Tirar", "Remove") + "</button>" : "") + "</div>" +
+      '<div class="bd-status small" role="status" aria-live="polite">' + (this.msg || "") + "</div>";
+  },
+  paint(msg) { this.msg = msg || ""; const r = $("#bared"); if (r) r.innerHTML = this.inner(); if (msg) { clearTimeout(this._mt); this._mt = setTimeout(() => { this.msg = ""; const s = $("#bared .bd-status"); if (s) s.innerHTML = ""; }, 5000); } },
+  save(arr, msg) {
+    if (!arr.length) return this.paint("⚠️ " + tt("Deixe pelo menos 1 atalho na barra.", "Keep at least 1 shortcut on the bar."));
+    S.prefs.bottom = arr.slice(0, 5); savePrefs(); renderNav(); this.paint("✓ " + (msg || tt("Salvo", "Saved")));
+  },
+  name(id) { const t = this.choices().find((x) => x.id === id); return t ? t.t : id; },
+  /* regras de soltar: de Disponíveis → entra na posição (barra cheia = troca); dentro da barra → muda a ordem; para fora → sai */
+  drop(id, from, fi, zone, i) {
+    const arr = this.cur(); this.sel = null; this.pend = null;
+    if (zone === "bar") {
+      if (from === "bar") { if (fi === i) return this.paint(); arr.splice(fi, 1); arr.splice(Math.min(i, arr.length), 0, id); return this.save(arr, tt("Nova ordem salva", "New order saved")); }
+      if (arr.length >= 5) { const old = arr[Math.min(i, 4)]; arr[Math.min(i, 4)] = id; return this.save(arr, this.name(id) + tt(" entrou no lugar de ", " replaced ") + this.name(old)); }
+      arr.splice(Math.min(i, arr.length), 0, id); return this.save(arr, this.name(id) + tt(" entrou na barra", " added to the bar"));
+    }
+    if (zone === "avail" && from === "bar") { arr.splice(fi, 1); return this.save(arr, this.name(id) + tt(" saiu da barra", " removed from the bar")); }
+    this.paint();
+  },
+  tap(id, from, fi) {
+    const arr = this.cur();
+    if (from === "avail") {
+      if (arr.length < 5) { this.pend = null; arr.push(id); return this.save(arr, this.name(id) + tt(" entrou na barra", " added to the bar")); }
+      this.sel = null; this.pend = this.pend === id ? null : id;
+      return this.paint(this.pend ? "↔️ " + tt("Barra cheia: toque no atalho da barra que vai sair.", "Bar is full: tap the shortcut on the bar to replace.") : "");
+    }
+    if (this.pend) { const p = this.pend; return this.drop(p, "avail", -1, "bar", fi); }
+    this.sel = this.sel === fi ? null : fi; this.paint();
+  },
+  target(x, y) {
+    const el = document.elementFromPoint(x, y); const root = $("#bared"); if (!el || !root) return null;
+    const bar = root.querySelector(".bd-bar"), r = bar.getBoundingClientRect();
+    if (x >= r.left - 20 && x <= r.right + 20 && y >= r.top - 24 && y <= r.bottom + 24) {
+      let best = 0, bd = 1e9; bar.querySelectorAll(".bd-slot").forEach((s, i) => { const q = s.getBoundingClientRect(); const d = Math.hypot(x - (q.left + q.width / 2), y - (q.top + q.height / 2)); if (d < bd) { bd = d; best = i; } });
+      return { zone: "bar", i: best };
+    }
+    if (el.closest("#bared .bd-avail") || el.closest("#bared .bd-col:first-child")) return { zone: "avail" };
+    return null;
+  },
+  press(e, it) {
+    const st = { it, id: it.dataset.id, from: it.dataset.from, fi: +(it.dataset.i || -1), x: e.clientX, y: e.clientY, pid: e.pointerId, drag: false };
+    const root = $("#bared");
+    const mark = (tg) => { root.querySelectorAll(".bd-slot.over").forEach((s) => s.classList.remove("over")); root.querySelector(".bd-avail").classList.toggle("over", !!(tg && tg.zone === "avail" && st.from === "bar")); if (tg && tg.zone === "bar") { const s = root.querySelectorAll(".bd-slot")[tg.i]; if (s) s.classList.add("over"); } };
+    const move = (ev) => {
+      if (ev.pointerId !== st.pid) return;
+      if (!st.drag) {
+        if (Math.hypot(ev.clientX - st.x, ev.clientY - st.y) < 6) return;
+        st.drag = true; const r = it.getBoundingClientRect();
+        st.dx = st.x - r.left; st.dy = st.y - r.top;
+        st.g = it.cloneNode(true); st.g.classList.add("bd-ghost"); st.g.style.width = r.width + "px"; document.body.appendChild(st.g);
+        it.classList.add("dragging"); root.classList.add("dragon");
+      }
+      ev.preventDefault();
+      /* rola a página sozinho quando o dedo chega perto da borda (a barra pode estar mais embaixo) */
+      if (ev.clientY > innerHeight - 110) window.scrollBy(0, 14); else if (ev.clientY < 90) window.scrollBy(0, -14);
+      st.g.style.transform = "translate(" + (ev.clientX - st.dx) + "px," + (ev.clientY - st.dy) + "px) rotate(-2deg)";
+      st.tg = this.target(ev.clientX, ev.clientY); mark(st.tg);
+    };
+    const end = (ev) => {
+      if (ev.pointerId !== st.pid) return;
+      document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", end); document.removeEventListener("pointercancel", end);
+      if (!st.drag) return; /* toque simples: o click cuida (funciona também no teclado) */
+      st.g.remove(); root.classList.remove("dragon"); it.classList.remove("dragging"); mark(null);
+      this._suppress = true; setTimeout(() => { this._suppress = false; }, 0);
+      if (ev.type === "pointerup" && st.tg) this.drop(st.id, st.from, st.fi, st.tg.zone, st.tg.i); else this.paint();
+    };
+    document.addEventListener("pointermove", move, { passive: false }); document.addEventListener("pointerup", end); document.addEventListener("pointercancel", end);
+  }
+};
+document.addEventListener("pointerdown", (e) => { const it = e.target.closest("#bared .bd-item"); if (!it || (e.pointerType === "mouse" && e.button !== 0)) return; BarEd.press(e, it); });
+document.addEventListener("click", (e) => {
+  const it = e.target.closest("#bared .bd-item"); if (!it) return;
+  if (BarEd._suppress) return;
+  BarEd.tap(it.dataset.id, it.dataset.from, +(it.dataset.i || -1));
+});
+ACT["bar.reset"] = () => { BarEd.undo = BarEd.cur(); BarEd.sel = null; BarEd.pend = null; BarEd.save(BarEd.def(), tt("Voltou ao padrão", "Back to default") + ' · <button type="button" class="linkbtn" data-act="bar.undo">' + tt("Desfazer", "Undo") + "</button>"); };
+ACT["bar.undo"] = () => { if (BarEd.undo) { const u = BarEd.undo; BarEd.undo = null; BarEd.save(u, tt("Desfeito", "Undone")); } };
+ACT["bar.mv"] = (d) => { const arr = BarEd.cur(), i = BarEd.sel, j = i + (+d.d); if (i == null || j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; BarEd.sel = j; BarEd.save(arr, tt("Nova ordem salva", "New order saved")); };
+ACT["bar.rm"] = () => { const arr = BarEd.cur(), i = BarEd.sel; if (i == null) return; const id = arr[i]; if (arr.length <= 1) return BarEd.paint("⚠️ " + tt("Deixe pelo menos 1 atalho na barra.", "Keep at least 1 shortcut on the bar.")); arr.splice(i, 1); BarEd.sel = null; BarEd.save(arr, BarEd.name(id) + tt(" saiu da barra", " removed from the bar")); };
+
+/* ---------- Inbox: prioridade, cor da bolha e alertas "vistos" ----------
+   Ordem: 1º prioridade (urgente → importante → para saber), 2º mais recente primeiro.
+   Bolha: vermelha se houver algo crítico não lido; âmbar se importante; azul no resto. */
+Object.assign(Inbox, {
+  ALKEY: "omnilife.alertSeen.v1",
+  rankMsg(m) { return m.prio === "urgente" ? 0 : m.prio === "importante" ? 1 : 2; },
+  rankNotice(n) { const p = n.prioridade || n.prio || ""; return p === "urgente" ? 0 : p === "importante" ? 1 : 2; },
+  rankAlert(a) { return a.level === "bad" ? 0 : a.level === "warn" ? 1 : 2; },
+  alertKey(a) { return (a.go || []).join("/") + "|" + a.ic + "|" + String(a.t).replace(/\d+/g, "#"); },
+  /* alertas que entram na Inbox (recado urgente já aparece como recado, então fica de fora aqui) */
+  feedAlerts() { return Alerts.list().filter((a) => a.level !== "info" && !(a.go && a.go[0] === "inbox")); },
+  alSeen() { return (lsGet(this.ALKEY, {})[S.meId] || []); },
+  newAlerts() { const sn = this.alSeen(); return this.feedAlerts().filter((a) => !sn.includes(this.alertKey(a))); },
+  markAlerts() { const o = lsGet(this.ALKEY, {}); o[S.meId] = [...new Set(this.alSeen().concat(this.feedAlerts().map((a) => this.alertKey(a))))].slice(-300); lsSet(this.ALKEY, o); },
+  unread() { return Msgs.unread().length + this.newChk().length + Notices.unread().length + this.newAlerts().length; },
+  /* 0 = crítico (vermelho), 1 = importante (âmbar), 2 = o resto (azul), null = nada novo */
+  level() {
+    const r = Msgs.unread().map((m) => this.rankMsg(m)).concat(this.newChk().map(() => 2), Notices.unread().map((n) => this.rankNotice(n)), this.newAlerts().map((a) => this.rankAlert(a)));
+    return r.length ? Math.min.apply(null, r) : null;
+  },
+  alertRow(a, isNew) { return '<div class="li click' + (isNew ? " unread" : "") + '" data-act="go" data-tab="' + a.go[0] + '" data-sub="' + (a.go[1] || "") + '" data-arg="' + (a.go[2] || "") + '"><div class="ico">' + a.ic + '</div><div class="main"><div class="t" style="white-space:normal">' + (isNew ? '<span class="udot"></span>' : "") + esc(a.t) + '</div></div><span class="badge ' + (a.level === "bad" ? "bad" : a.level === "warn" ? "warn" : "") + '">' + (a.level === "bad" ? tt("urgente", "urgent") : a.level === "warn" ? tt("atenção", "heads-up") : "info") + "</span></div>"; },
+  feed() {
+    const now = new Date().toISOString(), sn = this.alSeen();
+    const items = Msgs.inbox().map((m) => ({ r: this.rankMsg(m), at: m.sentAt || m.at || m.createdAt || "", html: Msgs.row(m, "in") }))
+      .concat(this.checkins().map((c) => ({ r: 2, at: c.sentAt || c.at, html: this.chkRow(c) })))
+      .concat(Notices.active().map((n) => ({ r: this.rankNotice(n), at: (n.inicio || "") + "T00:00", html: Notices.row(n) })))
+      .concat(this.feedAlerts().map((a) => ({ r: this.rankAlert(a), at: now, html: this.alertRow(a, !sn.includes(this.alertKey(a))) })));
+    return items.sort((x, y) => x.r - y.r || String(y.at).localeCompare(String(x.at)));
+  },
+  feedHtml(list) {
+    const H = [["🔴", tt("Urgente", "Urgent")], ["🟡", tt("Importante", "Important")], ["🔵", tt("Para saber", "FYI")]];
+    let last = -1, h = "";
+    list.forEach((x) => { if (x.r !== last) { last = x.r; h += '<div class="prioh p' + x.r + '">' + H[x.r][0] + " " + H[x.r][1] + "</div>"; } h += x.html; });
+    return h;
+  }
+});
+updateBadges = function () {
+  if (!S.booted) return;
+  const n = Alerts.list().filter((a) => a.level !== "info").length;
+  $("#bellbtn").innerHTML = "🔔" + (n ? '<span class="dot">' + (n > 99 ? "99+" : n) + "</span>" : "");
+  const u = Inbox.unread(), lv = Inbox.level();
+  const cls = lv === 0 ? "lv0" : lv === 1 ? "lv1" : "lv2";
+  $("#inboxbtn").innerHTML = ico("inbox") + (u ? '<span class="dot ' + cls + '">' + (u > 99 ? "99+" : u) + "</span>" : "");
+  $("#inboxbtn").setAttribute("aria-label", "Inbox" + (u ? " — " + u + " " + tt("não lida(s)", "unread") + (lv === 0 ? ", " + tt("há urgente", "urgent") : lv === 1 ? ", " + tt("há importante", "important") : "") : ""));
+  $("#inboxbtn").title = $("#inboxbtn").getAttribute("aria-label");
+  try { if (navigator.setAppBadge) { if (u) navigator.setAppBadge(u); else navigator.clearAppBadge(); } } catch (e) {}
+};
+
+/* ---------- "Pôr na lista": entender a fala, confirmar sem atrito e atalho para a lista ---------- */
+const NUMW = { um: 1, uma: 1, dois: 2, duas: 2, "três": 3, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10, doze: 12, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+function cleanSpoken(t) {
+  /* palavras com acento não têm \b no JavaScript: por isso as regras usam "espaço antes / espaço ou vírgula depois" */
+  let s = " " + String(t || "").toLowerCase().replace(/[.!?…;:]+/g, ",").replace(/,/g, " , ") + " ";
+  const W = (alts, rep) => { s = s.replace(new RegExp("(\\s)(?:" + alts + ")(?=[\\s,])", "g"), rep == null ? "$1" : rep); };
+  const NUM = "\\d+|um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez";
+  W("meia dúzia|meia duzia", "$1 6 un"); W("uma dúzia|uma duzia", "$1 12 un");
+  W("por favor|pfv|pf|please");
+  W("(?:na|pra|para a|à|a) lista(?: de compras)?|(?:to|on) (?:the|my) (?:shopping )?list|(?:no|pro|para o) mercado");
+  W("(?:tem que|temos que|tenho que|precisa|preciso|precisamos|vamos|vou|quero|queria)(?: de)?(?: comprar)?");
+  W("coloca|colocar|coloque|põe|poe|pôr|por|bota|botar|adiciona|adicionar|adicione|acrescenta|acrescentar|inclui|incluir|anota|anotar|compra|comprar|falta|faltam|faltando|acabou|acabaram|add|buy|we need|need");
+  W("é+|éh+|eh+|ã+h*|hum+|hmm+|ahn*|uh+|umm+|tipo|né|então|entao|aí|daí|bom|olha|ok|okay|beleza|também|tambem|like|also");
+  const U = [["litros?", "l"], ["quilos?|kilos?", "kg"], ["gramas?", "g"], ["pacotes?", "pct"], ["caixas?", "cx"], ["unidades?", "un"], ["latas?", "lata"], ["garrafas?", "garrafa"]];
+  U.forEach((u) => { s = s.replace(new RegExp("(\\s)(" + NUM + ") (?:" + u[0] + ")(?=[\\s,])", "g"), "$1$2 " + u[1]); });
+  s = s.replace(/(\s)(um|uma|dois|duas|três|tres|quatro|cinco|seis|sete|oito|nove|dez|doze|one|two|three|four|five|six)(?=\s+[^\s,])/g, (m, sp, w) => sp + NUMW[w]);
+  /* "mais" e "e" também separam itens */
+  s = s.replace(/\s(?:mais|e|and|plus)(?=\s)/g, " ,");
+  return s.split(",").map((x) => x.replace(/\s+/g, " ").trim().replace(/^(?:(?:o|a|os|as|uns|umas|de|do|da|some|the|a few) )+/, "").replace(/ (?:de|do|da)$/, "").trim())
+    .filter((x) => x.length > 1 && /[a-zà-ú]/i.test(x))
+    /* o mesmo item dito duas vezes ("ovos… uma dúzia de ovos") vira um só, ficando a versão com quantidade */
+    .reduce((acc, x) => { const k = norm(x.replace(/^\d+(?:[.,]\d+)?\s*(?:un|kg|g|l|ml|pct|cx|dz|lata|garrafa)?\s+(?:de\s+)?/, "")); const i = acc.findIndex((y) => y.k === k); if (i < 0) acc.push({ k, x }); else if (/^\d/.test(x)) acc[i].x = x; return acc; }, []).map((o) => o.x);
+}
+splitSpoken = function (t) {
+  const known = new Set(GROC_WORDS.concat(DB.all("items").map((i) => norm(i.name))).map(norm));
+  return cleanSpoken(t).flatMap((chunk) => { const w = chunk.split(/\s+/); return w.length > 1 && w.every((x) => known.has(norm(x))) ? w : [chunk]; });
+};
+const AddFb = {
+  /* guarda o último resultado por alguns segundos, para sobreviver ao redesenho da tela */
+  set(added, dup) { S._addFb = { added, dup, until: Date.now() + 9000 }; clearTimeout(this._t); this._t = setTimeout(() => { S._addFb = null; const el = $("#addfb"); if (el) el.outerHTML = AddFb.html(el.dataset.link === "1"); }, 9100); },
+  html(link) {
+    const f = S._addFb && S._addFb.until > Date.now() ? S._addFb : null, n = Shop.open().length;
+    const go = link && n ? ' <button type="button" class="linkbtn" data-act="go" data-tab="shop" data-sub="list">' + tt("Ver lista", "See list") + " (" + n + ") ›</button>" : "";
+    if (f) {
+      const a = f.added, d = f.dup;
+      const txt = (a.length ? "<b>" + a.map(esc).join(", ") + "</b> " + (a.length > 1 ? tt("entraram na lista", "added to the list") : tt("entrou na lista", "added to the list")) : "") + (d.length ? (a.length ? " · " : "") + esc(d.join(", ")) + " " + tt("já estava" + (d.length > 1 ? "m" : ""), "already there") : "");
+      return '<div class="addfb on" id="addfb" data-link="' + (link ? 1 : 0) + '" role="status" aria-live="polite"><span class="ok">✓</span><span>' + txt + "</span>" + go + "</div>";
+    }
+    return '<div class="addfb" id="addfb" data-link="' + (link ? 1 : 0) + '" role="status" aria-live="polite">' + (link && n ? "<span>🛒 " + n + " " + tt(n > 1 ? "itens na lista" : "item na lista", n > 1 ? "items on the list" : "item on the list") + "</span>" + go : "") + "</div>";
+  }
+};
+ACT["shop.addq"] = async () => {
+  const inp = $("#addin"); if (!inp || !inp.value.trim()) return;
+  const parts = inp.value.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+  inp.value = "";
+  const added = [], dup = [];
+  for (const p of parts) {
+    const o = parseQtyName(p); if (!o.unit) delete o.unit;
+    const had = Shop.open().find((s) => norm(s.name) === norm(o.name));
+    const r = await Shop.add(o, true);
+    if (had) dup.push(had.name); else if (r) added.push(r.name + (r.qty && r.qty !== 1 ? " " + r.qty + (r.unit && r.unit !== "un" ? " " + r.unit : "") : ""));
+  }
+  if (isChild() && !childCtl().addDirect) { toast("🙋 " + tt("Pedido enviado aos responsáveis", "Request sent to guardians")); return; }
+  AddFb.set(added, dup);
+  const el = $("#addfb"); if (el) el.outerHTML = AddFb.html(el.dataset.link === "1");
+  /* redesenha já (o campo com foco seguraria o redesenho) para o número da lista subir na hora */
+  scheduleRender(true);
+  setTimeout(() => { const n = $("#addin"); if (n) n.focus(); $$(".qa button[data-tab=shop] .qn").forEach((x) => x.classList.add("bump")); }, 60);
+};
 
 /* =====================================================================
    INÍCIO
@@ -7190,10 +7554,11 @@ SCREENS.home = {
     h += '<div class="qa">' +
       (isChild() ? '<button data-act="req.new"><span class="qi warn">' + ico("spark") + '</span><span class="ql">' + tt("Pedir algo", "Ask for something") + "</span></button>" : '<button data-act="go" data-tab="shop"><span class="qi">' + ico("shop") + "</span>" + (nShop ? '<span class="qn">' + nShop + "</span>" : "") + '<span class="ql">' + tt("Lista de compras", "Shopping list") + "</span></button>") +
       '<button data-act="chk.arrive"><span class="qi ok">' + ico("pin") + '</span><span class="ql">' + tt("Cheguei", "I'm here") + "</span></button>" +
-      '<button data-act="go" data-tab="inbox"><span class="qi info">' + ico("inbox") + "</span>" + (nIn ? '<span class="qn hot">' + nIn + "</span>" : "") + '<span class="ql">Inbox</span></button>' +
+      '<button data-act="msg.new"><span class="qi info">' + ico("inbox") + '</span><span class="ql">' + tt("Recado", "Message") + "</span></button>" +
       '<button data-act="rem.new"><span class="qi warn">' + ico("zap") + '</span><span class="ql">' + tt("Lembrete rápido", "Quick reminder") + "</span></button></div>";
     h += Move.card() + Offline.pcCard();
     h += '<div class="quickadd">' + ico("plus") + '<input type="text" id="addin" placeholder="' + tt("Pôr na lista: leite, pão 2…", "Add to list: milk, bread 2…") + '" autocomplete="off" aria-label="' + tt("Pôr na lista", "Add to list") + '"><button class="mic iconbtn" data-act="shop.voice" aria-label="' + tt("Falar", "Speak") + '">' + ico("mic") + '</button><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div>";
+    h += AddFb.html(true);
     const sc = [["leave", tt("Estou saindo", "I'm leaving"), "chk.leave"], ["where", tt("Onde está?", "Where is it?"), "go:house:where"]];
     if (!isChild()) sc.push(["spark", tt("Colar e organizar", "Paste & organize"), "go:contacts:parse"]);
     sc.push(["list", tt("Nova tarefa", "New task"), "task.new"], ["inbox", tt("Recado", "Message"), "msg.new"]);
@@ -7275,7 +7640,7 @@ const SetViews = {
       (isGuardian() ? '<label class="fld" style="max-width:360px"><span>' + tt("Nome da família", "Family name") + '</span><input type="text" id="famname" value="' + esc((S.family && S.family.name) || DB.setting().familyName || "") + '"></label><button class="btn ghost sm" style="margin-top:8px" data-act="set.famname">' + tt("Salvar nome", "Save name") + "</button>" : "") +
       '<div class="row" style="margin-top:10px"><button class="btn ghost" data-act="signout">🚪 ' + tt("Sair", "Sign out") + "</button></div></div>";
     if (S.mode !== "visitor") h += Plan.card();
-    h += '<div class="card"><h3>📱 ' + tt("Barra de baixo (celular)", "Bottom bar (phone)") + '</h3><p class="small muted">' + tt("Escolha até 5 favoritos para a barra de baixo. Todas as funções ficam sempre no menu ☰ do topo.", "Pick up to 5 favorites for the bottom bar. Everything is always in the ☰ menu at the top.") + '</p><div class="grid g4">' + [0, 1, 2, 3, 4].map((i) => '<select data-chg="set.bottom" data-i="' + i + '" aria-label="' + tt("Favorito ", "Favorite ") + (i + 1) + '"><option value="">— ' + tt("vazio", "empty") + " —</option>" + tabs.map((t) => '<option value="' + t.id + '"' + (pick[i] === t.id ? " selected" : "") + ">" + t.ic + " " + esc(t.t) + "</option>").join("") + "</select>").join("") + "</div></div>";
+    h += BarEd.html();
     const how = S.prefs.loginHow || "auto", hasBioP = S.meId && Bio.profId(S.meId);
     const loginCfg = S.mode === "local" ? '<label class="fld" style="max-width:420px;margin-bottom:10px"><span>' + tt("Para entrar no meu perfil neste aparelho", "To open my profile on this device") + '</span><select data-chg="set.loginhow"><option value="auto"' + (how === "auto" ? " selected" : "") + ">👆 " + tt("Digital/rosto (se falhar, PIN)", "Fingerprint/face (PIN if it fails)") + '</option><option value="pin"' + (how === "pin" ? " selected" : "") + ">🔢 " + tt("Sempre o PIN", "Always the PIN") + "</option></select></label>" +
       '<div class="row" style="margin-bottom:10px">' + (hasBioP ? '<span class="badge ok">👆 ' + tt("Digital ativada para o seu perfil", "Fingerprint on for your profile") + '</span><button class="btn ghost xs" data-act="bio.prof.off">' + tt("Desativar", "Turn off") + "</button>" : '<button class="btn ghost sm" data-act="bio.prof.on">👆 ' + tt("Ativar digital/rosto para o meu perfil", "Turn on fingerprint/face for my profile") + "</button>") + "</div>" : "";
@@ -7337,6 +7702,7 @@ ACT["set.bgart"] = (d, el) => { S.prefs.bgArt = el.checked; savePrefs(); ART.app
 ACT.signout = () => signOut();
 ACT.legal = () => legal();
 ACT["set.famname"] = async () => { const n = $("#famname").value.trim(); if (!n) return; if (S.mode === "cloud") { try { await FB.F.updateDoc(FB.ref("families", S.family.id), { name: n }); } catch (e) { toast(Cloud.errMsg(e)); } } await DB.saveSetting({ familyName: n }); toast("✓"); };
+/* antigo seletor da barra (trocado pelo arrastar e soltar do BarEd); fica para compatibilidade */
 ACT["set.bottom"] = (d, el) => { const pick = (S.prefs.bottom && S.prefs.bottom.length ? S.prefs.bottom : BOTTOM_DEFAULT).slice(0, 5); while (pick.length < 5) pick.push(""); pick[+d.i] = el.value; S.prefs.bottom = pick; savePrefs(); renderNav(); };
 ACT["set.loginhow"] = (d, el) => { S.prefs.loginHow = el.value; savePrefs(); render(); };
 ACT["bio.prof.on"] = async () => { if (!(await Bio.available())) return toast(tt("Este aparelho não tem digital/rosto disponível para o navegador.", "No fingerprint/face available to the browser.")); try { await Bio.enrollProfile(S.meId); toast(tt("Digital ativada ✓", "Fingerprint on ✓")); } catch (e) { toast(tt("A digital não foi ativada.", "Fingerprint not enabled.")); } render(); };
