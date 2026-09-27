@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.10.1",
+  "d": "2026-09-27",
+  "hora": "23:30:00",
+  "pt": [
+   "⏱ Horários do compromisso: Início e Até lado a lado com botões − e + de 30 min em cada um; faixas prontas (08–17h, 09–18h, 08–12h, 13–17h, 19–22h) e “mover −30/+30 min” que deslocam os dois juntos; os horários comuns entram no campo tocado por último (corrigido: antes iam sempre para o início).",
+   "🧭 Saída e chegada explícitas no deslocamento: “Saindo de” com 📍 Onde estou agora (mostra o endereço e a precisão do GPS, avisa quando o sinal está fraco e pergunta “Você está em Casa?” quando você está perto de um lugar conhecido), 🕓 Última localização, Casa, lugares cadastrados ou 🗺 ponto no mapa; “Chegando em” mostra o Local do compromisso. A rota no Google Maps já sai do ponto escolhido.",
+   "📱 Formulário ajustado para o celular."
+  ],
+  "en": [
+   "⏱ Event times: Start and Until side by side with − and + 30 min buttons on each; ready-made ranges (08–17h, 09–18h, 08–12h, 13–17h, 19–22h) and “shift −30/+30 min” that move both together; common times go into the field you tapped last (fixed: they always went to the start).",
+   "🧭 Explicit departure and arrival: “Leaving from” with 📍 Where I am now (shows the address and GPS accuracy, warns when the signal is weak and asks “Are you at Home?” when you're near a known place), 🕓 Last location, Home, saved places or 🗺 a point on the map; “Arriving at” shows the event's Place. The Google Maps route starts from the chosen point.",
+   "📱 Form tuned for phones."
+  ]
+ },
+ {
   "v": "2.10.0",
   "d": "2026-09-27",
   "hora": "22:30:00",
