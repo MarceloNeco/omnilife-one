@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.10.2",
+  "d": "2026-09-27",
+  "hora": "23:59:00",
+  "pt": [
+   "🧭 O deslocamento agora fica logo abaixo do Local, com um botão Não / Sim bem visível: “🚏 Saindo de” (📍 Onde estou agora, última localização, Casa, lugares ou ponto no mapa) e “🏁 Chegando em” (o Local do compromisso, Casa, um lugar cadastrado ou um ponto no mapa). Antes, o bloco ficava escondido no fim do formulário."
+  ],
+  "en": [
+   "🧭 Travel now sits right below the Place, with a clear No / Yes toggle: “🚏 Leaving from” (📍 where I am now, last location, Home, places or a map point) and “🏁 Arriving at” (the event's Place, Home, a saved place or a map point). Before, the block was hidden at the end of the form."
+  ]
+ },
+ {
   "v": "2.10.1",
   "d": "2026-09-27",
   "hora": "23:30:00",
