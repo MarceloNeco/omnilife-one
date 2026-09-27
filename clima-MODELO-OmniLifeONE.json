@@ -1,0 +1,22 @@
+{
+  "_ajuda": "Arquivo master do clima. O RootifyONE publica este arquivo em solverone-dados/clima.json e o OmniLifeONE lê ao abrir (cópia local clima.json como reserva; sem nenhum, vale o padrão embutido). NUNCA ponha chave de serviço aqui: o arquivo é público.",
+  "ativo": true,
+  "_provedor": "open-meteo (grátis, sem chave, direto do navegador — padrão) | weatherapi (grátis com chave da pessoa) | openweathermap (grátis com chave da pessoa). Provedores pagos com chave da plataforma (Google Weather, Tomorrow.io, Climatempo) só quando existir proxy (fase 2).",
+  "provedor": "open-meteo",
+  "_avisosOficiais": "inmet = avisos oficiais do Brasil pelo código IBGE do município (vem do CEP da casa), sem chave; \"\" = nenhum",
+  "avisosOficiais": "inmet",
+  "_chavePessoal": "true = quem usa pode colar a própria chave em Ajustes → Clima quando o provedor exige chave",
+  "chavePessoal": true,
+  "_planos": "quem pode usar: gratis e/ou premium (o Visitante conta como gratis)",
+  "planos": ["gratis", "premium"],
+  "_logins": "tipos de entrada que podem usar: visitor (visitante), local (só neste aparelho), cloud (nuvem)",
+  "logins": ["visitor", "local", "cloud"],
+  "_oculto": "true = quem não tem direito não vê nada; false = vê um cartão trancado dizendo o plano",
+  "oculto": false,
+  "_limites": "a partir de quando avisar: chuvaProb (% de chance), chuvaMm (mm no dia = chuva forte), frio (°C mínima), calor (°C máxima), vento (km/h), uv (índice)",
+  "limites": { "chuvaProb": 60, "chuvaMm": 20, "frio": 12, "calor": 33, "vento": 50, "uv": 8 },
+  "_horaAviso": "a partir de que hora o aparelho pode mostrar o aviso diário (uma vez por dia)",
+  "horaAviso": "07:00",
+  "_diasAdiante": "quantos dias de previsão buscar (1 a 16)",
+  "diasAdiante": 7
+}

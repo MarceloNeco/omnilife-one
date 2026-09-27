@@ -1,0 +1,12 @@
+{
+  "ativo": true,
+  "provedor": "open-meteo",
+  "avisosOficiais": "inmet",
+  "chavePessoal": true,
+  "planos": ["gratis", "premium"],
+  "logins": ["visitor", "local", "cloud"],
+  "oculto": false,
+  "limites": { "chuvaProb": 60, "chuvaMm": 20, "frio": 12, "calor": 33, "vento": 50, "uv": 8 },
+  "horaAviso": "07:00",
+  "diasAdiante": 7
+}

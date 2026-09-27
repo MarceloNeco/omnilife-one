@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.9.0",
+  "d": "2026-09-27",
+  "hora": "10:30:00",
+  "pt": [
+   "🌤 Previsão do tempo ligada à agenda: cartão no Início com hoje e os próximos dias, ícone em cada dia do calendário, previsão na hora de cada compromisso e avisos práticos para hoje e amanhã (chuva → guarda-chuva e capa para as crianças; frio → agasalhar; calor → água, protetor e sombra; vento e chuva forte → cuidado na rua e na estrada), que entram nos Alertas, na Inbox e num aviso diário no aparelho",
+   "🛰 Serviço definido pela SolverONE (RootifyONE) no arquivo clima.json: Open-Meteo grátis e sem chave por padrão, avisos oficiais do INMET pelo município do CEP, e WeatherAPI ou OpenWeatherMap com a sua chave quando o RootifyONE escolher. Quem vê a função depende do tipo de login e do plano",
+   "⚙ Ajustes → Clima: ligar ou desligar, o lugar (endereço da casa, minha localização ou buscar cidade), quais avisos e a notificação diária"
+  ],
+  "en": [
+   "🌤 Weather tied to the calendar: a Home card with today and the next days, an icon on each calendar day, the forecast at each event's hour and practical tips for today and tomorrow (rain → umbrella and raincoats for the kids; cold → bundle up; heat → water, sunscreen and shade; wind and heavy rain → care on the street and the road), which go to Alerts, the Inbox and a daily device notification",
+   "🛰 Service set by SolverONE (RootifyONE) in clima.json: Open-Meteo free and keyless by default, official INMET warnings by the ZIP's city, and WeatherAPI or OpenWeatherMap with your key when RootifyONE chooses them. Who sees the feature depends on the login type and the plan",
+   "⚙ Settings → Weather: on/off, the place (home address, my location or city search), which tips and the daily notification"
+  ]
+ },
+ {
   "v": "2.8.0",
   "d": "2026-09-26",
   "hora": "19:50:00",
