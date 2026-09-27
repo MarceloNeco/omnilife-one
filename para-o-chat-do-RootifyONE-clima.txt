@@ -29,3 +29,29 @@ O que construir no RootifyONE (Integrações → Clima), gravando em solverone-d
 
 Diretriz geral (já anotada na skill): todo app com agenda ou rotina ao ar livre pode usar o mesmo módulo e o mesmo
 clima.json; a config fica no RootifyONE e no app só a experiência (cartão, ícones no calendário, avisos práticos).
+
+======================================================================
+DESLOCAMENTO / ROTAS (feito no OmniLifeONE 2.10.0) — arquivo master solverone-dados/rotas.json
+(modelo: rotas-MODELO-OmniLifeONE.json no repositório do OmniLifeONE)
+
+O que o OmniLifeONE já faz: no compromisso a pessoa diz se envolve deslocamento, de onde sai (Casa ou um Lugar
+cadastrado só com CEP), como vai (carro, moto, Uber/táxi, metrô, ônibus, trem, avião, ônibus de viagem, bicicleta,
+a pé — pode marcar mais de um, ex.: táxi + avião), o tempo de caminho (digitado ou estimado pelo mapa) e, no avião,
+a antecedência no aeroporto e o número do voo. O app calcula "Sair às HH:MM" (hora − caminho − antecedência − folga),
+mostra nos Alertas até 2 h antes, notifica 10 min antes de sair, e oferece botões para abrir a rota no Google Maps,
+Waze, Uber ou Moovit e o status do voo — tudo por link, sem chave.
+
+Pesquisa de integrações (set/2026):
+| Serviço | O que dá | Chave | Custo |
+| Google Maps (link) | abrir rota com trânsito ao vivo no app da pessoa (driving/transit/walking/two-wheeler) | não | grátis |
+| Waze (link) | abrir navegação por coordenada ou endereço | não | grátis; não há API de trânsito pública |
+| Uber (link universal) | abrir o app com o destino preenchido | não (client_id opcional) | grátis |
+| Moovit (link) | rota de transporte público até o destino | não | grátis |
+| Flightradar24 (link) | status do voo pelo número | não | grátis |
+| OSRM (router.project-osrm.org) | tempo e distância da rota, sem trânsito ao vivo | não | grátis, uso leve/não comercial, 1 pedido/s — PADRÃO |
+| TomTom Routing API | tempo com trânsito ao vivo | sim (da pessoa ou proxy) | 2.500 pedidos/dia grátis |
+| Google Routes API | tempo com trânsito ao vivo | sim (proxy) | 10 mil/mês grátis (Essentials), 5 mil/mês com trânsito (Pro), depois pago |
+| Aviationstack / AeroDataBox | status de voo por API | sim | ~100 pedidos/mês grátis; pouco para uso diário |
+
+Config (rotas.json): ativo; provedor (osrm | tomtom | nenhum); chavePessoal; links; antecedencia (aeroportoNacional,
+aeroportoInternacional, rodoviaria, margem); fatorPico; fatorChuva; planos; logins. Serviço no catálogo: id "rotas".

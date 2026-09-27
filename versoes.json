@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.10.0",
+  "d": "2026-09-27",
+  "hora": "22:30:00",
+  "pt": [
+   "📅 Compromisso novo: opção Dia inteiro, horários comuns e duração num toque; o campo Local sugere Casa, Trabalho, Escola, contatos com endereço e lugares já usados; “＋ Lugar (só CEP)” cadastra um lugar sem guardar a rua.",
+   "🧭 Deslocamento: diga se o compromisso envolve transporte e como vai (carro, moto, Uber/táxi, metrô, ônibus, trem, avião, ônibus de viagem, bicicleta, a pé — pode marcar mais de um). O app estima o tempo pelo mapa (pico e chuva aumentam), soma a antecedência do aeroporto (2 h nacional, 3 h internacional) ou da rodoviária e mostra “Sair às HH:MM” no compromisso, no Início e nos Alertas, com aviso 10 min antes. Botão 🧭 abre a rota no Google Maps, Waze, Uber ou Moovit e o status do voo. Config central rotas.json (RootifyONE).",
+   "🌤 Previsão do tempo mais fácil de ligar: se o navegador já permitiu a localização, o app usa sozinho; senão, o cartão do Início traz “📍 Usar minha localização”. Passo novo em “Deixe o OmniLifeONE pronto” e no AssistONE. Compromisso num Lugar longe de casa mostra a previsão de lá; sem local, vale a sua localização.",
+   "🗺 Mapa interativo para escolher qualquer lugar: busca por endereço ou CEP, 📍 minha localização, toque ou arraste o pino, e o app mostra o endereço e o CEP do ponto. Está no endereço da casa, nos Lugares, no Local do compromisso e na previsão do tempo.",
+   "🛠 Grade escolar e lugares agora entram na nuvem e no backup."
+  ],
+  "en": [
+   "📅 New event form: All-day option, common times and lengths in one tap; the Place field suggests Home, Work, School, contacts with an address and places already used; “＋ Place (ZIP only)” saves a place without storing the street.",
+   "🧭 Travel: say whether the event involves transport and how (car, motorbike, Uber/taxi, subway, bus, train, plane, intercity bus, bike, walking — pick more than one). The app estimates the time from the map (rush hour and rain increase it), adds the airport (2 h domestic, 3 h international) or bus-terminal lead time and shows “Leave at HH:MM” on the event, on Home and in Alerts, with a notification 10 min before. The 🧭 button opens the route in Google Maps, Waze, Uber or Moovit and the flight status. Central config rotas.json (RootifyONE).",
+   "🌤 Weather easier to turn on: if the browser already allowed location, the app uses it by itself; otherwise the Home card offers “📍 Use my location”. New step in “Get OmniLifeONE ready” and in AssistONE. An event at a Place far from home shows that place's forecast; with no place, your location is used.",
+   "🗺 Interactive map to pick any place: search by address or ZIP, 📍 my location, tap or drag the pin, and the app shows the point's address and ZIP. Available for the home address, Places, the event's Place and the weather.",
+   "🛠 School timetables and places now sync to the cloud and go into the backup."
+  ]
+ },
+ {
   "v": "2.9.0",
   "d": "2026-09-27",
   "hora": "10:30:00",

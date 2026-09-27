@@ -1,0 +1,11 @@
+{
+  "ativo": true,
+  "provedor": "osrm",
+  "chavePessoal": true,
+  "links": ["gmaps", "waze", "uber", "moovit"],
+  "antecedencia": { "aeroportoNacional": 120, "aeroportoInternacional": 180, "rodoviaria": 45, "margem": 10 },
+  "fatorPico": 1.4,
+  "fatorChuva": 1.2,
+  "planos": ["gratis", "premium"],
+  "logins": ["visitor", "local", "cloud"]
+}
