@@ -1,0 +1,31 @@
+PARA O CHAT DO ROOTIFYONE — Clima na agenda dos apps (feito no OmniLifeONE 2.9.0)
+
+O que o OmniLifeONE já faz (só a experiência):
+- Lê o arquivo master solverone-dados/clima.json ao abrir (reserva: clima.json do próprio app; sem nenhum, padrão embutido).
+- Mostra a previsão no Início (hoje + próximos dias), ícone em cada dia do calendário, previsão na hora de cada
+  compromisso, e avisos práticos para hoje e amanhã (chuva → guarda-chuva e capa; frio → agasalhar as crianças;
+  calor → água, protetor e sombra; vento e chuva forte → cuidado na rua e na estrada). Os avisos entram nos
+  Alertas, na Inbox e num aviso diário no aparelho.
+- Quem vê depende do tipo de login (visitor / local / cloud) e do plano (gratis / premium), conforme o arquivo.
+  Sem direito: some (oculto: true) ou aparece trancado dizendo o plano (oculto: false).
+- Só a localização aproximada da casa (do CEP, do GPS ou da cidade buscada) vai para o serviço de previsão.
+
+O que construir no RootifyONE (Integrações → Clima), gravando em solverone-dados/clima.json
+(modelo: clima-MODELO-OmniLifeONE.json no repositório do OmniLifeONE):
+1. Ligado/desligado (ativo).
+2. Provedor de previsão (provedor) — lista com custo e limite:
+   | Provedor        | Custo (set/2026)                                   | Chave        | Do navegador (CORS) | Avisos oficiais | Observação |
+   | open-meteo      | grátis uso pessoal (10 mil chamadas/dia); comercial US$ 29/mês | não (comercial: sim) | sim | não | PADRÃO. Sem chave, sem cadastro. Plano comercial exige chave, que não pode ficar num site público → proxy (fase 2). |
+   | weatherapi      | grátis com chave (~1 milhão/mês; avisos limitados no grátis) | sim (da pessoa) | sim | limitados | Bom no Brasil; previsão de 3 dias no grátis. |
+   | openweathermap  | grátis com chave (1 milhão/mês; 5 dias de 3 em 3 h); One Call 3.0: 1.000/dia grátis | sim (da pessoa) | sim | não no grátis | Muito usado. |
+   | google          | Google Weather API: 10 mil chamadas/mês grátis, depois US$ 0,15 por mil | sim (da plataforma, restrita por site) | sim | não | Pago pelo dono; chave restrita por referenciador HTTP no Google Cloud. Adaptador ainda não feito. |
+   | tomorrow.io     | grátis ~500 chamadas/dia; pagos acima | sim | sim | sim (pagos) | Adaptador ainda não feito. |
+   | climatempo      | Advisor: grátis 300 req/dia; Gold R$ 500/mês (6 mil/dia) | sim | a confirmar (historicamente sem CORS → proxy) | sim (Brasil) | Adaptador ainda não feito. |
+   Regra: chave da plataforma NUNCA vai para o JSON público. Provedor pago = proxy (Cloudflare Worker/Firebase Function) que guarda a chave; até lá, só open-meteo (sem chave) ou chave da própria pessoa (chavePessoal: true).
+3. Avisos oficiais (avisosOficiais): inmet (apiprevmet3.inmet.gov.br/avisos/ativos, sem chave, pelo código IBGE do município) ou nenhum.
+4. Quem pode usar: planos (gratis, premium) e logins (visitor, local, cloud); oculto (some) ou trancado.
+5. Limites dos avisos práticos: chuvaProb %, chuvaMm, frio °C, calor °C, vento km/h, uv. Hora do aviso diário. Dias de previsão.
+6. Serviço declarado no catálogo com id "clima" (plano padrão: todos), com log de cada alteração, como os demais arquivos master.
+
+Diretriz geral (já anotada na skill): todo app com agenda ou rotina ao ar livre pode usar o mesmo módulo e o mesmo
+clima.json; a config fica no RootifyONE e no app só a experiência (cartão, ícones no calendário, avisos práticos).
