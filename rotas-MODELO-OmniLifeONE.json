@@ -1,0 +1,18 @@
+{
+  "_ajuda": "Arquivo master do deslocamento (rotas). O RootifyONE publica em solverone-dados/rotas.json; o OmniLifeONE lê ao abrir (reserva rotas.json local; sem nenhum, padrão embutido). NUNCA ponha chave de serviço aqui: o arquivo é público.",
+  "ativo": true,
+  "_provedor": "osrm (grátis, sem chave, sem trânsito ao vivo, uso leve — padrão) | tomtom (chave da pessoa, 2.500 pedidos/dia grátis, trânsito ao vivo) | nenhum (só linha reta e velocidade média). Google Routes (pago) só com proxy.",
+  "provedor": "osrm",
+  "_chavePessoal": "true = quem usa pode colar a própria chave do TomTom em Ajustes",
+  "chavePessoal": true,
+  "_links": "botões para abrir a rota no app da pessoa, sem chave: gmaps (Google Maps), waze, uber, moovit (transporte público). Status do voo usa o Flightradar24 pelo número do voo.",
+  "links": ["gmaps", "waze", "uber", "moovit"],
+  "_antecedencia": "minutos: chegar antes ao aeroporto (nacional/internacional), à rodoviária, e a folga de sempre",
+  "antecedencia": { "aeroportoNacional": 120, "aeroportoInternacional": 180, "rodoviaria": 45, "margem": 10 },
+  "_fatorPico": "multiplica o tempo de carro/moto/táxi/ônibus em dia útil das 7h às 10h e das 17h às 20h (só quando não há trânsito ao vivo)",
+  "fatorPico": 1.4,
+  "_fatorChuva": "multiplica o tempo quando a previsão (módulo Clima) dá 60% ou mais de chuva na hora de sair",
+  "fatorChuva": 1.2,
+  "planos": ["gratis", "premium"],
+  "logins": ["visitor", "local", "cloud"]
+}
