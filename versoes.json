@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.10.3",
+  "d": "2026-09-28",
+  "hora": "00:30:00",
+  "pt": [
+   "📅 Formulário do compromisso reorganizado: depois do horário vêm o Local e o deslocamento (saída e chegada); “Tipo de compromisso” e “Quem participa” ficam logo abaixo.",
+   "⏱ O fim nunca fica antes do início no mesmo dia: quando o início muda, o fim acompanha mantendo a duração (como no Google Agenda); um fim digitado antes do início volta para 30 min depois e avisa; os botões − e + respeitam o limite.",
+   "🌙 “Mais de um dia” com data final (viagem, plantão que vira a noite): o compromisso aparece em todos os dias do período, o fim pode ser antes do início e o Google Agenda / .ics levam a data final."
+  ],
+  "en": [
+   "📅 Event form reorganized: after the time come the Place and travel (departure and arrival); “Event type” and “Who is it for” sit right below.",
+   "⏱ The end never falls before the start on the same day: when the start moves, the end follows keeping the duration (like Google Calendar); an end typed before the start snaps to 30 min after and warns; the − and + buttons respect the limit.",
+   "🌙 “More than one day” with an end date (trip, overnight shift): the event shows on every day of the range, the end may be before the start and Google Calendar / .ics carry the end date."
+  ]
+ },
+ {
   "v": "2.10.2",
   "d": "2026-09-27",
   "hora": "23:59:00",
