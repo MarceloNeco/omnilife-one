@@ -10,7 +10,7 @@ sem framework: HTML, CSS e JavaScript puros.
 |---|---|---|
 | `index.html` | O app inteiro (HTML + CSS + JS num arquivo só) | Sim, com cuidado (ver abaixo) |
 | `sw.js` | Service worker: modo sem internet e avisos | Só subir o número `v…` a cada versão |
-| `versoes.json` | Histórico de versões (PT/EN) mostrado em Ajustes → Versões | Acrescentar a versão nova no topo |
+| `versoes.json` | Histórico de versões (PT/EN) mostrado em Configurações → Versões | Acrescentar a versão nova no topo |
 | `recados.json` | Avisos do administrador para todos (Inbox) | Sim — ver `recados-MODELO-OmniLifeONE.json` |
 | `clima.json` | Reserva local da config do clima (a master vem do RootifyONE em `solverone-dados/clima.json`) | Sim — ver `clima-MODELO-OmniLifeONE.json` |
 | `rotas.json` | Reserva local da config de deslocamento/rotas (a master vem do RootifyONE em `solverone-dados/rotas.json`) | Sim — ver `rotas-MODELO-OmniLifeONE.json` |
@@ -18,7 +18,7 @@ sem framework: HTML, CSS e JavaScript puros.
 | `regras-firestore-OmniLifeONE.txt` | Regras de segurança do Firebase (colar no console) | Só junto com mudanças de nuvem |
 | `LEIA-ME-OmniLifeONE.html` | Passo a passo para o dono do app | Sim |
 | `ARQUITETURA.md`, `CREDITOS.md` | Este briefing e as licenças de terceiros | Sim |
-| `ajuda-botao.png`, `ajuda-icone.png`, `assistone-hd.png` | Arte do AssistONE (botão redondo, ícone transparente e versão grande). O app usa uma cópia pequena embutida no `index.html` (`AONE_IMG`) | Pode trocar a arte; para mudar no app, troque também o `AONE_IMG` |
+| `ajuda-botao.png`, `ajuda-icone.png`, `assistone-hd.png` | Arte do AssistONE. O botão flutuante usa `ajuda-botao.png` direto (arquivo canônico da plataforma, igual em todos os apps); os balões e o cartão em ⚙ usam a cópia pequena embutida `AONE_IMG` | Não trocar `ajuda-botao.png` por outra arte (é padrão da plataforma) |
 
 ## Nunca
 
@@ -75,7 +75,8 @@ sem framework: HTML, CSS e JavaScript puros.
 - `BarEd` — barra de atalhos com arrastar e soltar (⚙ → Geral). Padrão em `BOTTOM_DEFAULT`; a escolha fica em `S.prefs.bottom`. A Inbox não entra na barra (é o ícone do topo).
 - `Inbox.level()` / `Inbox.feed()` — cor da bolha (0 vermelho, 1 âmbar, 2 azul) e ordem por prioridade e data; alertas "vistos" em `omnilife.alertSeen.v1`.
 - `cleanSpoken` / `splitSpoken` / `AddFb` — limpa a fala do "Pôr na lista" e mostra a confirmação embaixo do campo.
-- PT|EN: `.langsw` no cabeçalho (computador) e dentro do ☰ (celular); a faixa `#adbar` é só do anúncio.
+- Topo (v2.12.0, diretriz da plataforma): ☰ (`#hambbtn`) · nome do app (`#brandbtn` = Início) · … · 🔍 `#searchbtn` · 📥 `#inboxbtn` · 👤 `#whoami`. Sem 🏠, sem ⚙️ fixo, sem PT|EN. `whoMenu()` é o menu do 👤 (identidade conectada, Configurações, Tema, extras, Sair). PT|EN (`LANGSW()`) vive em Configurações → Geral e na tela de entrada; a faixa `#adbar` é só do anúncio.
+- `.aone-btn` — botão do AssistONE no padrão da plataforma: 58 px, redondo, fundo escuro sempre, anel dourado, `aone-flutua` 3,2 s; `aria-expanded` acompanha o balão.
 
 ## Publicar uma versão nova
 

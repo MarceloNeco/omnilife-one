@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.12.0",
+  "d": "2026-10-02",
+  "hora": "08:52:23",
+  "pt": [
+   "🧭 Topo padronizado (celular e computador): ☰ na ponta esquerda e o nome OmniLifeONE logo depois — tocar no nome leva ao Início (o ícone 🏠 saiu). À direita só 🔍 Busca, 📥 Inbox e 👤 Perfil; o ⚙️ fixo saiu do topo.",
+   "👤 Menu do perfil novo: mostra quem está conectado (nome, e-mail ou modo, plano e papel) e traz Configurações, Tema claro/escuro (alterna sem fechar), Trocar de perfil, Família e Sair (em vermelho). Visitante vê Entrar.",
+   "🌐 O seletor PT | EN saiu do topo e do ☰: fica em Configurações → Geral (e na tela de entrada, antes de entrar).",
+   "💡 AssistONE no padrão da plataforma: botão redondo de 58 px com a arte ajuda-botao.png, fundo sempre escuro (também no tema claro), anel dourado e balanço suave (3,2 s); para de balançar com o balão aberto e com “Reduzir animações”.",
+   "✏️ “Ajustes” virou “Configurações” em todo o app."
+  ],
+  "en": [
+   "🧭 Standard top bar (phone and desktop): ☰ at the far left and the OmniLifeONE name right after it — tapping the name goes Home (the 🏠 icon is gone). On the right only 🔍 Search, 📥 Inbox and 👤 Profile; the fixed ⚙️ left the top bar.",
+   "👤 New profile menu: shows who is signed in (name, e-mail or mode, plan and role) with Settings, light/dark Theme (toggles without closing), Switch profile, Family and Sign out (in red). Visitors see Sign in.",
+   "🌐 The PT | EN switch left the top bar and the ☰: it lives in Settings → General (and on the sign-in screen).",
+   "💡 AssistONE in the platform standard: round 58 px button with the ajuda-botao.png art, always-dark background (also in the light theme), golden ring and gentle float (3.2 s); it stops floating while the bubble is open and with “Reduce animations”.",
+   "✏️ “Ajustes” is now “Configurações” across the app (Portuguese)."
+  ]
+ },
+ {
   "v": "2.11.1",
   "d": "2026-10-02",
   "hora": "04:30:00",
@@ -100,7 +119,7 @@
   "pt": [
    "🌤 Previsão do tempo ligada à agenda: cartão no Início com hoje e os próximos dias, ícone em cada dia do calendário, previsão na hora de cada compromisso e avisos práticos para hoje e amanhã (chuva → guarda-chuva e capa para as crianças; frio → agasalhar; calor → água, protetor e sombra; vento e chuva forte → cuidado na rua e na estrada), que entram nos Alertas, na Inbox e num aviso diário no aparelho",
    "🛰 Serviço definido pela SolverONE (RootifyONE) no arquivo clima.json: Open-Meteo grátis e sem chave por padrão, avisos oficiais do INMET pelo município do CEP, e WeatherAPI ou OpenWeatherMap com a sua chave quando o RootifyONE escolher. Quem vê a função depende do tipo de login e do plano",
-   "⚙ Ajustes → Clima: ligar ou desligar, o lugar (endereço da casa, minha localização ou buscar cidade), quais avisos e a notificação diária"
+   "⚙ Configurações → Clima: ligar ou desligar, o lugar (endereço da casa, minha localização ou buscar cidade), quais avisos e a notificação diária"
   ],
   "en": [
    "🌤 Weather tied to the calendar: a Home card with today and the next days, an icon on each calendar day, the forecast at each event's hour and practical tips for today and tomorrow (rain → umbrella and raincoats for the kids; cold → bundle up; heat → water, sunscreen and shade; wind and heavy rain → care on the street and the road), which go to Alerts, the Inbox and a daily device notification",
@@ -144,7 +163,7 @@
   "hora": "17:30:00",
   "pt": [
    "✨ Visual mais suave e limpo, pensado para o celular: cantos mais redondos, cartões sem borda com sombra leve, botões redondos no topo, campo “Pôr na lista” em pílula, janelas, menu ☰ e AssistONE no mesmo estilo",
-   "📝 Menos texto na tela: no celular as telas mostram só o título (a explicação de cada tela continua no AssistONE), e as explicações longas de Ajustes, Inbox e cofre de IA ficam recolhidas num “› Saiba mais” — nada foi tirado, só recolhido",
+   "📝 Menos texto na tela: no celular as telas mostram só o título (a explicação de cada tela continua no AssistONE), e as explicações longas de Configurações, Inbox e cofre de IA ficam recolhidas num “› Saiba mais” — nada foi tirado, só recolhido",
    "🔔 Avisos rápidos (os balões pretos) menores e mais discretos"
   ],
   "en": [
@@ -211,7 +230,7 @@
   "hora": "13:50:00",
   "pt": [
    "🔁 Se a IA escolhida ficar sem cota grátis, sem créditos ou recusar a chave, o app passa sozinho para a próxima IA que tem chave e avisa na tela qual está usando",
-   "🔑 Ajustes → IA mostra no topo quais IAs já têm chave salva, e elas aparecem primeiro na lista, com o selo “✓ chave salva” (as outras, “sem chave”)",
+   "🔑 Configurações → IA mostra no topo quais IAs já têm chave salva, e elas aparecem primeiro na lista, com o selo “✓ chave salva” (as outras, “sem chave”)",
    "🔊 ElevenLabs: chaves criadas só com permissão de “Text to Speech” agora são aceitas"
   ],
   "en": [
@@ -236,7 +255,7 @@
   "d": "2026-09-26",
   "hora": "13:10:00",
   "pt": [
-   "👉 Abas que não cabem na tela (Ajustes, Inbox): a ponta do lado que tem mais esmaece e aparece um botão › para rolar; a aba aberta fica sempre à vista, e na primeira vez a fileira dá uma espiadinha para mostrar que rola"
+   "👉 Abas que não cabem na tela (Configurações, Inbox): a ponta do lado que tem mais esmaece e aparece um botão › para rolar; a aba aberta fica sempre à vista, e na primeira vez a fileira dá uma espiadinha para mostrar que rola"
   ],
   "en": [
    "👉 Tabs that don't fit on screen (Settings, Inbox): the edge with more tabs fades and a › button appears to scroll; the open tab always stays in view, and the first time the row peeks to show it scrolls"
@@ -271,8 +290,8 @@
   "d": "2026-09-25",
   "hora": "22:40:00",
   "pt": [
-   "⭐ Barra de atalhos com arrastar e soltar (Ajustes → Geral): monte até 5, troque a ordem arrastando, tire arrastando para fora — salva sozinho; ↺ volta ao padrão (com Desfazer). Também funciona só com toques",
-   "☰ Menu reorganizado em grupos (Dia a dia, Cuidar da família, Casa e papéis, Ajustes, Ajuda e mais), com as partes de cada função num ▸ que abre e fecha, e 4 ações rápidas no topo",
+   "⭐ Barra de atalhos com arrastar e soltar (Configurações → Geral): monte até 5, troque a ordem arrastando, tire arrastando para fora — salva sozinho; ↺ volta ao padrão (com Desfazer). Também funciona só com toques",
+   "☰ Menu reorganizado em grupos (Dia a dia, Cuidar da família, Casa e papéis, Configurações, Ajuda e mais), com as partes de cada função num ▸ que abre e fecha, e 4 ações rápidas no topo",
    "📥 Inbox virou ícone no topo, com bolha colorida: vermelha se houver algo urgente, âmbar se importante, azul no resto. Dentro, tudo por prioridade e depois do mais novo ao mais antigo, incluindo os alertas",
    "🌐 PT|EN foi para o cabeçalho no computador e para dentro do ☰ no celular; a faixa de cima agora é só do anúncio e some inteira no ×",
    "🛒 “Pôr na lista” entende melhor a fala (tira “é”, “coloca”, “na lista”, “por favor”…, entende “dois litros de leite”) e confirma na hora, sem janela: “✓ Leite entrou na lista · Ver lista ›”"
@@ -384,7 +403,7 @@
    "🧩 Aviso de compatibilidade do aparelho/navegador só quando houver problema",
    "🔒 Recarregar a página não pede PIN de novo por 30 min; quem entra volta para a tela onde estava",
    "📜 Registro de alterações no aparelho e relatório de erros opcional",
-   "🆕 Novidades agrupadas por dia e recolhidas em Ajustes"
+   "🆕 Novidades agrupadas por dia e recolhidas em Configurações"
   ],
   "en": [
    "✨ New calm, modern look designed mobile-first: line icons, soft cards, fewer distractions and a theme that follows the device",
@@ -409,8 +428,8 @@
    "🤖 IA com vários provedores grátis: Google Gemini, OpenRouter, Groq, Mistral (e OpenAI ou personalizado), com “Ver modelos que esta chave aceita” e nova tentativa quando a IA está ocupada",
    "🎤 Voz transcrita também pelo Groq (Whisper), além do Gemini",
    "🧒 Nomes das crianças são trocados por códigos antes de ir para a IA (LGPD)",
-   "♿ Ajustes → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta",
-   "📶 Ajustes → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados",
+   "♿ Configurações → Acessibilidade: tamanho do texto, alto contraste, reduzir animações, sublinhar links, modo leitura e ler a tela em voz alta",
+   "📶 Configurações → Rede e dados: baixar coisas grandes e usar a IA no Wi-Fi ou nos dados",
    "📢 Avisos do administrador (recados.json) na Inbox",
    "🗑 Apagar minha conta (nuvem), além do backup",
    "🔧 Modo sem internet não apaga mais o dos outros apps do portal"
@@ -431,7 +450,7 @@
   "v": "1.5.2",
   "d": "2026-09-25",
   "pt": [
-   "Link fixo embaixo do campo Recado do Cheguei: “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — leva direto para Ajustes → IA"
+   "Link fixo embaixo do campo Recado do Cheguei: “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — leva direto para Configurações → IA"
   ],
   "en": [
    "Permanent link under the Cheguei note field: “🎤 not working on a computer? Turn on the free AI for voice (optional)” — goes straight to Settings → AI"
@@ -442,7 +461,7 @@
   "d": "2026-09-25",
   "pt": [
    "🎤 Todo microfone explica antes de frustrar: no primeiro toque (no computador, sem IA) aparece a dica com o link opcional “Configurar a IA agora”, “Depois” e “Não mostrar mais”",
-   "Se a voz falhar sem IA, o app mostra o motivo e o mesmo link; em Ajustes → IA aparece o passo a passo para a voz"
+   "Se a voz falhar sem IA, o app mostra o motivo e o mesmo link; em Configurações → IA aparece o passo a passo para a voz"
   ],
   "en": [
    "🎤 Every mic explains before it frustrates: on the first tap (computer, no AI) a tip shows the optional “Set up the AI now” link, “Later” and “Don't show again”",
@@ -455,8 +474,8 @@
   "pt": [
    "📥 Inbox: recados, avisos do Cheguei e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados",
    "🔎 Lupa de busca no topo: procura em tudo (funções, pessoas, contatos, compras, agenda, tarefas, lembretes, recados, documentos, objetos e ajudas). Atalho: tecla / ou Ctrl+K",
-   "🆕 Versões em Ajustes, com o que entrou em cada uma",
-   "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Ajustes → IA) transcreve a gravação; medidor mostra se o microfone capta som"
+   "🆕 Versões em Configurações, com o que entrou em cada uma",
+   "🎤 Ditado que funciona no computador: se o Chrome não devolver o texto, a IA Gemini (Configurações → IA) transcreve a gravação; medidor mostra se o microfone capta som"
   ],
   "en": [
    "📥 Inbox: messages, check-ins and alerts in one place, with All, Messages, Check-ins, Alerts, Sent and Archived tabs",
@@ -613,7 +632,7 @@
   "v": "1.0.1",
   "d": "2026-09-22",
   "pt": [
-   "Ajustes e correções da primeira versão"
+   "Configurações e correções da primeira versão"
   ],
   "en": [
    "Tweaks and fixes to the first version"

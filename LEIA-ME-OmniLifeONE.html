@@ -38,29 +38,29 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <p><b>Novidades da 1.6.0 — diretrizes gerais aplicadas:</b></p>
 <ul>
 <li><b>↩️ Botão Voltar do celular</b> fecha a janela ou o menu aberto; de qualquer aba volta para o Início antes de sair do app.</li>
-<li><b>🤖 IA com vários provedores grátis</b> (Ajustes → IA): Google Gemini, OpenRouter, Groq, Mistral, OpenAI ou personalizado. Botão “Ver modelos que esta chave aceita”. Se a IA estiver ocupada, o app tenta de novo sozinho.</li>
+<li><b>🤖 IA com vários provedores grátis</b> (Configurações → IA): Google Gemini, OpenRouter, Groq, Mistral, OpenAI ou personalizado. Botão “Ver modelos que esta chave aceita”. Se a IA estiver ocupada, o app tenta de novo sozinho.</li>
 <li><b>🎤 Voz:</b> transcrição pelo Gemini ou pelo Groq (Whisper). Vindo do 🎤, a tela de IA já abre no Google Gemini.</li>
 <li><b>🧒 Crianças:</b> o nome delas é trocado por código antes de ir para a IA e volta ao normal na resposta.</li>
-<li><b>♿ Ajustes → Acessibilidade:</b> A− / A+, alto contraste, reduzir animações, sublinhar links, modo leitura e 🔊 ler a tela em voz alta (também no ☰).</li>
-<li><b>📶 Ajustes → Rede e dados:</b> escolha se coisas grandes (leitor de fotos, reconhecimento de objetos) baixam só no Wi-Fi e se a IA pode usar os dados móveis.</li>
+<li><b>♿ Configurações → Acessibilidade:</b> A− / A+, alto contraste, reduzir animações, sublinhar links, modo leitura e 🔊 ler a tela em voz alta (também no ☰).</li>
+<li><b>📶 Configurações → Rede e dados:</b> escolha se coisas grandes (leitor de fotos, reconhecimento de objetos) baixam só no Wi-Fi e se a IA pode usar os dados móveis.</li>
 <li><b>📢 Avisos para todos:</b> o arquivo <code>recados.json</code> aparece na Inbox. Ele vai vazio; para mandar um aviso, copie o exemplo de <code>recados-MODELO-OmniLifeONE.json</code>, ajuste as datas e o texto e suba como <code>recados.json</code>.</li>
-<li><b>🗑 Apagar minha conta</b> (Ajustes → Dados, no modo nuvem).</li>
+<li><b>🗑 Apagar minha conta</b> (Configurações → Dados, no modo nuvem).</li>
 <li><b>🔧 Correção importante:</b> ao atualizar, o OmniLifeONE apagava o modo sem internet dos seus outros apps do portal. Não apaga mais.</li>
 <li>Arquivos novos para quem for mexer no código: <code>ARQUITETURA.md</code> (mapa do app) e <code>CREDITOS.md</code> (licenças das bibliotecas).</li>
 </ul>
-<p><b>Novidades da 1.5.2:</b> link fixo embaixo do campo Recado do Cheguei — “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — que leva direto para Ajustes → IA.</p>
+<p><b>Novidades da 1.5.2:</b> link fixo embaixo do campo Recado do Cheguei — “🎤 não funciona no computador? Ative a IA grátis para a voz (opcional)” — que leva direto para Configurações → IA.</p>
 <p><b>Novidades da 1.5.1 — todo 🎤 explica antes de frustrar:</b></p>
 <ul>
-<li>No primeiro toque em qualquer 🎤 (no computador, sem IA configurada) aparece uma dica no rodapé explicando que o Chrome do computador às vezes grava e não transforma em texto, com três botões: <b>⚙️ Configurar a IA agora</b> (leva direto para Ajustes → IA), <b>Depois</b> e <b>Não mostrar mais</b>. É opcional — dá para continuar digitando ou usar ⊞ Win + H.</li>
+<li>No primeiro toque em qualquer 🎤 (no computador, sem IA configurada) aparece uma dica no rodapé explicando que o Chrome do computador às vezes grava e não transforma em texto, com três botões: <b>⚙️ Configurar a IA agora</b> (leva direto para Configurações → IA), <b>Depois</b> e <b>Não mostrar mais</b>. É opcional — dá para continuar digitando ou usar ⊞ Win + H.</li>
 <li>Se a voz falhar sem IA, a mesma dica aparece com o motivo.</li>
-<li>Em Ajustes → IA, quem chega pelo 🎤 vê o passo a passo “Para a voz funcionar no computador”. Ao salvar a chave: “Pronto ✓ Volte e toque no 🎤 de novo”.</li>
+<li>Em Configurações → IA, quem chega pelo 🎤 vê o passo a passo “Para a voz funcionar no computador”. Ao salvar a chave: “Pronto ✓ Volte e toque no 🎤 de novo”.</li>
 </ul>
 <p><b>Novidades da 1.5.0:</b></p>
 <ul>
 <li><b>📥 Inbox:</b> recados, avisos do “Cheguei”/“Estou saindo” e alertas num lugar só, com abas Tudo, Recados, Cheguei, Alertas, Enviados e Arquivados. O número no ícone 📥 conta o que você ainda não viu. Cada aviso de chegada tem 📍 mapa e 💬 Responder.</li>
 <li><b>🔎 Lupa de busca no topo:</b> procura em tudo (funções, pessoas, contatos, compras, despensa, agenda, tarefas, lembretes, recados, documentos, objetos da casa e ajudas). No computador: tecla <kbd>/</kbd> ou <kbd>Ctrl</kbd>+<kbd>K</kbd>.</li>
-<li><b>🆕 Versões</b> em Ajustes → Versões, com o que entrou em cada versão (selo “novidades” até você abrir).</li>
-<li><b>🎤 Voz no computador:</b> o Chrome do computador às vezes grava e não devolve texto. Agora o app grava junto e, se a IA grátis estiver ligada (Ajustes → IA, chave Gemini), transcreve sozinho. Um medidor verde mostra se o microfone capta som; se não captar, o app diz para conferir o microfone padrão do Windows. Vale também para o 🎤 da lista de compras.</li>
+<li><b>🆕 Versões</b> em Configurações → Versões, com o que entrou em cada versão (selo “novidades” até você abrir).</li>
+<li><b>🎤 Voz no computador:</b> o Chrome do computador às vezes grava e não devolve texto. Agora o app grava junto e, se a IA grátis estiver ligada (Configurações → IA, chave Gemini), transcreve sozinho. Um medidor verde mostra se o microfone capta som; se não captar, o app diz para conferir o microfone padrão do Windows. Vale também para o 🎤 da lista de compras.</li>
 </ul>
 <p><b>Novidades da 1.4.2 — Cheguei:</b></p>
 <ul>
@@ -119,12 +119,12 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <ul>
 <li><b>☰ só depois de entrar:</b> na tela de entrada o menu não aparece (ainda não há funções para mostrar).</li>
 <li><b>“↓ Mais opções abaixo”:</b> quando o menu ☰ tem mais itens do que cabem na tela, aparece esse aviso no pé do menu; tocar nele desce a lista. Some quando você chega ao fim.</li>
-<li><b>Digital ou rosto no lugar do PIN</b> (modo “só neste aparelho”): depois de digitar o PIN uma vez, o app pergunta se você quer usar a digital nas próximas vezes. Se a digital falhar, ele pede o PIN. Para escolher, vá em Ajustes → Geral → Segurança: “Digital/rosto (se falhar, PIN)” ou “Sempre o PIN”; ali também dá para ativar ou desativar a digital do seu perfil.</li>
+<li><b>Digital ou rosto no lugar do PIN</b> (modo “só neste aparelho”): depois de digitar o PIN uma vez, o app pergunta se você quer usar a digital nas próximas vezes. Se a digital falhar, ele pede o PIN. Para escolher, vá em Configurações → Geral → Segurança: “Digital/rosto (se falhar, PIN)” ou “Sempre o PIN”; ali também dá para ativar ou desativar a digital do seu perfil.</li>
 </ul>
 <p><b>Novidades da 1.2.1 — menu:</b></p>
 <ul>
 <li><b>☰ no topo, à esquerda do nome do app:</b> abre uma gaveta com todas as funções (e as partes de cada uma, como Agenda → Lembretes) e atalhos (lembrete, recado, tarefa, emergência). Fecha no ×, no Esc ou tocando fora.</li>
-<li><b>Barra de baixo (celular):</b> sem o “Mais”. Mostra só os seus favoritos — até 5 — escolhidos em Ajustes → Geral → Barra de baixo.</li>
+<li><b>Barra de baixo (celular):</b> sem o “Mais”. Mostra só os seus favoritos — até 5 — escolhidos em Configurações → Geral → Barra de baixo.</li>
 <li><b>Abertura suave:</b> a gaveta desliza, os menus e as janelas crescem num movimento rápido. Quem ativou “reduzir movimento” no celular vê só aparecer.</li>
 </ul>
 <p><b>Novidades da 1.2.0:</b></p>
@@ -136,10 +136,10 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <li><b>🎂 Dados da família:</b> próximos aniversários com a idade que a pessoa vai fazer, e botão <b>Conferir</b> em cada cartão (ou pedir para a pessoa conferir por recado).</li>
 <li><b>💎 Plano da família:</b> uma assinatura vale para todos os membros da família, cada um com seu login.</li>
 <li><b>Correções:</b> item falado pelo 🎤 aparece na hora na lista; os quadros do Início levam para a página de cada um.</li>
-<li><b>Da 1.1.0:</b> faixa do topo com PT | EN, ANÚNCIO na vertical, carrossel e ×; pop-up antes e depois do login com contagem 3, 2, 1; família Premium sem anúncios (Ajustes → Geral → Plano da família).</li>
+<li><b>Da 1.1.0:</b> faixa do topo com PT | EN, ANÚNCIO na vertical, carrossel e ×; pop-up antes e depois do login com contagem 3, 2, 1; família Premium sem anúncios (Configurações → Geral → Plano da família).</li>
 </ul>
 <div class="card tip"><b>Importante se você usa a nuvem:</b> as regras do Firebase mudaram nesta versão (para as crianças poderem marcar recado como lido e mandar foto de tarefa). Repita o passo 3.2 abaixo: cole de novo o arquivo <code>regras-firestore-OmniLifeONE.txt</code> e clique em <b>Publicar</b>.</div>
-<p><b>Novidade da 1.0.1:</b> novo ícone (casa com coração em neon lilás) e arte de fundo com ícones em neon — versão deitada no computador e em pé no celular. Dá para desligar a arte em Ajustes → Geral.</p>
+<p><b>Novidade da 1.0.1:</b> novo ícone (casa com coração em neon lilás) e arte de fundo com ícones em neon — versão deitada no computador e em pé no celular. Dá para desligar a arte em Configurações → Geral.</p>
 
 <h2>1. O que tem neste zip</h2>
 <div class="card files">
@@ -168,7 +168,7 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <li>Confira em <b>Authentication</b> → <b>Método de login</b> se <b>Google</b> e <b>E-mail/senha</b> estão ativados, e em <b>Configurações</b> → <b>Domínios autorizados</b> se <code>marceloneco.github.io</code> está na lista.</li>
 <li>A configuração do app (o bloco <code>firebaseConfig</code>) pode entrar de duas formas:
 <ul><li><b>Melhor:</b> cole o bloco no chat do Claude. Ele embute no <code>index.html</code> e toda a família já abre o site conectado.</li>
-<li><b>Ou:</b> no app, vá em <b>Ajustes → Nuvem</b>, cole o bloco e toque em <b>Salvar e conectar</b>. Quem entrar pelo seu link de convite recebe a configuração junto.</li></ul></li>
+<li><b>Ou:</b> no app, vá em <b>Configurações → Nuvem</b>, cole o bloco e toque em <b>Salvar e conectar</b>. Quem entrar pelo seu link de convite recebe a configuração junto.</li></ul></li>
 </ol></div>
 
 <h2>4. Primeiro uso</h2>
@@ -182,16 +182,16 @@ ol li,ul li{margin:6px 0}code,kbd{background:#eeebfa;border-radius:6px;padding:1
 <li><b>Criança/Jovem</b>: faz pedidos, marca tarefas e ganha pontos, e só vê o que o controle parental permitir.</li></ul></li>
 <li>Siga o quadro <b>“Deixe o OmniLifeONE pronto”</b> na tela de Início: carteira vital, CEP, contatos, rotina, mapa da casa e documentos.</li>
 </ol></div>
-<div class="card tip">Não quer nuvem agora? Escolha <b>Só neste aparelho</b>: cada pessoa entra no próprio perfil com PIN, no mesmo celular. Depois dá para levar tudo para a nuvem (Ajustes → Nuvem).</div>
+<div class="card tip">Não quer nuvem agora? Escolha <b>Só neste aparelho</b>: cada pessoa entra no próprio perfil com PIN, no mesmo celular. Depois dá para levar tudo para a nuvem (Configurações → Nuvem).</div>
 
 <h2>5. Opcionais (recomendados)</h2>
 <div class="card"><ul>
 <li><b>Instalar como aplicativo no Android:</b> abra o site no Chrome → menu ⋮ → <b>Adicionar à tela inicial</b> / <b>Instalar app</b>.</li>
-<li><b>Avisos:</b> Ajustes → Avisos → <b>Ligar avisos</b>. Eles cobrem compromissos, remédios, o que está acabando, manutenções e documentos vencendo.</li>
-<li><b>Aviso mesmo com o app fechado:</b> instale o app gratuito <b>ntfy</b>. Em Ajustes → Avisos, toque em <b>Gerar tópico</b> e depois em <b>Salvar</b>. No ntfy, toque em <b>+</b> e digite o mesmo tópico. Faça isso no celular de cada responsável.</li>
-<li><b>IA (Gemini, grátis):</b> em <b>aistudio.google.com/app/apikey</b>, clique em <b>Create API key</b>. Cole a chave em Ajustes → IA. Com ela, a leitura de e-mails e bilhetes, a foto da geladeira e as etiquetas das gavetas ficam muito melhores. A chave fica guardada junto com as do MoneyTrio.</li>
-<li><b>Biometria:</b> Ajustes → Geral → Segurança, para travar o app com a digital. No cofre (Casa → Cofre) tem o botão <b>“Liberar por biometria”</b>.</li>
-<li><b>Backup no Google Drive:</b> Ajustes → Integrações. Se aparecer erro 403, ative a <b>Google Drive API</b> no Google Cloud do projeto.</li>
+<li><b>Avisos:</b> Configurações → Avisos → <b>Ligar avisos</b>. Eles cobrem compromissos, remédios, o que está acabando, manutenções e documentos vencendo.</li>
+<li><b>Aviso mesmo com o app fechado:</b> instale o app gratuito <b>ntfy</b>. Em Configurações → Avisos, toque em <b>Gerar tópico</b> e depois em <b>Salvar</b>. No ntfy, toque em <b>+</b> e digite o mesmo tópico. Faça isso no celular de cada responsável.</li>
+<li><b>IA (Gemini, grátis):</b> em <b>aistudio.google.com/app/apikey</b>, clique em <b>Create API key</b>. Cole a chave em Configurações → IA. Com ela, a leitura de e-mails e bilhetes, a foto da geladeira e as etiquetas das gavetas ficam muito melhores. A chave fica guardada junto com as do MoneyTrio.</li>
+<li><b>Biometria:</b> Configurações → Geral → Segurança, para travar o app com a digital. No cofre (Casa → Cofre) tem o botão <b>“Liberar por biometria”</b>.</li>
+<li><b>Backup no Google Drive:</b> Configurações → Integrações. Se aparecer erro 403, ative a <b>Google Drive API</b> no Google Cloud do projeto.</li>
 </ul></div>
 
 <h2>6. Anúncios</h2>
