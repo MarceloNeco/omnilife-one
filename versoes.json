@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.11.0",
+  "d": "2026-10-02",
+  "hora": "03:30:00",
+  "pt": [
+   "🔐 Cópia protegida (⚙ → Dados): a cópia vai cifrada com uma senha sua e um código de recuperação mostrado uma vez. Só ela pode ser restaurada na primeira tela, antes de entrar.",
+   "🔗 Restaurar nunca duplica usuário: o app reconhece a mesma pessoa (mesmo id, ou mesmo nome confirmado pela senha/código da cópia) e pergunta Juntar (padrão), Substituir ou Manter separado. Importar em ⚙ → Dados segue a mesma regra e só um responsável faz.",
+   "👆 Digital vinda de outro endereço: o app avisa para ligar a digital de novo e deixa entrar pelo PIN.",
+   "👥 Unir dois perfis (⚙ → Dados): para quem já ficou duplicado — mostra o que cada perfil tem, pede confirmação dupla e baixa uma cópia antes."
+  ],
+  "en": [
+   "🔐 Protected copy (⚙ → Data): the copy is encrypted with your password and a one-time recovery code. Only it can be restored on the first screen, before signing in.",
+   "🔗 Restoring never duplicates a user: the app recognises the same person (same id, or same name confirmed by the copy's password/code) and asks Merge (default), Replace or Keep separate. Import in ⚙ → Data follows the same rule and only a guardian can do it.",
+   "👆 Fingerprint from another address: the app warns to enable it again and lets you in with the PIN.",
+   "👥 Merge two profiles (⚙ → Data): for anyone already duplicated — shows what each profile has, asks for double confirmation and downloads a copy first."
+  ]
+ },
+ {
   "v": "2.10.3",
   "d": "2026-09-28",
   "hora": "00:30:00",
