@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.11.0",
+  "d": "2026-10-02",
+  "hora": "12:00:00",
+  "pt": [
+   "💾 Cópia segura: o backup agora sai cifrado e só abre com a senha da cópia ou com o código de recuperação (mostrado uma vez na primeira cópia). O PIN nunca vira chave da cópia.",
+   "📦 Restaurar na primeira tela, antes de entrar (só cópia segura). O app reconhece a mesma pessoa (id interno ou mesmo nome) e junta em vez de criar outra; se já houver gente no aparelho, pergunta Juntar, Substituir ou Manter separado, mostrando o que muda. Escrever num aparelho que já tem família pede o PIN de um responsável.",
+   "👆 Digital ligada em outro endereço: o app avisa para ligar de novo neste endereço e deixa entrar pelo PIN.",
+   "🔗 Família → Unir perfis duplicados: mostra o que cada perfil tem, pede confirmação dupla e baixa uma cópia antes."
+  ],
+  "en": [
+   "💾 Secure copy: backups now leave encrypted and only open with the copy password or the recovery code (shown once on the first copy). The PIN never becomes the copy key.",
+   "📦 Restore on the first screen, before signing in (secure copies only). The app recognizes the same person (internal id or same name) and joins instead of creating another; if the device already has people it asks Join, Replace or Keep separate, showing what changes. Writing into a device that already has a family asks for a guardian's PIN.",
+   "👆 Fingerprint turned on at another address: the app asks you to turn it on again here and lets you in with the PIN.",
+   "🔗 Family → Join duplicate profiles: shows what each profile has, asks for double confirmation and downloads a copy first."
+  ]
+ },
+ {
   "v": "2.10.3",
   "d": "2026-09-28",
   "hora": "00:30:00",
