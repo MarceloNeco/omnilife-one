@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.11.1",
+  "d": "2026-10-02",
+  "hora": "04:30:00",
+  "pt": [
+   "🛡 Restaurar antes de entrar num aparelho que já tem família agora pede o PIN (ou a digital) de um responsável; Substituir baixa antes uma cópia protegida do que está ali.",
+   "🔑 Juntar ou unir perfis não tranca mais ninguém: o PIN, o login e o papel que valem são os do perfil que fica neste aparelho (antes, um perfil sem PIN podia ficar com um PIN que nunca conferia).",
+   "🧩 Nada se perde ao juntar: a ficha de saúde e os ajustes dos dois lados se completam, e um registro mais novo no aparelho não volta para a versão antiga da cópia.",
+   "🔗 Unir perfis: a cópia de segurança agora sai protegida com senha (e código de recuperação), pede o seu PIN e não deixa unir dois logins da nuvem."
+  ],
+  "en": [
+   "🛡 Restoring before signing in on a device that already has a family now asks for a guardian's PIN (or fingerprint); Replace first downloads a protected copy of what's there.",
+   "🔑 Merging copies or profiles no longer locks anyone out: the PIN, login and role that apply are those of the profile that stays on this device (before, a profile without a PIN could end up with a PIN that never matched).",
+   "🧩 Nothing is lost when merging: health records and settings from both sides are combined, and a newer record on the device doesn't go back to the copy's older version.",
+   "🔗 Merge profiles: the safety copy is now password-protected (with a recovery code), asks for your PIN and won't merge two cloud logins."
+  ]
+ },
+ {
   "v": "2.11.0",
   "d": "2026-10-02",
   "hora": "03:30:00",
