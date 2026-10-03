@@ -35,7 +35,10 @@ sem framework: HTML, CSS e JavaScript puros.
   (`ch_solverone_sessao`), que o `Conta` aproveita e mantém igual enquanto o Contador não usar a chave comum.
 - Nunca apagar dado do navegador (stores `docs`/`files`, a cópia "só neste aparelho") sem antes **oferecer a cópia protegida e
   levar para a nuvem** (`Migrar.antesDeApagar()`, `Migrar.apagarAntiga()`) — regra do dono do projeto, 03/Out/2026. Sair da
-  conta ou da família não apaga a cópia da nuvem do aparelho (saúde, documentos e cofre só existem nela até a 2c).
+  conta ou da família não apaga a cópia da nuvem do aparelho (saúde, documentos e arquivos só existem nela). Exceção da
+  diretriz do cofre (2.15.0): a cópia **cifrada** do cofre da nuvem e a chave dele saem em "Desconectar este aparelho", conta
+  encerrada/banida, aparelho desconectado e saída da família (`Cofre.apagarDoAparelho`) — o cofre continua na nuvem; a fila do
+  cofre tenta subir antes; o cofre antigo (senha mestra, só no aparelho) nunca é apagado por isso.
 
 ## Mapa do `index.html` (procure pelos nomes)
 
@@ -49,9 +52,15 @@ sem framework: HTML, CSS e JavaScript puros.
   Receber: `pull` a cada consulta, só o que mudou desde o cursor (`kv cursor|<grupo>`, folga de 2 min). **Conflito**: `merge3(base,
   deste aparelho, do outro)` junta campo a campo, listas somam; só o MESMO campo mudado diferente nos dois vira pergunta
   (`Sync.perguntar`, uma janela por vez; "Depois" pergunta de novo em 2 min). Registro novo recusado pelo banco fica no aparelho
-  marcado `recusado` (aparece em `Sync.view`, "Tentar de novo"). **Só no aparelho até a 2c** (`NUVEM_LOCAL`): `health`, `docs`,
-  `vault`, `files` (ficam na store `nuvem`, nunca na fila); `NUVEM_SO_AQUI.people = ["pinHash"]` não sobe. `comsg` vai para
+  marcado `recusado` (aparece em `Sync.view`, "Tentar de novo"). **Só no aparelho** (`NUVEM_LOCAL`): `health`, `docs`, `files`
+  (ficam na store `nuvem`, nunca na fila); `NUVEM_SO_AQUI.people = ["pinHash"]` não sobe. `comsg` vai para
   `omni_combinados` (só inclusão). Arquivos continuam na store `files`.
+  **Cofre (v2.15.0)**: `putCofre` cifra com `Cofre.selar` e a linha vai com `dados = null` e `dados_cifrado` (o banco exige isso
+  para `vault`); a cópia do aparelho guarda só `{ cif, baseCif, vis, versao }` — o registro aberto existe só em `DB.col("vault")`,
+  preenchido por `abrirCofre()` ao destrancar e limpo por `fecharCofre()` ao trancar (fica só o envelope `_em`, que não precisa
+  da chave). Conflito no cofre (`enviarCofre`): sem a chave não dá para juntar campo a campo → ficam **as duas versões** (a deste
+  aparelho vira item novo). Registros do cofre antigo (senha mestra, até a 2.14.x: `rec.doc` sem `cif`, inclusive `_meta`)
+  nunca sobem: `Cofre.antigo()` os mantém no aparelho até "Trazer o cofre antigo". `refazer()` não apaga esses registros.
 - `Sync` — selo do topo (`offBadge()`: "📴 sem internet", "⏳ N itens aguardando sincronia", "⚠️ não aceitos"; toque abre
   `Sync.view()`), aviso de "salvo neste aparelho" ao salvar sem internet, e a janela de conflito.
 - `Cloud` (v2.14.0) — família na nuvem pelas funções `omni_*` (quem garante as regras é o banco). `resolve()` depois de entrar
@@ -81,6 +90,44 @@ sem framework: HTML, CSS e JavaScript puros.
   digitar o nome da família; quem acabou de entrar no próprio perfil não repete o PIN só para LEVAR — `_autorizado`), `descartar()` (cópia protegida
   oferecida → confirmação → apaga a store `docs` e só os arquivos dessa família). Na família da nuvem, ⚙ → Nuvem mostra a
   cópia antiga mesmo se nunca levada (`_temLocal`): levar para esta família ou apagar (oferece levar e a cópia antes).
+- `Cofre` (v2.15.0, Etapa 2c) — **cofre ponta a ponta** (diretriz "Cofre de senhas e entrada sem internet"). Peças:
+  - **Chave do cofre da família (CF)**: 32 bytes aleatórios (`kv`, `fk` = id da chave). Cifra cada registro do cofre
+    (`selar`/`abrir`, AES-GCM 256). Vai para cada chefe/responsável embrulhada com a chave pública dele (`embrulhar`, RSA-OAEP 3072
+    SHA-256, `sol_guardar_chave_grupo`); quem tem o cofre aberto libera para quem falta (`distribuir`, ao abrir e no `poll`, no
+    máximo a cada 2 min; registro sem segredo em `settings/cofre` = `{ fk, kv, membros: { uid: { kid, seq, fk } } }`; antes de
+    decidir, `distribuir` puxa o mais novo, e conflito nesse registro **nunca vira pergunta** — `CloudDriver.enviar` fica com o deste
+    aparelho; se faltar alguém, a próxima liberação embrulha de novo). Mínimo
+    privilégio: só chefe e responsável recebem a CF; o contato de emergência abre pelo envelope `_em`.
+  - **Par da pessoa**: `novoPar()`; pública em `sol_publicar_minha_chave` (JWK com `kid`); privada (pkcs8) cifrada com o
+    **código de recuperação do cofre** (`Restore.code()`, PBKDF2-SHA256 600 mil) em `omni_chave_privada`. O código aparece uma
+    vez (`mostrarCodigo`, "Anotei"); `novoCodigo()` troca.
+  - **Chave do aparelho (CA)**: 32 bytes aleatórios, embrulhada pelo PIN (PBKDF2-SHA256 600 mil, sal aleatório) e, se der, pela
+    digital (`prfNovo`/`prfAvaliar`: WebAuthn com PRF + HKDF). Guarda cifradas a privada (`sk`) e a CF de cada família
+    (`fam[gid]`). Tudo em IndexedDB `kv`, chave `cofre|<conta>`: `{ pin, prf, sk, fam, erros, ate, bloqueado }`. Abertas (CA, CF)
+    só na memória (`Cofre.vf`, `S.vaultKey`) enquanto destrancado; `trancar()` zera os bytes.
+  - **Destrancar** (`destrancarPin`/`destrancarDigital`): a conferência é local (o PIN certo é o que decifra a CA), funciona sem
+    internet. Erros: `ESPERAS` (4º erro 30 s … 9º 1 h); no 10º `bloqueado` — só sai com a conta (entrar de novo:
+    `Conta.aoAbrir("login")` chama `zerarErros`) ou com o código (`esqueci`, precisa de internet).
+  - **Preparar o aparelho** (`comecar`): família sem cofre → cria a CF; conta que já tem chave → pede o código (ou cria par novo e
+    espera outro responsável liberar); aparelho novo da mesma pessoa → código + PIN.
+  - **Apagar do aparelho** (`apagarDoAparelho`): conta encerrada (`Conta.encerrada`), banida (renovação da sessão falha com
+    `user_banned`), aparelho desconectado por um chefe (`Devices.setList`), saiu da família (`poll`) e "Desconectar este
+    aparelho" (`desconectarAparelho`: marca o aparelho `desconectado`, apaga e sai). Perdeu o papel de responsável:
+    `esquecerFamilia`. `Conta.revalidar()` (ao abrir e no evento `online`) força a renovação da sessão e consulta
+    `minha_conta_encerrada`.
+  - **Emergência**: `envelope()` cifra a CF com o código de emergência (PBKDF2 600 mil) em `vault/_em` (sobe como `{em:1,d}`, sem a
+    camada da CF); `abrirComCodigo()` para o contato depois de liberado. `Gov.makeEnvelope`/`openWithCode` usam isso.
+  - **Cofre antigo** (`legado`, `temLegado`, `trazerLegado`): pede a senha mestra antiga, recifra itens e anexos (inclusive anexos
+    cifrados de documentos) com a CF e sobe; `_meta` nunca sobe.
+  - `view()`/`atualizar()` desenham Casa → Cofre por estado (`novo`, `trancado` com espera/bloqueio, `aberto`); visitante não usa
+    (`canVault()`); contato de emergência só lê (`vault.ver`).
+- `Trava` (v2.15.0) — tranca o cofre (os dois modos): 5 min sem toque/tecla (`ocioso`), 30 s fora do app (3 min logo depois de
+  escolher foto/arquivo, `Trava.escolhendo`), confere ao voltar (o celular congela o relógio em segundo plano) e no `pagehide`.
+  Apaga a chave antiga que a "biometria" das versões até a 2.14.x guardava no aparelho (`kv vaultKey:*`).
+- `copiarSegredo(t)` — copia senha e limpa a área de transferência em 30 s (ou ao voltar ao app); nunca mostra a senha numa
+  janela. Senha do cofre só aparece ao tocar no olho (`editVault`, painel de passagem, `vault.ver`).
+- `Vault` — cofre do modo "só neste aparelho" (senha mestra, PBKDF2 310 mil). Desde a 2.15.0 a digital guarda a **senha mestra
+  cifrada por PRF** (`kv vaultKey:<família>` = `{ cred, sal, iv, ct }`), nunca a chave. `Vault.lock()` tranca também o `Cofre`.
 - `FB` — Firebase: **sem uso desde a v2.14.0** (nada chama `FB.init`); sai do código na Etapa 2d, junto com `onAuth`,
   `acct.delete` e a parte Google do `drive.backup`. Mapa usado na migração: coleções → `omni_docs`;
   família → `sol_grupos` + `sol_grupo_membros` + `omni_familia` (papel `admin` = `chefe`); convites → `sol_grupo_convites` +
@@ -137,7 +184,7 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Sess` — sessão da aba (recarregar não pede PIN por 30 min) e volta ao mesmo lugar depois de entrar.
 - `Batch` — vários arquivos de uma vez (Documentos), com fila, duplicados e conferência.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento.
-- `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Até a 2c o cofre fica no aparelho, então o código de emergência só abre o cofre do próprio aparelho.
+- `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Desde a 2.15.0 o código de emergência abre o cofre da nuvem (envelope `_em` com a chave do cofre; ver `Cofre`); quando o acesso é liberado, o `poll` refaz a cópia para o contato receber o cofre cifrado.
 - `Devices` — aparelhos conectados (`omni_aparelhos`; id = `omnilife.deviceId` + começo do id da conta), registrados ao entrar (upsert), desconectar à distância (`desconectado`); o aparelho desconectado sai da família e da conta na próxima consulta. `Grow` — criança que cresce (idade em `policy.gradAge` / `settings.gradAge`). `Areas` — quem cuida de cada área (`settings.areaOwners`). `Duas` — duas casas: `settings.duas`, coleções `coexp` (despesas) e `comsg` (registro que só recebe itens novos).
 - `Move` + `SITE_BASE`/`SITE_DOMAIN` — mudança para solverone.com.br: links usam o próprio endereço; no endereço antigo, aviso para guardar backup.
 - `Restore` / `Merge` (v2.11.0) — **diretriz geral: restaurar uma cópia nunca duplica usuário.** `Restore.exportar(senha)` gera a **cópia protegida** (`OmniLifeONE-copia-protegida-….json`): conteúdo cifrado com AES-GCM 256 por uma chave de dados embrulhada pela senha da cópia (PBKDF2, 310 mil voltas) e por um **código de recuperação** mostrado uma vez; fora do cifrado só ficam app, versão, data, primeiro nome de quem fez e quais perfis tinham digital. Na primeira tela, `ACT["gate.restore"]` restaura **antes de entrar**, e só a cópia protegida (a aberta é recusada ali; dentro do app, `bk.import` aceita as duas, só por responsável). `Restore.aplicar` reconhece a mesma pessoa (`casar`: mesmo id, ou mesmo nome quando a identidade foi confirmada pela senha/código), pergunta **Juntar (padrão) / Substituir / Manter separado** quando já há gente no aparelho, e em Juntar troca o id da cópia pelo id local em todos os registros (`remap`); o PIN que vale é o do perfil local. Digital é presa ao endereço: perfis restaurados que tinham digital recebem `S.prefs.bioRelink` e o `selectProfile` avisa para ligar de novo, entrando pelo PIN. `Merge.card()` em ⚙ → Dados une dois perfis duplicados: mostra o que cada um tem (`Merge.resumo`), exige marcar "entendi" e digitar o nome que some, baixa `OmniLifeONE-antes-de-unir-….json` e só então `Merge.unir` (remap + apaga o perfil que some + esquece a digital dele). **v2.11.1:** antes de entrar, escrever num aparelho que já tem família pede PIN/digital de responsável (`Restore.autorizar`, `confirmarPessoa`, `escolherPessoa`); Substituir baixa antes uma cópia protegida (`Restore.copiaAntes`, com o mesmo segredo digitado); Juntar usa `Restore.completar` (o do aparelho vence, vazios vêm da cópia, listas somam) e `Restore.segura` (PIN, login, papel e administrador do aparelho sempre vencem — um `pinHash` é `sha256(PIN + id)`, então nunca pode passar de um id para outro), saúde e ajustes se completam, o resto só entra se for mais novo (`Restore.gravar` mantém o `updatedAt` da cópia), Manter separado não sobrescreve; `Merge.unir` junta registros com o id da pessoa (ficha de saúde) em vez de sobrescrever, move a digital do aparelho, recusa dois logins da nuvem e a cópia “antes de unir” sai protegida com senha (`mostrarCodigo`).

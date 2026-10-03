@@ -1,5 +1,26 @@
 [
  {
+  "v": "2.15.0",
+  "d": "2026-10-03",
+  "hora": "15:27:01",
+  "pt": [
+   "🔐 Cofre da família na nuvem, ponta a ponta: senhas, apólices e contratos são cifrados neste aparelho antes de sair (AES-256). A nuvem guarda só texto cifrado — nem o servidor nem a equipe SolverONE leem.",
+   "🔢 PIN do cofre em cada aparelho (e digital ou rosto, quando o aparelho permite): o cofre abre também sem internet. PIN errado tem espera crescente; no 10º erro, só entrando de novo na conta.",
+   "🗝️ Código de recuperação do cofre, mostrado uma vez: abre o cofre num aparelho novo e quando você esquece o PIN. Perdeu PIN, digital e código? Outro chefe ou responsável libera de novo para você.",
+   "🔒 O cofre tranca sozinho depois de 5 min sem uso e ao sair do app. A senha só aparece ao tocar no olho; copiada, some da área de transferência em 30 s.",
+   "📴 “Desconectar este aparelho” apaga daqui a cópia cifrada do cofre e a chave. Conta encerrada ou bloqueada e aparelho desconectado por um chefe também apagam; quando a internet volta, o app confere a conta.",
+   "🆘 O contato de emergência abre o cofre com o código, depois que o acesso é liberado. Cofre antigo (senha mestra) neste aparelho: Casa → Cofre → “Trazer o cofre antigo”."
+  ],
+  "en": [
+   "🔐 Family vault in the cloud, end to end: passwords, policies and contracts are encrypted on this device before leaving (AES-256). The cloud keeps only ciphertext — neither the server nor the SolverONE team can read it.",
+   "🔢 Vault PIN on each device (plus fingerprint or face when the device allows it): the vault opens offline too. Wrong PINs bring growing waits; after the 10th, only by signing in to the account again.",
+   "🗝️ Vault recovery code, shown once: it opens the vault on a new device and when you forget the PIN. Lost the PIN, fingerprint and code? Another head or guardian can release it to you again.",
+   "🔒 The vault locks by itself after 5 min idle and when you leave the app. A password only shows when you tap the eye; once copied, it leaves the clipboard in 30 s.",
+   "📴 “Disconnect this device” erases the vault's encrypted copy and key from here. A closed or blocked account and a device disconnected by a head also erase them; when the internet is back, the app checks the account.",
+   "🆘 The emergency contact opens the vault with the code once access is released. Old vault (master password) on this device: Home → Vault → “Bring the old vault”."
+  ]
+ },
+ {
   "v": "2.14.2",
   "d": "2026-10-03",
   "hora": "13:41:58",
