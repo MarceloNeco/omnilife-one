@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.12.1",
+  "d": "2026-10-03",
+  "hora": "03:06:45",
+  "pt": [
+   "☁️ Preparação para a conta SolverONE (Etapa 1): plano de migração (PLANO-SUPABASE-OmniLifeONE.md), contrato de dados da plataforma (PLATAFORMA-DADOS.md) e o SQL das tabelas do Omni no banco da plataforma (supabase/omnilife-one-v1.sql), para revisão. O Firebase não será usado.",
+   "🔐 No banco novo, as regras de hoje (papéis, conteúdo restrito, 48 h para mudar chefe, convites, emergência do cofre) passam a ser garantidas pelo próprio banco, e o código de 4 números da entrada é conferido por ele.",
+   "ℹ️ Nada muda no uso do app nesta versão: os dados continuam no aparelho até a Etapa 2."
+  ],
+  "en": [
+   "☁️ Getting ready for the SolverONE account (Stage 1): migration plan (PLANO-SUPABASE-OmniLifeONE.md), platform data contract (PLATAFORMA-DADOS.md) and the SQL for Omni's tables in the platform database (supabase/omnilife-one-v1.sql), for review. Firebase will not be used.",
+   "🔐 In the new database, today's rules (roles, restricted content, 48 h to change a head, invites, vault emergency) are enforced by the database itself, and the 4-digit join code is checked by it.",
+   "ℹ️ Nothing changes in how the app works in this version: data stays on the device until Stage 2."
+  ]
+ },
+ {
   "v": "2.12.0",
   "d": "2026-10-02",
   "hora": "08:52:23",

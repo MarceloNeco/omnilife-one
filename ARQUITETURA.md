@@ -15,7 +15,10 @@ sem framework: HTML, CSS e JavaScript puros.
 | `clima.json` | Reserva local da config do clima (a master vem do RootifyONE em `solverone-dados/clima.json`) | Sim — ver `clima-MODELO-OmniLifeONE.json` |
 | `rotas.json` | Reserva local da config de deslocamento/rotas (a master vem do RootifyONE em `solverone-dados/rotas.json`) | Sim — ver `rotas-MODELO-OmniLifeONE.json` |
 | `manifest.webmanifest`, ícones | Instalar como app | Raramente |
-| `regras-firestore-OmniLifeONE.txt` | Regras de segurança do Firebase (colar no console) | Só junto com mudanças de nuvem |
+| `regras-firestore-OmniLifeONE.txt` | Regras do Firebase de antes (o Firebase **não** será usado — decisão de 03/Out/2026). Fica como referência das regras que o SQL reproduz | Não (arquivo de referência) |
+| `PLATAFORMA-DADOS.md` | Cópia fiel do contrato de dados da plataforma SolverONE (C1–C10) | Não: o contrato muda só por versão nova, combinada com o RootifyONE |
+| `PLANO-SUPABASE-OmniLifeONE.md` | Plano da ida para a conta e o banco SolverONE (Supabase): tabela por parte do app, o que fica no aparelho, cifrado (C7), modo sem internet, pontos do contrato | Sim |
+| `supabase/omnilife-one-v1.sql` | Tabelas `omni_*`, regras de acesso (RLS), funções e LGPD no banco da plataforma. Roda depois da base comum (`sol_*`) | Só com revisão (C10); nunca rodar antes da revisão |
 | `LEIA-ME-OmniLifeONE.html` | Passo a passo para o dono do app | Sim |
 | `ARQUITETURA.md`, `CREDITOS.md` | Este briefing e as licenças de terceiros | Sim |
 | `ajuda-botao.png`, `ajuda-icone.png`, `assistone-hd.png` | Arte do AssistONE. O botão flutuante usa `ajuda-botao.png` direto (arquivo canônico da plataforma, igual em todos os apps); os balões e o cartão em ⚙ usam a cópia pequena embutida `AONE_IMG` | Não trocar `ajuda-botao.png` por outra arte (é padrão da plataforma) |
@@ -34,7 +37,11 @@ sem framework: HTML, CSS e JavaScript puros.
 - `S` — estado global. `LS` — nomes das chaves do localStorage. `APP_VERSION` — versão.
 - `tt(pt, en)` — todo texto nasce nas duas línguas. `fmtDate` — datas `24/Set/2026` / `Sep/24/2026`.
 - `DB` — dados (drivers: memória/visitante, IndexedDB/este aparelho, Firestore/nuvem). `DB.patch` para campos.
-- `Cloud` / `FB` — Firebase (login, família, convites seguros, aprovações, histórico de segurança).
+- `Cloud` / `FB` — Firebase (login, família, convites seguros, aprovações, histórico de segurança). **Vai sair na Etapa 2:**
+  a nuvem passa a ser a conta e o banco SolverONE (Supabase) — ver `PLANO-SUPABASE-OmniLifeONE.md`. Mapa: coleções → `omni_docs`;
+  família → `sol_grupos` + `sol_grupo_membros` + `omni_familia` (papel `admin` = `chefe`); convites → `sol_grupo_convites` +
+  `omni_convite_info`; `joinRequests` → `omni_pedidos_entrada` (+ código em `omni_pedidos_verificacao`); `gov` → `omni_governanca`;
+  `devices` → `omni_aparelhos`; `comsg` → `omni_combinados`; `audit` → `omni_historico`; arquivos → Storage `sol-arquivos/omnilife-one/<grupo>/…`.
 - `ACT` — todas as ações de botão (`data-act="…"`); `data-chg` para campos que mudam.
 - `SCREENS` — cada aba (`home`, `inbox`, `shop`, `agenda`, `security`, `family`, `settings`…).
 - `Nav` — ÚNICO ponto do histórico (botão Voltar do celular). Não use `pushState` fora dele.
@@ -84,4 +91,4 @@ sem framework: HTML, CSS e JavaScript puros.
 2. Acrescentar a versão no topo do `versoes.json` (e na cópia embutida `VERSOES_EMB`).
 3. Subir o número em `sw.js` (`CACHE = APPC + "vN"`).
 5. Nome do zip: `OMNI-LIFE-ONE vX.Y.Z dd-Mmm-aaaa HHhMMm.zip` (hora de Brasília).
-4. Se mudou algo de nuvem: atualizar `regras-firestore-OmniLifeONE.txt` e avisar para colar no Firebase.
+4. Se mudou algo de nuvem: novo arquivo `supabase/omnilife-one-vN.sql` (idempotente, regras do C10 em `PLATAFORMA-DADOS.md`), levar para revisão e só depois rodar no Supabase. O Firebase não é mais usado.
