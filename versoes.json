@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.14.2",
+  "d": "2026-10-03",
+  "hora": "13:41:58",
+  "pt": [
+   "📊 O registro de acesso não se perde mais quando a tela troca logo depois de entrar: sai com keepalive (o navegador termina o envio sozinho) e, se falhar, o app tenta de novo depois — sem registrar duas vezes.",
+   "🔐 “Descartar os dados deste aparelho” agora exige o PIN ou a digital de um responsável (um perfil duplicado sem PIN não serve). Se ninguém tiver PIN, é preciso digitar o nome da família.",
+   "🌙 Tema claro: o app avisa o navegador para não pintar o escuro dele por cima, e a chave “Tema escuro” do menu 👤 passa a bater com o que aparece na tela."
+  ],
+  "en": [
+   "📊 Sign-in records are no longer lost when the screen changes right after signing in: they go with keepalive (the browser finishes the send on its own) and, if it fails, the app retries later — without recording twice.",
+   "🔐 “Discard this device's data” now requires a guardian's PIN or fingerprint (a duplicated profile without a PIN doesn't count). If nobody has a PIN, you must type the family name.",
+   "🌙 Light theme: the app tells the browser not to paint its own dark mode over it, so the “Dark theme” switch in the 👤 menu matches what's on screen."
+  ]
+ },
+ {
   "v": "2.14.1",
   "d": "2026-10-03",
   "hora": "12:48:14",
