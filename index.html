@@ -1872,7 +1872,8 @@ const CloudDriver = {
   async sync() { await this.flush(); await this.pull(); },
   /* ---------- enviar ---------- */
   async flush(agora) {
-    if (this._flushing || !this.gid || !navigator.onLine) return; this._flushing = true;
+    if (this._flushing) { this._maisUma = true; return; }   /* entrou mudança durante o envio: manda logo depois */
+    if (!this.gid || !navigator.onLine) return; this._flushing = true; this._maisUma = false;
     try {
       for (const [key, op] of [...this.fila.entries()]) {
         if (!this.gid) break;
@@ -1892,7 +1893,7 @@ const CloudDriver = {
         }
         Sync.badge();
       }
-    } finally { this._flushing = false; Sync.badge(); }
+    } finally { this._flushing = false; Sync.badge(); if (this._maisUma) { this._maisUma = false; setTimeout(() => this.flush(), 300); } }
   },
   sel: "id,vis,dados,dados_cifrado,versao,atualizado_em,atualizado_por,apagado_em",
   url(col, id) { return "omni_docs?grupo_id=eq." + this.gid + "&colecao=eq." + encodeURIComponent(col) + "&id=eq." + encodeURIComponent(id); },
