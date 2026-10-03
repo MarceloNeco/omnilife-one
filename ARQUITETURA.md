@@ -57,8 +57,13 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Cloud` (v2.14.0) — família na nuvem pelas funções `omni_*` (quem garante as regras é o banco). `resolve()` depois de entrar
   na conta: convite pendente → `requestJoin` (`omni_ver_convite` + `omni_pedir_entrada`) → tela `waiting` (código de 4 números de
   `omni_pedidos_verificacao`, consulta a cada 5 s); senão a última família (`LS.lastFam`) ou a primeira de `sol_meus_grupos`
-  (governança `omnilife-one`); pedido pendente → `waiting`; família só no aparelho → modo local + oferta de levar; senão tela
-  `create`. `load()` monta `S.family` no formato de sempre (`members[uid] = { role, personId, name, email, since, emergencyVault }`,
+  (governança `omnilife-one`); pedido pendente → `waiting`; senão `semFamilia()` → tela `create` com as escolhas (v2.14.1):
+  criar família nova, **levar a família deste aparelho** (`sf.levar`) ou **descartar os dados deste aparelho** (`sf.descartar`),
+  as duas últimas só com o PIN/digital de um responsável do aparelho (`Migrar.autorizarLocal`), e "Usar só neste aparelho".
+  Sem internet e sem família na nuvem: abre a família do aparelho (`S.semNuvem`, sem oferta de levar).
+  **Prioridade (v2.14.1):** com a conta conectada, o `boot` vai para a nuvem antes dos perfis locais (modo `local` antigo
+  incluído); só fica no aparelho quem escolheu "Usar só neste aparelho" / "PIN (só neste aparelho)" (`omnilife.soNesteAparelho`).
+  Entrar na conta de dentro do app (`conta.entrar`) também leva para a nuvem; o link de nova senha não muda a escolha. `load()` monta `S.family` no formato de sempre (`members[uid] = { role, personId, name, email, since, emergencyVault }`,
   `policy`) e guarda cópia em `kv familia|<grupo>` para abrir **sem internet** (`enter()` usa a cópia se o banco não responde).
   `poll()` a cada 20 s (e ao voltar para o app ou a internet): família, `CloudDriver.sync()`, governança, aparelhos e, para
   chefe/responsável, convites, pedidos e histórico; depois `Gov.tick()`. Convite: link `#convite=` + `{ code, n, by }`, guardado
@@ -71,6 +76,10 @@ sem framework: HTML, CSS e JavaScript puros.
   `omni_criar_familia` com o **mesmo id da pessoa do aparelho** (ou a família que a conta já tem) → `Restore.aplicar(…, { migrar:
   true })` (reconhece pelo nome, nunca "Substituir") → `omnilife.migrado`. A cópia antiga (store `docs`) fica até `apagarAntiga()`
   (só depois de levar, fila vazia e cópia oferecida). `antesDeApagar()` roda antes de "Apagar tudo": oferece levar e a cópia.
+  v2.14.1: `resumo()` (o que há no aparelho, para a tela de escolhas), `autorizarLocal()` (responsável do aparelho confirma
+  com PIN/digital; quem acabou de entrar no próprio perfil não repete — `_autorizado`), `descartar()` (cópia protegida
+  oferecida → confirmação → apaga a store `docs` e só os arquivos dessa família). Na família da nuvem, ⚙ → Nuvem mostra a
+  cópia antiga mesmo se nunca levada (`_temLocal`): levar para esta família ou apagar (oferece levar e a cópia antes).
 - `FB` — Firebase: **sem uso desde a v2.14.0** (nada chama `FB.init`); sai do código na Etapa 2d, junto com `onAuth`,
   `acct.delete` e a parte Google do `drive.backup`. Mapa usado na migração: coleções → `omni_docs`;
   família → `sol_grupos` + `sol_grupo_membros` + `omni_familia` (papel `admin` = `chefe`); convites → `sol_grupo_convites` +
@@ -82,7 +91,7 @@ sem framework: HTML, CSS e JavaScript puros.
   `janela()` (e-mail e senha, Google, criar conta, esqueci a senha), `lerRetorno()` (no `boot`: volta do Google, da confirmação
   de e-mail e do link de nova senha → `novaSenha()`), `token()` (renova perto de vencer, uma vez só por vez), `rpc()`, `funcao()`
   (Edge Function `solverone-admin`), `marcarPedido()`/`confirmarPendente()` (volta com sessão no endereço só entra sem perguntar
-  se este aparelho pediu — marcador `omnilife.contaPedido`, 2 dias; senão pergunta "Foi você?"), `aoAbrir()` (no fim do `startApp`, uma vez por aba: `minha_conta_encerrada`,
+  se este aparelho pediu — marcador `omnilife.contaPedido`, 2 dias; senão pergunta "Foi você?"), `aoAbrir()` (v2.14.1: no `boot` assim que há conta, em `Cloud.resolve()` e no `startApp`, uma vez por abertura e por conta — a aba guarda o id da conta em `omnilife.contaAcesso`; recarregar não conta de novo, entrar conta sempre: `minha_conta_encerrada`,
   `sol_registrar_uso('omnilife-one')`, `registrar-acesso` login/refresh), `sair()` (`logout?scope=local` + `registrar-acesso`
   logout), `encerrar()` (`minha_solicitacao_exclusao`, motivo + 2 confirmações), `card()` (⚙ → Geral). Só a URL e a publishable
   key no código (públicas). `rest()` (tabelas e funções; erro sem `status` = sem internet/sem sessão, quem chama tenta depois) e

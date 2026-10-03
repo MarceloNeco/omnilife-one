@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.14.1",
+  "d": "2026-10-03",
+  "hora": "12:48:14",
+  "pt": [
+   "✨ Depois de entrar na conta, um caminho claro: se a conta ainda não tem família na nuvem, a tela mostra as escolhas — criar uma família nova na nuvem, levar a família deste aparelho ou descartar os dados deste aparelho (para dados de teste; antes, o app oferece a cópia protegida). Levar ou descartar pede o PIN (ou a digital) de um responsável deste aparelho.",
+   "☁️ Com a conta conectada, a família da nuvem vem antes dos perfis deste aparelho. Quem prefere continuar sem nuvem toca em “Usar só neste aparelho”, e o app respeita a escolha.",
+   "📊 O Omni agora registra o uso e o acesso na plataforma assim que a conta entra (antes só registrava depois de abrir a família), e o RootifyONE passa a ver o Omni.",
+   "🧹 ⚙️ Configurações → Nuvem: se o aparelho ainda tem uma família que não foi para a nuvem, dá para juntá-la à família da nuvem ou apagá-la (com a cópia protegida antes)."
+  ],
+  "en": [
+   "✨ After signing in, a clear path: if the account has no family in the cloud yet, the screen shows the choices — create a new family in the cloud, take this device's family, or discard this device's data (for test data; first the app offers the protected copy). Moving or discarding asks for the PIN (or fingerprint) of a guardian on this device.",
+   "☁️ With the account connected, the cloud family comes before this device's profiles. Anyone who prefers to stay without the cloud taps “Use on this device only”, and the app respects the choice.",
+   "📊 Omni now records use and sign-in on the platform as soon as the account connects (before it only did after opening the family), so RootifyONE can see Omni.",
+   "🧹 ⚙️ Settings → Cloud: if the device still has a family that didn't go to the cloud, you can merge it into the cloud family or erase it (with the protected copy first)."
+  ]
+ },
+ {
   "v": "2.14.0",
   "d": "2026-10-03",
   "hora": "11:55:25",
