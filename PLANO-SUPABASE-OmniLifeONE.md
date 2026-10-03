@@ -1,6 +1,8 @@
 # OmniLifeONE na conta e no banco SolverONE (Supabase) — plano
 
-Versão do plano: 1 · 03/Out/2026 · app na v2.12.1 (Etapa 1: só plano e SQL; o app publicado não muda).
+Versão do plano: 2 · 03/Out/2026 · app na v2.12.2 (Etapa 1: só plano e SQL; o app publicado não muda).
+A versão 2 foi revisada e testada contra o arquivo **real** da base comum do RootifyONE
+(`entrega/solverone-app/supabase/2026-10-03-plataforma-dados-v1.sql`).
 
 - Contrato da plataforma: `PLATAFORMA-DADOS.md` (C1 a C10).
 - SQL das tabelas do Omni: `supabase/omnilife-one-v1.sql` (**não rodar antes da revisão**; roda **depois** da base comum do RootifyONE).
@@ -18,7 +20,7 @@ banco (`omni_*`), com uma **cópia no aparelho** para funcionar sem internet. Qu
 | Parte do app (hoje) | No banco SolverONE | Observação |
 |---|---|---|
 | **DB** — as coleções (`people`, `events`, `tasks`, `shop`, `items`, `contacts`, `places`, `spots`, `school`, `things`, `maint`, `guides`, `routine`, `purchases`, `prices`, `settings`, `reminders`, `expects`, `coexp`…) | `omni_docs`: uma linha por registro (`grupo_id`, `colecao`, `id`, `vis`, `dados`, `dados_cifrado`, `versao`, `apagado_em`) | Mesmo formato de hoje dentro de `dados`; o app troca só o "motorista" (driver) do `DB`. Apagar = marcar `apagado_em` (para os outros aparelhos ficarem sabendo). |
-| **Cloud/FB** — documento da família (`families/{fid}`: nome, criador, membros, regras) | `sol_grupos` (nome) + `sol_grupo_membros` (quem é quem) + `omni_familia` (criador e regras do Omni) | Papel `admin` de hoje vira `chefe`. "Criador da família" = `omni_familia.dono`. |
+| **Cloud/FB** — documento da família (`families/{fid}`: nome, criador, membros, regras) | `sol_grupos` (nome, `governanca = 'omnilife-one'`) + `sol_grupo_membros` (quem é quem) + `omni_familia` (criador e regras do Omni) | Papel `admin` de hoje vira `chefe`. "Criador da família" = `omni_familia.dono` (e `sol_grupos.dono`, se a base criar a coluna). Com a `governanca`, as funções genéricas da base não mexem na família do Omni. |
 | `users/{uid}` (última família, pedido pendente) | não precisa de tabela | Famílias da pessoa = `sol_grupo_membros`; pedido pendente = `omni_pedidos_entrada`; última família aberta fica no aparelho. |
 | **Convites** | `sol_grupo_convites` (código, papel, prazo, vagas) + `omni_convite_info` (para quem é, perfil, quem convidou) | Criar/revogar só pelas funções `omni_criar_convite` / `omni_revogar_convite`. Quem tem o código vê o convite com `omni_ver_convite`. |
 | **Aprovações** (pedidos de entrada) | `omni_pedidos_entrada` + `omni_pedidos_verificacao` (código de 4 números) | 1 ou 2 aprovações (regra da família); responsável aprova só membro ou criança; criança exige consentimento (LGPD art. 14). O banco confere o código e recusa após 3 erros. |
@@ -47,7 +49,7 @@ Nada disso sobe para o banco:
   digital passam a ser só o **desbloqueio local** do aparelho; o login é a conta SolverONE. Ao sincronizar
   `people`, o app tira o `pinHash` antes de subir.
 - Chaves de IA, clima e rotas (cofre de chaves compartilhado com o MoneyTRIO: `investifyme.chaves.v1`).
-- Chave aberta do cofre, chave privada da pessoa (ver item 4) e chaves da cópia protegida.
+- Chave aberta do cofre, chave privada aberta da pessoa (ver item 4) e chaves da cópia protegida.
 - Identificação do aparelho (`omnilife.deviceId`), última posição (`omnilife.lastpos.v1`), caches do clima,
   anúncios, avisos já vistos, sessão da aba, registro local de alterações e relatório de erros.
 - "Meus contatos" da área Segurança (`omnilife.myContacts.v1`) — pode passar a sincronizar por pessoa depois,
@@ -61,26 +63,30 @@ arquivos de documentos/exames. O banco **recusa** essas três coleções em clar
 só `dados_cifrado`). O resto (agenda, listas, tarefas, nomes) fica legível no banco, protegido pelas regras de
 acesso — como em qualquer app de família. Se quiser cifrar mais coisas depois, é só incluir a coleção na lista.
 
-**As chaves:**
+**As chaves (usando as tabelas e funções comuns da base, iguais para todos os apps):**
 
-1. Cada pessoa com conta gera no aparelho um **par de chaves** (ECDH P-256). A **pública** vai para
-   `omni_chaves_publicas` (os membros da mesma família podem ler). A **privada** fica no aparelho; uma cópia
-   dela, cifrada com o **código de recuperação** da pessoa (PBKDF2), fica em `omni_chave_privada` para quando
-   ela trocar de aparelho. Só a própria pessoa lê essa cópia.
+1. Cada pessoa com conta gera no aparelho um **par de chaves** (RSA-OAEP-256, o padrão da base). A **pública**
+   vai para a base com `sol_publicar_minha_chave` (a base recusa se vier a parte privada). A **privada** fica no
+   aparelho; uma cópia dela, cifrada no aparelho com o **código de recuperação** da pessoa (PBKDF2), fica em
+   `omni_chave_privada` para quando ela usar outro aparelho. Só a própria pessoa lê essa cópia.
 2. A família tem duas chaves (AES-GCM 256): **chave da família** (todos os membros com conta) e **chave
    restrita** (só chefes e responsáveis). Registros `publico` usam a da família; `restrito`, a restrita.
-3. **Embrulhar:** o aparelho de um chefe/responsável combina a privada dele com a pública do novo membro e
-   embrulha a chave da família para ele; o resultado fica em `omni_chaves_grupo` (uma linha por pessoa, tipo
-   e versão). O banco só deixa chefe/responsável embrulhar, e a chave restrita só vai para chefe/responsável.
-   Ninguém no servidor vê a chave aberta.
+3. **Embrulhar:** o aparelho de um chefe/responsável lê as chaves públicas com `sol_chaves_publicas_do_grupo`
+   e guarda, para cada pessoa, um pacote cifrado com a pública dela (`sol_guardar_chave_grupo`, uma linha por
+   pessoa e versão em `sol_grupo_chaves`). Para membros e crianças com conta, o pacote leva só a chave da
+   família; para chefes e responsáveis, leva as duas. Cada um lê só o seu pacote (`sol_minha_chave_grupo`).
+   Ninguém no servidor vê chave aberta.
 4. **Quando entra alguém:** depois da aprovação, o próximo aparelho de chefe/responsável que abrir o app vê
-   "Dani ainda está sem a chave" e embrulha sozinho.
-5. **Quando alguém sai ou é removido:** os aparelhos dos chefes criam uma **versão nova** das chaves (versao + 1)
-   e passam a usar a nova; os registros antigos são recifrados aos poucos. (Quem saiu pode ter guardado o que já
-   via antes — isso nenhum sistema evita.)
-6. **Cofre:** continua com a senha do cofre de hoje (camada de dentro) e ganha a chave da família por fora.
+   "Dani ainda está sem a chave" (`ultima_versao` vazia) e embrulha sozinho.
+5. **Quando alguém sai, é removido ou deixa de ser responsável:** os aparelhos dos chefes criam uma **versão
+   nova** das chaves (versao + 1) para quem ficou e passam a usar a nova; os registros antigos são recifrados
+   aos poucos. (Quem saiu pode ter guardado o que já via antes — isso nenhum sistema evita.)
+6. **Outro aparelho da mesma pessoa:** ela recupera a privada pela cópia em `omni_chave_privada` com o código
+   de recuperação. A base nunca sobrescreve uma versão já guardada; por isso, se a pessoa perder o código,
+   ela gera um par novo e a família passa para uma versão nova das chaves.
+7. **Cofre:** continua com a senha do cofre de hoje (camada de dentro) e ganha a chave da família por fora.
    O contato de emergência liberado lê as linhas do cofre e abre com a senha que vem do envelope de emergência.
-7. **Risco:** se a família perder **todos** os aparelhos **e** os códigos de recuperação, os dados cifrados
+8. **Risco:** se a família perder **todos** os aparelhos **e** os códigos de recuperação, os dados cifrados
    não voltam (o servidor não tem como abrir). Por isso: dois chefes, código de recuperação guardado e a cópia
    protegida de vez em quando.
 
@@ -140,56 +146,73 @@ Papéis e governança: `omni_mudar_papel`, `omni_remover_membro`, `omni_pedir_mu
 `omni_executar_pedidos`, `omni_pedir_emergencia`, `omni_liberar_emergencia`.
 Registros: leitura e gravação direta em `omni_docs`/`omni_combinados`/`omni_historico`/`omni_aparelhos`
 (o RLS confere) e `omni_mudar_campos` para mudar só alguns campos.
-LGPD (só a plataforma): `omni_anonimizar(uid)`, registrada em `sol_apps`.
+Chaves (funções da base): `sol_publicar_minha_chave`, `sol_chaves_publicas_do_grupo`, `sol_guardar_chave_grupo`,
+`sol_minha_chave_grupo`; cópia cifrada da chave privada em `omni_chave_privada`.
+LGPD (só a plataforma): `omni_anonimizar(uid)`, registrada em `sol_apps` como `omni_anonimizar`.
 
 ## 8. Como foi testado (sem tocar no seu Supabase)
 
-- Num PostgreSQL 16 descartável aqui no ambiente de trabalho, com uma **imitação** da base comum (`sol_*` como
-  está no contrato) e do Supabase (`auth.uid()`, `storage`, papéis `anon`/`authenticated`/`service_role`).
-- **193 verificações** com seis pessoas de mentira (chefe criador, outro chefe, responsável, membro, criança e
-  alguém de fora): entrada com 1 e 2 aprovações, código de 4 números (certo, errado, 3 erros), convite vencido,
-  revogado e lotado, criança sem/com consentimento, `restrito`, pedidos de compra, cofre e saúde cifrados,
-  combinados, histórico, governança de 48 h (veto, aprovação, execução, criador protegido), passar a criação,
-  emergência do cofre (negar, esperar, liberar), aparelhos, chaves, recados, perfis sem conta, sair e voltar sem
-  duplicar, encerrar família, arquivos restritos no Storage, LGPD (pela plataforma e pelo login de um admin) e
-  visitante sem acesso. **Todas passaram.**
-- O arquivo roda **duas vezes seguidas** sem erro (idempotente) e, sem a base comum, para logo no começo sem
-  criar nada.
-- No Supabase de verdade foi feita **uma consulta só de leitura** (03/Out/2026): a base `sol_*` ainda não existe;
-  existem `admin_anonimizar_usuario(p_user_id, p_motivo)`, `minha_solicitacao_exclusao`, `pgcrypto`, `pg_cron`
-  e a publicação `supabase_realtime` (vazia); nenhum bucket criado ainda.
+- Num PostgreSQL 16 descartável aqui no ambiente de trabalho, com o **arquivo real da base comum**: o
+  ambiente de teste do próprio RootifyONE (`teste/sql/stub-supabase.sql`) e os SQLs reais da entrega, na ordem
+  do LEIA-ME deles (28a, 28b, 28c, 02b e `2026-10-03-plataforma-dados-v1.sql` duas vezes). Por cima, uma
+  emenda **só de teste** que simula as 4 mudanças já pedidas ao RootifyONE (coluna `governanca`, convite com
+  código de 16 caracteres e papel `chefe`, apelido de até 80, e a coluna `dono`).
+- **Porteiro:** na base de hoje, o SQL do Omni para logo no começo pedindo a `governanca`; só com a
+  `governanca`, para dizendo que a base ainda recusa o convite de 16 caracteres. Nos dois casos, nada é criado.
+- **198 verificações** com seis pessoas de teste mais um dono da equipe: entrada com 1 e 2 aprovações, código
+  de 4 números (certo, errado, 3 erros), convite vencido, revogado e lotado, criança sem/com consentimento,
+  `restrito`, pedidos de compra, cofre e saúde cifrados, combinados, histórico, governança de 48 h, passar a
+  criação (com o dono atualizado também na base), emergência do cofre, aparelhos, **chaves pelas funções da
+  base**, recados, perfis sem conta, sair e voltar (linha nova, a antiga fica no histórico), encerrar família,
+  pasta restrita no Storage junto com as regras reais da base e **LGPD pela função real**
+  `admin_anonimizar_usuario` (chamada por um dono da equipe). **Todas passaram.**
+- O arquivo roda **duas vezes seguidas** sem erro (idempotente), também numa base **sem** a coluna `dono`.
+- Catálogo: todas as funções `omni_*` com `search_path` vazio; o visitante (`anon`) não executa nem lê nada
+  do Omni; `omni_anonimizar` não roda pelo app; o Omni não mudou nenhuma permissão das tabelas `sol_*`.
+- **O que o teste mostrou que ainda depende da base:** hoje, numa família do Omni, estas 5 funções genéricas
+  passam por cima das regras do Omni — `sol_aceitar_convite` (entra sem aprovação nem código),
+  `sol_mudar_papel` (rebaixa o criador sem as 48 h), `sol_sair_do_grupo` (tira outro chefe ou o criador),
+  `sol_criar_convite` (convite sem os dados do Omni) e `sol_encerrar_grupo` (chefe que não é o criador encerra).
+  É a trava da `governanca` que precisa barrar isso (item 9.1).
+- No Supabase de verdade foi feita **uma consulta só de leitura** (03/Out/2026): a base `sol_*` ainda não existia.
 
 ## 9. O que do contrato não serve bem para o Omni (para combinar com o chat do RootifyONE)
 
-1. **Importante — escrita direta nas tabelas da base.** O Omni muda papéis, membros e convites **só por funções**
-   (é isso que garante as 48 h, o criador sempre chefe e a aprovação). A base precisa **não** liberar
-   `insert/update` direto do app em `sol_grupo_membros`, `sol_grupo_convites` e `sol_grupos`; senão alguém poderia
-   pular essas regras mexendo direto na tabela. Leitura por membro está ok.
-2. **Dono atual do grupo.** `sol_grupos` só tem `criado_por`. O Omni deixa passar a criação para outro chefe,
-   então guardei o dono atual em `omni_familia.dono`. Se outros apps precisarem, sugiro `sol_grupos.dono`.
-3. **`perfil_id` é texto.** Os ids de pessoa do Omni são texto (ex.: `p…`), não uuid. A base precisa declarar
-   `sol_grupo_membros.perfil_id` como `text`.
-4. **Convites sem "para quem".** `sol_grupo_convites` não tem perfil, nome de quem vai entrar nem quem convidou.
-   Guardei em `omni_convite_info`. Se a base quiser, pode ganhar essas colunas.
-5. **Nome da coluna do código.** O contrato escreve "código"; o SQL usa `codigo` (sem acento), `id` uuid com
-   valor automático em `sol_grupos` e `codigo` como chave única em `sol_apps`. Se a base usar outros nomes,
-   ajusto o SQL antes de rodar.
-6. **`sol_sou_responsavel`.** Para o Omni, "responsável" inclui o chefe. Para não depender dessa definição, o SQL
-   usa `sol_meu_papel` e `sol_sou_membro` (que precisa considerar só membros ativos e grupo não encerrado).
-7. **`vis`.** O contrato usa `publico`; o Omni chama de `familia`. Na Etapa 2 o app traduz (`familia` ⇄ `publico`).
-8. **Chaves da família (C7).** Criei as tabelas como `omni_chaves_*`. Se outros apps também forem cifrar dados
-   de família, vale a base ter `sol_chaves_*` iguais para todos; o Omni migra sem trabalho.
-9. **Storage (C6).** O Omni precisa de uma pasta que só chefe/responsável abre (`omnilife-one/<grupo>/restrito/…`).
-   O SQL cria uma política **restritiva** só para essa pasta; a base cria o bucket e a política por membro.
-10. **Avisos com o app fechado.** O Supabase não manda notificação para o celular com o app fechado. Para isso
-    seria preciso Web Push (servidor com chave VAPID numa Edge Function). Fica fora do contrato — me diga se quer.
-11. **Execução automática das 48 h.** Hoje o pedido que venceu é executado quando um chefe abre o app. Com o
-    `pg_cron` (já instalado) dá para executar sozinho de hora em hora. Opcional.
-12. **LGPD.** `admin_anonimizar_usuario` precisa chamar `select public.omni_anonimizar(<uid>)` (devolve um resumo
-    em jsonb). Para **criança sem conta**, não há `uid`: proponho uma função futura para o responsável pedir a
-    anonimização do perfil da criança (art. 14).
-13. **Plano grátis.** 500 MB de banco e 1 GB de arquivos no total para todos os apps: por isso imagens reduzidas
+1. **Importante — a trava da `governanca` na base.** A família do Omni nasce com `sol_grupos.governanca =
+   'omnilife-one'`. A base precisa fazer as funções genéricas **recusarem** grupos com `governanca` de outro
+   app: `sol_aceitar_convite`, `sol_criar_convite`, `sol_mudar_papel`, `sol_sair_do_grupo`,
+   `sol_encerrar_grupo` (o teste mostrou que hoje as 5 passam) e também `sol_adicionar_crianca` e
+   `sol_atualizar_membro` (que deixa trocar o `perfil_id`, isto é, com qual pessoa da família a conta está
+   ligada). `sol_desativar_convite`, as funções de chave, de uso, de ponte e de arquivos podem continuar
+   valendo. O SQL do Omni não roda sem a coluna `governanca`.
+2. **Mudanças já pedidas ao RootifyONE** (o SQL do Omni confere antes de criar qualquer coisa): convite com
+   código de 16 caracteres e papel `chefe`; apelido de até 80 caracteres; e, se quiserem, `sol_grupos.dono`
+   (o Omni preenche quando a coluna existir; a fonte do Omni continua sendo `omni_familia.dono`).
+3. **Convites sem "para quem".** A base já guarda quem criou; o perfil e o nome de quem vai entrar continuam em
+   `omni_convite_info`.
+4. **Chaves (C7) — o que falta na base:** a **cópia cifrada da chave privada** da pessoa (para usar outro
+   aparelho). Mantive só essa tabela no Omni (`omni_chave_privada`, só a própria pessoa lê); se a base criar
+   uma `sol_*` igual, o Omni passa a usar. Não é essencial, mas vale saber: a base guarda **um pacote por
+   pessoa e versão**, sem separar "chave da família" e "chave restrita". O Omni põe as duas no pacote de quem
+   é chefe/responsável; o banco não tem como conferir isso (só vê o pacote fechado), mas quem embrulha é
+   sempre chefe/responsável, que já enxerga o conteúdo restrito.
+5. **`vis`.** O contrato usa `publico`; o Omni chama de `familia`. Na Etapa 2 o app traduz (`familia` ⇄ `publico`).
+6. **Conta encerrada.** O Omni usa `sol_exigir_conta` da base para criar família e pedir entrada (conta
+   encerrada não entra), como as funções da base.
+7. **Avisos com o app fechado.** O Supabase não manda notificação para o celular com o app fechado. Para isso
+   seria preciso Web Push (servidor com chave VAPID numa Edge Function). Fica fora do contrato — me diga se quer.
+8. **Execução automática das 48 h.** Hoje o pedido que venceu é executado quando um chefe abre o app. Com o
+   `pg_cron` (já instalado) dá para executar sozinho de hora em hora. Opcional.
+9. **LGPD.** Registrado como a base pede (`funcao_anonimizar = 'omni_anonimizar'`). A base chama
+   `omni_anonimizar` antes de limpar os vínculos dos grupos, então o Omni ainda acha os perfis da pessoa.
+   Para **criança sem conta** não há `uid`: proponho uma função futura para o responsável pedir a
+   anonimização do perfil da criança (art. 14).
+10. **Plano grátis.** 500 MB de banco e 1 GB de arquivos no total para todos os apps: por isso imagens reduzidas
     e arquivos grandes só com aviso.
+
+Já resolvidos pela base real: `perfil_id` é texto; nomes das colunas (`codigo`, ids uuid automáticos,
+`sol_apps.codigo` único); `sol_sou_responsavel` inclui o chefe; bucket `sol-arquivos` e regras por membro (o
+Omni só acrescenta a regra da pasta `restrito`); chave pública e chave da família embrulhada por membro.
 
 ## 10. Regra zero — o que ainda não existe no app e precisa da sua confirmação antes da Etapa 2
 
@@ -205,16 +228,17 @@ LGPD (só a plataforma): `omni_anonimizar(uid)`, registrada em `sol_apps`.
 8. "Encerrar minha conta" e "Pedir exclusão dos meus dados" (`minha_solicitacao_exclusao`).
 9. Tirar o Firebase do app (o arquivo de regras fica arquivado).
 10. Atualizar LEIA-ME, ARQUITETURA e a página de teste.
-11. (Não pedido, só para decidir) Notificações com o app fechado (item 9.10), execução automática das 48 h
-    (item 9.11) e "Meus contatos" sincronizado por pessoa (item 3).
+11. (Não pedido, só para decidir) Notificações com o app fechado (item 9.7), execução automática das 48 h
+    (item 9.8) e "Meus contatos" sincronizado por pessoa (item 3).
 
 ## 11. Passo a passo para rodar (quando chegar a hora)
 
-1. O chat do RootifyONE roda primeiro a **base comum** (`sol_*`).
+1. O chat do RootifyONE roda primeiro a **base comum** (`sol_*`), já com a coluna `governanca` e as mudanças
+   do item 9.2.
 2. Leve `supabase/omnilife-one-v1.sql` para a revisão no chat do Cowork.
 3. Depois de revisado: Supabase → projeto **solverone-app** → **SQL Editor** → **New query** → cole o arquivo
    inteiro → **Run**.
-4. No fim aparece uma tabela com **13 linhas** (`omni_aparelhos` … `omni_pedidos_verificacao`), todas com
-   `rls_ligado = true` e `regras` maior que zero. Se a base não existir, aparece a mensagem
-   "falta a base comum da plataforma" e nada é criado.
+4. No fim aparece uma tabela com **11 linhas** (`omni_aparelhos` … `omni_pedidos_verificacao`), todas com
+   `rls_ligado = true` e `regras` maior que zero. Se a base não existir ou ainda não tiver as mudanças,
+   aparece a mensagem "falta a base comum da plataforma" dizendo o que falta, e nada é criado.
 5. Me avise neste chat que rodou — aí começo a Etapa 2.

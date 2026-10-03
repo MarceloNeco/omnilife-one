@@ -1,5 +1,18 @@
 [
  {
+  "v": "2.12.2",
+  "d": "2026-10-03",
+  "hora": "03:28:53",
+  "pt": [
+   "🗄 SQL do Omni revisado e testado contra a base comum real do RootifyONE: registro da LGPD como a base pede, família marcada com a governança do Omni (as funções genéricas da base não mexem nela), chaves da família pelas funções comuns da plataforma e regra da pasta restrita dos arquivos conferida.",
+   "ℹ️ Nada muda no uso do app nesta versão: os dados continuam no aparelho até a Etapa 2."
+  ],
+  "en": [
+   "🗄 Omni SQL reviewed and tested against RootifyONE's real shared base: LGPD registration as the base expects, family marked with Omni governance (the base's generic functions don't touch it), family keys through the platform's shared functions, and the restricted file folder rule checked.",
+   "ℹ️ Nothing changes in how the app works in this version: data stays on the device until Stage 2."
+  ]
+ },
+ {
   "v": "2.12.1",
   "d": "2026-10-03",
   "hora": "03:06:45",
