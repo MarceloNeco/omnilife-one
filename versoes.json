@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.14.0",
+  "d": "2026-10-03",
+  "hora": "11:55:25",
+  "pt": [
+   "☁️ A família na nuvem SolverONE: criar a família, convidar por link ou QR code, pedido de entrada com o código de 4 números conferido pelo banco, 1 ou 2 aprovações, papéis, regra das 48 h entre chefes, passar a criação, emergência, aparelhos conectados e histórico de segurança. Cada pessoa entra com a própria conta, no próprio celular.",
+   "📴 Funciona sem internet: o app usa a cópia do aparelho e guarda as mudanças; o selo no topo mostra “N itens aguardando sincronia” (toque para ver) e tudo sobe sozinho quando a internet volta.",
+   "🔀 Mudou o mesmo registro em dois aparelhos? O app junta campo a campo sozinho; só pergunta qual fica quando os dois mudaram o mesmo campo.",
+   "⬆️ Levar a família deste aparelho para a nuvem (⚙️ Configurações → Nuvem): prévia do que vai, cópia protegida antes, ninguém duplicado. A cópia antiga continua aqui até você mandar apagar; antes de apagar dados do aparelho, o app oferece a cópia e levar para a nuvem.",
+   "ℹ️ Saúde, documentos, cofre e arquivos continuam só neste aparelho até a próxima versão, que leva tudo cifrado."
+  ],
+  "en": [
+   "☁️ The family in the SolverONE cloud: create the family, invite by link or QR code, join request with the 4-digit code checked by the database, 1 or 2 approvals, roles, the 48 h rule between heads, handing over ownership, emergency, connected devices and security log. Each person signs in with their own account, on their own phone.",
+   "📴 Works offline: the app uses the copy on the device and keeps your changes; the badge at the top shows “N items waiting to sync” (tap to see) and everything goes up by itself when the internet is back.",
+   "🔀 Changed the same record on two devices? The app merges field by field on its own; it only asks which one stays when both changed the same field.",
+   "⬆️ Take this device's family to the cloud (⚙️ Settings → Cloud): preview of what goes, protected copy first, nobody duplicated. The old copy stays here until you erase it; before erasing device data, the app offers the copy and the move to the cloud.",
+   "ℹ️ Health, documents, vault and files stay only on this device until the next version, which takes everything encrypted."
+  ]
+ },
+ {
   "v": "2.13.0",
   "d": "2026-10-03",
   "hora": "10:39:08",
