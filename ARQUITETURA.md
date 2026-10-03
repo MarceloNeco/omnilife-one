@@ -76,8 +76,9 @@ sem framework: HTML, CSS e JavaScript puros.
   `omni_criar_familia` com o **mesmo id da pessoa do aparelho** (ou a família que a conta já tem) → `Restore.aplicar(…, { migrar:
   true })` (reconhece pelo nome, nunca "Substituir") → `omnilife.migrado`. A cópia antiga (store `docs`) fica até `apagarAntiga()`
   (só depois de levar, fila vazia e cópia oferecida). `antesDeApagar()` roda antes de "Apagar tudo": oferece levar e a cópia.
-  v2.14.1: `resumo()` (o que há no aparelho, para a tela de escolhas), `autorizarLocal()` (responsável do aparelho confirma
-  com PIN/digital; quem acabou de entrar no próprio perfil não repete — `_autorizado`), `descartar()` (cópia protegida
+  v2.14.1: `resumo()` (o que há no aparelho, para a tela de escolhas), `autorizarLocal(why, destrutivo)` (só aparecem
+  responsáveis com PIN ou digital e `conferir()` nunca aceita só "Confirmar" — v2.14.2; ninguém com PIN: descartar pede para
+  digitar o nome da família; quem acabou de entrar no próprio perfil não repete o PIN só para LEVAR — `_autorizado`), `descartar()` (cópia protegida
   oferecida → confirmação → apaga a store `docs` e só os arquivos dessa família). Na família da nuvem, ⚙ → Nuvem mostra a
   cópia antiga mesmo se nunca levada (`_temLocal`): levar para esta família ou apagar (oferece levar e a cópia antes).
 - `FB` — Firebase: **sem uso desde a v2.14.0** (nada chama `FB.init`); sai do código na Etapa 2d, junto com `onAuth`,
@@ -92,12 +93,20 @@ sem framework: HTML, CSS e JavaScript puros.
   de e-mail e do link de nova senha → `novaSenha()`), `token()` (renova perto de vencer, uma vez só por vez), `rpc()`, `funcao()`
   (Edge Function `solverone-admin`), `marcarPedido()`/`confirmarPendente()` (volta com sessão no endereço só entra sem perguntar
   se este aparelho pediu — marcador `omnilife.contaPedido`, 2 dias; senão pergunta "Foi você?"), `aoAbrir()` (v2.14.1: no `boot` assim que há conta, em `Cloud.resolve()` e no `startApp`, uma vez por abertura e por conta — a aba guarda o id da conta em `omnilife.contaAcesso`; recarregar não conta de novo, entrar conta sempre: `minha_conta_encerrada`,
-  `sol_registrar_uso('omnilife-one')`, `registrar-acesso` login/refresh), `sair()` (`logout?scope=local` + `registrar-acesso`
+  `sol_registrar_uso('omnilife-one')`, `registrar-acesso` login/refresh), **registro de acesso (v2.14.2)**: `registrarAcesso()` põe o
+  evento na fila `omnilife.acessosPendentes` ANTES de sair; `chamarFuncao()` usa `keepalive` (o navegador termina o envio mesmo se
+  a página trocar — era o que perdia o POST no computador: só o OPTIONS chegava) e só repete sem keepalive se a recusa vier na
+  hora; `retomarAcessos()` reenvia o que falhou (ao abrir, ao voltar a internet, em 1 min; até 6 vezes em 2 dias); "enviando" de
+  uma abertura anterior com keepalive = entregue (não reenvia); na saída da página (`pagehide`, `Conta._saindo`) a recusa do
+  navegador não conta como falha — senão duplicaria. `sair()` (`logout?scope=local` + `registrar-acesso`
   logout), `encerrar()` (`minha_solicitacao_exclusao`, motivo + 2 confirmações), `card()` (⚙ → Geral). Só a URL e a publishable
   key no código (públicas). `rest()` (tabelas e funções; erro sem `status` = sem internet/sem sessão, quem chama tenta depois) e
   `uid()`. Desde a 2.14.0 a tela inicial leva Google e e-mail para a conta e depois para `Cloud.resolve()`; "Usar só neste
   aparelho" continua (modo `local`). Sem conta, a família da nuvem fecha neste aparelho (`mudou()`). Digital/PIN seguem como
   desbloqueio local.
+- Tema (v2.14.2): o claro declara `color-scheme: only light` (CSS e `<meta name="color-scheme">` em `applyTheme`) para o
+  navegador não pintar o escuro dele por cima (Chrome "tema escuro para sites", Samsung Internet) — senão a tela fica escura com
+  `S.theme = "light"` e a chave "Tema escuro" do menu 👤 parece errada. O escuro declara `dark light`.
 - `ACT` — todas as ações de botão (`data-act="…"`); `data-chg` para campos que mudam.
 - `SCREENS` — cada aba (`home`, `inbox`, `shop`, `agenda`, `security`, `family`, `settings`…).
 - `Nav` — ÚNICO ponto do histórico (botão Voltar do celular). Não use `pushState` fora dele.
