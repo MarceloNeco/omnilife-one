@@ -6,10 +6,13 @@
 -- !!! NÃO RODAR ANTES DA REVISÃO (regra C10). Depois de revisado, rodar UMA vez no SQL Editor.
 --     É idempotente: rodar de novo não estraga nada nem duplica.
 --
--- Depende da BASE COMUM (feita no chat do RootifyONE), que precisa existir ANTES:
---   public.sol_grupos, public.sol_grupo_membros, public.sol_grupo_convites, public.sol_apps,
---   public.sol_sou_membro(uuid), public.sol_meu_papel(uuid), public.sol_sou_responsavel(uuid).
---   Se faltar algo, o arquivo para logo no começo com uma mensagem e NADA é criado.
+-- Depende da BASE COMUM (RootifyONE: entrega/solverone-app/supabase/2026-10-03-plataforma-dados-v1.sql),
+-- que precisa existir ANTES: sol_grupos (com a coluna governanca), sol_grupo_membros, sol_grupo_convites,
+-- sol_apps, sol_sou_membro, sol_meu_papel, sol_sou_responsavel e sol_exigir_conta. A base também precisa
+-- aceitar o que o Omni grava: convite com código de 16 caracteres e papel 'chefe', apelido de até 80.
+-- Se faltar algo, o arquivo para logo no começo com uma mensagem e NADA é criado.
+-- Chaves da família (C7): as da base (sol_chave_publica, sol_grupo_chaves e funções sol_*); aqui só fica
+-- omni_chave_privada (cópia cifrada da chave privada da pessoa), que a base ainda não tem.
 --
 -- O que este arquivo reproduz (regras de hoje do regras-firestore-OmniLifeONE.txt):
 --   papéis chefe/responsável/membro/criança · visibilidade restrita · governança de 48 h para
@@ -28,7 +31,7 @@ set local client_min_messages = warning;
 -- 0) A base comum existe? (senão para tudo, sem criar nada)
 -- -------------------------------------------------------------------------------------
 do $$
-declare v_falta text := '';
+declare v_falta text := ''; v_g uuid;
 begin
   if to_regclass('public.sol_grupos') is null then v_falta := v_falta || ' sol_grupos'; end if;
   if to_regclass('public.sol_grupo_membros') is null then v_falta := v_falta || ' sol_grupo_membros'; end if;
@@ -37,7 +40,25 @@ begin
   if to_regprocedure('public.sol_sou_membro(uuid)') is null then v_falta := v_falta || ' sol_sou_membro(uuid)'; end if;
   if to_regprocedure('public.sol_meu_papel(uuid)') is null then v_falta := v_falta || ' sol_meu_papel(uuid)'; end if;
   if to_regprocedure('public.sol_sou_responsavel(uuid)') is null then v_falta := v_falta || ' sol_sou_responsavel(uuid)'; end if;
+  if to_regprocedure('public.sol_exigir_conta()') is null then v_falta := v_falta || ' sol_exigir_conta()'; end if;
   if to_regprocedure('auth.uid()') is null then v_falta := v_falta || ' auth.uid()'; end if;
+  if v_falta = '' and not exists (select 1 from information_schema.columns c
+                                   where c.table_schema = 'public' and c.table_name = 'sol_grupos' and c.column_name = 'governanca') then
+    v_falta := v_falta || ' sol_grupos.governanca (sem ela as funções genéricas da base deixariam pular as regras do Omni)';
+  end if;
+  -- a base aceita o que o Omni grava? Testa dentro de um bloco que é sempre desfeito (nada fica gravado).
+  if v_falta = '' then
+    begin
+      insert into public.sol_grupos (tipo, nome) values ('familia', 'teste do OmniLifeONE') returning id into v_g;
+      insert into public.sol_grupo_convites (codigo, grupo_id, papel, expira_em) values ('OMNI0TESTE012345', v_g, 'chefe', now() + interval '1 hour');
+      insert into public.sol_grupo_membros (grupo_id, user_id, apelido, papel) values (v_g, null, repeat('a', 80), 'crianca');
+      raise exception 'omni-base-ok';
+    exception when others then
+      if sqlerrm <> 'omni-base-ok' then
+        v_falta := v_falta || ' (a base ainda recusa convite com código de 16 caracteres, papel chefe no convite ou apelido de 80: ' || sqlerrm || ')';
+      end if;
+    end;
+  end if;
   if v_falta <> '' then
     raise exception 'OmniLifeONE: falta a base comum da plataforma:%. Rode antes o SQL da base (chat do RootifyONE).', v_falta;
   end if;
@@ -188,13 +209,6 @@ create table if not exists public.omni_cofre_liberado (
   primary key (grupo_id, user_id)
 );
 
--- a pessoa está (ativa) numa família em que eu também estou? (para ver a chave pública dela)
-create or replace function public.omni_mesma_familia(p_user uuid) returns boolean
-language sql stable security definer set search_path = '' as $$
-  select exists (select 1 from public.sol_grupo_membros a join public.sol_grupo_membros b on b.grupo_id = a.grupo_id
-     where a.user_id = (select auth.uid()) and a.status = 'ativo' and b.user_id = p_user and b.status = 'ativo');
-$$;
-
 create or replace function public.omni_cofre_liberado_para_mim(p_grupo uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists (select 1 from public.omni_cofre_liberado c where c.grupo_id = p_grupo and c.user_id = (select auth.uid()))
@@ -268,17 +282,9 @@ create table if not exists public.omni_convite_info (
   atualizado_em   timestamptz not null default now()
 );
 
--- 2.10 Chaves para cifrar no aparelho (C7). O servidor só guarda chaves EMBRULHADAS; nunca a chave aberta.
---      chave pública de cada pessoa (para os outros embrulharem a chave da família para ela)
-create table if not exists public.omni_chaves_publicas (
-  user_id         uuid primary key references auth.users(id),
-  chave_publica   jsonb not null check (jsonb_typeof(chave_publica) = 'object'),
-  alg             text not null default 'ECDH-P256' check (alg in ('ECDH-P256', 'RSA-OAEP-256')),
-  criado_por      uuid references auth.users(id),
-  criado_em       timestamptz not null default now(),
-  atualizado_em   timestamptz not null default now()
-);
---      chave privada da pessoa, cifrada com a senha da conta/código de recuperação dela (para trocar de aparelho)
+-- 2.10 Chaves para cifrar no aparelho (C7). A chave pública de cada pessoa e a chave da família embrulhada por
+--      membro ficam nas tabelas da BASE (sol_chave_publica, sol_grupo_chaves). Falta na base só a cópia da chave
+--      PRIVADA da pessoa, cifrada no aparelho com o código de recuperação dela (para usar outro aparelho):
 create table if not exists public.omni_chave_privada (
   user_id         uuid primary key references auth.users(id),
   privada_cifrado text not null check (length(privada_cifrado) <= 20000),
@@ -287,18 +293,6 @@ create table if not exists public.omni_chave_privada (
   criado_por      uuid references auth.users(id),
   criado_em       timestamptz not null default now(),
   atualizado_em   timestamptz not null default now()
-);
---      chave da família embrulhada para cada membro: 'familia' (todos) e 'restrito' (só chefes e responsáveis)
-create table if not exists public.omni_chaves_grupo (
-  grupo_id        uuid not null references public.sol_grupos(id),
-  user_id         uuid not null references auth.users(id),
-  tipo            text not null check (tipo in ('familia', 'restrito')),
-  versao          integer not null default 1 check (versao >= 1),
-  embrulhada_cifrado text not null check (length(embrulhada_cifrado) <= 20000),
-  criado_por      uuid references auth.users(id),
-  criado_em       timestamptz not null default now(),
-  atualizado_em   timestamptz not null default now(),
-  primary key (grupo_id, user_id, tipo, versao)
 );
 
 -- -------------------------------------------------------------------------------------
@@ -324,7 +318,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['omni_familia','omni_combinados','omni_governanca','omni_cofre_liberado','omni_aparelhos',
-                           'omni_pedidos_entrada','omni_pedidos_verificacao','omni_convite_info','omni_chaves_publicas','omni_chave_privada','omni_chaves_grupo'] loop
+                           'omni_pedidos_entrada','omni_pedidos_verificacao','omni_convite_info','omni_chave_privada'] loop
     execute format('drop trigger if exists omni_carimbo on public.%I', t);
     execute format('create trigger omni_carimbo before insert or update on public.%I for each row execute function public.omni_tg_carimbo()', t);
   end loop;
@@ -333,7 +327,7 @@ end $$;
 -- histórico: só inclusão; quem escreve é sempre quem está logado
 create or replace function public.omni__meu_apelido(p_grupo uuid) returns text
 language sql stable security definer set search_path = '' as $$
-  select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = (select auth.uid()) limit 1;
+  select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = (select auth.uid()) and m.status = 'ativo' limit 1;
 $$;
 
 create or replace function public.omni_tg_historico() returns trigger
@@ -447,9 +441,7 @@ alter table public.omni_aparelhos        enable row level security;
 alter table public.omni_pedidos_entrada  enable row level security;
 alter table public.omni_pedidos_verificacao enable row level security;
 alter table public.omni_convite_info     enable row level security;
-alter table public.omni_chaves_publicas  enable row level security;
 alter table public.omni_chave_privada    enable row level security;
-alter table public.omni_chaves_grupo     enable row level security;
 
 -- 4.1 família: todo membro lê as regras; mudar só pelas funções (chefe)
 drop policy if exists omni_familia_ler on public.omni_familia;
@@ -542,44 +534,22 @@ drop policy if exists omni_convite_info_ler on public.omni_convite_info;
 create policy omni_convite_info_ler on public.omni_convite_info for select to authenticated
   using (public.omni_sou_responsavel(grupo_id));
 
--- 4.10 chaves
-drop policy if exists omni_chaves_publicas_ler on public.omni_chaves_publicas;
-create policy omni_chaves_publicas_ler on public.omni_chaves_publicas for select to authenticated
-  using (user_id = (select auth.uid()) or public.omni_mesma_familia(user_id));
-drop policy if exists omni_chaves_publicas_criar on public.omni_chaves_publicas;
-create policy omni_chaves_publicas_criar on public.omni_chaves_publicas for insert to authenticated
-  with check (user_id = (select auth.uid()));
-drop policy if exists omni_chaves_publicas_mudar on public.omni_chaves_publicas;
-create policy omni_chaves_publicas_mudar on public.omni_chaves_publicas for update to authenticated
-  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
-
+-- 4.10 cópia cifrada da chave privada: só a própria pessoa
 drop policy if exists omni_chave_privada_dono on public.omni_chave_privada;
 create policy omni_chave_privada_dono on public.omni_chave_privada for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
-drop policy if exists omni_chaves_grupo_ler on public.omni_chaves_grupo;
-create policy omni_chaves_grupo_ler on public.omni_chaves_grupo for select to authenticated
-  using ((user_id = (select auth.uid()) and public.omni_sou_membro(grupo_id)) or public.omni_sou_responsavel(grupo_id));
---   quem já tem a chave (chefe/responsável) embrulha para outro membro; a 'restrito' só vai para chefe/responsável
-drop policy if exists omni_chaves_grupo_criar on public.omni_chaves_grupo;
-create policy omni_chaves_grupo_criar on public.omni_chaves_grupo for insert to authenticated
-  with check (public.omni_sou_responsavel(grupo_id)
-    and public.omni_papel_de(grupo_id, user_id) is not null
-    and (tipo = 'familia' or public.omni_papel_de(grupo_id, user_id) in ('chefe', 'responsavel')));
-
 -- 4.11 arquivos restritos no Storage (C6): omnilife-one/<grupo_id>/restrito/... só chefe/responsável.
---      Política RESTRITIVA: soma-se às da base (que liberam por membro) e só aperta esta pasta.
-do $$
-begin
-  if to_regclass('storage.objects') is not null and to_regprocedure('storage.foldername(text)') is not null then
-    execute 'drop policy if exists omni_arquivos_restritos on storage.objects';
-    execute $p$create policy omni_arquivos_restritos on storage.objects as restrictive for all to authenticated
-      using (bucket_id <> 'sol-arquivos' or name not like 'omnilife-one/%/restrito/%'
-             or ((storage.foldername(name))[2] ~ '^[0-9a-f-]{36}$' and public.omni_sou_responsavel(((storage.foldername(name))[2])::uuid)))
-      with check (bucket_id <> 'sol-arquivos' or name not like 'omnilife-one/%/restrito/%'
-             or ((storage.foldername(name))[2] ~ '^[0-9a-f-]{36}$' and public.omni_sou_responsavel(((storage.foldername(name))[2])::uuid)))$p$;
-  end if;
-end $$;
+--      Política RESTRITIVA: soma-se às da base (sol_arquivos_*, que liberam por membro) e só aperta esta pasta.
+--      Lê o caminho com split_part, como a base (sol_pode_arquivo).
+drop policy if exists omni_arquivos_restritos on storage.objects;
+create policy omni_arquivos_restritos on storage.objects as restrictive for all to authenticated
+  using (bucket_id <> 'sol-arquivos' or split_part(name, '/', 1) <> 'omnilife-one' or split_part(name, '/', 3) <> 'restrito'
+         or (split_part(name, '/', 2) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+             and public.omni_sou_responsavel(split_part(name, '/', 2)::uuid)))
+  with check (bucket_id <> 'sol-arquivos' or split_part(name, '/', 1) <> 'omnilife-one' or split_part(name, '/', 3) <> 'restrito'
+         or (split_part(name, '/', 2) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+             and public.omni_sou_responsavel(split_part(name, '/', 2)::uuid)));
 
 -- -------------------------------------------------------------------------------------
 -- 5) Funções do app (tudo que mexe em membro, convite, governança e emergência passa por aqui)
@@ -591,7 +561,7 @@ language plpgsql security definer set search_path = '' as $$
 declare v_nome text;
 begin
   select m.apelido into v_nome from public.sol_grupo_membros m
-   where m.grupo_id = p_grupo and m.user_id = (select auth.uid()) limit 1;
+   where m.grupo_id = p_grupo and m.user_id = (select auth.uid()) and m.status = 'ativo' limit 1;
   insert into public.omni_historico (grupo_id, criado_por, nome, acao, detalhe)
   values (p_grupo, (select auth.uid()), left(v_nome, 120), p_acao, left(p_detalhe, 2000));
 end $$;
@@ -602,15 +572,26 @@ language sql stable security definer set search_path = '' as $$
   select exists (select 1 from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_user and m.status = 'ativo');
 $$;
 
+-- criador da família também na base (sol_grupos.dono), se a base tiver essa coluna; a fonte do Omni é omni_familia.dono
+create or replace function public.omni__dono_na_base(p_grupo uuid, p_dono uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  if exists (select 1 from information_schema.columns c where c.table_schema = 'public' and c.table_name = 'sol_grupos' and c.column_name = 'dono') then
+    execute 'update public.sol_grupos set dono = $1 where id = $2' using p_dono, p_grupo;
+  end if;
+end $$;
+
 -- 5.1 criar a família (quem cria é chefe e "criador")
 create or replace function public.omni_criar_familia(p_nome text, p_apelido text, p_perfil_id text) returns uuid
 language plpgsql security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid()); v_grupo uuid;
+declare v_uid uuid := public.sol_exigir_conta(); v_grupo uuid;
 begin
-  if v_uid is null then raise exception 'Entre na sua conta primeiro.'; end if;
   if coalesce(trim(p_nome), '') = '' or length(p_nome) > 80 then raise exception 'Nome da família inválido.'; end if;
   if p_perfil_id is null or p_perfil_id !~ '^[A-Za-z0-9_.:@-]{1,80}$' then raise exception 'Perfil inválido.'; end if;
-  insert into public.sol_grupos (tipo, nome, criado_por) values ('familia', trim(p_nome), v_uid) returning id into v_grupo;
+  -- governanca = 'omnilife-one': as funções genéricas da base (sol_mudar_papel, sol_aceitar_convite…) não mexem
+  -- nesta família; papéis, entradas e saídas passam só pelas funções omni_* (48 h, criador, aprovações)
+  insert into public.sol_grupos (tipo, nome, criado_por, governanca) values ('familia', trim(p_nome), v_uid, 'omnilife-one') returning id into v_grupo;
+  perform public.omni__dono_na_base(v_grupo, v_uid);
   insert into public.sol_grupo_membros (grupo_id, user_id, perfil_id, apelido, papel, status, convidado_por, entrou_em)
   values (v_grupo, v_uid, p_perfil_id, left(coalesce(nullif(trim(p_apelido), ''), 'Eu'), 80), 'chefe', 'ativo', null, now());
   insert into public.omni_familia (grupo_id, dono) values (v_grupo, v_uid);
@@ -655,9 +636,9 @@ begin
   select coalesce(p_horas, f.convite_horas) into v_horas from public.omni_familia f where f.grupo_id = p_grupo;
   v_horas := least(greatest(coalesce(v_horas, 72), 1), 720);
   v_codigo := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 16));
-  insert into public.sol_grupo_convites (codigo, grupo_id, papel, expira_em, usos, max_usos, ativo)
-  values (v_codigo, p_grupo, p_papel, now() + make_interval(hours => v_horas), 0, least(greatest(coalesce(p_max_usos, 1), 1), 20), true);
-  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = (select auth.uid()) limit 1;
+  insert into public.sol_grupo_convites (codigo, grupo_id, papel, expira_em, usos, max_usos, ativo, criado_por)
+  values (v_codigo, p_grupo, p_papel, now() + make_interval(hours => v_horas), 0, least(greatest(coalesce(p_max_usos, 1), 1), 20), true, (select auth.uid()));
+  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = (select auth.uid()) and m.status = 'ativo' limit 1;
   insert into public.omni_convite_info (codigo, grupo_id, perfil_id, para_nome, criado_por_nome)
   values (v_codigo, p_grupo, p_perfil_id, left(p_para_nome, 120), left(v_nome, 120));
   perform public.omni__hist(p_grupo, 'convite.criado', p_papel || coalesce(' · ' || left(p_para_nome, 60), '') || ' · ' || least(greatest(coalesce(p_max_usos, 1), 1), 20) || 'x · ' || v_horas || 'h');
@@ -691,11 +672,13 @@ end $$;
 --     que a pessoa diz para quem aprova (assim um link vazado não basta). Ela revê o código em omni_pedidos_verificacao.
 create or replace function public.omni_pedir_entrada(p_codigo text, p_nome text) returns text
 language plpgsql security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid()); c record; v_info record; v_ver text; v_email text;
+declare v_uid uuid := public.sol_exigir_conta(); c record; v_info record; v_ver text; v_email text;
 begin
-  if v_uid is null then raise exception 'Entre na sua conta primeiro.'; end if;
   select * into c from public.sol_grupo_convites x where x.codigo = upper(trim(p_codigo)) limit 1;
   if not found or not c.ativo or c.expira_em <= now() or c.usos >= c.max_usos then raise exception 'Convite inválido, vencido ou já usado.'; end if;
+  if not exists (select 1 from public.omni_familia f join public.sol_grupos g on g.id = f.grupo_id where f.grupo_id = c.grupo_id and g.encerrado_em is null) then
+    raise exception 'Convite inválido, vencido ou já usado.';
+  end if;
   if public.omni__membro_ativo(c.grupo_id, v_uid) then raise exception 'Você já faz parte desta família.'; end if;
   select * into v_info from public.omni_convite_info i where i.codigo = c.codigo;
   select u.email into v_email from auth.users u where u.id = v_uid;
@@ -723,7 +706,7 @@ end $$;
 --     'codigo_errado:<n>' | 'recusado'.
 create or replace function public.omni_aprovar_entrada(p_grupo uuid, p_user uuid, p_papel text, p_perfil_id text, p_consentimento jsonb, p_verificacao text)
 returns text language plpgsql security definer set search_path = '' as $$
-declare v_uid uuid := (select auth.uid()); p record; v_cod record; v_tent integer; v_need integer; v_guard integer; v_apr jsonb; v_nome text; v_existe boolean;
+declare v_uid uuid := (select auth.uid()); p record; v_cod record; v_tent integer; v_need integer; v_guard integer; v_apr jsonb; v_nome text;
 begin
   if not public.omni_sou_responsavel(p_grupo) then raise exception 'Só chefe ou responsável aprova entrada.'; end if;
   select * into p from public.omni_pedidos_entrada x where x.grupo_id = p_grupo and x.user_id = p_user for update;
@@ -751,7 +734,7 @@ begin
       return 'codigo_errado:' || v_tent;
     end if;
   end if;
-  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid limit 1;
+  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid and m.status = 'ativo' limit 1;
   v_apr := p.aprovacoes || jsonb_build_object(v_uid::text, jsonb_build_object('nome', v_nome, 'em', now()));
   select count(*) into v_guard from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.status = 'ativo' and m.user_id is not null and m.papel in ('chefe', 'responsavel');
   select least(greatest(f.aprovacoes, 1), greatest(v_guard, 1)) into v_need from public.omni_familia f where f.grupo_id = p_grupo;
@@ -761,15 +744,10 @@ begin
     perform public.omni__hist(p_grupo, 'entrada.aprovacao', coalesce(p.nome, p.email, '') || ' · ' || (select count(*) from jsonb_object_keys(v_apr)) || '/' || v_need);
     return 'aguardando';
   end if;
-  select exists (select 1 from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_user) into v_existe;
-  if v_existe then
-    update public.sol_grupo_membros m set papel = p_papel, status = 'ativo', perfil_id = coalesce(p_perfil_id, m.perfil_id),
-      apelido = left(coalesce(p.nome, m.apelido), 80), convidado_por = v_uid, entrou_em = now(), saiu_em = null
-     where m.grupo_id = p_grupo and m.user_id = p_user;
-  else
-    insert into public.sol_grupo_membros (grupo_id, user_id, perfil_id, apelido, papel, status, convidado_por, entrou_em)
-    values (p_grupo, p_user, p_perfil_id, left(coalesce(p.nome, p.email, 'Membro'), 80), p_papel, 'ativo', v_uid, now());
-  end if;
+  if public.omni__membro_ativo(p_grupo, p_user) then raise exception 'Essa pessoa já faz parte da família.'; end if;
+  -- quem sai e volta ganha uma linha nova: a antiga fica como histórico (a base nunca apaga membros)
+  insert into public.sol_grupo_membros (grupo_id, user_id, perfil_id, apelido, papel, status, convidado_por, entrou_em)
+  values (p_grupo, p_user, p_perfil_id, left(coalesce(p.nome, p.email, 'Membro'), 80), p_papel, 'ativo', v_uid, now());
   update public.sol_grupo_convites c set usos = c.usos + 1, ativo = (c.usos + 1 < c.max_usos) where c.codigo = p.codigo;
   update public.omni_pedidos_entrada x set status = 'aprovado', aprovacoes = v_apr,
     proposta = jsonb_build_object('papel', p_papel, 'perfil_id', p_perfil_id, 'consentimento', p_consentimento)
@@ -814,7 +792,7 @@ begin
   update public.sol_grupo_membros m set papel = p_papel where m.grupo_id = p_grupo and m.user_id = p_alvo and m.status = 'ativo';
   update public.omni_governanca g set status = 'executado', feito_em = now()
    where g.grupo_id = p_grupo and g.id = 'hd_' || p_alvo::text and g.status in ('pendente', 'aprovado') and v_atual = 'chefe' and p_papel <> 'chefe';
-  perform public.omni__hist(p_grupo, 'papel.alterado', coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_alvo limit 1), '') || ': ' || v_atual || ' → ' || p_papel);
+  perform public.omni__hist(p_grupo, 'papel.alterado', coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_alvo and m.status = 'ativo' limit 1), '') || ': ' || v_atual || ' → ' || p_papel);
 end $$;
 
 create or replace function public.omni_remover_membro(p_grupo uuid, p_alvo uuid) returns void
@@ -875,12 +853,12 @@ begin
   if exists (select 1 from public.omni_governanca g where g.grupo_id = p_grupo and g.id = v_id and g.status in ('pendente', 'aprovado')) then
     raise exception 'Já existe um pedido aberto para essa pessoa.';
   end if;
-  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid limit 1;
+  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid and m.status = 'ativo' limit 1;
   insert into public.omni_governanca (grupo_id, id, tipo, alvo, por, por_nome, status, executar_apos, aprovacoes, dados, respondido_em, feito_em)
   values (p_grupo, v_id, p_tipo, p_alvo, v_uid, v_nome, 'pendente', now() + interval '48 hours', '{}'::jsonb, jsonb_build_object('papel', p_papel), null, null)
   on conflict (grupo_id, id) do update set tipo = excluded.tipo, alvo = excluded.alvo, por = excluded.por, por_nome = excluded.por_nome,
     status = 'pendente', executar_apos = excluded.executar_apos, aprovacoes = '{}'::jsonb, dados = excluded.dados, respondido_em = null, feito_em = null;
-  perform public.omni__hist(p_grupo, 'chefe.pedido', p_tipo || ' · ' || coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_alvo limit 1), ''));
+  perform public.omni__hist(p_grupo, 'chefe.pedido', p_tipo || ' · ' || coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_alvo and m.status = 'ativo' limit 1), ''));
 end $$;
 
 -- aprovar: outro chefe (nem quem pediu, nem o alvo)
@@ -926,12 +904,12 @@ declare v_uid uuid := (select auth.uid()); v_nome text;
 begin
   if not exists (select 1 from public.omni_familia f where f.grupo_id = p_grupo and f.dono = v_uid) then raise exception 'Só quem criou a família passa a criação.'; end if;
   if p_alvo = v_uid or public.omni_papel_de(p_grupo, p_alvo) is distinct from 'chefe' then raise exception 'Primeiro torne a pessoa chefe.'; end if;
-  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid limit 1;
+  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid and m.status = 'ativo' limit 1;
   insert into public.omni_governanca (grupo_id, id, tipo, alvo, por, por_nome, status, executar_apos, aprovacoes, dados, respondido_em, feito_em)
   values (p_grupo, 'tr_' || p_grupo::text, 'transferir', p_alvo, v_uid, v_nome, 'pendente', null, '{}'::jsonb, '{}'::jsonb, null, null)
   on conflict (grupo_id, id) do update set alvo = excluded.alvo, por = excluded.por, por_nome = excluded.por_nome, status = 'pendente',
     respondido_em = null, feito_em = null;
-  perform public.omni__hist(p_grupo, 'criacao.proposta', coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_alvo limit 1), ''));
+  perform public.omni__hist(p_grupo, 'criacao.proposta', coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = p_alvo and m.status = 'ativo' limit 1), ''));
 end $$;
 
 create or replace function public.omni_responder_transferencia(p_grupo uuid, p_aceitar boolean) returns void
@@ -947,8 +925,9 @@ begin
   if public.omni_papel_de(p_grupo, v_uid) is distinct from 'chefe' then raise exception 'Você precisa ser chefe para aceitar.'; end if;
   update public.omni_familia f set dono = v_uid where f.grupo_id = p_grupo and f.dono = g.por;
   if not found then raise exception 'Quem propôs não é mais o criador da família.'; end if;
+  perform public.omni__dono_na_base(p_grupo, v_uid);
   update public.omni_governanca x set status = 'executado', respondido_em = now(), feito_em = now() where x.grupo_id = p_grupo and x.id = g.id;
-  perform public.omni__hist(p_grupo, 'criacao.transferida', coalesce(g.por_nome, '') || ' → ' || coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid limit 1), ''));
+  perform public.omni__hist(p_grupo, 'criacao.transferida', coalesce(g.por_nome, '') || ' → ' || coalesce((select m.apelido from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid and m.status = 'ativo' limit 1), ''));
 end $$;
 
 -- executar o que venceu (48 h sem veto): chamado por qualquer chefe ao abrir o app; devolve quantos executou
@@ -977,7 +956,7 @@ begin
   select * into f from public.omni_familia x where x.grupo_id = p_grupo;
   if not found or not public.omni_sou_membro(p_grupo) or not (v_uid = any (f.em_contatos)) then raise exception 'Você não está na lista de contatos de emergência desta família.'; end if;
   if exists (select 1 from public.omni_governanca g where g.grupo_id = p_grupo and g.id = 'em_' || v_uid::text and g.status = 'pendente') then raise exception 'Seu pedido já está aberto.'; end if;
-  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid limit 1;
+  select m.apelido into v_nome from public.sol_grupo_membros m where m.grupo_id = p_grupo and m.user_id = v_uid and m.status = 'ativo' limit 1;
   insert into public.omni_governanca (grupo_id, id, tipo, alvo, por, por_nome, status, executar_apos, aprovacoes, dados, respondido_em, feito_em)
   values (p_grupo, 'em_' || v_uid::text, 'emergencia', null, v_uid, v_nome, 'pendente', now() + make_interval(days => f.em_espera_dias), '{}'::jsonb, '{}'::jsonb, null, null)
   on conflict (grupo_id, id) do update set status = 'pendente', executar_apos = excluded.executar_apos, por_nome = excluded.por_nome, respondido_em = null, feito_em = null;
@@ -1025,7 +1004,8 @@ begin
   update public.sol_grupos g set encerrado_em = now() where g.id = p_grupo and g.encerrado_em is null;
 end $$;
 
--- 5.11 LGPD (C8): anonimizar uma pessoa no Omni. Chamada por admin_anonimizar_usuario (nunca pelo app).
+-- 5.11 LGPD (C8): anonimizar uma pessoa no Omni. Chamada por admin_anonimizar_usuario (nunca pelo app), antes de a
+--      base limpar os vínculos em sol_grupo_membros (por isso ainda dá para achar os perfis e apelidos dela aqui).
 --      Não apaga conta. Tira nome, e-mail e nome do aparelho (também do histórico); esvazia a ficha de saúde e o perfil dela;
 --      se ela era a única pessoa com conta numa família, esvazia os registros dessa família.
 create or replace function public.omni_anonimizar(p_uid uuid) returns jsonb
@@ -1051,12 +1031,10 @@ begin
   update public.omni_pedidos_entrada p set nome = null, email = null where p.user_id = p_uid;
   get diagnostics v_ped = row_count;
   update public.omni_governanca g set por_nome = 'Titular anonimizado' where g.por = p_uid;
-  delete from public.omni_chave_privada c where c.user_id = p_uid;
-  delete from public.omni_chaves_publicas c where c.user_id = p_uid;
-  delete from public.omni_chaves_grupo c where c.user_id = p_uid;
+  delete from public.omni_chave_privada c where c.user_id = p_uid;  -- a chave pública (sol_chave_publica) a base limpa
   delete from public.omni_cofre_liberado c where c.user_id = p_uid;
   -- perfil da pessoa e a ficha de saúde dela, em cada família
-  for r in select m.grupo_id, m.perfil_id from public.sol_grupo_membros m where m.user_id = p_uid and m.perfil_id is not null loop
+  for r in select distinct m.grupo_id, m.perfil_id from public.sol_grupo_membros m where m.user_id = p_uid and m.perfil_id is not null loop
     update public.omni_docs d set dados = jsonb_build_object('name', 'Pessoa removida', 'role', coalesce(d.dados -> 'role', '"adulto"'::jsonb), 'anonimizado', true), dados_cifrado = null
      where d.grupo_id = r.grupo_id and d.colecao = 'people' and d.id = r.perfil_id;
     update public.omni_docs d set dados = null, dados_cifrado = null, apagado_em = coalesce(d.apagado_em, now())
@@ -1077,9 +1055,10 @@ end $$;
 -- -------------------------------------------------------------------------------------
 -- 6) Registro do app na LGPD da plataforma (C8)
 -- -------------------------------------------------------------------------------------
-insert into public.sol_apps (codigo, nome, funcao_anonimizar)
-values ('omnilife-one', 'OmniLifeONE', 'public.omni_anonimizar')
-on conflict (codigo) do update set nome = excluded.nome, funcao_anonimizar = excluded.funcao_anonimizar;
+-- a base guarda só o nome da função e chama public.omni_anonimizar(uuid) sozinha
+insert into public.sol_apps (codigo, nome, prefixo, repo, funcao_anonimizar)
+values ('omnilife-one', 'OmniLifeONE', 'omni', 'omnilife-one', 'omni_anonimizar')
+on conflict (codigo) do update set funcao_anonimizar = excluded.funcao_anonimizar, atualizado_em = now();
 
 -- -------------------------------------------------------------------------------------
 -- 7) Tempo real (para a tela atualizar sozinha quando outra pessoa muda algo)
@@ -1101,7 +1080,7 @@ end $$;
 -- -------------------------------------------------------------------------------------
 revoke all on public.omni_familia, public.omni_docs, public.omni_combinados, public.omni_historico, public.omni_governanca,
               public.omni_cofre_liberado, public.omni_aparelhos, public.omni_pedidos_entrada, public.omni_pedidos_verificacao,
-              public.omni_convite_info, public.omni_chaves_publicas, public.omni_chave_privada, public.omni_chaves_grupo from anon, authenticated;
+              public.omni_convite_info, public.omni_chave_privada from anon, authenticated;
 grant select                 on public.omni_familia         to authenticated;
 grant select, insert, update on public.omni_docs            to authenticated;
 grant select, insert         on public.omni_combinados      to authenticated;
@@ -1112,13 +1091,11 @@ grant select, insert, update, delete on public.omni_aparelhos to authenticated;
 grant select                 on public.omni_pedidos_entrada to authenticated;
 grant select                 on public.omni_pedidos_verificacao to authenticated;
 grant select                 on public.omni_convite_info    to authenticated;
-grant select, insert, update on public.omni_chaves_publicas to authenticated;
 grant select, insert, update on public.omni_chave_privada   to authenticated;
-grant select, insert         on public.omni_chaves_grupo    to authenticated;
 -- service_role (Edge Function / painel) passa por cima do RLS; fica explícito aqui (C10)
 grant select, insert, update, delete on public.omni_familia, public.omni_docs, public.omni_combinados, public.omni_historico,
   public.omni_governanca, public.omni_cofre_liberado, public.omni_aparelhos, public.omni_pedidos_entrada, public.omni_pedidos_verificacao,
-  public.omni_convite_info, public.omni_chaves_publicas, public.omni_chave_privada, public.omni_chaves_grupo to service_role;
+  public.omni_convite_info, public.omni_chave_privada to service_role;
 
 do $$
 declare f text;
@@ -1132,7 +1109,7 @@ begin
 end $$;
 grant execute on function public.omni_sou_membro(uuid), public.omni_sou_chefe(uuid), public.omni_sou_responsavel(uuid),
   public.omni_sou_adulto(uuid), public.omni_papel_de(uuid, uuid), public.omni_jsonb_mesclar(jsonb, jsonb),
-  public.omni_cofre_liberado_para_mim(uuid), public.omni_mesma_familia(uuid), public.omni__meu_apelido(uuid),
+  public.omni_cofre_liberado_para_mim(uuid), public.omni__meu_apelido(uuid),
   public.omni_criar_familia(text, text, text), public.omni_salvar_regras(uuid, jsonb),
   public.omni_criar_convite(uuid, text, text, text, integer, integer), public.omni_revogar_convite(uuid, text), public.omni_ver_convite(text),
   public.omni_pedir_entrada(text, text), public.omni_cancelar_pedido(uuid),
@@ -1146,6 +1123,7 @@ grant execute on function public.omni_sou_membro(uuid), public.omni_sou_chefe(uu
   to authenticated;
 -- funções internas: só o banco usa
 revoke all on function public.omni__hist(uuid, text, text), public.omni__membro_ativo(uuid, uuid), public.omni__pedido_chefe_ok(uuid, uuid),
+  public.omni__dono_na_base(uuid, uuid),
   public.omni_tg_carimbo(), public.omni_tg_historico(), public.omni_tg_combinados(), public.omni_tg_docs(), public.omni_tg_aparelhos()
   from authenticated;
 -- LGPD: só a plataforma (admin_anonimizar_usuario / service_role), nunca o app
@@ -1169,12 +1147,17 @@ begin
     v_erros := v_erros || ' anon tem acesso a tabela omni_*';
   end if;
   if (select count(*) from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'omni\_%') <> 13 then
-    v_erros := v_erros || ' esperava 13 tabelas omni_*';
+       where n.nspname = 'public' and c.relkind = 'r' and c.relname like 'omni\_%') <> 11 then
+    v_erros := v_erros || ' esperava 11 tabelas omni_*';
   end if;
-  if not exists (select 1 from public.sol_apps a where a.codigo = 'omnilife-one') then v_erros := v_erros || ' sol_apps sem omnilife-one'; end if;
+  if not exists (select 1 from pg_catalog.pg_policies p where p.schemaname = 'storage' and p.tablename = 'objects' and p.policyname = 'omni_arquivos_restritos') then
+    v_erros := v_erros || ' sem a regra da pasta restrito no Storage';
+  end if;
+  if not exists (select 1 from public.sol_apps a where a.codigo = 'omnilife-one' and a.funcao_anonimizar = 'omni_anonimizar') then
+    v_erros := v_erros || ' sol_apps sem omni_anonimizar';
+  end if;
   if v_erros <> '' then raise exception 'Conferência do OmniLifeONE falhou:%', v_erros; end if;
-  raise notice 'OmniLifeONE v1: 13 tabelas omni_* com RLS e regras, funções com permissões conferidas, registro em sol_apps ok.';
+  raise notice 'OmniLifeONE v1: 11 tabelas omni_* com RLS e regras, funções com permissões conferidas, registro em sol_apps ok.';
 end $$;
 
 commit;
