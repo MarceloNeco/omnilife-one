@@ -252,10 +252,18 @@ Quatro entregas, cada uma com versão, PR e merge; o app funciona entre uma e ou
 |---|---|---|
 | **2a** | Conta SolverONE: e-mail e senha, Google, criar conta, esqueci a senha, sair; uso e acessos (C4, C9); encerrar conta / pedir exclusão; Firebase sai da tela inicial | ✅ v2.13.0 |
 | **2b** | Família e registros na nuvem: criar família, convites, pedido e aprovação, papéis, 48 h, emergência, aparelhos, histórico; uso sem internet; "Levar meus dados para a nuvem" | ✅ v2.14.0 |
-| **2c** | Cifra no aparelho (cofre, saúde, documentos) com as chaves da família; arquivos no `sol-arquivos` com redução de imagem | a fazer |
+| **2c** | Cofre de senhas ponta a ponta e entrada sem internet (escopo redefinido em 03/Out/2026, vira diretriz geral): chave do cofre da família embrulhada para cada chefe/responsável, PIN e digital (PRF) no aparelho, código de recuperação, trava, revalidação e apagar ao desconectar | ✅ v2.15.0 |
 | **2d** | Ponte entre apps (`sol_ponte`); tirar o Firebase do código; LEIA-ME, ARQUITETURA e página de teste | a fazer |
+| a combinar | Saúde, documentos e arquivos (Storage `sol-arquivos`, redução de imagem) cifrados com a mesma chave — antes listados na 2c | a fazer |
 
-Até a 2c, saúde, documentos e cofre ficam só no aparelho (o banco recusa esses dados sem cifra).
+Saúde, documentos e arquivos (inclusive anexos do cofre) continuam só no aparelho (o banco recusa saúde e documentos sem cifra).
+
+Como ficou a 2c (v2.15.0): o cofre sobe só como `dados_cifrado` (AES-GCM 256 com a chave do cofre da família, CF). A CF vai
+para cada chefe e responsável embrulhada com a chave pública dele (`sol_chave_publica` / `sol_grupo_chaves`); a chave privada
+da pessoa fica no banco só cifrada pelo código de recuperação do cofre (`omni_chave_privada`, PBKDF2 600 mil). No aparelho, uma
+chave do aparelho embrulhada pelo PIN (PBKDF2 600 mil) e pela digital (WebAuthn PRF) guarda a CF: destranca sem internet.
+Contato de emergência: envelope `_em` com a CF cifrada pelo código de emergência. Nenhum SQL novo: só o que já estava na base
+0.10.1 e em `supabase/omnilife-one-v1.sql`. Testado contra o Supabase local (computador e celular emulados, modo avião).
 
 Como ficou a 2b (v2.14.0), decidido com o dono do projeto: conflito = **junta campo a campo e só pergunta o que bate**
 (o mesmo campo mudado nos dois aparelhos); listas somam. Sem internet: cópia no aparelho + fila de saída, com o selo
