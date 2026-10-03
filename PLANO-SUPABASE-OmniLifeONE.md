@@ -242,3 +242,19 @@ Omni só acrescenta a regra da pasta `restrito`); chave pública e chave da fam�
    `rls_ligado = true` e `regras` maior que zero. Se a base não existir ou ainda não tiver as mudanças,
    aparece a mensagem "falta a base comum da plataforma" dizendo o que falta, e nada é criado.
 5. Me avise neste chat que rodou — aí começo a Etapa 2.
+
+## 12. Andamento da Etapa 2 (combinado em 03/Out/2026)
+
+Quatro entregas, cada uma com versão, PR e merge; o app funciona entre uma e outra. Um login só para todos os apps
+(chave comum `solverone.sessao.v1`).
+
+| Entrega | O que entra | Situação |
+|---|---|---|
+| **2a** | Conta SolverONE: e-mail e senha, Google, criar conta, esqueci a senha, sair; uso e acessos (C4, C9); encerrar conta / pedir exclusão; Firebase sai da tela inicial | ✅ v2.13.0 |
+| **2b** | Família e registros na nuvem: criar família, convites, pedido e aprovação, papéis, 48 h, emergência, aparelhos, histórico; uso sem internet; "Levar meus dados para a nuvem" | a fazer |
+| **2c** | Cifra no aparelho (cofre, saúde, documentos) com as chaves da família; arquivos no `sol-arquivos` com redução de imagem | a fazer |
+| **2d** | Ponte entre apps (`sol_ponte`); tirar o Firebase do código; LEIA-ME, ARQUITETURA e página de teste | a fazer |
+
+Até a 2c, saúde, documentos e cofre ficam só no aparelho (o banco recusa esses dados sem cifra).
+Extras anotados para depois da Etapa 2, a confirmar: avisos com o app fechado (Web Push), 48 h automáticas
+(`pg_cron`, SQL novo) e "Meus contatos" na conta (tabela nova). Nenhum SQL novo sem autorização.

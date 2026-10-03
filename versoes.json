@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.13.0",
+  "d": "2026-10-03",
+  "hora": "10:39:08",
+  "pt": [
+   "✨ Conta SolverONE: entrar com e-mail e senha ou com Google, criar conta e “esqueci a senha”. É a mesma conta de todos os apps da SolverONE: entrou num, vale nos outros deste endereço. Fica na tela inicial, em ⚙️ Configurações → Geral e no menu 👤.",
+   "🔒 Encerrar minha conta / pedir exclusão dos meus dados (LGPD) em ⚙️ Configurações → Dados. O app registra o uso e os acessos na plataforma.",
+   "ℹ️ Nesta versão os dados da família continuam neste aparelho; a família na nuvem chega na próxima. A configuração da nuvem antiga (Firebase) saiu da tela inicial."
+  ],
+  "en": [
+   "✨ SolverONE account: sign in with e-mail and password or with Google, create an account and “forgot password”. It's the same account for every SolverONE app: sign in once, it works in the others at this address. On the start screen, in ⚙️ Settings → General and in the 👤 menu.",
+   "🔒 Close my account / request erasure of my data (LGPD) in ⚙️ Settings → Data. The app records use and sign-ins on the platform.",
+   "ℹ️ In this version family data stays on this device; the family in the cloud comes next. The old cloud setup (Firebase) left the start screen."
+  ]
+ },
+ {
   "v": "2.12.2",
   "d": "2026-10-03",
   "hora": "03:28:53",

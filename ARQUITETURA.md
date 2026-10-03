@@ -30,7 +30,9 @@ sem framework: HTML, CSS e JavaScript puros.
 - Nunca reescrever o `index.html` inteiro: as mudanças são cirúrgicas.
 - Nunca apagar caches de outros apps no `sw.js` (todos dividem o mesmo endereço): o nome do
   cache é `dgo-omnilife-vN` e o `activate` só apaga os que começam com `dgo-omnilife-`.
-- Nunca usar chave de `localStorage` sem o prefixo `omnilife.` (colide com os outros apps).
+- Nunca usar chave de `localStorage` sem o prefixo `omnilife.` (colide com os outros apps). Exceção de propósito:
+  `solverone.sessao.v1`, a sessão **comum** da conta SolverONE (um login para todos os apps), e a sessão do Contador
+  (`ch_solverone_sessao`), que o `Conta` aproveita e mantém igual enquanto o Contador não usar a chave comum.
 
 ## Mapa do `index.html` (procure pelos nomes)
 
@@ -44,6 +46,15 @@ sem framework: HTML, CSS e JavaScript puros.
   `devices` → `omni_aparelhos`; `comsg` → `omni_combinados`; `audit` → `omni_historico`; arquivos → Storage `sol-arquivos/omnilife-one/<grupo>/…`;
   chaves (C7) → `sol_chave_publica` + `sol_grupo_chaves` da base (funções `sol_*`) e `omni_chave_privada` (cópia cifrada da chave privada).
   Família do Omni nasce com `sol_grupos.governanca = 'omnilife-one'`: papéis, entradas e saídas só pelas funções `omni_*`.
+- `Conta` (v2.13.0, Etapa 2a) — conta SolverONE no banco da plataforma (Supabase `solverone-app`), por REST, sem biblioteca:
+  `janela()` (e-mail e senha, Google, criar conta, esqueci a senha), `lerRetorno()` (no `boot`: volta do Google, da confirmação
+  de e-mail e do link de nova senha → `novaSenha()`), `token()` (renova perto de vencer, uma vez só por vez), `rpc()`, `funcao()`
+  (Edge Function `solverone-admin`), `marcarPedido()`/`confirmarPendente()` (volta com sessão no endereço só entra sem perguntar
+  se este aparelho pediu — marcador `omnilife.contaPedido`, 2 dias; senão pergunta "Foi você?"), `aoAbrir()` (no fim do `startApp`, uma vez por aba: `minha_conta_encerrada`,
+  `sol_registrar_uso('omnilife-one')`, `registrar-acesso` login/refresh), `sair()` (`logout?scope=local` + `registrar-acesso`
+  logout), `encerrar()` (`minha_solicitacao_exclusao`, motivo + 2 confirmações), `card()` (⚙ → Geral). Só a URL e a publishable
+  key no código (públicas). Nesta etapa os dados continuam no aparelho (modo `local`); a tela inicial leva Google e e-mail para
+  a conta e depois para a família do aparelho. Digital/PIN seguem como desbloqueio local.
 - `ACT` — todas as ações de botão (`data-act="…"`); `data-chg` para campos que mudam.
 - `SCREENS` — cada aba (`home`, `inbox`, `shop`, `agenda`, `security`, `family`, `settings`…).
 - `Nav` — ÚNICO ponto do histórico (botão Voltar do celular). Não use `pushState` fora dele.
