@@ -251,10 +251,17 @@ Quatro entregas, cada uma com versão, PR e merge; o app funciona entre uma e ou
 | Entrega | O que entra | Situação |
 |---|---|---|
 | **2a** | Conta SolverONE: e-mail e senha, Google, criar conta, esqueci a senha, sair; uso e acessos (C4, C9); encerrar conta / pedir exclusão; Firebase sai da tela inicial | ✅ v2.13.0 |
-| **2b** | Família e registros na nuvem: criar família, convites, pedido e aprovação, papéis, 48 h, emergência, aparelhos, histórico; uso sem internet; "Levar meus dados para a nuvem" | a fazer |
+| **2b** | Família e registros na nuvem: criar família, convites, pedido e aprovação, papéis, 48 h, emergência, aparelhos, histórico; uso sem internet; "Levar meus dados para a nuvem" | ✅ v2.14.0 |
 | **2c** | Cifra no aparelho (cofre, saúde, documentos) com as chaves da família; arquivos no `sol-arquivos` com redução de imagem | a fazer |
 | **2d** | Ponte entre apps (`sol_ponte`); tirar o Firebase do código; LEIA-ME, ARQUITETURA e página de teste | a fazer |
 
 Até a 2c, saúde, documentos e cofre ficam só no aparelho (o banco recusa esses dados sem cifra).
+
+Como ficou a 2b (v2.14.0), decidido com o dono do projeto: conflito = **junta campo a campo e só pergunta o que bate**
+(o mesmo campo mudado nos dois aparelhos); listas somam. Sem internet: cópia no aparelho + fila de saída, com o selo
+"N itens aguardando sincronia". Sem tempo real: o app consulta a cada 20 s (e ao voltar para o app ou a internet).
+Antes de apagar qualquer dado do navegador, o app oferece a cópia protegida e levar para a nuvem. Nenhum SQL novo foi
+preciso: a 2b usa só o que já está em `supabase/omnilife-one-v1.sql`. Testado contra um Supabase local com a base real
+(cerca de 130 verificações: entrada com código, 2 aprovações, conflito, sem internet, governança, aparelhos, levar a família).
 Extras anotados para depois da Etapa 2, a confirmar: avisos com o app fechado (Web Push), 48 h automáticas
 (`pg_cron`, SQL novo) e "Meus contatos" na conta (tabela nova). Nenhum SQL novo sem autorização.
