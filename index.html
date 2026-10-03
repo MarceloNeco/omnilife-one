@@ -3103,10 +3103,14 @@ const Cofre = {
     this.trancar();
     try { await IDB.del("kv", this.K(uid)); } catch (e) {}
     const gids = Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : []);
+    /* o cofre antigo (senha mestra, só neste aparelho, nunca subiu) não é cache: fica, protegido pela senha dele */
+    const antigo = (v) => !!(v && v.doc && !v.cif);
     try {
-      for (const st of ["nuvem", "fila"]) for (const [k] of await IDB.entries(st)) if (gids.some((g) => k.startsWith(g + "|vault|"))) await IDB.del(st, k);
+      for (const [k, v] of await IDB.entries("nuvem")) if (gids.some((g) => k.startsWith(g + "|vault|")) && !antigo(v)) await IDB.del("nuvem", k);
+      for (const [k] of await IDB.entries("fila")) if (gids.some((g) => k.startsWith(g + "|vault|"))) await IDB.del("fila", k);
     } catch (e) {}
-    for (const m of [CloudDriver.recs, CloudDriver.fila]) for (const k of [...m.keys()]) if (k.startsWith("vault|")) m.delete(k);
+    for (const k of [...CloudDriver.recs.keys()]) if (k.startsWith("vault|") && !antigo(CloudDriver.recs.get(k))) CloudDriver.recs.delete(k);
+    for (const k of [...CloudDriver.fila.keys()]) if (k.startsWith("vault|")) CloudDriver.fila.delete(k);
     DB.col("vault").clear(); Sync.badge();
   },
   async esquecerFamilia(gid) {
@@ -3114,7 +3118,11 @@ const Cofre = {
     const L = await this.local(); if (L && L.fam && L.fam[gid]) { delete L.fam[gid]; await this.gravarLocal(L); }
   },
   async desconectarAparelho() {
-    if (!(await confirmBox(tt("Desconectar este aparelho? Sai da conta aqui e apaga a cópia cifrada do cofre e a chave do cofre deste aparelho. Para usar de novo: entrar na conta e destrancar com o código de recuperação (ou outro responsável libera).", "Disconnect this device? It signs out here and erases the vault's encrypted copy and the vault key on this device. To use it again: sign in and unlock with the recovery code (or another guardian releases it)."), tt("Desconectar", "Disconnect"), true))) return;
+    /* o que ainda está na fila do cofre tenta subir antes (o cofre fica na nuvem; só a cópia deste aparelho sai) */
+    if (navigator.onLine) { try { await CloudDriver.flush(true); } catch (e) {} }
+    const pend = [...CloudDriver.fila.keys()].filter((k) => k.startsWith("vault|")).length;
+    if (!(await confirmBox(tt("Desconectar este aparelho? Sai da conta aqui e apaga a cópia cifrada do cofre e a chave do cofre deste aparelho. O cofre continua na nuvem. Para usar de novo: entrar na conta e destrancar com o código de recuperação (ou outro responsável libera).", "Disconnect this device? It signs out here and erases the vault's encrypted copy and the vault key on this device. The vault stays in the cloud. To use it again: sign in and unlock with the recovery code (or another guardian releases it).") +
+      (pend ? "<br><br>⚠️ " + pend + tt(" mudança(s) do cofre ainda não subiram (sem internet) e serão perdidas.", " vault change(s) haven't gone up yet (no internet) and will be lost.") : ""), tt("Desconectar", "Disconnect"), true))) return;
     if (S.family && navigator.onLine) { try { await Conta.rest("PATCH", "omni_aparelhos?grupo_id=eq." + S.family.id + "&id=eq." + encodeURIComponent(Devices.myId()), { desconectado: true }, "return=minimal"); await Cloud.audit("aparelho.desconectado", Devices.label() + " · " + Cloud.myName()); } catch (e) {} }
     await this.apagarDoAparelho();
     try { localStorage.removeItem(Devices.KEY); } catch (e) {}

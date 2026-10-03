@@ -35,7 +35,10 @@ sem framework: HTML, CSS e JavaScript puros.
   (`ch_solverone_sessao`), que o `Conta` aproveita e mantém igual enquanto o Contador não usar a chave comum.
 - Nunca apagar dado do navegador (stores `docs`/`files`, a cópia "só neste aparelho") sem antes **oferecer a cópia protegida e
   levar para a nuvem** (`Migrar.antesDeApagar()`, `Migrar.apagarAntiga()`) — regra do dono do projeto, 03/Out/2026. Sair da
-  conta ou da família não apaga a cópia da nuvem do aparelho (saúde, documentos e cofre só existem nela até a 2c).
+  conta ou da família não apaga a cópia da nuvem do aparelho (saúde, documentos e arquivos só existem nela). Exceção da
+  diretriz do cofre (2.15.0): a cópia **cifrada** do cofre da nuvem e a chave dele saem em "Desconectar este aparelho", conta
+  encerrada/banida, aparelho desconectado e saída da família (`Cofre.apagarDoAparelho`) — o cofre continua na nuvem; a fila do
+  cofre tenta subir antes; o cofre antigo (senha mestra, só no aparelho) nunca é apagado por isso.
 
 ## Mapa do `index.html` (procure pelos nomes)
 
