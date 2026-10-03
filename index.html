@@ -4529,8 +4529,8 @@ const Conta = {
     if (!this.on() || !navigator.onLine) return;
     if (this._revalidando) return; this._revalidando = true;
     try {
-      /* sessão que o servidor acabou de dar (entrou agora, renovou há pouco) já foi conferida: não renova de novo */
-      const s = this.ler(), recente = s && s.em && Date.now() - s.em < 120000;
+      /* sessão que o servidor acabou de dar (entrou agora: menos de 30 s) já foi conferida: não renova de novo */
+      const s = this.ler(), recente = s && s.em && Date.now() - s.em < 30000;
       const t = await this.token(!recente); if (!t) return;
       if ((await this.rpc("minha_conta_encerrada")) === true) return this.encerrada();
     } catch (e) {} finally { this._revalidando = false; }
