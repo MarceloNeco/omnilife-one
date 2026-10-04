@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.15.2",
+  "d": "2026-10-04",
+  "hora": "10:21:07",
+  "pt": [
+   "🔐 O cofre agora se chama “Senhas da casa”: um nome que diz o que tem dentro.",
+   "📝 Tipos mais simples, com exemplo: Senha do Wi-Fi; Portão, alarme e cadeado; Senha de site ou aplicativo; Banco; Seguro, contrato ou escritura; Outro segredo. O que você já tinha guardado continua lá.",
+   "💬 No modo “só neste aparelho”, a senha que abre tudo agora se chama “senha principal”."
+  ],
+  "en": [
+   "🔐 The vault is now called “Home passwords”: a name that says what's inside.",
+   "📝 Simpler types, with examples: Wi-Fi password; Gate, alarm and padlock; Website or app password; Bank; Insurance, contract or deed; Other secret. Everything you saved is still there.",
+   "💬 In “this device only” mode, the password that opens everything is now called the “main password”."
+  ]
+ },
+ {
   "v": "2.15.1",
   "d": "2026-10-04",
   "hora": "09:43:48",
