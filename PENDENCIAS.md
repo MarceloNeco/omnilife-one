@@ -12,8 +12,8 @@ experiência digital) vem **antes** de qualquer recurso novo.
 | # | Pendência | Origem | Situação |
 |---|---|---|---|
 | 1 | Linguagem para leigos nas telas do Cofre: textos, ajuda e mensagens com palavras simples e exemplos | Teste real da 2.15.0 no celular (Samsung), 04/Out/2026 | ✅ 2.15.1 (textos e ajuda); nomes principais no #2 |
-| 2 | Nomes novos para "Cofre" e para os tipos de item (proposta enviada; só muda depois de aprovar) | idem | ⏸ aguardando aprovação |
-| 3 | Linguagem para leigos nas demais telas (Início, Compras, Agenda, Família, Configurações, Ajuda…) | idem | 🔵 em andamento — feitos na 2.15.1: Cofre, instalar no celular, aviso de sincronia; próximas: Início e Configurações |
+| 2 | Nomes novos para "Cofre" e para os tipos de item | idem | ✅ 2.15.2 — o dono pediu para escolher pelas melhores práticas (04/Out/2026): "Senhas da casa" e 6 tipos (Wi-Fi; Portão, alarme e cadeado; Site ou aplicativo; Banco; Seguro, contrato ou escritura; Outro segredo). O dono vai refinar depois |
+| 3 | Linguagem para leigos nas demais telas (Início, Compras, Agenda, Família, Configurações, Ajuda…) | idem | 🔵 em andamento — feitos: Senhas da casa (2.15.1 e 2.15.2, inclusive os papéis e a ajuda que citam o antigo "cofre"), instalar no celular, aviso de sincronia; próximas: Início e Configurações |
 | 4 | Formulário do Cofre: ao escolher o tipo, mostrar só os campos daquele tipo; tipos com exemplos | idem | ✅ 2.15.1 |
 | 5 | Campo "Anotações" aparecendo duas vezes no formulário do Cofre | idem | ✅ 2.15.1 — formulário refeito, com teste garantindo um só campo; não consegui reproduzir no emulador: confirmar no celular |
 | 6 | Primeiro uso guiado do Cofre: passo a passo na tela, explicando o que é e o que fazer | idem | ✅ 2.15.1 |
@@ -32,3 +32,4 @@ experiência digital) vem **antes** de qualquer recurso novo.
 ## Histórico das entregas
 
 - **2.15.1 (04/Out/2026):** fecharam #1, #4, #5, #6, #7, #8, #9 e #10; #3 em andamento; #2 aguardando aprovação.
+- **2.15.2 (04/Out/2026):** fechou #2 ("Senhas da casa" e 6 tipos); #3 continua em andamento.
