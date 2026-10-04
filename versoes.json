@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.15.1",
+  "d": "2026-10-04",
+  "hora": "09:43:48",
+  "pt": [
+   "🧭 Cofre com passo a passo na primeira vez: o que é, quem vê, como abrir e o papel com o código — em palavras simples.",
+   "📝 Guardar no cofre ficou mais fácil: primeiro você escolhe o que quer guardar (com exemplos) e só aparecem os campos daquilo. Wi-Fi, por exemplo, pede só o nome da rede e a senha.",
+   "💬 Textos do cofre reescritos para quem não é do ramo: sem palavras técnicas, com exemplos do dia a dia.",
+   "✓ Quando a internet volta e tudo sobe, aparece “Tudo sincronizado” por alguns segundos.",
+   "📲 “Instalar o aplicativo no celular” (Início) agora instala de verdade ou mostra o passo a passo do seu navegador. No navegador da Samsung, o app explica o alerta do Play Protect e leva você a instalar pelo Chrome."
+  ],
+  "en": [
+   "🧭 The vault now has a first-time walkthrough: what it is, who can see it, how to open it and the paper with the code — in plain words.",
+   "📝 Saving to the vault is easier: first choose what you want to keep (with examples) and only those fields show up. Wi-Fi, for example, only asks for the network name and password.",
+   "💬 Vault texts rewritten for non-experts: no technical words, with everyday examples.",
+   "✓ When the internet is back and everything goes up, “All synced” shows for a few seconds.",
+   "📲 “Install the app on your phone” (Home) now really installs or shows the steps for your browser. In the Samsung browser, the app explains the Play Protect alert and takes you to install with Chrome."
+  ]
+ },
+ {
   "v": "2.15.0",
   "d": "2026-10-03",
   "hora": "15:27:01",
