@@ -21,6 +21,7 @@ sem framework: HTML, CSS e JavaScript puros.
 | `supabase/omnilife-one-v1.sql` | Tabelas `omni_*`, regras de acesso (RLS), funções e LGPD no banco da plataforma. Roda depois da base comum do RootifyONE (`sol_*`, com `sol_grupos.governanca`); confere a base antes de criar qualquer coisa | Só com revisão (C10); nunca rodar antes da revisão |
 | `LEIA-ME-OmniLifeONE.html` | Passo a passo para o dono do app | Sim |
 | `ARQUITETURA.md`, `CREDITOS.md` | Este briefing e as licenças de terceiros | Sim |
+| `PENDENCIAS.md` | **Lista oficial e viva de pendências** (número, descrição, origem, situação) — combinado com o dono em 04/Out/2026. A cada entrega: atualizar a situação, acrescentar o que surgiu e dizer no resumo o que fechou | Sim, a cada entrega |
 | `ajuda-botao.png`, `ajuda-icone.png`, `assistone-hd.png` | Arte do AssistONE. O botão flutuante usa `ajuda-botao.png` direto (arquivo canônico da plataforma, igual em todos os apps); os balões e o cartão em ⚙ usam a cópia pequena embutida `AONE_IMG` | Não trocar `ajuda-botao.png` por outra arte (é padrão da plataforma) |
 
 ## Nunca
@@ -61,7 +62,8 @@ sem framework: HTML, CSS e JavaScript puros.
   da chave). Conflito no cofre (`enviarCofre`): sem a chave não dá para juntar campo a campo → ficam **as duas versões** (a deste
   aparelho vira item novo). Registros do cofre antigo (senha mestra, até a 2.14.x: `rec.doc` sem `cif`, inclusive `_meta`)
   nunca sobem: `Cofre.antigo()` os mantém no aparelho até "Trazer o cofre antigo". `refazer()` não apaga esses registros.
-- `Sync` — selo do topo (`offBadge()`: "📴 sem internet", "⏳ N itens aguardando sincronia", "⚠️ não aceitos"; toque abre
+- `Sync` — selo do topo (`offBadge()`: "📴 sem internet", "⏳ N itens aguardando sincronia", "⚠️ não aceitos" e, desde a 2.15.1,
+  "✓ Tudo sincronizado" por 5 s quando a fila esvazia depois de ficar sem internet ou esperando mais de 3 s; toque abre
   `Sync.view()`), aviso de "salvo neste aparelho" ao salvar sem internet, e a janela de conflito.
 - `Cloud` (v2.14.0) — família na nuvem pelas funções `omni_*` (quem garante as regras é o banco). `resolve()` depois de entrar
   na conta: convite pendente → `requestJoin` (`omni_ver_convite` + `omni_pedir_entrada`) → tela `waiting` (código de 4 números de
@@ -124,10 +126,26 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Trava` (v2.15.0) — tranca o cofre (os dois modos): 5 min sem toque/tecla (`ocioso`), 30 s fora do app (3 min logo depois de
   escolher foto/arquivo, `Trava.escolhendo`), confere ao voltar (o celular congela o relógio em segundo plano) e no `pagehide`.
   Apaga a chave antiga que a "biometria" das versões até a 2.14.x guardava no aparelho (`kv vaultKey:*`).
+- `GuiaCofre` (v2.15.1) — primeiro uso do cofre: passo a passo de 4 telas ("Passo 1 de 4", Pular/Voltar/Próximo), textos dos
+  dois modos (nuvem: PIN, quem vê, papel com o código; local: senha do cofre). Abre sozinho na primeira vez sem cofre
+  (`vaultAfter`, marcador `omnilife.cofreGuia`); "Começar" já chama `Cofre.comecar()` ou `vault.setup`. Link "❔ Como funciona o
+  cofre" (`cofre.guia`) em todas as telas do cofre.
+- `VT_CAMPOS()` e `escolherTipoCofre()` (v2.15.1) — formulário do cofre por tipo: item novo começa por "O que você quer
+  guardar?" (botões grandes com exemplo); depois só aparecem os campos do tipo, com nome e exemplo próprios (`aplicar` no
+  `editVault`). Campo já preenchido num item antigo nunca some; campo fora do tipo e vazio não é salvo. **Linguagem para leigos**
+  (prioridade do dono, 04/Out/2026): sem "cifrado", "criptografado", "ponta a ponta", "biometria", "chave da família" nas telas
+  do cofre — o teste `JARGAO` confere. Os nomes "Cofre" e dos tipos só mudam com aprovação (PENDENCIAS #2).
 - `copiarSegredo(t)` — copia senha e limpa a área de transferência em 30 s (ou ao voltar ao app); nunca mostra a senha numa
   janela. Senha do cofre só aparece ao tocar no olho (`editVault`, painel de passagem, `vault.ver`).
 - `Vault` — cofre do modo "só neste aparelho" (senha mestra, PBKDF2 310 mil). Desde a 2.15.0 a digital guarda a **senha mestra
   cifrada por PRF** (`kv vaultKey:<família>` = `{ cred, sal, iv, ct }`), nunca a chave. `Vault.lock()` tranca também o `Cofre`.
+- `Offline.instalarCelular()` (v2.15.1) — instalar no celular de verdade: com a janela do navegador (`beforeinstallprompt`)
+  instala; sem ela, passo a passo do navegador em uso (Chrome, iPhone/Safari). **Samsung Internet** (`Offline.samsung()`): o
+  ícone instalado por ele dispara o alerta do Google Play Protect ("App de risco bloqueado — criado para uma versão mais antiga
+  do Android"), que vem do pacote que o próprio navegador da Samsung monta (o manifesto não muda isso); por isso o app orienta
+  instalar pelo Chrome, com botão `intent://…;package=com.android.chrome` e aviso de backup para quem usa "só neste aparelho".
+  `Offline.samsungCard()` avisa no Início; "Já instalei" grava `S.prefs.instOk`. O passo do Início ("Deixe pronto") chama isto
+  direto (antes só abria Configurações).
 - `FB` — Firebase: **sem uso desde a v2.14.0** (nada chama `FB.init`); sai do código na Etapa 2d, junto com `onAuth`,
   `acct.delete` e a parte Google do `drive.backup`. Mapa usado na migração: coleções → `omni_docs`;
   família → `sol_grupos` + `sol_grupo_membros` + `omni_familia` (papel `admin` = `chefe`); convites → `sol_grupo_convites` +
