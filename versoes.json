@@ -1,5 +1,26 @@
 [
  {
+  "v": "2.15.3",
+  "d": "2026-10-05",
+  "hora": "00:54:48",
+  "pt": [
+   "💻 Senhas da casa no computador: agora diz “neste computador” (e “neste tablet” no tablet), em vez de “neste celular”.",
+   "📝 Num aparelho novo, a tela das Senhas da casa avisa antes que você vai precisar do papel com o código de recuperação, e diz o que fazer se não estiver com ele.",
+   "💬 Configurações em palavras simples: sem siglas nem termos técnicos (OCR, ponte, API, .json…), com o que ainda não dá dito com clareza.",
+   "🧩 O quadro “Seu aparelho e navegador” fica fechado e só na aba Geral (abre sozinho quando o navegador precisa ser atualizado).",
+   "📜 Registro de alterações mais fácil de ler: “Lista de compras”, “Pessoas”… em vez de nomes internos.",
+   "💾 Dados: “Cópia sem senha” e “Restaurar uma cópia” no lugar de Exportar e Importar."
+  ],
+  "en": [
+   "💻 Home passwords on a computer: it now says “on this computer” (and “on this tablet” on tablets) instead of “on this phone”.",
+   "📝 On a new device, the Home passwords screen warns upfront that you'll need the paper with your recovery code, and says what to do without it.",
+   "💬 Settings in plain words: no acronyms or technical terms (OCR, bridge, API, .json…), and what isn't possible yet is said clearly.",
+   "🧩 The “Your device and browser” box stays closed and only on the General tab (it opens by itself when the browser needs an update).",
+   "📜 Easier change log: “Shopping list”, “People”… instead of internal names.",
+   "💾 Data: “Copy without password” and “Restore a copy” instead of Export and Import."
+  ]
+ },
+ {
   "v": "2.15.2",
   "d": "2026-10-04",
   "hora": "10:21:07",
