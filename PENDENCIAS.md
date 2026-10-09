@@ -30,8 +30,13 @@ experiência digital) vem **antes** de qualquer recurso novo.
 | 17 | PIN curto do cofre: se alguém copiar os arquivos internos do aparelho, um PIN de 6 números pode ser descoberto por computador; sugerir PIN maior, letras ou digital | 2.15.0 (limite registrado) | 🟡 aberta |
 | 18 | No computador, as Senhas da casa diziam "Usar neste celular" (e outros "celular" que aparecem no computador) | Teste real da 2.15.2 no celular (Samsung, app instalado pelo Chrome) e no computador, 05/Out/2026 | ✅ 2.15.3 — o app diz "computador", "tablet" ou "celular" conforme o aparelho; onde fala do aparelho de outra pessoa, diz "aparelho" |
 | 19 | Na primeira vez num aparelho novo, deixar claro que vai precisar do papel com o código de recuperação | idem | ✅ 2.15.3 — antes do botão, o aviso "Pegue o papel com o código de recuperação", com os passos e o que fazer sem o papel; o passo a passo também avisa. Quem nunca usou vê os 3 passos (anotar o código, PIN, outro responsável libera) |
-| 20 | Nomes principais do Início e das Configurações (abas, títulos dos quadros e passos do "Deixe o OmniLifeONE pronto") | Pedido do dono em 05/Out/2026 ("me mostre a proposta antes de trocar") | ⏸ proposta com prints na entrega 2.15.3 — aguardando o dono |
-| 21 | ⚙ → Dados, com a família na nuvem: o texto de "Encerrar minha conta" manda usar "Apagar dados deste aparelho", que só aparece no modo "só neste aparelho" | Revisão da 2.15.3 (achado meu) | 🟡 aberta — decidir como apagar, na nuvem, o que ficou só no aparelho (Saúde, Documentos, arquivos) |
+| 20 | Nomes principais do Início e das Configurações (abas, títulos dos quadros e passos do "Deixe o OmniLifeONE pronto") | Pedido do dono em 05/Out/2026 ("me mostre a proposta antes de trocar") | ✅ 2.15.4 — decisão do dono em 08/Out/2026: ♿ Acessibilidade fica; 🆕 "Versões" vira **"Versões & Novidades"**; 📲 "Sem internet" vira **"Instalar app para acessar sem internet"**, com o aviso do que funciona sem internet. **O dono recusou o resto da proposta**: os outros nomes ficam como estão |
+| 21 | ⚙ → Dados, com a família na nuvem: o texto de "Encerrar minha conta" manda usar "Apagar dados deste aparelho", que só aparece no modo "só neste aparelho" | Revisão da 2.15.3 (achado meu) | ✅ 2.15.4 — sem mudar o banco: quadro novo "Apagar o que está só neste aparelho" (só na nuvem, só chefe ou responsável) apaga Saúde, Documentos, fotos e arquivos deste aparelho depois de oferecer a cópia protegida com os arquivos; conta, fila e o que está na internet não mudam. O "Encerrar minha conta" na nuvem aponta para ele (membro: "peça a um chefe ou responsável"). De quebra, o "Já tenho uma cópia" antes de apagar não diz mais que "os dados continuam aqui" |
+| 22 | Sem internet, várias telas mostram erro técnico em vez de "Sem internet agora": "Failed to fetch" ou "load https://cdn…" (ler foto ou PDF, IA, consultar CEP, recusar pedido de entrada, encerrar a conta) | Levantamento do que funciona sem internet (2.15.4) | 🟡 aberta |
+| 23 | Sem internet: "Salvar no aparelho" mostra "✓ Pronto" mesmo sem salvar nada; o QR do Wi-Fi não responde nem avisa; avisos pelo ntfy (pedido das crianças, recado urgente, Assume a Casa) falham sem avisar ninguém | idem | 🟡 aberta |
+| 24 | Família na nuvem aberta já sem internet: convites, pedidos de entrada, histórico e aparelhos conectados aparecem vazios (só "quem é da família" fica guardado no aparelho) | idem | 🟡 aberta |
+| 25 | Limpeza incompleta ou larga demais: desconectar este aparelho por outro aparelho apaga o sessionStorage inteiro da aba (inclusive o de outros apps da SolverONE); no modo "só neste aparelho", "Apagar tudo" deixa no aparelho o registro de alterações, os contatos pessoais, as chaves de IA e a digital | Levantamento do #21 (2.15.4) | 🟡 aberta |
+| 26 | As diretrizes gerais ainda chamam a opção de "Usar sem internet" (vale para todos os apps); decidir se o nome novo "Instalar app para acessar sem internet" passa para as diretrizes e os outros apps | Decisão do #20 (08/Out/2026) | ⏸ aguardando o dono (regra zero: não mudei as diretrizes) |
 
 ## Histórico das entregas
 
@@ -39,8 +44,14 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **2.15.2 (04/Out/2026):** fechou #2 ("Senhas da casa" e 6 tipos); #3 continua em andamento.
 - **Teste do dono em 05/Out/2026 (2.15.2, Samsung com o app instalado pelo Chrome, e computador):** sem internet e sincronia OK; item criado sem internet no celular apareceu no computador; formulário do Wi-Fi OK ("Anotações" uma vez só). Confirmou #5, #7, #8 e #9; abriu #18, #19 e #20.
 - **2.15.3 (05/Out/2026):** fecharam #18 e #19; #3 avançou (textos do Início e das Configurações); #20 aguardando o dono (proposta de nomes com prints); novo #21.
+- **2.15.4 (09/Out/2026):** fecharam #20 (decisão do dono de 08/Out: só "Versões & Novidades" e "Instalar app para acessar sem internet"; recusou o resto) e #21; novos #22 a #26 (achados do levantamento do que funciona sem internet e do #21).
 
-## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026 — ainda não aplicada)
+## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
+
+**Decisão do dono (08/Out/2026):** aplicar só ♿ Acessibilidade = fica como está; 🆕 Versões → **"Versões & Novidades"** (EN
+"Versions & What's new"); 📲 Sem internet → **"Instalar app para acessar sem internet"** (EN "Install the app to use offline"),
+com aviso do que funciona sem internet. **O dono recusou todo o resto desta tabela**: os outros nomes ficam como estão hoje.
+Aplicado na 2.15.4.
 
 Só os nomes; os textos em volta já foram simplificados na 2.15.3. Prints "nomes de hoje | proposta" na entrega 2.15.3.
 
