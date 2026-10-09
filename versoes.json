@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.15.4",
+  "d": "2026-10-09",
+  "hora": "00:39:07",
+  "pt": [
+   "🆕 A aba “Versões” agora se chama “Versões & Novidades”, em todos os lugares (menu, busca, ajuda e AssistONE).",
+   "📲 A aba “Sem internet” agora se chama “Instalar app para acessar sem internet”. Na primeira vez, ela mostra um aviso curto com o que funciona e o que precisa de internet; depois fica o link “❔ O que funciona sem internet”.",
+   "🗑 Com a família na nuvem, ⚙ → Dados ganhou “Apagar o que está só neste aparelho” (Saúde, Documentos, fotos e arquivos), com a cópia protegida antes. O texto de “Encerrar minha conta” agora aponta o caminho certo."
+  ],
+  "en": [
+   "🆕 The “Versions” tab is now called “Versions & What's new”, everywhere (menu, search, help and AssistONE).",
+   "📲 The “Offline” tab is now called “Install the app to use offline”. The first time, it shows a short notice with what works and what needs the internet; after that, the link “❔ What works offline” stays.",
+   "🗑 With the family in the cloud, ⚙ → Data now has “Erase what's only on this device” (Health, Documents, photos and files), with the protected copy first. The “Close my account” text now points to the right place."
+  ]
+ },
+ {
   "v": "2.15.3",
   "d": "2026-10-05",
   "hora": "00:54:48",

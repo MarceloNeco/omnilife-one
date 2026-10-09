@@ -3,7 +3,7 @@
    caches. Por isso o nome leva o app ("dgo-omnilife-") e, ao atualizar, só apagamos caches
    DESTE app — nunca os dos outros (senão eles perdem o modo sem internet). */
 const APPC = "dgo-omnilife-";
-const CACHE = APPC + "v53"; /* VERSAO: suba este número a cada versão nova */
+const CACHE = APPC + "v54"; /* VERSAO: suba este número a cada versão nova */
 self.addEventListener("install", (e) => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"]).catch(() => {})));
@@ -35,7 +35,7 @@ self.addEventListener("fetch", (e) => {
       .catch(() => caches.match(r, { ignoreSearch: true }).then((m) => m || (r.mode === "navigate" ? caches.match("./index.html") : undefined)).then((m) => m || new Response("", { status: 504 })))
   );
 });
-/* "Salvar no aparelho" (Configurações → Usar sem internet): baixa a lista e responde o tamanho */
+/* "Salvar no aparelho" (Configurações → Instalar app para acessar sem internet): baixa a lista e responde o tamanho */
 self.addEventListener("message", (e) => {
   const d = e.data || {}, port = e.ports && e.ports[0];
   const reply = (x) => { try { port && port.postMessage(x); } catch (_) {} };
