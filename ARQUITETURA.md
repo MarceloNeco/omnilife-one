@@ -211,9 +211,10 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Migrar.card()`/`apagarSoAqui()` (2.15.4, PENDENCIAS #21) — ⚙ → Dados, só com a família na nuvem e para chefe/responsável:
   "Apagar o que está só neste aparelho" apaga Saúde, Documentos e os arquivos (`NUVEM_LOCAL`) desta família, depois de oferecer a
   cópia protegida com os arquivos (`Migrar.copia(…, { apagar, arquivos })`; cópia sem os arquivos pede confirmação, via
-  `S._copiaArquivos`). Com a cópia antiga (store `docs`) ainda no aparelho, manda apagá-la antes (⚙ → Nuvem). Arquivo usado por
-  outra família do aparelho (`<outroGid>|files|<id>` no store `nuvem`) ou pelas senhas antigas (`Cofre.legado()`) fica. Confere
-  de novo modo/família/papel depois das janelas. Não mexe na conta, na fila, no que está na nuvem nem nos outros apps.
+  `S._copiaArquivos`; só quando há arquivos). Com a cópia antiga de uma família levada (`feito()` + store `docs`), manda apagá-la
+  antes (⚙ → Nuvem). Arquivo que outra família do aparelho também usa (`<outroGid>|files|<id>` no store `nuvem`, ou `files|<id>` no
+  store `docs`) perde só o registro desta família; os anexos das senhas antigas (`anexosAntigos()`, de `Cofre.legado()`) ficam e
+  não entram na conta. Confere de novo modo/família/papel depois das janelas. Não mexe na conta, na fila, no que está na nuvem nem nos outros apps.
   `Conta.textoSoAqui()` dá o texto certo do "Encerrar minha conta" em cada modo e papel (e quando já não sobrou nada).
 - `Compat` — quadro de compatibilidade do aparelho/navegador (só aparece com problema). Desde a 2.15.3 vem **fechado** (uma linha
   com quantas funções podem falhar) e só na aba Geral (`Compat.view(sub)`); navegador velho abre o quadro em todas as abas.

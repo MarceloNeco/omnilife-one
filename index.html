@@ -2505,7 +2505,7 @@ const Migrar = {
   /* descartar a família deste aparelho (ex.: dados de teste): oferece a cópia protegida e confirma antes; conta e nuvem não mudam */
   async descartar() {
     const { data, n } = await this.local();
-    if (!(await this.copia(tt("Antes de descartar, baixe uma cópia protegida do que está neste aparelho. Depois de apagado, só ela traz os dados de volta.", "Before discarding, download a protected copy of what's on this device. Once erased, only that copy brings the data back."), { data }, { apagar: true, arquivos: true }))) return false;
+    if (!(await this.copia(tt("Antes de descartar, baixe uma cópia protegida do que está neste aparelho. Depois de apagado, só ela traz os dados de volta.", "Before discarding, download a protected copy of what's on this device. Once erased, only that copy brings the data back."), { data }, { apagar: true, arquivos: (data.files || []).length > 0 }))) return false;
     if (!(await confirmBox(tt("Apagar a família deste aparelho (", "Erase this device's family (") + n + tt(" registros, com fotos e arquivos)? A sua conta SolverONE e a nuvem não mudam. Se quiser guardar na nuvem, use “Levar esta família para a nuvem”.", " records, with photos and files)? Your SolverONE account and the cloud don't change. To keep it in the cloud, use “Take this family to the cloud”."), tt("Apagar os dados deste aparelho", "Erase this device's data"), true))) return false;
     await IDB.clear("docs");
     for (const f of data.files || []) { try { await IDB.del("files", f.id); } catch (e) {} }   /* só os arquivos desta família (os de outra conta ficam) */
@@ -2620,7 +2620,7 @@ const Migrar = {
       if (levar === null) return false;
       if (levar) { await this.iniciar(); return false; }
     }
-    return this.copia(tt("Antes de apagar, baixe uma cópia protegida do que está neste aparelho. Depois de apagado, só ela traz os dados de volta.", "Before erasing, download a protected copy of what's on this device. Once erased, only that copy brings the data back."), undefined, { apagar: true, arquivos: true });
+    return this.copia(tt("Antes de apagar, baixe uma cópia protegida do que está neste aparelho. Depois de apagado, só ela traz os dados de volta.", "Before erasing, download a protected copy of what's on this device. Once erased, only that copy brings the data back."), undefined, { apagar: true, arquivos: DB.raw("files").length > 0 });
   },
   /* depois de levar: apagar a cópia antiga "só neste aparelho" (os arquivos ficam: a família da nuvem usa) */
   async apagarAntiga() {
@@ -2637,7 +2637,7 @@ const Migrar = {
       });
       if (levar === null) return; if (levar) return this.iniciar();
     }
-    if ((!levada || !this.copiaOferecida()) && !(await this.copia(tt("Antes de apagar a cópia antiga, baixe uma cópia protegida dela. Depois de apagada, só essa cópia traz os dados de volta.", "Before erasing the old copy, download a protected copy of it. Once erased, only that copy brings the data back."), local, { apagar: true, arquivos: !levada }))) return;
+    if ((!levada || !this.copiaOferecida()) && !(await this.copia(tt("Antes de apagar a cópia antiga, baixe uma cópia protegida dela. Depois de apagada, só essa cópia traz os dados de volta.", "Before erasing the old copy, download a protected copy of it. Once erased, only that copy brings the data back."), local, { apagar: true, arquivos: !levada && (local.data.files || []).length > 0 }))) return;
     if (!(await confirmBox(tt("Apagar a cópia antiga “só neste aparelho”? A família da nuvem não muda.", "Erase the old “this device only” copy? The cloud family doesn't change."), tt("Apagar a cópia antiga", "Erase the old copy"), true))) return;
     await IDB.clear("docs"); lsDel(LS.localMe);
     if (!levada) for (const f of local.data.files || []) { try { await IDB.del("files", f.id); } catch (e) {} }   /* levada: os arquivos agora são da família da nuvem */
@@ -2648,49 +2648,55 @@ const Migrar = {
      da casa) só existem neste aparelho (NUVEM_LOCAL). Daqui dá para apagar só isso, desta família, depois de oferecer a cópia
      protegida com os arquivos. Não mexe na conta, na fila, no que está na nuvem, na cópia antiga (store docs) nem nos outros
      apps da SolverONE (mesma origem). Só chefe ou responsável: é quem pode fazer a cópia protegida. */
+  /* anexos das senhas antigas (de antes da nuvem): ficam junto com elas, até a pessoa trazê-las (Casa → Senhas da casa) */
+  anexosAntigos() { const ids = new Set(); for (const d of Cofre.legado().values()) for (const f of d.files || []) { const id = typeof f === "string" ? f : f && f.id; if (id) ids.add(id); } return ids; },
   soAqui() {
     const n = { health: 0, docs: 0, files: 0 };
-    if (S.mode === "cloud" && CloudDriver.gid) for (const k of CloudDriver.recs.keys()) { const c = k.slice(0, k.indexOf("|")); if (c in n) n[c]++; }
+    if (S.mode === "cloud" && CloudDriver.gid) { const ant = this.anexosAntigos(); for (const k of CloudDriver.recs.keys()) { const i = k.indexOf("|"), c = k.slice(0, i); if (c in n && !(c === "files" && ant.has(k.slice(i + 1)))) n[c]++; } }
     return n;
   },
   async apagarSoAqui() {
     if (S.mode !== "cloud" || !CloudDriver.gid) return;
     if (!isGuardian()) return toast(tt("Só um chefe ou responsável apaga o que está só neste aparelho.", "Only a head or guardian can erase what's only on this device."));
-    /* a cópia antiga "só neste aparelho" (de antes de levar para a nuvem) tem os mesmos dados e fotos: apaga-se primeiro, por ⚙ → Nuvem */
-    if (await this.temLocal()) {
+    /* a cópia antiga "só neste aparelho" (de antes de levar para a nuvem) tem os mesmos dados e fotos: apaga-se primeiro, por ⚙ → Nuvem.
+       Uma família "só neste aparelho" que nunca foi levada é de outra pessoa: não bloqueia (os arquivos dela ficam, ver abaixo) */
+    if (this.feito() && (await this.temLocal())) {
       if (await confirmBox(tt("Este aparelho ainda tem a cópia antiga “só neste aparelho” (de antes de levar a família para a nuvem), com Saúde, Documentos e fotos. Apague primeiro a cópia antiga e depois volte aqui.", "This device still has the old “this device only” copy (from before taking the family to the cloud), with Health, Documents and photos. Erase the old copy first, then come back here."), tt("Ir para a cópia antiga", "Go to the old copy"))) go("settings", "cloud");
       return;
     }
     const gid = CloudDriver.gid, n = this.soAqui();
     if (!n.health && !n.docs && !n.files) return toast(tt("Não há Saúde, Documentos nem fotos e arquivos guardados só neste aparelho.", "There's no Health, Documents, photos or files kept only on this device."), 4000);
-    if (!(await this.copia(tt("Antes de apagar, baixe uma cópia protegida (com as fotos e os arquivos). Saúde, Documentos, fotos e arquivos só existem neste aparelho: depois de apagados, só essa cópia traz de volta.", "Before erasing, download a protected copy (with photos and files). Health, Documents, photos and files exist only on this device: once erased, only that copy brings them back."), undefined, { apagar: true, arquivos: true }))) return;
+    if (!(await this.copia(tt("Antes de apagar, baixe uma cópia protegida (com as fotos e os arquivos). Saúde, Documentos, fotos e arquivos só existem neste aparelho: depois de apagados, só essa cópia traz de volta.", "Before erasing, download a protected copy (with photos and files). Health, Documents, photos and files exist only on this device: once erased, only that copy brings them back."), undefined, { apagar: true, arquivos: n.files > 0 }))) return;
     const legado = Cofre.temLegado();
     if (!(await confirmBox(tt("Apagar deste aparelho Saúde (" + n.health + "), Documentos (" + n.docs + ") e " + n.files + " foto(s) e arquivo(s), inclusive os anexos das Senhas da casa? Quem mais usa este aparelho também deixa de ver. As listas, a agenda, os recados e as Senhas da casa continuam na internet para a família.", "Erase from this device Health (" + n.health + "), Documents (" + n.docs + ") and " + n.files + " photo(s) and file(s), including attachments in Home passwords? Anyone else using this device stops seeing them too. Lists, calendar, messages and Home passwords stay online for the family.") + (legado ? " " + tt("As senhas antigas (de antes da nuvem) e os anexos delas continuam neste aparelho: traga-as em Casa → Senhas da casa.", "The old passwords (from before the cloud) and their attachments stay on this device: bring them in Home → Home passwords.") : ""), tt("Apagar deste aparelho", "Erase from this device"), true))) return;
     /* a situação pode ter mudado enquanto as janelas estavam abertas (saiu da conta, trocou de família, deixou de ser responsável) */
     if (S.mode !== "cloud" || CloudDriver.gid !== gid || !isGuardian()) return toast(tt("Algo mudou enquanto você confirmava. Nada foi apagado.", "Something changed while you were confirming. Nothing was erased."), 5000);
-    /* arquivos que outra família deste aparelho ou as senhas antigas ainda usam ficam (o store "files" é por id, sem família) */
-    const ficam = new Set();
-    try { for (const [k] of await IDB.entries("nuvem")) { if (k.startsWith(gid + "|")) continue; const p = k.split("|"); if (p[1] === "files") ficam.add(p.slice(2).join("|")); } }
-    catch (e) { return toast(tt("Não consegui conferir este aparelho agora. Nada foi apagado.", "Couldn't check this device right now. Nothing was erased."), 5000); }
-    for (const d of Cofre.legado().values()) for (const f of d.files || []) ficam.add(typeof f === "string" ? f : f && f.id);
+    /* o store "files" é por id, sem família: o arquivo que outra família deste aparelho (na nuvem ou "só neste aparelho") também
+       usa perde só o registro desta família; o arquivo em si fica */
+    const outros = new Set(), ant = this.anexosAntigos();
+    try {
+      for (const [k] of await IDB.entries("nuvem")) { if (k.startsWith(gid + "|")) continue; const p = k.split("|"); if (p[1] === "files") outros.add(p.slice(2).join("|")); }
+      for (const [k] of await IDB.entries("docs")) if (k.startsWith("files|")) outros.add(k.slice(6));
+    } catch (e) { return toast(tt("Não consegui conferir este aparelho agora. Nada foi apagado.", "Couldn't check this device right now. Nothing was erased."), 5000); }
+    let mantidos = 0;
     for (const key of [...CloudDriver.recs.keys()]) {
       const i = key.indexOf("|"), col = key.slice(0, i), id = key.slice(i + 1);
-      if (!NUVEM_LOCAL.includes(col) || (col === "files" && ficam.has(id))) continue;
+      if (!NUVEM_LOCAL.includes(col) || (col === "files" && ant.has(id))) continue;
       if (col === "files") {
-        try { await IDB.del("files", id); } catch (e) {}
+        if (outros.has(id)) mantidos++; else { try { await IDB.del("files", id); } catch (e) {} }
         const u = Files.urls.get(id); if (u) { try { URL.revokeObjectURL(u); } catch (e) {} Files.urls.delete(id); }
       }
       CloudDriver.recs.delete(key); DB.col(col).delete(id);
       try { await IDB.del("nuvem", gid + "|" + key); } catch (e) {}
     }
-    toast("✓ " + tt("Apagado deste aparelho: Saúde, Documentos, fotos e arquivos.", "Erased from this device: Health, Documents, photos and files.") + (ficam.size ? " " + tt("Ficaram só os arquivos que outra família deste aparelho ou as senhas antigas ainda usam.", "Only files still used by another family on this device or by the old passwords were kept.") : ""), 6000);
+    toast("✓ " + tt("Apagado deste aparelho: Saúde, Documentos, fotos e arquivos.", "Erased from this device: Health, Documents, photos and files.") + (mantidos ? " " + tt(mantidos + " arquivo(s) também é(são) usado(s) por outra família deste aparelho: continua(m) lá.", mantidos + " file(s) are also used by another family on this device: they stay there.") : ""), 6000);
     render();
   },
   card() {
     if (S.mode !== "cloud" || !CloudDriver.gid || !isGuardian()) return "";
     const n = this.soAqui();
     return '<div class="card danger"><h3>🗑 ' + tt("Apagar o que está só neste aparelho", "Erase what's only on this device") + '</h3><p class="small">' + tt("Saúde, Documentos, fotos e arquivos ficam só neste aparelho: não vão para a internet. Aqui você apaga isso deste aparelho; antes, o app oferece a cópia protegida. As listas, a agenda, os recados e as Senhas da casa continuam na internet para a família.", "Health, Documents, photos and files stay only on this device: they don't go online. Here you erase them from this device; first, the app offers the protected copy. Lists, calendar, messages and Home passwords stay online for the family.") + '</p><p class="small muted">' + tt("Neste aparelho agora: ", "On this device now: ") + tt("Saúde ", "Health ") + n.health + " · " + tt("Documentos ", "Documents ") + n.docs + " · " + tt("Fotos e arquivos ", "Photos and files ") + n.files + "</p>" +
-      (this._temLocal ? '<p class="small">⚠️ ' + tt("Este aparelho ainda tem a cópia antiga “só neste aparelho”: apague-a primeiro em ⚙ → Nuvem.", "This device still has the old “this device only” copy: erase it first in ⚙ → Cloud.") + "</p>" : "") +
+      (this._temLocal && this.feito() ? '<p class="small">⚠️ ' + tt("Este aparelho ainda tem a cópia antiga “só neste aparelho”: apague-a primeiro em ⚙ → Nuvem.", "This device still has the old “this device only” copy: erase it first in ⚙ → Cloud.") + "</p>" : "") +
       '<p class="tiny faint">' + tt("Não entram aqui “Meus contatos” (Segurança → Alertas) e o registro de alterações (aqui embaixo), que têm o próprio botão de apagar.", "Not included: “My contacts” (Safety → Alerts) and the change log (below), which have their own delete button.") + '</p><button class="btn danger sm" data-act="mig.soaqui">' + tt("Apagar deste aparelho", "Erase from this device") + "</button></div>";
   },
   /* ⚙ → Nuvem */
@@ -4853,7 +4859,7 @@ const Conta = {
      neste aparelho, então o caminho para apagar vem ANTES ("Apagar o que está só neste aparelho", ⚙ → Dados) */
   textoSoAqui(confirmar) {
     if (S.mode !== "cloud") return confirmar ? tt("Os dados guardados só neste aparelho continuam aqui até você apagar (Configurações → Dados).", "Data kept only on this device stays here until you erase it (Settings → Data).") : tt("Os dados que estão só neste aparelho não saem daqui: para apagá-los, use “Apagar dados deste aparelho”.", "Data kept only on this device stays here: to erase it, use “Erase this device's data”.");
-    const n = Migrar.soAqui(), resta = n.health || n.docs || n.files || Migrar._temLocal;
+    const n = Migrar.soAqui(), resta = n.health || n.docs || n.files || (Migrar._temLocal && Migrar.feito());
     const senhas = Cofre.temLegado() ? tt("As Senhas da casa saem deste aparelho automaticamente, menos as senhas antigas (de antes da nuvem). ", "Home passwords are removed from this device automatically, except the old passwords (from before the cloud). ") : tt("As Senhas da casa saem deste aparelho automaticamente. ", "Home passwords are removed from this device automatically. ");
     if (!resta) return senhas + tt("Saúde, Documentos, fotos e arquivos: nada ficou guardado só neste aparelho.", "Health, Documents, photos and files: nothing is kept only on this device.");
     const como = !isGuardian() ? tt("um chefe ou responsável precisa entrar com a conta dele neste mesmo aparelho e usar Configurações → Dados → “Apagar o que está só neste aparelho”", "a family head or guardian needs to sign in with their own account on this same device and use Settings → Data → “Erase what's only on this device”")
@@ -9900,13 +9906,15 @@ const Offline = {
      worker): ao mudar um recurso que depende da internet, revise aqui. */
   KSN: "omnilife.semNetAviso",
   oQueFunciona() {
-    const nuvem = S.mode === "cloud", ap = apN(), resp = isGuardian(), cel = !Voice.desktop();
+    /* cel: celular de verdade (tablet e computador não ligam nem mandam SMS); resp: quem pode usar Senhas da casa e cópia protegida */
+    const nuvem = S.mode === "cloud", visit = S.mode === "visitor", ap = apN(), resp = isGuardian() && !visit, cel = !Voice.desktop() && /iPhone|iPod|Mobile/i.test(navigator.userAgent);
+    const anotar = [tt("lista de compras, despensa", "shopping list, pantry"), canTab("agenda") ? tt("agenda, tarefas, lembretes", "calendar, tasks, reminders") : "", tt("recados", "messages"), canTab("contacts") ? tt("contatos", "contacts") : "", canTab("health") ? tt("Saúde", "Health") : "", canTab("docs") ? tt("Documentos", "Documents") : ""].filter(Boolean).join(", ");
     const li = (L) => '<ul class="small" style="margin:4px 0 12px 18px;padding:0">' + L.filter(Boolean).map((x) => '<li style="margin-bottom:4px">' + x + "</li>").join("") + "</ul>";
-    return '<p class="small">' + tt("Abra o app uma vez com internet neste " + ap + " (melhor ainda: instale). Depois ele abre mesmo sem sinal.", "Open the app once with internet on this " + ap + " (better yet, install it). After that it opens even without signal.") + "</p>" +
+    return '<p class="small">' + tt("Abra o app uma vez com internet neste " + ap + " (melhor ainda: instale). Depois ele abre mesmo sem sinal.", "Open the app once with internet on this " + ap + " (better yet, install it). After that it opens even without signal.") + (visit ? " " + tt("No modo visitante, nada fica guardado depois de fechar.", "In visitor mode, nothing is kept after closing.") : "") + "</p>" +
       '<div class="grouph">✅ ' + tt("Funciona sem internet", "Works offline") + "</div>" + li([
-        tt("Ver e anotar: lista de compras, despensa, agenda, tarefas, lembretes, recados, contatos, Saúde e Documentos.", "Viewing and writing down: shopping list, pantry, calendar, tasks, reminders, messages, contacts, Health and Documents."),
-        resp ? (nuvem ? tt("Senhas da casa: abrir com o PIN ou a digital, se já foram preparadas neste " + ap + " com internet.", "Home passwords: open with the PIN or fingerprint, if they were already set up on this " + ap + " online.") : tt("Senhas da casa: abrir com a senha principal.", "Home passwords: open with the main password.")) : "",
-        tt("Cheguei: o aviso fica guardado", "Check-in: the alert is kept") + (nuvem ? tt(" e a família vê quando a internet voltar, com o app aberto", " and the family sees it when the internet is back, with the app open") : "") + (cel ? tt("; ligar e mandar SMS funcionam.", "; calling and texting work.") : "."),
+        tt("Ver e anotar: ", "Viewing and writing down: ") + anotar + ".",
+        resp && canVault() ? (nuvem ? tt("Senhas da casa: abrir com o PIN ou a digital, se já foram preparadas neste " + ap + " com internet.", "Home passwords: open with the PIN or fingerprint, if they were already set up on this " + ap + " online.") : tt("Senhas da casa: abrir com a senha principal.", "Home passwords: open with the main password.")) : "",
+        tt("Cheguei: o aviso fica guardado", "Check-in: the alert is kept") + (nuvem ? tt(" e a família vê quando a internet voltar, com o app aberto", " and the family sees it when the internet is back, with the app open") : "") + (cel ? tt(". Para avisar na hora, marque ✉️ SMS: o SMS sai pelo celular.", ". To alert right away, tick ✉️ SMS: the text goes out from the phone.") : "."),
         cel ? tt("SOS: a ficha de emergência abre e dá para ligar. Ela não avisa ninguém sozinha.", "SOS: the emergency card opens and you can call. It doesn't alert anyone by itself.") : tt("SOS: a ficha de emergência abre. Ela não avisa ninguém sozinha.", "SOS: the emergency card opens. It doesn't alert anyone by itself."),
         tt("Lembretes na hora certa (compromissos, remédios), com o app aberto.", "On-time reminders (appointments, medicines), with the app open."),
         tt("Busca 🔎, AssistONE, Ajuda e ler a tela em voz alta.", "Search 🔎, AssistONE, Help and reading the screen aloud."),
@@ -10736,7 +10744,7 @@ const SetViews = {
 SetViews.clima = () => Weather.settingsView();
 SCREENS.settings.after = (root, sub) => {
   if (sub === "clima") Weather.after(root);
-  if (sub === "offline" && !Offline._snVisto && !lsGet(Offline.KSN, null)) setTimeout(() => { if (S.route && S.route.tab === "settings" && S.route.sub === "offline") Offline.avisoSemNet(); }, 300);
+  if (sub === "offline" && S.mode !== "advertiser" && !Offline._snVisto && !lsGet(Offline.KSN, null)) setTimeout(() => { if (S.route && S.route.tab === "settings" && S.route.sub === "offline") Offline.avisoSemNet(); }, 300);
 };
 ACT["set.lang"] = (d) => setLang(d.v);
 ACT["set.theme"] = (d) => { S.themePref = d.v || (S.theme === "light" ? "dark" : "light"); S.prefs.theme = S.themePref; savePrefs(); S.theme = themeResolve(); applyTheme(); staticTexts(); render(); };
