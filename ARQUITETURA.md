@@ -14,6 +14,8 @@ sem framework: HTML, CSS e JavaScript puros.
 | `recados.json` | Avisos do administrador para todos (Inbox) | Sim — ver `recados-MODELO-OmniLifeONE.json` |
 | `clima.json` | Reserva local da config do clima (a master vem do RootifyONE em `solverone-dados/clima.json`) | Sim — ver `clima-MODELO-OmniLifeONE.json` |
 | `rotas.json` | Reserva local da config de deslocamento/rotas (a master vem do RootifyONE em `solverone-dados/rotas.json`) | Sim — ver `rotas-MODELO-OmniLifeONE.json` |
+| `recursos.js` | **Interruptores do RootifyONE** (cópia avulsa; o master fica no repositório rootify-one). Lê `solverone-dados/recursos/global.json` e `recursos/omnilife-one.json`; elemento com `data-recurso="id"` some quando o recurso está desligado; no código, `SolverRecursos.ligado(id, padrão)` e `.valor(id, padrão)` | Não: copiar do rootify-one quando mudar |
+| `recursos-do-app.json` | Lista do que este app **obedece** (recursos e comportamentos). O RootifyONE lê para mostrar "quem obedece". Ao ligar um recurso novo no código, acrescente o id aqui | Sim, a cada recurso novo |
 | `manifest.webmanifest`, ícones | Instalar como app | Raramente |
 | `regras-firestore-OmniLifeONE.txt` | Regras do Firebase de antes (o Firebase **não** será usado — decisão de 03/Out/2026). Fica como referência das regras que o SQL reproduz | Não (arquivo de referência) |
 | `PLATAFORMA-DADOS.md` | Cópia fiel do contrato de dados da plataforma SolverONE (C1–C10) | Não: o contrato muda só por versão nova, combinada com o RootifyONE |

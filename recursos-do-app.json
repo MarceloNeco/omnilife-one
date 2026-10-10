@@ -1,0 +1,17 @@
+{
+  "formato": 1,
+  "app": "omnilife-one",
+  "versao": "2.16.0",
+  "atualizado": "2026-10-10",
+  "nota": {
+    "pt": "O que este app lê do Controle dos apps do RootifyONE (recursos/global.json e recursos/omnilife-one.json).",
+    "en": "What this app reads from RootifyONE's App control (recursos/global.json and recursos/omnilife-one.json)."
+  },
+  "recursos": [
+    "assistone",
+    "anuncios"
+  ],
+  "comportamentos": [
+    "assistone.dicas"
+  ]
+}
