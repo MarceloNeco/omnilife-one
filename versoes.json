@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.16.0",
+  "d": "2026-10-10",
+  "hora": "22:56:28",
+  "pt": [
+   "🎚 O app obedece ao Controle dos apps do RootifyONE (arquivo recursos.js): se a administração desligar o AssistONE ou os anúncios, eles somem aqui na próxima abertura (ou ao voltar para o app); as dicas por tela do AssistONE também seguem o RootifyONE. A lista do que este app obedece fica em recursos-do-app.json."
+  ],
+  "en": [
+   "🎚 The app now follows RootifyONE's App control (recursos.js): if the administration turns off AssistONE or the ads, they disappear here on the next opening (or when coming back to the app); AssistONE's per-screen tips also follow RootifyONE. The list of what this app obeys is in recursos-do-app.json."
+  ]
+ },
+ {
   "v": "2.15.5",
   "d": "2026-10-09",
   "hora": "16:15:00",

@@ -45,6 +45,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **Teste do dono em 05/Out/2026 (2.15.2, Samsung com o app instalado pelo Chrome, e computador):** sem internet e sincronia OK; item criado sem internet no celular apareceu no computador; formulário do Wi-Fi OK ("Anotações" uma vez só). Confirmou #5, #7, #8 e #9; abriu #18, #19 e #20.
 - **2.15.3 (05/Out/2026):** fecharam #18 e #19; #3 avançou (textos do Início e das Configurações); #20 aguardando o dono (proposta de nomes com prints); novo #21.
 - **2.15.4 (09/Out/2026):** fecharam #20 (decisão do dono de 08/Out: só "Versões & Novidades" e "Instalar app para acessar sem internet"; recusou o resto) e #21; novos #22 a #26 (achados do levantamento do que funciona sem internet e do #21).
+- **2.16.0 (10/Out/2026):** o app passa a obedecer ao Controle dos apps do RootifyONE (`recursos.js`): AssistONE, anúncios e dicas por tela do AssistONE. Lista em `recursos-do-app.json`.
 
 ## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
 
