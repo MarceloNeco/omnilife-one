@@ -14,8 +14,10 @@ sem framework: HTML, CSS e JavaScript puros.
 | `recados.json` | Avisos do administrador para todos (Inbox) | Sim — ver `recados-MODELO-OmniLifeONE.json` |
 | `clima.json` | Reserva local da config do clima (a master vem do RootifyONE em `solverone-dados/clima.json`) | Sim — ver `clima-MODELO-OmniLifeONE.json` |
 | `rotas.json` | Reserva local da config de deslocamento/rotas (a master vem do RootifyONE em `solverone-dados/rotas.json`) | Sim — ver `rotas-MODELO-OmniLifeONE.json` |
-| `recursos.js` | **Interruptores do RootifyONE** (cópia avulsa; o master fica no repositório rootify-one). Lê `solverone-dados/recursos/global.json` e `recursos/omnilife-one.json`; elemento com `data-recurso="id"` some quando o recurso está desligado; no código, `SolverRecursos.ligado(id, padrão)` e `.valor(id, padrão)` | Não: copiar do rootify-one quando mudar |
-| `recursos-do-app.json` | Lista do que este app **obedece** (recursos e comportamentos). O RootifyONE lê para mostrar "quem obedece". Ao ligar um recurso novo no código, acrescente o id aqui | Sim, a cada recurso novo |
+| `diretrizes.js` | **Módulo comum da plataforma** (1.9.1, global `DGO`), cópia do master do repositório rootify-one. Aqui serve só para: 💬 feedback (`DGO.feedback`), trabalho demorado (`DGO.fundo`/`DGO.tarefa`), dados do aparelho (`DGO.compat`) e interruptores + tela de manutenção (`DGO.recursos`). Carrega antes do `recursos.js` e do `tarefas.js` | Não: copiar do rootify-one quando mudar, sem alterar |
+| `diretrizes-config.js` | Configuração do módulo para o Omni: desliga tudo o que o app já tem (login, menu, idioma, anúncios, OCR, IA, avisos, PWA, varredura de textos e datas, faixa do topo, quadro do aparelho) e liga o feedback com o Supabase da plataforma (endereço e chave **pública** `sb_publishable_…`, os mesmos do login; nunca a secret nem a service_role). `perguntaDiaria: false` | Sim, com cuidado |
+| `recursos.js` | **Interruptores do RootifyONE** (cópia avulsa; o master fica no repositório rootify-one). Com o `diretrizes.js` na página, só repassa para o `DGO.recursos` (nada em dobro; a tela de manutenção é a do módulo). Lê `solverone-dados/recursos/global.json` e `recursos/omnilife-one.json`; elemento com `data-recurso="id"` some quando o recurso está desligado; no código, `SolverRecursos.ligado(id, padrão)` e `.valor(id, padrão)` | Não: copiar do rootify-one quando mudar |
+| `recursos-do-app.json` | Lista do que este app **obedece** (recursos e comportamentos), no formato detalhado `{ id, nome{pt,en}, onde{pt,en} }` que o ⚡ Modo DEUS do RootifyONE mostra. Ao ligar um recurso novo no código, acrescente o id aqui e em `Rec` | Sim, a cada recurso novo |
 | `manifest.webmanifest`, ícones | Instalar como app | Raramente |
 | `regras-firestore-OmniLifeONE.txt` | Regras do Firebase de antes (o Firebase **não** será usado — decisão de 03/Out/2026). Fica como referência das regras que o SQL reproduz | Não (arquivo de referência) |
 | `PLATAFORMA-DADOS.md` | Cópia fiel do contrato de dados da plataforma SolverONE (C1–C10) | Não: o contrato muda só por versão nova, combinada com o RootifyONE |
@@ -182,6 +184,24 @@ sem framework: HTML, CSS e JavaScript puros.
   navegador não pintar o escuro dele por cima (Chrome "tema escuro para sites", Samsung Internet) — senão a tela fica escura com
   `S.theme = "light"` e a chave "Tema escuro" do menu 👤 parece errada. O escuro declara `dark light`.
 - `ACT` — todas as ações de botão (`data-act="…"`); `data-chg` para campos que mudam.
+- `Rec` (2.17.0) — **⚡ Modo DEUS** (logo depois de `const ACT`). Ids: abas em `Rec.TAB`, partes de aba em `Rec.SUB` (`"aba/parte"`;
+  `"aba/"` = a parte que abre sem parte), ações em `Rec.ACT` (nome exato, senão o começo antes do ponto) e ajuda da busca em `Rec.AJUDA`.
+  Um `MutationObserver` põe `data-recurso` sozinho em todo elemento com `data-tab`, `data-dtab`, `data-act` ou `data-dact` (o CSS do
+  módulo esconde quando o id está desligado); `visibleTabs()` filtra ☰, barra de baixo e abas do computador; o despachante de `ACT`
+  recusa a ação desligada (`Rec.livre`); `render()` mostra `Rec.tela()` ("Função desligada por enquanto") para aba desligada e, para
+  parte desligada, as abas de cima (`.seg`) + o aviso; a busca pula o que está desligado. Pontos únicos com `Rec.on`: `AI.ask0` (`ia`),
+  `Voice.listen`/`Voice.dictate` (`voz`), `OCR.read` (`ocr`), `Health.sos`, `Cheguei.arrive`, `Reminders.quick`, `Search.open`,
+  `Weather.allowed/visible` (`clima`), `Transit.allowed` (`deslocamento`). **Nunca desligáveis:** Início, ⚙ Configurações, entrar e
+  Sobre. `Rec.SEMPRE`: trancar o cofre, "Desconectar este aparelho", parar/silenciar o Vigilante e encerrar o Assume a Casa sempre
+  funcionam; com o Vigilante ligado, a parte dele não some até a pessoa parar (`Rec.vigiando`). Arquivo novo do RootifyONE com o app
+  aberto (`SolverRecursos.aoMudar`) redesenha. Para uma função nova: id em `Rec` e em `recursos-do-app.json`.
+- `Fb` (2.17.0) — ponte com o `DGO.feedback` do módulo: `Fb.abrir(o)` (manda `tela`/`titulo` do mapa do app), `Fb.botao()`, `Fb.card()`
+  (⚙ → Geral, "Ajuda e opinião"), item 💬 no ☰ (Ajuda e mais), "Avisar que deu erro" no cartão de erro do `render()` (`data-erro`),
+  ação `fb.open` (id `feedback`). `Fb.idioma()` faz o módulo seguir o idioma do app (chamado no `boot` e no `setLang`).
+  `window.OmniFeedbackTela` é lido pelo `feedback.tela` do `diretrizes-config.js`.
+- `AI.ask` (2.17.0) — roda a pergunta (`AI.ask0`, o antigo `ask`) dentro do `DGO.fundo` (tipo `ia`): pílula, tela acesa, aviso
+  antes de fechar, ✕ cancela; ao terminar em outra tela, "✅ toque para ver" volta para a tela de onde a pergunta saiu
+  (`aindaNaTela` = mesmo endereço). Sem o módulo, chama `ask0` direto. `OCR.read` continua no `DGO.tarefa` (agora o do módulo).
 - `SCREENS` — cada aba (`home`, `inbox`, `shop`, `agenda`, `security`, `family`, `settings`…).
 - `Nav` — ÚNICO ponto do histórico (botão Voltar do celular). Não use `pushState` fora dele.
 - `modal()` — janelas (já registram no `Nav`). `Drawer` — menu ☰.
@@ -241,7 +261,7 @@ sem framework: HTML, CSS e JavaScript puros.
 
 1. Subir `APP_VERSION` no `index.html`.
 2. Acrescentar a versão no topo do `versoes.json` (e na cópia embutida `VERSOES_EMB`).
-3. Subir o número em `sw.js` (`CACHE = APPC + "vN"`).
+3. Subir o número em `sw.js` (`CACHE = APPC + "vN"`) e a `versaoApp` do `diretrizes-config.js`.
 5. Nome do zip: `OMNI-LIFE-ONE vX.Y.Z dd-Mmm-aaaa HHhMMm.zip` (hora de Brasília).
 4. Se mudou algo de nuvem: novo arquivo `supabase/omnilife-one-vN.sql` (idempotente, regras do C10 em `PLATAFORMA-DADOS.md`), levar para revisão e só depois rodar no Supabase. O Firebase não é mais usado.
 6. Teste da nuvem: só contra um Supabase **local** com a base real + `supabase/omnilife-one-v1.sql` (nunca contas de teste na produção);
