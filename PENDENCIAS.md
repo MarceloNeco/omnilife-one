@@ -43,6 +43,10 @@ experiência digital) vem **antes** de qualquer recurso novo.
 | 30 | Feedback de quem está com a conta conectada vai sem identificar a conta (só o id anônimo do aparelho); dá para mandar junto o acesso da conta, se o dono quiser ver quem mandou | Entrega 2.17.0 | ⏸ aguardando o dono |
 | 31 | Importar cópia protegida e "Vários de uma vez" (Documentos) ainda não usam a pílula do `Fundo` (só IA e leitura de foto usam) | Entrega 2.17.0 | ⏸ aguardando o dono |
 | 32 | Partes que ainda não têm interruptor próprio: subpartes da Inbox, Compras › Histórico, Duas casas, Lugares (só CEP) e as abas de ⚙ (de propósito: Configurações nunca some) | Entrega 2.17.0 | ⏸ aguardando o dono |
+| 33 | Leitura de segurança, Fase 1: chaves de IA, do clima e do trânsito e o token do Telegram fora do navegador em texto aberto, no cofre comum da plataforma (`cofre.js`) | Tarefa autorizada pelo dono no RootifyONE (16/Out/2026) | ✅ 2.18.0 — `cofre.js` 1.0.0 + módulo comum 1.10.0; as chaves antigas (`investifyme.chaves.v1`, `omnilife.prefs.v1`) vão sozinhas para o cofre ao criar o PIN; ⚙ mostra "🔐 Guardado no cofre" e "🔒 Trancar o cofre agora"; backup sem chaves |
+| 34 | A `apikey` do CallMeBot (WhatsApp automático) de cada contato de alerta continua em texto aberto nas preferências (`alertas.recips[].waKey`): levar também para o cofre (um nome por contato) | Entrega 2.18.0 (ficou fora da Fase 1: não estava na lista autorizada) | ⏸ aguardando o dono |
+| 35 | O MoneyTRIO lia as chaves que o Omni gravava em `investifyme.chaves.v1`; agora elas ficam só no cofre (`ia:<provedor>`). Conferir no chat do MoneyTRIO se ele já lê pelo cofre (pelo master, ele usa `dgo:global:ia`) | Entrega 2.18.0 | ⏸ aguardando o dono |
+| 36 | Proteção extra recomendada pelo master do cofre: Content-Security-Policy no `index.html` (o app ainda carrega bibliotecas de CDN, ex.: Tesseract, TensorFlow, jsPDF, Leaflet — precisaria listar cada endereço) | Entrega 2.18.0 (limite honesto do `cofre.js`) | ⏸ aguardando o dono |
 
 ## Histórico das entregas
 
@@ -53,6 +57,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **2.15.4 (09/Out/2026):** fecharam #20 (decisão do dono de 08/Out: só "Versões & Novidades" e "Instalar app para acessar sem internet"; recusou o resto) e #21; novos #22 a #26 (achados do levantamento do que funciona sem internet e do #21).
 - **2.16.0 (10/Out/2026):** o app passa a obedecer ao Controle dos apps do RootifyONE (`recursos.js`): AssistONE, anúncios e dicas por tela do AssistONE. Lista em `recursos-do-app.json`.
 - **2.17.0 (16/Out/2026):** fechou #27 (Modo DEUS com 39 funções, manutenção, 💬 feedback, IA no `Fundo`; tela de entrar sem rolagem lateral em 320 px); novos #28 a #32 (sugestões, não feitas).
+- **2.18.0 (16/Out/2026):** fechou #33 (chaves e token do Telegram no cofre comum, com mudança automática das antigas); novos #34 a #36 (sugestões, não feitas).
 
 ## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
 

@@ -8,11 +8,18 @@
      - DGO.fundo     — trabalho demorado (IA e leitura de foto): pílula, tela acesa, aviso antes de fechar
      - DGO.compat    — dados do aparelho que vão junto do feedback (o quadro do aparelho continua o do app)
      - DGO.recursos  — interruptores do RootifyONE e a tela de manutenção (o recursos.js repassa para ele)
+     - DGO.cofre     — o cofre comum de chaves (cofre.js): chaves de IA, clima, trânsito e o token do Telegram
    ===================================================================== */
+/* onde o OmniLifeONE guardava as chaves em texto aberto (até a 2.17.0). Na primeira vez que o cofre abre,
+   só estes campos vão para o cofre e saem do lugar antigo; o resto das preferências fica.
+   As chaves de IA usam o nome comum da plataforma ('ia:gemini'…), para valer nos outros apps. */
+var OMNI_CHAVES = { 'wx:weatherapi': 'wx:weatherapi', 'wx:openweathermap': 'wx:openweathermap', 'rt:tomtom': 'rt:tomtom' };
+['gemini', 'groq', 'openrouter', 'mistral', 'deepgram', 'assemblyai', 'elevenlabs', 'cerebras', 'openai', 'anthropic', 'deepseek', 'custom']
+  .forEach(function (p) { OMNI_CHAVES[p] = 'ia:' + p; });
 DGO.iniciar({
   app: 'omnilife-one',                      /* gaveta de dados: nunca mude */
   nome: { pt: 'OmniLifeONE', en: 'OmniLifeONE' },
-  versaoApp: '2.17.0',
+  versaoApp: '2.18.0',
   cor: '#8a6ff2',
   corFundoBarra: '#0e1016',
 
@@ -35,6 +42,15 @@ DGO.iniciar({
   ia: { ativo: false, botaoNaFaixa: false },
   notificacoes: { ativo: false },
   pwa: { ativo: false },
+  cofre: {
+    fontes: [
+      { chave: 'investifyme.chaves.v1', caminho: 'chaves', mapa: OMNI_CHAVES },   /* { cifrado: false, chaves: { gemini, 'wx:…', 'rt:tomtom' } } */
+      { chave: 'investifyme.chaves.v1', caminho: '', mapa: OMNI_CHAVES },         /* formato plano antigo */
+      { chave: 'omnilife.prefs.v1', caminho: 'keys', mapa: OMNI_CHAVES },         /* cópia das mesmas chaves nas preferências */
+      { chave: 'omnilife.prefs.v1', caminho: 'alertas', mapa: { tgToken: 'telegram:omnilife-one' } },
+      { chave: 'omnilife.prefs.v1', caminho: 'vigia', mapa: { tgToken: 'telegram:omnilife-one' } }   /* Vigilante da 1.2.4 */
+    ]
+  },
   /* o app tem o próprio quadro "O seu aparelho" (⚙ → Geral): o módulo não mostra faixa nem bloqueio */
   compat: { bloqueio: false, aviso: false, usa: ['indexedDB', 'armazenamento', 'camera', 'microfone', 'localizacao', 'notificacoes'] },
 
