@@ -21,7 +21,10 @@
 (function (raiz) {
   'use strict';
 
-  var VERSAO = '1.9.1';
+  /* 1.10.0 (16/Out/2026): as chaves de IA moram SÓ no cofre comum (cofre.js, global SolverCofre), trancadas
+     por PIN. Sem o cofre.js na página, continua do jeito antigo (texto aberto) e avisa no console.
+     Ordem: cofre.js -> diretrizes.js -> diretrizes-config.js. Ver ARQUITETURA.md, "Cofre comum de chaves". */
+  var VERSAO = '1.10.0';
   if (raiz.DGO && raiz.DGO.__carregado) { return; }
 
   /* ------------------------------------------------------------------
@@ -80,6 +83,13 @@
       contexto: '',                 // o que este app faz, para a IA saber onde esta
       sugestoes: [],                // [{pt,en}] perguntas de exemplo
       servico: 'ia'                 // id do servico, para o controle de nivel
+    },
+
+    /* cofre comum (cofre.js): onde este app guardava chaves em texto aberto antes, para irem
+       sozinhas para o cofre na primeira vez que ele abrir. Ex. (RiseONE):
+       fontes: [{ chave: 'riseone.v1', caminho: 'settings.ai.keys', mapa: { gemini: 'ia:gemini', openai: 'ia:openai', claude: 'ia:anthropic' } }] */
+    cofre: {
+      fontes: []
     },
 
     /* o que pode ser feito em dados moveis: 'sempre' | 'wifi' | 'nunca' */
@@ -4459,14 +4469,52 @@
     }
   };
 
+  /* ---- cofre comum (cofre.js, 1.10.0) ---- */
+  function cofreComum() { var C = raiz.SolverCofre; return (C && C.__carregado) ? C : null; }
+  var _avisouSemCofre = false;
+  function avisarSemCofre() {
+    if (_avisouSemCofre) return; _avisouSemCofre = true;
+    try { console.warn('[DGO ' + VERSAO + '] cofre.js não está nesta página: as chaves de IA continuam no jeito antigo (texto aberto em dgo:global:chaves-ia). Carregue <script src="cofre.js"></script> antes do diretrizes.js.'); } catch (e) {}
+  }
+  var _cofreLigado = false;
+  function ligarCofreComum() {
+    var C = cofreComum();
+    if (!C) { avisarSemCofre(); return; }
+    if (cfg.cofre && cfg.cofre.fontes && cfg.cofre.fontes.length) C.registrarFontes(cfg.cofre.fontes);
+    if (C.aberto()) C.migrar().catch(function () {});     /* abriu antes do app dizer onde guardava as chaves */
+    if (_cofreLigado) return; _cofreLigado = true;
+    d.addEventListener('cofre:mudou', function (e) {
+      var nome = (e.detail && e.detail.nome) || '';
+      if (nome === '*' || nome.indexOf('ia:') === 0) d.dispatchEvent(new CustomEvent('dgo:ia-chaves', { detail: { provedor: nome === '*' ? '' : nome.slice(3), tem: !!(e.detail && e.detail.tem) } }));
+    });
+    ['cofre:aberto', 'cofre:trancado'].forEach(function (ev) {
+      d.addEventListener(ev, function () { d.dispatchEvent(new CustomEvent('dgo:ia-chaves', { detail: { provedor: '', cofre: ev.slice(6) } })); });
+    });
+  }
+
   var IA = {
     _conversa: [],
     cofreBackend: null,      /* futuro: { ler(), gravar(obj) } para sincronizar entre aparelhos */
 
-    /* ---- cofre, compartilhado entre os apps (mesma origem) ---- */
-    chaves: function () { return Guardar.ler('chaves-ia', {}, true) || {}; },
-    chave: function (prov) { return IA.chaves()[prov] || ''; },
+    /* ---- cofre, compartilhado entre os apps (mesma origem) ----
+       1.10.0: com o cofre.js na pagina, a chave mora SO no SolverCofre ('ia:<provedor>'), trancada por PIN.
+       Sem ele, o jeito antigo (dgo:global:chaves-ia em texto aberto) continua, com aviso no console. */
+    chaves: function () { if (cofreComum()) return {}; avisarSemCofre(); return Guardar.ler('chaves-ia', {}, true) || {}; },
+    /* sem esperar: o que ja esta aberto ('' com o cofre trancado) */
+    chave: function (prov) { var C = cofreComum(); return C ? String(C.lerAgora('ia:' + prov) || '') : (IA.chaves()[prov] || ''); },
+    /* Promise: se o cofre estiver trancado, pede o PIN e responde depois */
+    lerChave: function (prov) {
+      var C = cofreComum();
+      if (!C) return Promise.resolve(IA.chave(prov));
+      return C.ler('ia:' + prov, { motivo: { pt: 'Para usar a IA (' + nomeProv(PROVEDORES[prov] || { nome: prov }) + ') com a chave guardada.', en: 'To use the AI (' + nomeProv(PROVEDORES[prov] || { nome: prov }) + ') with the saved key.' } })
+        .then(function (v) { return String(v || ''); });
+    },
     definirChave: function (prov, valor) {
+      var C = cofreComum();
+      if (C) {
+        /* o aviso dgo:ia-chaves sai pelo evento cofre:mudou (ver ligarCofreComum) */
+        return (valor ? C.gravar('ia:' + prov, String(valor).trim(), { motivo: { pt: 'Para guardar a chave de IA com proteção.', en: 'To keep the AI key protected.' } }) : C.apagar('ia:' + prov));
+      }
       var c = IA.chaves();
       if (valor) c[prov] = String(valor).trim(); else delete c[prov];
       Guardar.gravar('chaves-ia', c, true);
@@ -4479,6 +4527,8 @@
       if (PROVEDORES[prov] && PROVEDORES[prov].semChave) return true;
       /* um proxy no servidor dispensa chave no navegador */
       if (IA.proxyDe(prov)) return true;
+      var C = cofreComum();
+      if (C) return C.tem('ia:' + prov);       /* sabe sem abrir: o cofre guarda os nomes em claro, nunca os valores */
       return !!IA.chave(prov);
     },
 
@@ -4526,7 +4576,7 @@
       prov = prov || IA.provedor();
       var pr = PROVEDORES[prov];
       if (!pr || !pr.listar) return Promise.resolve([]);
-      return pr.listar(IA.chave(prov)).then(function (lista) {
+      return IA.lerChave(prov).then(function (k) { return pr.listar(k); }).then(function (lista) {
         var cache = Guardar.ler('ia-lista-modelos', {}, true) || {};
         cache[prov] = { em: Date.now(), modelos: lista.slice(0, 400) };
         Guardar.gravar('ia-lista-modelos', cache, true);
@@ -4565,16 +4615,18 @@
           body: JSON.stringify({ provedor: prov, modelo: modelo, sistema: sistema, mensagens: msgs, app: cfg.app, limite: opcoes.limite || null })
         }).then(lerResposta).then(function (j) { return String(j.texto || j.resposta || '').trim(); });
       }
-      var chave = IA.chave(prov);
-      if (!chave && prov !== 'personalizado') return Promise.reject(new Error('sem-chave'));
-      /* opcoes.limite: tamanho maximo da resposta (textos longos, como termos) */
-      return pr.chamar(chave, modelo, sistema, msgs, opcoes.limite).catch(function (e) {
-        /* Modelo aposentado pelo provedor (o Google faz isso sem aviso): escolhe outro
-           entre os que a chave aceita, guarda e tenta de novo uma vez. */
-        if (opcoes._semTroca || !IA.modeloSumiu(e) || !pr.listar) throw e;
-        return IA.trocarModeloSozinho(prov, modelo, e).then(function (novo) {
-          if (!novo) throw e;
-          return IA.perguntar(pergunta, Object.assign({}, opcoes, { modelo: novo, _semTroca: true }));
+      /* 1.10.0: a chave vem do cofre comum (pede o PIN se estiver trancado) */
+      return IA.lerChave(prov).then(function (chave) {
+        if (!chave && prov !== 'personalizado') throw new Error('sem-chave');
+        /* opcoes.limite: tamanho maximo da resposta (textos longos, como termos) */
+        return pr.chamar(chave, modelo, sistema, msgs, opcoes.limite).catch(function (e) {
+          /* Modelo aposentado pelo provedor (o Google faz isso sem aviso): escolhe outro
+             entre os que a chave aceita, guarda e tenta de novo uma vez. */
+          if (opcoes._semTroca || !IA.modeloSumiu(e) || !pr.listar) throw e;
+          return IA.trocarModeloSozinho(prov, modelo, e).then(function (novo) {
+            if (!novo) throw e;
+            return IA.perguntar(pergunta, Object.assign({}, opcoes, { modelo: novo, _semTroca: true }));
+          });
         });
       });
     },
@@ -4662,6 +4714,7 @@
     explicarErro: function (e) {
       var en = Idioma.atual === 'en', m = String(e && e.message || e || ''), st = e && e.status;
       function T2(pt, en2) { return en ? en2 : pt; }
+      if (m === 'cofre-trancado') return T2('O cofre de chaves ficou trancado. Abra com o seu PIN para usar a IA.', 'The key vault stayed locked. Open it with your PIN to use the AI.');
       if (m === 'sem-chave') return T2('Falta a chave da IA. Abra o cofre de chaves e cole uma grátis.', 'The AI key is missing. Open the key vault and paste a free one.');
       if (m === 'sem-internet') return T2('Sem internet.', 'No internet.');
       if (m === 'so-wifi') return T2('A IA está marcada para usar só no Wi-Fi (Configurações → Rede).', 'AI is set to Wi-Fi only (Settings → Network).');
@@ -4963,7 +5016,8 @@
       if (prontos.length) return prontos[0];
       return (cap === 'tts' || cap === 'stt') ? 'aparelho' : '';
     },
-    chave: function (cap) { var p = PorUso.provedor(cap); return p ? IA.chave(p) : ''; }
+    chave: function (cap) { var p = PorUso.provedor(cap); return p ? IA.chave(p) : ''; },
+    lerChave: function (cap) { var p = PorUso.provedor(cap); return p && p !== 'aparelho' ? IA.lerChave(p) : Promise.resolve(''); }
   };
 
   /* ---- ilustracao desenhada de cada passo (SVG), ou o print do app ---- */
@@ -5008,6 +5062,12 @@
   }
 
   function abrirChaves(provedorAberto, capInicial) {
+    /* 1.10.0: com cofre comum trancado, pede o PIN antes de mostrar as chaves */
+    var C = cofreComum();
+    if (C && !C.aberto() && (C.existe() || C.pendentes().length)) {
+      return C.pedir({ motivo: { pt: 'Para ver e trocar as chaves de IA.', en: 'To see and change your AI keys.' } })
+        .then(function (ok) { return ok ? abrirChaves(provedorAberto, capInicial) : null; });
+    }
     completarProvedores();
     var aberto = provedorAberto || '';
     var filtro = capInicial || Guardar.ler('ia-cofre-filtro', '', true) || '';
@@ -5170,27 +5230,32 @@
             msg.innerHTML = '';
             if (!chk.ok && !(p === 'personalizado' && !valor)) { msg.appendChild(aviso(chk[Idioma.atual] || chk.pt, 'erro')); return; }
             if (chk.aviso) msg.appendChild(aviso(chk.aviso[Idioma.atual] || chk.aviso.pt, 'info'));
-            IA.definirChave(p, valor);
-            if (cM) IA.definirModelo(p, cM._input.value.trim());
-            if ((pr.cap || []).indexOf('texto') !== -1 && IA.temChave(p) && !IA.provedoresProntos().filter(function (x) { return x !== p; }).length) IA.definirProvedor(p);
-            b.disabled = true; msg.appendChild(aviso(t('testando'), 'info'));
-            testarChave(p, valor).then(function (r) {
-              msg.innerHTML = '';
-              msg.appendChild(aviso(r.semTeste ? t('chaveSalva') : t('chaveOk'), 'ok'));
-              guiaDefinir(p, null);
-              if (janelaGuia && !janelaGuia.closed) { try { janelaGuia.close(); } catch (e3) {} }
-              if (r.modelos && dl) {
-                var gratis = r.modelos.filter(function (m) { return m.gratis; });
-                var usar = (gratis.length && pr.gratis) ? gratis : r.modelos;
-                dl.innerHTML = ''; usar.slice(0, 300).forEach(function (m) { dl.appendChild(el('option', { value: m.id })); });
-                if (cM && !cM._input.value && usar.length) { cM._input.value = usar[0].id; IA.definirModelo(p, usar[0].id); }
-              }
-              setTimeout(reabrir, 900);
-            }).catch(function (e) {
-              msg.innerHTML = '';
-              var st = e && e.status;
-              var txt = st === 401 || st === 403 ? t('chaveRecusada') : (!st && /fetch|network/i.test(String(e && e.message)) ? t('corsAviso') : t('erroIA') + ' ' + ((e && e.message) || ''));
-              msg.appendChild(aviso(txt, st === 401 || st === 403 ? 'erro' : 'info'));
+            b.disabled = true;
+            /* 1.10.0: com o cofre comum, gravar pode pedir o PIN (ou criar o cofre) antes; espera terminar */
+            Promise.resolve(IA.definirChave(p, valor)).then(function () {
+              if (cM) IA.definirModelo(p, cM._input.value.trim());
+              if ((pr.cap || []).indexOf('texto') !== -1 && IA.temChave(p) && !IA.provedoresProntos().filter(function (x) { return x !== p; }).length) IA.definirProvedor(p);
+              msg.appendChild(aviso(t('testando'), 'info'));
+              return testarChave(p, valor).then(function (r) {
+                msg.innerHTML = '';
+                msg.appendChild(aviso(r.semTeste ? t('chaveSalva') : t('chaveOk'), 'ok'));
+                guiaDefinir(p, null);
+                if (janelaGuia && !janelaGuia.closed) { try { janelaGuia.close(); } catch (e3) {} }
+                if (r.modelos && dl) {
+                  var gratis = r.modelos.filter(function (m) { return m.gratis; });
+                  var usar = (gratis.length && pr.gratis) ? gratis : r.modelos;
+                  dl.innerHTML = ''; usar.slice(0, 300).forEach(function (m) { dl.appendChild(el('option', { value: m.id })); });
+                  if (cM && !cM._input.value && usar.length) { cM._input.value = usar[0].id; IA.definirModelo(p, usar[0].id); }
+                }
+                setTimeout(reabrir, 900);
+              }).catch(function (e) {
+                msg.innerHTML = '';
+                var st = e && e.status;
+                var txt = st === 401 || st === 403 ? t('chaveRecusada') : (!st && /fetch|network/i.test(String(e && e.message)) ? t('corsAviso') : t('erroIA') + ' ' + ((e && e.message) || ''));
+                msg.appendChild(aviso(txt, st === 401 || st === 403 ? 'erro' : 'info'));
+              });
+            }, function (e) {
+              msg.innerHTML = ''; msg.appendChild(aviso(IA.explicarErro(e), 'erro'));
             }).then(function () { b.disabled = false; });
           } }));
           corpo.appendChild(l1);
@@ -5206,7 +5271,7 @@
               onclick: function () { if (c === 'texto') IA.definirProvedor(p); else PorUso.definir(c, p); reabrir(); } }));
           });
           if (!pr.semChave) lu.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('remover'), onclick: function () {
-            IA.definirChave(p, ''); ['stt', 'tts'].forEach(function (c) { if (PorUso.ler()[c] === p) PorUso.definir(c, ''); }); reabrir(); } }));
+            Promise.resolve(IA.definirChave(p, '')).then(function () { ['stt', 'tts'].forEach(function (c) { if (PorUso.ler()[c] === p) PorUso.definir(c, ''); }); reabrir(); }, function () {}); } }));
           corpo.appendChild(lu);
         }
         corpo.appendChild(msg);
@@ -5214,6 +5279,14 @@
       });
 
       caixa.appendChild(aviso(t('chaveAvisoCusto') + ' ' + t('chaveNuncaChat'), 'info'));
+      var Cc = cofreComum();
+      if (Cc && Cc.aberto()) {
+        caixa.appendChild(el('p', { class: 'dgo-mini', texto: Idioma.atual === 'en'
+          ? '🔐 The keys are locked with your PIN in this browser' + (Cc.lembrado() ? ' (this device is remembered).' : '.')
+          : '🔐 As chaves ficam trancadas com o seu PIN neste navegador' + (Cc.lembrado() ? ' (este aparelho está lembrado).' : '.') }));
+        caixa.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: Idioma.atual === 'en' ? '🔒 Lock the vault now' : '🔒 Trancar o cofre agora',
+          onclick: function () { fecharModal(); Cc.trancar(); } }));
+      }
       caixa.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('fechar'), onclick: fecharModal }));
       return caixa;
     }
@@ -6874,10 +6947,13 @@
     cfg: cfg,
     /* campo de senha com 👁: DGO.senha.olho(input) · aplicar(raiz) · esconder(raiz) */
     senha: Senha,
+    /* cofre comum de chaves (cofre.js) ou null, se a pagina nao carregou o cofre.js */
+    get cofre() { return cofreComum(); },
 
     iniciar: function (opcoes) {
       fundir(cfg, opcoes || {});
       Idioma.montarDicionario();
+      ligarCofreComum();
 
       var guardado = Guardar.ler('idioma', null, !!cfg.idiomaCompartilhado);
       var doNavegador = (navigator.language || 'pt').toLowerCase().indexOf('en') === 0 ? 'en' : 'pt';
@@ -7034,6 +7110,9 @@
       capacidades: function () { return Object.keys(CAPS).map(function (c) { return { id: c, icone: CAPS[c].icone, nome: CAPS[c][Idioma.atual] || CAPS[c].pt }; }); },
       provedorPara: function (cap) { completarProvedores(); return PorUso.provedor(cap); },
       chavePara: function (cap) { completarProvedores(); return PorUso.chave(cap); },
+      /* 1.10.0: as mesmas, mas esperando o cofre abrir (pede o PIN se estiver trancado) */
+      lerChave: function (prov) { return IA.lerChave(prov || IA.provedor()); },
+      lerChavePara: function (cap) { completarProvedores(); return PorUso.lerChave(cap); },
       definirPara: function (cap, prov) { if (cap === 'texto') IA.definirProvedor(prov); else PorUso.definir(cap, prov); },
       guia: function (prov, cap) { return abrirChaves(prov, cap); },
       provedoresProntos: function () { return IA.provedoresProntos(); },

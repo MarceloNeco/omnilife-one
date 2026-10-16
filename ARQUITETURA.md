@@ -14,8 +14,9 @@ sem framework: HTML, CSS e JavaScript puros.
 | `recados.json` | Avisos do administrador para todos (Inbox) | Sim — ver `recados-MODELO-OmniLifeONE.json` |
 | `clima.json` | Reserva local da config do clima (a master vem do RootifyONE em `solverone-dados/clima.json`) | Sim — ver `clima-MODELO-OmniLifeONE.json` |
 | `rotas.json` | Reserva local da config de deslocamento/rotas (a master vem do RootifyONE em `solverone-dados/rotas.json`) | Sim — ver `rotas-MODELO-OmniLifeONE.json` |
-| `diretrizes.js` | **Módulo comum da plataforma** (1.9.1, global `DGO`), cópia do master do repositório rootify-one. Aqui serve só para: 💬 feedback (`DGO.feedback`), trabalho demorado (`DGO.fundo`/`DGO.tarefa`), dados do aparelho (`DGO.compat`) e interruptores + tela de manutenção (`DGO.recursos`). Carrega antes do `recursos.js` e do `tarefas.js` | Não: copiar do rootify-one quando mudar, sem alterar |
-| `diretrizes-config.js` | Configuração do módulo para o Omni: desliga tudo o que o app já tem (login, menu, idioma, anúncios, OCR, IA, avisos, PWA, varredura de textos e datas, faixa do topo, quadro do aparelho) e liga o feedback com o Supabase da plataforma (endereço e chave **pública** `sb_publishable_…`, os mesmos do login; nunca a secret nem a service_role). `perguntaDiaria: false` | Sim, com cuidado |
+| `cofre.js` | **Cofre comum de chaves da plataforma** (`SolverCofre` 1.0.0, também `DGO.cofre`), cópia do master do rootify-one. Guarda as chaves de IA, do clima, do trânsito e o token do Telegram embaralhados (AES-GCM 256, PIN com PBKDF2 310 mil), iguais em todos os apps. Carrega **antes** do `diretrizes.js` | Não: copiar do rootify-one quando mudar, sem alterar |
+| `diretrizes.js` | **Módulo comum da plataforma** (1.10.0, global `DGO`), cópia do master do repositório rootify-one. Aqui serve só para: 💬 feedback (`DGO.feedback`), trabalho demorado (`DGO.fundo`/`DGO.tarefa`), dados do aparelho (`DGO.compat`), interruptores + tela de manutenção (`DGO.recursos`) e a mudança automática das chaves antigas para o cofre (`cofre.fontes`). Carrega depois do `cofre.js` e antes do `recursos.js` e do `tarefas.js` | Não: copiar do rootify-one quando mudar, sem alterar |
+| `diretrizes-config.js` | Configuração do módulo para o Omni: desliga tudo o que o app já tem (login, menu, idioma, anúncios, OCR, IA, avisos, PWA, varredura de textos e datas, faixa do topo, quadro do aparelho), declara onde o app guardava as chaves antes (`cofre.fontes`, ver "Chaves no cofre comum") e liga o feedback com o Supabase da plataforma (endereço e chave **pública** `sb_publishable_…`, os mesmos do login; nunca a secret nem a service_role). `perguntaDiaria: false` | Sim, com cuidado |
 | `recursos.js` | **Interruptores do RootifyONE** (cópia avulsa; o master fica no repositório rootify-one). Com o `diretrizes.js` na página, só repassa para o `DGO.recursos` (nada em dobro; a tela de manutenção é a do módulo). Lê `solverone-dados/recursos/global.json` e `recursos/omnilife-one.json`; elemento com `data-recurso="id"` some quando o recurso está desligado; no código, `SolverRecursos.ligado(id, padrão)` e `.valor(id, padrão)` | Não: copiar do rootify-one quando mudar |
 | `recursos-do-app.json` | Lista do que este app **obedece** (recursos e comportamentos), no formato detalhado `{ id, nome{pt,en}, onde{pt,en} }` que o ⚡ Modo DEUS do RootifyONE mostra. Ao ligar um recurso novo no código, acrescente o id aqui e em `Rec` | Sim, a cada recurso novo |
 | `manifest.webmanifest`, ícones | Instalar como app | Raramente |
@@ -31,7 +32,8 @@ sem framework: HTML, CSS e JavaScript puros.
 ## Nunca
 
 - Nunca pôr chave de IA, token do Telegram, senha ou dado pessoal no repositório (é público).
-  Chaves ficam só no navegador da pessoa (`S.prefs.keys` + cofre compartilhado `LS.mtKeys`).
+  Chaves ficam só no navegador da pessoa, **no cofre comum** (`cofre.js`, `Keys`), nunca em texto aberto: nada de
+  `S.prefs.keys`, `tgToken` nas preferências nem `investifyme.chaves.v1` (até a 2.17.0 era assim; a 2.18.0 muda sozinha).
 - Nunca reescrever o `index.html` inteiro: as mudanças são cirúrgicas.
 - Nunca apagar caches de outros apps no `sw.js` (todos dividem o mesmo endereço): o nome do
   cache é `dgo-omnilife-vN` e o `activate` só apaga os que começam com `dgo-omnilife-`.
@@ -226,6 +228,22 @@ sem framework: HTML, CSS e JavaScript puros.
 - `Weather.autoLocate()` / `Weather.GK` — sem lugar conhecido, usa a localização do aparelho sozinho quando a permissão já foi dada (guardada 7 dias em `omnilife.wxgps.v1`, renovada a cada 6 h); senão o cartão do Início pede um toque (“📍 Usar minha localização”). `Weather.evLoc(e)` / `atPlace()` — compromisso num Lugar cadastrado a 25 km+ da pessoa mostra a previsão daquele lugar (cache `omnilife.wxplace.v1`, até 8 lugares, 3 h); sem local, vale a localização da pessoa. Passo “Ativar a previsão do tempo” em `Setup.steps` e no AssistONE (`clima`).
 - `moreBox(título, html)` — explicação longa recolhida num `<details class="more">` (“› Saiba mais”). Use em vez de parágrafos longos de ajuda dentro dos cartões.
 - `CAPS`, `AI_PROV`, `AI`, `aiSTT`, `aiTTS`, `KeyVault` — cofre de chaves com capacidades e guia por provedor.
+  `AI.key(id)` só diz se **tem** chave (sem abrir o cofre); `AI.chave(id)` (Promise) pega a chave na hora de chamar o provedor.
+- **Chaves no cofre comum (2.18.0)** — `Keys` (perto de `Bridge`) é o único lugar que lê e grava chave: `Keys.has(nome)` sabe sem
+  abrir, `Keys.get(nome)` só com o cofre aberto (`''` trancado), `Keys.need(nome, motivo, ask)` pede o PIN se precisar
+  (`ask === false`: só abre sem PIN, nunca mostra a janela — usado pelo clima em segundo plano), `Keys.set(nome, valor)` grava/apaga
+  (pede o PIN, ou cria o cofre). Nomes no cofre: IA `ia:<provedor>` (o mesmo nome dos outros apps; `Keys.nome` põe o `ia:` nos
+  ids do `AI_PROV`), clima `wx:weatherapi`/`wx:openweathermap`, trânsito `rt:tomtom`, Telegram `TG_KEY` = `telegram:omnilife-one`.
+  `Keys.status(tem)` desenha "🔐 Guardado no cofre" + "🔒 Trancar o cofre agora" (`ACT["cofre.lock"]`) em ⚙ → IA (lista e janela
+  de cada provedor), ⚙ → Clima (clima e TomTom) e Segurança → Alertas (token). Os campos de chave nunca mostram o valor (vazio,
+  com "Guardado no cofre — cole outra para trocar"); "Salvar e testar" com o campo vazio testa a que já está guardada.
+  **Mudança das chaves antigas**: `diretrizes-config.js` → `cofre.fontes` (`investifyme.chaves.v1` `chaves` e raiz,
+  `omnilife.prefs.v1` `keys`, `alertas.tgToken`, `vigia.tgToken`); o `SolverCofre.migrar` roda sozinho ao criar/abrir o cofre e
+  tira **só** esses campos. O evento `cofre:migrado` tira os mesmos campos de `S.prefs` na memória (senão `savePrefs()` os
+  gravaria de volta). Trancado: IA, Telegram (`AlertHub.tgToken()`), TomTom e "🔄 Atualizar agora" do clima pedem o PIN e seguem;
+  o Modo Vigilante abre o cofre ao **começar** (com a pessoa ali), para os alertas da vigília não esperarem PIN. Backup e cópia
+  protegida já não levavam preferências; continuam sem nenhuma chave. Fica de fora (de propósito, ver PENDENCIAS #34): a
+  `apikey` do CallMeBot de cada contato (`alertas.recips[].waKey`).
 - `Offline` — aba "Instalar app para acessar sem internet" (antes "Sem internet"; fala com o `sw.js` por mensagem) e atalho na tela
   inicial. `oQueFunciona()`/`avisoSemNet()` (2.15.4): a lista do que funciona e do que precisa de internet, aberta uma vez ao
   entrar na aba (marcador `omnilife.semNetAviso`) e depois pelo link "❔ O que funciona sem internet". A lista foi conferida no
@@ -261,7 +279,7 @@ sem framework: HTML, CSS e JavaScript puros.
 
 1. Subir `APP_VERSION` no `index.html`.
 2. Acrescentar a versão no topo do `versoes.json` (e na cópia embutida `VERSOES_EMB`).
-3. Subir o número em `sw.js` (`CACHE = APPC + "vN"`) e a `versaoApp` do `diretrizes-config.js`.
+3. Subir o número em `sw.js` (`CACHE = APPC + "vN"`; arquivo novo do app entra também na lista do `install`) e a `versaoApp` do `diretrizes-config.js`.
 5. Nome do zip: `OMNI-LIFE-ONE vX.Y.Z dd-Mmm-aaaa HHhMMm.zip` (hora de Brasília).
 4. Se mudou algo de nuvem: novo arquivo `supabase/omnilife-one-vN.sql` (idempotente, regras do C10 em `PLATAFORMA-DADOS.md`), levar para revisão e só depois rodar no Supabase. O Firebase não é mais usado.
 6. Teste da nuvem: só contra um Supabase **local** com a base real + `supabase/omnilife-one-v1.sql` (nunca contas de teste na produção);

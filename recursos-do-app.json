@@ -1,11 +1,11 @@
 {
  "formato": 1,
  "app": "omnilife-one",
- "versao": "2.17.0",
+ "versao": "2.18.0",
  "atualizado": "2026-10-16",
  "nota": {
-  "pt": "O que este app lê do Controle dos apps e do ⚡ Modo DEUS do RootifyONE (recursos/global.json e recursos/omnilife-one.json), pelo módulo comum 1.9.1 (o recursos.js repassa para ele). Nunca desligáveis: Início, ⚙ Configurações, a tela de entrar e Sobre (o app não fica sem saída). Trancar as Senhas da casa, desconectar o aparelho e parar o Modo Vigilante sempre funcionam.",
-  "en": "What this app reads from RootifyONE's App control and ⚡ GOD mode (recursos/global.json and recursos/omnilife-one.json), through shared module 1.9.1 (recursos.js hands over to it). Never switchable: Home, ⚙ Settings, the sign-in screen and About (the app always has a way out). Locking Home passwords, disconnecting the device and stopping Watch mode always work."
+  "pt": "O que este app lê do Controle dos apps e do ⚡ Modo DEUS do RootifyONE (recursos/global.json e recursos/omnilife-one.json), pelo módulo comum 1.10.0 (o recursos.js repassa para ele). Nunca desligáveis: Início, ⚙ Configurações, a tela de entrar e Sobre (o app não fica sem saída). Trancar as Senhas da casa, desconectar o aparelho e parar o Modo Vigilante sempre funcionam.",
+  "en": "What this app reads from RootifyONE's App control and ⚡ GOD mode (recursos/global.json and recursos/omnilife-one.json), through shared module 1.10.0 (recursos.js hands over to it). Never switchable: Home, ⚙ Settings, the sign-in screen and About (the app always has a way out). Locking Home passwords, disconnecting the device and stopping Watch mode always work."
  },
  "recursos": [
   {

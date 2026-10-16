@@ -1,5 +1,18 @@
 [
  {
+  "v": "2.18.0",
+  "d": "2026-10-16",
+  "hora": "19:05:22",
+  "pt": [
+   "🔐 Chaves no cofre: as chaves de IA, do clima e do trânsito e o código do robô do Telegram saíram do navegador em texto aberto e agora ficam no cofre comum dos apps SolverONE, trancadas por um PIN seu. Na primeira vez que o app precisar de uma chave, ele pede para criar o PIN e leva as chaves que já estavam salvas sozinho — não precisa colar de novo.",
+   "🔒 Em ⚙ (IA, Clima, Trânsito e Segurança → Alertas) aparece \"🔐 Guardado no cofre\" e o botão \"🔒 Trancar o cofre agora\". Com o cofre trancado, o app pede o PIN quando for usar a chave e continua sozinho depois. Marque \"Lembrar neste aparelho\" para não digitar o PIN sempre."
+  ],
+  "en": [
+   "🔐 Keys in the vault: the AI, weather and traffic keys and the Telegram bot token no longer sit in the browser in plain text; they now live in the shared SolverONE vault, locked by your PIN. The first time the app needs a key, it asks you to create the PIN and moves the keys you had saved by itself — no need to paste them again.",
+   "🔒 In ⚙ (AI, Weather, Traffic and Safety → Alerts) you see \"🔐 Saved in the vault\" and a \"🔒 Lock the vault now\" button. With the vault locked, the app asks for the PIN when it needs a key and carries on by itself. Tick \"Remember on this device\" to avoid typing the PIN every time."
+  ]
+ },
+ {
   "v": "2.17.0",
   "d": "2026-10-16",
   "hora": "18:10:38",
