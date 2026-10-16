@@ -47,6 +47,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 | 34 | A `apikey` do CallMeBot (WhatsApp automático) de cada contato de alerta continua em texto aberto nas preferências (`alertas.recips[].waKey`): levar também para o cofre (um nome por contato) | Entrega 2.18.0 (ficou fora da Fase 1: não estava na lista autorizada) | ⏸ aguardando o dono |
 | 35 | O MoneyTRIO lia as chaves que o Omni gravava em `investifyme.chaves.v1`; agora elas ficam só no cofre (`ia:<provedor>`). Conferir no chat do MoneyTRIO se ele já lê pelo cofre (pelo master, ele usa `dgo:global:ia`) | Entrega 2.18.0 | ⏸ aguardando o dono |
 | 36 | Proteção extra recomendada pelo master do cofre: Content-Security-Policy no `index.html` (o app ainda carrega bibliotecas de CDN, ex.: Tesseract, TensorFlow, jsPDF, Leaflet — precisaria listar cada endereço) | Entrega 2.18.0 (limite honesto do `cofre.js`) | ⏸ aguardando o dono |
+| 37 | Leitura de segurança, Fase 2: "Senhas da casa" com dois níveis — **crítico** (pede o PIN toda vez; ex.: banco, alarme) e **comum** (abre com o cofre já aberto; ex.: Wi-Fi) — reaproveitando o `cofre.js` comum no lugar do `Vault.encObj` próprio | Plano do dono no RootifyONE (16/Out/2026) | ⏸ depois da Fase 3 (chaves de IA fora do texto aberto nos outros apps) |
 
 ## Histórico das entregas
 
