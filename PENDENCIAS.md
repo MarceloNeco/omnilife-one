@@ -37,6 +37,12 @@ experiência digital) vem **antes** de qualquer recurso novo.
 | 24 | Família na nuvem aberta já sem internet: convites, pedidos de entrada, histórico e aparelhos conectados aparecem vazios (só "quem é da família" fica guardado no aparelho) | idem | 🟡 aberta |
 | 25 | Limpeza incompleta ou larga demais: desconectar este aparelho por outro aparelho apaga o sessionStorage inteiro da aba (inclusive o de outros apps da SolverONE); no modo "só neste aparelho", "Apagar tudo" apaga as fotos e arquivos de todas as famílias do aparelho (inclusive as da nuvem, que só existem aqui) e deixa o registro de alterações, os contatos pessoais, as chaves de IA e a digital; "Meus contatos" e o registro de alterações também ficam na nuvem (têm o próprio botão de apagar) | Levantamento e revisão do #21 (2.15.4) | 🟡 aberta |
 | 26 | As diretrizes gerais ainda chamam a opção de "Usar sem internet" (vale para todos os apps); decidir se o nome novo "Instalar app para acessar sem internet" passa para as diretrizes e os outros apps | Decisão do #20 (08/Out/2026) | ⏸ aguardando o dono (regra zero: não mudei as diretrizes) |
+| 27 | Padrão novo da plataforma: ⚡ Modo DEUS com todas as funções principais, tela de manutenção (id "app"), 💬 feedback dos usuários e trabalho demorado no `Fundo` | Tarefa autorizada pelo dono no RootifyONE (16/Out/2026) | ✅ 2.17.0 — 39 ids no `recursos-do-app.json`; módulo comum 1.9.1 só com feedback, fundo, compat e interruptores; IA e leitura de foto no `Fundo` |
+| 28 | Pergunta do dia do feedback ("Está gostando hoje?") — o módulo tem, mas ficou desligada (`perguntaDiaria: false`) porque não estava na lista autorizada | Entrega 2.17.0 | ⏸ aguardando o dono |
+| 29 | 💬 também no balão do AssistONE do app (o AssistONE do Omni é próprio, não o `assistone.js`) | Entrega 2.17.0 | ⏸ aguardando o dono |
+| 30 | Feedback de quem está com a conta conectada vai sem identificar a conta (só o id anônimo do aparelho); dá para mandar junto o acesso da conta, se o dono quiser ver quem mandou | Entrega 2.17.0 | ⏸ aguardando o dono |
+| 31 | Importar cópia protegida e "Vários de uma vez" (Documentos) ainda não usam a pílula do `Fundo` (só IA e leitura de foto usam) | Entrega 2.17.0 | ⏸ aguardando o dono |
+| 32 | Partes que ainda não têm interruptor próprio: subpartes da Inbox, Compras › Histórico, Duas casas, Lugares (só CEP) e as abas de ⚙ (de propósito: Configurações nunca some) | Entrega 2.17.0 | ⏸ aguardando o dono |
 
 ## Histórico das entregas
 
@@ -46,6 +52,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **2.15.3 (05/Out/2026):** fecharam #18 e #19; #3 avançou (textos do Início e das Configurações); #20 aguardando o dono (proposta de nomes com prints); novo #21.
 - **2.15.4 (09/Out/2026):** fecharam #20 (decisão do dono de 08/Out: só "Versões & Novidades" e "Instalar app para acessar sem internet"; recusou o resto) e #21; novos #22 a #26 (achados do levantamento do que funciona sem internet e do #21).
 - **2.16.0 (10/Out/2026):** o app passa a obedecer ao Controle dos apps do RootifyONE (`recursos.js`): AssistONE, anúncios e dicas por tela do AssistONE. Lista em `recursos-do-app.json`.
+- **2.17.0 (16/Out/2026):** fechou #27 (Modo DEUS com 39 funções, manutenção, 💬 feedback, IA no `Fundo`; tela de entrar sem rolagem lateral em 320 px); novos #28 a #32 (sugestões, não feitas).
 
 ## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
 

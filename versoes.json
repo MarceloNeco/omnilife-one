@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.17.0",
+  "d": "2026-10-16",
+  "hora": "18:10:38",
+  "pt": [
+   "⚡ Modo DEUS: a administração da SolverONE (RootifyONE) pode desligar e religar cada parte do app — as abas (Compras, Agenda, Contatos, Saúde, Segurança, Casa, Documentos, Família, Inbox), as partes delas (ex.: Por foto, Escola, Senhas da casa, Modo Vigilante) e ações como SOS, busca, IA, microfone, previsão do tempo e leitura de foto. O que estiver desligado some do ☰, da barra de baixo, da busca e dos botões; quem abrir pelo endereço vê \"Função desligada por enquanto\". Início, ⚙ Configurações e a tela de entrar nunca somem.",
+   "🛠️ Se a administração puser o app em manutenção, aparece uma tela só, \"Em manutenção\", com \"Tentar de novo\".",
+   "💬 Novo: \"Dar uma opinião / avisar um problema\" no ☰ (Ajuda e mais), em ⚙ → Geral e no aviso de erro da tela. Dá para mandar foto da tela; sem internet, fica guardado e vai sozinho quando a internet voltar.",
+   "⏳ Perguntas à IA (fotos, receitas, grade da escola…) agora rodam com a pílula de andamento: a tela fica acesa, dá para usar outras telas e, quando termina, \"✅ toque para ver\" leva de volta para onde você estava."
+  ],
+  "en": [
+   "⚡ GOD mode: the SolverONE administration (RootifyONE) can turn each part of the app off and back on — the tabs (Shopping, Calendar, Contacts, Health, Safety, House, Documents, Family, Inbox), their parts (e.g. By photo, School, Home passwords, Watch mode) and actions such as SOS, search, AI, microphone, weather and photo reading. Whatever is off disappears from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\". Home, ⚙ Settings and the sign-in screen never disappear.",
+   "🛠️ If the administration puts the app under maintenance, a single \"Under maintenance\" screen appears, with \"Try again\".",
+   "💬 New: \"Give feedback / report a problem\" in the ☰ (Help & more), in ⚙ → General and on a screen's error notice. You can attach a screenshot; offline, it is kept and sent by itself when the internet is back.",
+   "⏳ AI questions (photos, recipes, school timetable…) now run with the progress pill: the screen stays on, other screens can be used and, when done, \"✅ tap to see\" takes you back to where you were."
+  ]
+ },
+ {
   "v": "2.16.0",
   "d": "2026-10-10",
   "hora": "22:56:28",

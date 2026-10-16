@@ -1,17 +1,445 @@
 {
-  "formato": 1,
-  "app": "omnilife-one",
-  "versao": "2.16.0",
-  "atualizado": "2026-10-10",
-  "nota": {
-    "pt": "O que este app lê do Controle dos apps do RootifyONE (recursos/global.json e recursos/omnilife-one.json).",
-    "en": "What this app reads from RootifyONE's App control (recursos/global.json and recursos/omnilife-one.json)."
+ "formato": 1,
+ "app": "omnilife-one",
+ "versao": "2.17.0",
+ "atualizado": "2026-10-16",
+ "nota": {
+  "pt": "O que este app lê do Controle dos apps e do ⚡ Modo DEUS do RootifyONE (recursos/global.json e recursos/omnilife-one.json), pelo módulo comum 1.9.1 (o recursos.js repassa para ele). Nunca desligáveis: Início, ⚙ Configurações, a tela de entrar e Sobre (o app não fica sem saída). Trancar as Senhas da casa, desconectar o aparelho e parar o Modo Vigilante sempre funcionam.",
+  "en": "What this app reads from RootifyONE's App control and ⚡ GOD mode (recursos/global.json and recursos/omnilife-one.json), through shared module 1.9.1 (recursos.js hands over to it). Never switchable: Home, ⚙ Settings, the sign-in screen and About (the app always has a way out). Locking Home passwords, disconnecting the device and stopping Watch mode always work."
+ },
+ "recursos": [
+  {
+   "id": "app",
+   "nome": {
+    "pt": "O app inteiro (manutenção)",
+    "en": "The whole app (maintenance)"
+   },
+   "onde": {
+    "pt": "Desligado: tela cheia \"Em manutenção\" com \"Tentar de novo\" (mensagem no comportamento app.mensagem).",
+    "en": "Off: full screen \"Under maintenance\" with \"Try again\" (message in the app.mensagem behaviour)."
+   }
   },
-  "recursos": [
-    "assistone",
-    "anuncios"
-  ],
-  "comportamentos": [
-    "assistone.dicas"
-  ]
+  {
+   "id": "assistone",
+   "nome": {
+    "pt": "💡 AssistONE (assistente)",
+    "en": "💡 AssistONE (assistant)"
+   },
+   "onde": {
+    "pt": "Personagem no canto da tela, cartão em ⚙ → Geral e busca. Desligado: o personagem some e o cartão avisa \"Desligado pela administração da SolverONE.\"",
+    "en": "Character in the corner, card in ⚙ → General and search. Off: the character disappears and the card says \"Turned off by the SolverONE administration.\""
+   }
+  },
+  {
+   "id": "anuncios",
+   "nome": {
+    "pt": "📣 Anúncios",
+    "en": "📣 Ads"
+   },
+   "onde": {
+    "pt": "Faixa de anúncio no topo e anúncios do modo visitante. Desligado: não aparecem.",
+    "en": "Ad strip at the top and visitor-mode ads. Off: not shown."
+   }
+  },
+  {
+   "id": "feedback",
+   "nome": {
+    "pt": "💬 Dar uma opinião / avisar um problema",
+    "en": "💬 Give feedback / report a problem"
+   },
+   "onde": {
+    "pt": "☰ › Ajuda e mais, ⚙ › Geral (cartão \"Ajuda e opinião\") e \"Avisar que deu erro\" no aviso de erro da tela. Desligado: todos somem.",
+    "en": "☰ › Help & more, ⚙ › General (\"Help & feedback\" card) and \"Report the error\" on a screen's error notice. Off: all hidden."
+   }
+  },
+  {
+   "id": "inbox",
+   "nome": {
+    "pt": "📥 Inbox (recados, alertas, check-ins)",
+    "en": "📥 Inbox (messages, alerts, check-ins)"
+   },
+   "onde": {
+    "pt": "Ícone 📥 do topo, ☰ › Dia a dia, recados no Início e ☰ › Atalhos › Recado. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "📥 icon at the top, ☰ › Everyday, messages on Home and ☰ › Shortcuts › Message. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "compras",
+   "nome": {
+    "pt": "🛒 Compras & Despensa (aba inteira)",
+    "en": "🛒 Shopping & Pantry (whole tab)"
+   },
+   "onde": {
+    "pt": "☰ › Dia a dia, barra de baixo e cartões do Início. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Everyday, bottom bar and Home cards. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "compras.despensa",
+   "nome": {
+    "pt": "🥫 Despensa",
+    "en": "🥫 Pantry"
+   },
+   "onde": {
+    "pt": "Compras › Despensa. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Shopping › Pantry. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "compras.pedidos",
+   "nome": {
+    "pt": "🙋 Pedidos da família",
+    "en": "🙋 Family requests"
+   },
+   "onde": {
+    "pt": "Compras › Pedidos. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Shopping › Requests. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "compras.foto",
+   "nome": {
+    "pt": "📷 O que tem em casa, por foto",
+    "en": "📷 What's at home, by photo"
+   },
+   "onde": {
+    "pt": "Compras › Por foto. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Shopping › By photo. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "compras.onde-comprar",
+   "nome": {
+    "pt": "🏪 Onde comprar",
+    "en": "🏪 Where to buy"
+   },
+   "onde": {
+    "pt": "Compras › Onde comprar. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Shopping › Where to buy. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda",
+   "nome": {
+    "pt": "📅 Agenda da família (aba inteira)",
+    "en": "📅 Family calendar (whole tab)"
+   },
+   "onde": {
+    "pt": "☰ › Dia a dia, barra de baixo e cartões do Início. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Everyday, bottom bar and Home cards. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda.escola",
+   "nome": {
+    "pt": "🎒 Calendário escolar",
+    "en": "🎒 School timetable"
+   },
+   "onde": {
+    "pt": "Agenda › Escola. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Calendar › School. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda.tarefas",
+   "nome": {
+    "pt": "✅ Tarefas",
+    "en": "✅ Tasks"
+   },
+   "onde": {
+    "pt": "Agenda › Tarefas e ☰ › Atalhos. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Calendar › Tasks and ☰ › Shortcuts. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda.lembretes",
+   "nome": {
+    "pt": "📌 Lembretes (e lembrete rápido ⚡)",
+    "en": "📌 Reminders (and quick reminder ⚡)"
+   },
+   "onde": {
+    "pt": "Agenda › Lembretes, ⚡ do topo e ☰ › Atalhos › Lembrete. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Calendar › Reminders, ⚡ at the top and ☰ › Shortcuts › Reminder. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda.rotina",
+   "nome": {
+    "pt": "⏰ Rotina",
+    "en": "⏰ Routine"
+   },
+   "onde": {
+    "pt": "Agenda › Rotina. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Calendar › Routine. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda.delegometro",
+   "nome": {
+    "pt": "⚖️ Delegômetro",
+    "en": "⚖️ Load meter"
+   },
+   "onde": {
+    "pt": "Agenda › Delegômetro. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Calendar › Load meter. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "agenda.assume-casa",
+   "nome": {
+    "pt": "🔁 Assume a Casa",
+    "en": "🔁 Handover"
+   },
+   "onde": {
+    "pt": "Agenda › Assume a Casa. Encerrar um \"Assume a Casa\" em andamento sempre funciona. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Calendar › Handover. Ending a running handover always works. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "contatos",
+   "nome": {
+    "pt": "📇 Contatos",
+    "en": "📇 Contacts"
+   },
+   "onde": {
+    "pt": "☰ › Cuidar da família. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Family care. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "saude",
+   "nome": {
+    "pt": "❤️ Saúde da família",
+    "en": "❤️ Family health"
+   },
+   "onde": {
+    "pt": "☰ › Cuidar da família. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Family care. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "seguranca",
+   "nome": {
+    "pt": "🛡️ Segurança (aba inteira)",
+    "en": "🛡️ Safety (whole tab)"
+   },
+   "onde": {
+    "pt": "☰ › Cuidar da família e barra de baixo. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Family care and bottom bar. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "seguranca.cheguei",
+   "nome": {
+    "pt": "✅ Cheguei (avisar que chegou bem)",
+    "en": "✅ Check-in (I got here safe)"
+   },
+   "onde": {
+    "pt": "Segurança › Cheguei, ☰ › Atalhos › Cheguei e cartão do Início. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Safety › Check-in, ☰ › Shortcuts › I'm here and Home card. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "seguranca.vigilante",
+   "nome": {
+    "pt": "👁 Modo Vigilante",
+    "en": "👁 Watch mode"
+   },
+   "onde": {
+    "pt": "Segurança › Modo Vigilante. Com o Vigilante ligado, a tela dele continua acessível até a pessoa parar. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Safety › Watch mode. While a watch is running, its screen stays reachable until it is stopped. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "seguranca.alertas",
+   "nome": {
+    "pt": "📣 Alertas e contatos de aviso",
+    "en": "📣 Alerts and alert contacts"
+   },
+   "onde": {
+    "pt": "Segurança › Alertas. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Safety › Alerts. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "casa",
+   "nome": {
+    "pt": "🏡 Casa (aba inteira)",
+    "en": "🏡 House (whole tab)"
+   },
+   "onde": {
+    "pt": "☰ › Casa e papéis e barra de baixo. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Home & papers and bottom bar. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "casa.onde-esta",
+   "nome": {
+    "pt": "🔎 Onde está?",
+    "en": "🔎 Where is it?"
+   },
+   "onde": {
+    "pt": "Casa › Onde está? Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "House › Where is it? Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "casa.manutencao",
+   "nome": {
+    "pt": "🛠 Manutenção da casa",
+    "en": "🛠 House maintenance"
+   },
+   "onde": {
+    "pt": "Casa › Manutenção. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "House › Maintenance. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "casa.senhas",
+   "nome": {
+    "pt": "🔐 Senhas da casa",
+    "en": "🔐 Home passwords"
+   },
+   "onde": {
+    "pt": "Casa › Senhas da casa. Trancar e \"Desconectar este aparelho\" sempre funcionam. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "House › Home passwords. Locking and \"Disconnect this device\" always work. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "casa.guias",
+   "nome": {
+    "pt": "📘 Guias da casa",
+    "en": "📘 House guides"
+   },
+   "onde": {
+    "pt": "Casa › Guias. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "House › Guides. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "documentos",
+   "nome": {
+    "pt": "🗂️ Documentos da família",
+    "en": "🗂️ Family documents"
+   },
+   "onde": {
+    "pt": "☰ › Casa e papéis. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Home & papers. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "familia",
+   "nome": {
+    "pt": "👨‍👩‍👧 Família (pessoas, papéis, aparelhos)",
+    "en": "👨‍👩‍👧 Family (people, roles, devices)"
+   },
+   "onde": {
+    "pt": "☰ › Cuidar da família e menu 👤 › Família. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "☰ › Family care and 👤 menu › Family. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "sos",
+   "nome": {
+    "pt": "🚨 SOS / cartão de emergência",
+    "en": "🚨 SOS / emergency card"
+   },
+   "onde": {
+    "pt": "Botão SOS do topo e do Início, Saúde › Cartão de emergência e ☰ › Atalhos › SOS. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "SOS button at the top and on Home, Health › Emergency card and ☰ › Shortcuts › SOS. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "busca",
+   "nome": {
+    "pt": "🔎 Busca",
+    "en": "🔎 Search"
+   },
+   "onde": {
+    "pt": "🔎 do topo e teclas / ou Ctrl+K. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "🔎 at the top and the / or Ctrl+K keys. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "ia",
+   "nome": {
+    "pt": "✨ Inteligência artificial",
+    "en": "✨ Artificial intelligence"
+   },
+   "onde": {
+    "pt": "Tudo o que pergunta à IA (foto da despensa, grade da escola, receitas, leitura de documento…). Desligado: o botão avisa \"Função desligada por enquanto (IA)\".",
+    "en": "Everything that asks the AI (pantry photo, school timetable, recipes, document reading…). Off: the button says \"Feature turned off for now (AI)\"."
+   }
+  },
+  {
+   "id": "voz",
+   "nome": {
+    "pt": "🎤 Microfone (falar em vez de digitar)",
+    "en": "🎤 Microphone (speak instead of typing)"
+   },
+   "onde": {
+    "pt": "Botões 🎤 (lista de compras, Onde está?, Cheguei…). Desligado: os botões 🎤 de Compras e de Onde está? somem e os outros avisam \"Função desligada por enquanto\".",
+    "en": "🎤 buttons (shopping list, Where is it?, Check-in…). Off: the 🎤 buttons in Shopping and Where is it? disappear and the others say \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "clima",
+   "nome": {
+    "pt": "🌤 Previsão do tempo",
+    "en": "🌤 Weather forecast"
+   },
+   "onde": {
+    "pt": "Cartão do Início, ícones na Agenda, avisos e ⚙ › Clima. Desligado: some tudo do clima.",
+    "en": "Home card, Calendar icons, alerts and ⚙ › Weather. Off: everything weather-related disappears."
+   }
+  },
+  {
+   "id": "deslocamento",
+   "nome": {
+    "pt": "🧭 Deslocamento e hora de sair",
+    "en": "🧭 Travel and time to leave"
+   },
+   "onde": {
+    "pt": "Compromisso da Agenda (bloco de deslocamento, 🧭) e avisos de saída. Desligado: some.",
+    "en": "Calendar event (travel block, 🧭) and leave-now alerts. Off: hidden."
+   }
+  },
+  {
+   "id": "ocr",
+   "nome": {
+    "pt": "📄 Ler texto de foto (no aparelho)",
+    "en": "📄 Read text from a photo (on device)"
+   },
+   "onde": {
+    "pt": "Documentos, receitas e notas: \"ler a foto\". Desligado: avisa \"Função desligada por enquanto\".",
+    "en": "Documents, prescriptions and receipts: \"read the photo\". Off: says \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "compartilhar",
+   "nome": {
+    "pt": "↗ Compartilhar o app",
+    "en": "↗ Share the app"
+   },
+   "onde": {
+    "pt": "Botão ↗ do topo e ☰ › Ajuda e mais. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "↗ button at the top and ☰ › Help & more. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "outros-apps",
+   "nome": {
+    "pt": "▦ Meus outros apps",
+    "en": "▦ My other apps"
+   },
+   "onde": {
+    "pt": "Botão ▦ do topo e ☰ › Ajuda e mais. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "▦ button at the top and ☰ › Help & more. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  }
+ ],
+ "comportamentos": [
+  "assistone.dicas",
+  "app.mensagem"
+ ]
 }
