@@ -48,6 +48,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 | 35 | O MoneyTRIO lia as chaves que o Omni gravava em `investifyme.chaves.v1`; agora elas ficam só no cofre (`ia:<provedor>`). Conferir no chat do MoneyTRIO se ele já lê pelo cofre (pelo master, ele usa `dgo:global:ia`) | Entrega 2.18.0 | ⏸ aguardando o dono |
 | 36 | Proteção extra recomendada pelo master do cofre: Content-Security-Policy no `index.html` (o app ainda carrega bibliotecas de CDN, ex.: Tesseract, TensorFlow, jsPDF, Leaflet — precisaria listar cada endereço) | Entrega 2.18.0 (limite honesto do `cofre.js`) | ⏸ aguardando o dono |
 | 37 | Leitura de segurança, Fase 2: "Senhas da casa" com dois níveis — **crítico** (pede o PIN toda vez; ex.: banco, alarme) e **comum** (abre com o cofre já aberto; ex.: Wi-Fi) — reaproveitando o `cofre.js` comum no lugar do `Vault.encObj` próprio | Plano do dono no RootifyONE (16/Out/2026) | ⏸ depois da Fase 3 (chaves de IA fora do texto aberto nos outros apps) |
+| 38 | Atualizar o `cofre.js` para a **1.1.0** (master do rootify-one, 17/Out/2026): campo do PIN como senha que não se guarda nem se copia e sem "Lembrar neste aparelho" (quem tinha volta a pedir o PIN). Copiar sem alterar, subir versão e `sw.js`, rodar os testes do cofre | Master do rootify-one 0.17.1 (pendência #37 do Contador) | ⏸ na próxima sessão do Omni |
 
 ## Histórico das entregas
 
