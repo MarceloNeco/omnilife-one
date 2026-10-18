@@ -19,7 +19,7 @@ var OMNI_CHAVES = { 'wx:weatherapi': 'wx:weatherapi', 'wx:openweathermap': 'wx:o
 DGO.iniciar({
   app: 'omnilife-one',                      /* gaveta de dados: nunca mude */
   nome: { pt: 'OmniLifeONE', en: 'OmniLifeONE' },
-  versaoApp: '2.18.0',
+  versaoApp: '2.19.0',
   cor: '#8a6ff2',
   corFundoBarra: '#0e1016',
 
@@ -43,6 +43,7 @@ DGO.iniciar({
   notificacoes: { ativo: false },
   pwa: { ativo: false },
   cofre: {
+    proteger: true,   /* regras do PIN (cofre.js 1.4): com chave guardada, PIN ao abrir e ao recarregar; tranca ao sair, escondido e sem uso */
     fontes: [
       { chave: 'investifyme.chaves.v1', caminho: 'chaves', mapa: OMNI_CHAVES },   /* { cifrado: false, chaves: { gemini, 'wx:…', 'rt:tomtom' } } */
       { chave: 'investifyme.chaves.v1', caminho: '', mapa: OMNI_CHAVES },         /* formato plano antigo */
