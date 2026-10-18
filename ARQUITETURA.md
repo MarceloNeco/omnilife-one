@@ -9,14 +9,15 @@ sem framework: HTML, CSS e JavaScript puros.
 | Arquivo | O que é | Pode mexer? |
 |---|---|---|
 | `index.html` | O app inteiro (HTML + CSS + JS num arquivo só) | Sim, com cuidado (ver abaixo) |
-| `sw.js` | Service worker: modo sem internet e avisos | Só subir o número `v…` a cada versão |
+| `sw.js` | Service worker: modo sem internet e avisos (pré-carrega `janela.js`, `cofre.js`, `diretrizes.js` e o config) | Só subir o número `v…` a cada versão |
 | `versoes.json` | Histórico de versões (PT/EN) mostrado em Configurações → Versões & Novidades | Acrescentar a versão nova no topo |
 | `recados.json` | Avisos do administrador para todos (Inbox) | Sim — ver `recados-MODELO-OmniLifeONE.json` |
 | `clima.json` | Reserva local da config do clima (a master vem do RootifyONE em `solverone-dados/clima.json`) | Sim — ver `clima-MODELO-OmniLifeONE.json` |
 | `rotas.json` | Reserva local da config de deslocamento/rotas (a master vem do RootifyONE em `solverone-dados/rotas.json`) | Sim — ver `rotas-MODELO-OmniLifeONE.json` |
-| `cofre.js` | **Cofre comum de chaves da plataforma** (`SolverCofre` 1.0.0, também `DGO.cofre`), cópia do master do rootify-one. Guarda as chaves de IA, do clima, do trânsito e o token do Telegram embaralhados (AES-GCM 256, PIN com PBKDF2 310 mil), iguais em todos os apps. Carrega **antes** do `diretrizes.js` | Não: copiar do rootify-one quando mudar, sem alterar |
-| `diretrizes.js` | **Módulo comum da plataforma** (1.10.0, global `DGO`), cópia do master do repositório rootify-one. Aqui serve só para: 💬 feedback (`DGO.feedback`), trabalho demorado (`DGO.fundo`/`DGO.tarefa`), dados do aparelho (`DGO.compat`), interruptores + tela de manutenção (`DGO.recursos`) e a mudança automática das chaves antigas para o cofre (`cofre.fontes`). Carrega depois do `cofre.js` e antes do `recursos.js` e do `tarefas.js` | Não: copiar do rootify-one quando mudar, sem alterar |
-| `diretrizes-config.js` | Configuração do módulo para o Omni: desliga tudo o que o app já tem (login, menu, idioma, anúncios, OCR, IA, avisos, PWA, varredura de textos e datas, faixa do topo, quadro do aparelho), declara onde o app guardava as chaves antes (`cofre.fontes`, ver "Chaves no cofre comum") e liga o feedback com o Supabase da plataforma (endereço e chave **pública** `sb_publishable_…`, os mesmos do login; nunca a secret nem a service_role). `perguntaDiaria: false` | Sim, com cuidado |
+| `janela.js` | **Janela comum da plataforma** (`SolverJanela` 1.0.2, também `DGO.janela`), cópia do master do rootify-one (sha256 `7f38e4d9…`). Toda janela do app (formulários, confirmações, gaveta ☰, menus, SOS, tour, o PIN do cofre e as do módulo) passa por ele: `<dialog>` modal, página de trás parada, Esc/Voltar/toque fora/✕, "Descartar?", uma janela por vez. Carrega **primeiro** | Não: copiar do rootify-one quando mudar, sem alterar |
+| `cofre.js` | **Cofre comum de chaves da plataforma** (`SolverCofre` 1.4.1, também `DGO.cofre`), cópia do master do rootify-one (sha256 `df9338d5…`). Guarda as chaves de IA, do clima, do trânsito, o token do Telegram e a apikey do WhatsApp embaralhados (AES-GCM 256, PIN com PBKDF2 310 mil), iguais em todos os apps; regras do PIN (`proteger`) e digital. Carrega depois do `janela.js` e **antes** do `diretrizes.js` | Não: copiar do rootify-one quando mudar, sem alterar |
+| `diretrizes.js` | **Módulo comum da plataforma** (1.12.0, global `DGO`), cópia do master do repositório rootify-one (sha256 `c9d3d4fd…`). Aqui serve só para: 💬 feedback (`DGO.feedback`), trabalho demorado (`DGO.fundo`/`DGO.tarefa`), dados do aparelho (`DGO.compat`), interruptores + tela de manutenção (`DGO.recursos`) e a mudança automática das chaves antigas para o cofre (`cofre.fontes`). Carrega depois do `cofre.js` e antes do `recursos.js` e do `tarefas.js` | Não: copiar do rootify-one quando mudar, sem alterar |
+| `diretrizes-config.js` | Configuração do módulo para o Omni: desliga tudo o que o app já tem (login, menu, idioma, anúncios, OCR, IA, avisos, PWA, varredura de textos e datas, faixa do topo, quadro do aparelho), declara onde o app guardava as chaves antes (`cofre.fontes`, ver "Chaves no cofre comum") e liga as regras do PIN (`cofre: { proteger: true }`) e liga o feedback com o Supabase da plataforma (endereço e chave **pública** `sb_publishable_…`, os mesmos do login; nunca a secret nem a service_role). `perguntaDiaria: false` | Sim, com cuidado |
 | `recursos.js` | **Interruptores do RootifyONE** (cópia avulsa; o master fica no repositório rootify-one). Com o `diretrizes.js` na página, só repassa para o `DGO.recursos` (nada em dobro; a tela de manutenção é a do módulo). Lê `solverone-dados/recursos/global.json` e `recursos/omnilife-one.json`; elemento com `data-recurso="id"` some quando o recurso está desligado; no código, `SolverRecursos.ligado(id, padrão)` e `.valor(id, padrão)` | Não: copiar do rootify-one quando mudar |
 | `recursos-do-app.json` | Lista do que este app **obedece** (recursos e comportamentos), no formato detalhado `{ id, nome{pt,en}, onde{pt,en} }` que o ⚡ Modo DEUS do RootifyONE mostra. Ao ligar um recurso novo no código, acrescente o id aqui e em `Rec` | Sim, a cada recurso novo |
 | `manifest.webmanifest`, ícones | Instalar como app | Raramente |
@@ -34,6 +35,10 @@ sem framework: HTML, CSS e JavaScript puros.
 - Nunca pôr chave de IA, token do Telegram, senha ou dado pessoal no repositório (é público).
   Chaves ficam só no navegador da pessoa, **no cofre comum** (`cofre.js`, `Keys`), nunca em texto aberto: nada de
   `S.prefs.keys`, `tgToken` nas preferências nem `investifyme.chaves.v1` (até a 2.17.0 era assim; a 2.18.0 muda sozinha).
+- Nunca abrir janela do jeito antigo (`div` sobreposta), nem `alert()`, `confirm()` ou `prompt()` do navegador, nem `pushState` para
+  janela: toda janela passa por `modal()` (ou por `SolverJanela.abrir`, no caso da gaveta, dos menus, do SOS e do tour). Proibido
+  também `setTimeout`/`MutationObserver` para "consertar depois", `!important` por cima e cópia da função da janela no app.
+- Nunca encaixar o painel da digital do cofre no app: ele já vem da tela de chaves do módulo (`DGO.ia.guia`, botão `cofre.tela`).
 - Nunca reescrever o `index.html` inteiro: as mudanças são cirúrgicas.
 - Nunca apagar caches de outros apps no `sw.js` (todos dividem o mesmo endereço): o nome do
   cache é `dgo-omnilife-vN` e o `activate` só apaga os que começam com `dgo-omnilife-`.
@@ -205,8 +210,30 @@ sem framework: HTML, CSS e JavaScript puros.
   antes de fechar, ✕ cancela; ao terminar em outra tela, "✅ toque para ver" volta para a tela de onde a pergunta saiu
   (`aindaNaTela` = mesmo endereço). Sem o módulo, chama `ask0` direto. `OCR.read` continua no `DGO.tarefa` (agora o do módulo).
 - `SCREENS` — cada aba (`home`, `inbox`, `shop`, `agenda`, `security`, `family`, `settings`…).
-- `Nav` — ÚNICO ponto do histórico (botão Voltar do celular). Não use `pushState` fora dele.
-- `modal()` — janelas (já registram no `Nav`). `Drawer` — menu ☰.
+- `Nav` — ponto do histórico das **telas** (botão Voltar do celular). As janelas têm o histórico delas no `janela.js` (cada uma
+  ganha uma entrada; o Voltar fecha só a de cima e não chega ao `Nav`). `Nav.run(fn)` espera o histórico das janelas acompanhar
+  (`SolverJanela.quandoQuieto`); `go()` usa isso, por isso trocar de tela logo depois de fechar uma janela funciona.
+- **Janelas (2.19.0, janela comum)** — `modal({ title, body, foot, wide, cls, onClose, confirmacao, temTexto, espera, campo })` abre um
+  `<dialog>` da janela comum (classe `mback` no `<dialog>`, `.modal` dentro; mesma aparência de antes) e devolve `{ el, close, drop }`:
+  `el` é o `<dialog>`, `close()` fecha e chama `onClose`, `drop()` fecha SEM chamar `onClose` (o que antes era `m.el.remove()`: a
+  resposta já saiu por outro caminho, ex.: `res(true); m.drop()`). O ✕ (`.xbtn`) pede para fechar (com texto digitado,
+  pergunta "Descartar?"); os outros `[data-x]` ("Cancelar", "Fechar") fecham direto. `temTexto: false` na busca, no mapa e no
+  seletor de contatos (o texto digitado ali é só filtro). Campo de senha que guarda valor (chave colada) leva `data-sj-texto`.
+  `espera: n` é a contagem 3, 2, 1 do anúncio (única exceção escrita). `campo: true` põe o foco no primeiro campo também no celular
+  (só o `askText`). `MODAIS` = as janelas do app abertas; `closeModals()` fecha todas.
+  `confirmBox()` (e todo `modal({ confirmacao: true })`) com uma janela do app aberta abre POR CIMA (`porCima`, `alertdialog`, sem
+  "Descartar?") e fecha junto com a de baixo; qualquer outra janela pedida com uma aberta espera a vez (nunca empilha: quem
+  abre uma janela de dentro de outra fecha a primeira antes, ou expande dentro dela — `Help.open` de dentro de uma janela mostra
+  a ajuda num `<details class="helpin">` no topo do `.mb`). A janela só entra na página quando a anterior termina de fechar
+  (o histórico é assíncrono): dentro de uma janela use sempre `m.el.querySelector(...)`, nunca `$("#id")` solto logo após criar.
+- `Drawer` (menu ☰) é uma janela (`dialog.drawerjan`, o `<nav id="drawer">` é criado a cada abertura e a gaveta desliza por
+  animação CSS); `popMenu()` e `whoMenu()` (menu do perfil) abrem por `abrirMenu()` (`dialog.menujan`, fundo transparente, o menu é
+  medido em cima do app e posicionado junto do botão); `Health.sos()` é `dialog.sos`; o tour (`AOne.tour`) é `dialog.aone-tourjan`
+  (cada passo troca o conteúdo da mesma janela). O balão do AssistONE **não** é janela (não cobre a tela; diretriz). O AssistONE
+  some enquanto houver janela (eventos `janela:aberta`/`janela:fechada`), menos durante o tour.
+- `toast()` — os avisos ficam num `popover` (`#toasts`, camada de cima do navegador) e cada aviso novo sobe de novo para o topo,
+  senão a janela aberta os esconderia. Telas de bloqueio (digital `bioGate`, tela escura e alarme do Vigilante) não são janelas:
+  só travam a rolagem (`html:has(.lock,.vigiadark)`).
 - `AI_PROV` / `AI` — registro de provedores de IA (Gemini, OpenRouter, Groq, Mistral, OpenAI,
   personalizado). `AI.ask` é o ÚNICO ponto que chama IA (troca nomes de crianças por `[NOME1]`).
 - `Voice.dictate` / `Voice.listen` — ÚNICO ponto do microfone (ditado com plano B pela IA).
@@ -229,7 +256,7 @@ sem framework: HTML, CSS e JavaScript puros.
 - `moreBox(título, html)` — explicação longa recolhida num `<details class="more">` (“› Saiba mais”). Use em vez de parágrafos longos de ajuda dentro dos cartões.
 - `CAPS`, `AI_PROV`, `AI`, `aiSTT`, `aiTTS`, `KeyVault` — cofre de chaves com capacidades e guia por provedor.
   `AI.key(id)` só diz se **tem** chave (sem abrir o cofre); `AI.chave(id)` (Promise) pega a chave na hora de chamar o provedor.
-- **Chaves no cofre comum (2.18.0)** — `Keys` (perto de `Bridge`) é o único lugar que lê e grava chave: `Keys.has(nome)` sabe sem
+- **Chaves no cofre comum (2.18.0; Fase 3 na 2.19.0)** — `Keys` (perto de `Bridge`) é o único lugar que lê e grava chave: `Keys.has(nome)` sabe sem
   abrir, `Keys.get(nome)` só com o cofre aberto (`''` trancado), `Keys.need(nome, motivo, ask)` pede o PIN se precisar
   (`ask === false`: só abre sem PIN, nunca mostra a janela — usado pelo clima em segundo plano), `Keys.set(nome, valor)` grava/apaga
   (pede o PIN, ou cria o cofre). Nomes no cofre: IA `ia:<provedor>` (o mesmo nome dos outros apps; `Keys.nome` põe o `ia:` nos
@@ -242,8 +269,19 @@ sem framework: HTML, CSS e JavaScript puros.
   tira **só** esses campos. O evento `cofre:migrado` tira os mesmos campos de `S.prefs` na memória (senão `savePrefs()` os
   gravaria de volta). Trancado: IA, Telegram (`AlertHub.tgToken()`), TomTom e "🔄 Atualizar agora" do clima pedem o PIN e seguem;
   o Modo Vigilante abre o cofre ao **começar** (com a pessoa ali), para os alertas da vigília não esperarem PIN. Backup e cópia
-  protegida já não levavam preferências; continuam sem nenhuma chave. Fica de fora (de propósito, ver PENDENCIAS #34): a
-  `apikey` do CallMeBot de cada contato (`alertas.recips[].waKey`).
+  protegida já não levavam preferências; continuam sem nenhuma chave. Até a 2.18.0 ficava de fora (PENDENCIAS #34) a
+  `apikey` do CallMeBot de cada contato (`alertas.recips[].waKey`); **entrou na 2.19.0**: nome `WA_KEY(id)` =
+  `callmebot:omnilife-one:<id da pessoa>` no cofre; como o `cofre.fontes` não alcança itens de uma lista, `AlertHub.migrarWa()` leva
+  as de antes quando o cofre abre (eventos `cofre:aberto`/`cofre:migrado` e ao entrar) e só tira do lugar antigo o que já foi
+  gravado; `AlertHub.waOk(r)`/`waKey(r)` leem (cofre, ou a de antes até migrar); o campo da apikey vem vazio.
+  **Fase 3 (2.19.0):** `cofre: { proteger: true }` no `diretrizes-config.js` (PIN ao abrir e ao recarregar quando há segredo
+  guardado; tranca ao sair, escondido por 1 min e sem uso por 5 min). O Modo Vigilante ligado conta como trabalho em andamento
+  (o app chama `SolverCofre.proteger` de novo, logo depois do `DGO.iniciar`, só para acrescentar `() => Vigia.on` ao `ocupado`).
+  `Keys.status(tem, nome)` mostra "✓ Guardado no cofre" e, com `nome`, o botão `keys.show` "👁 Mostrar a chave guardada" (tranca o
+  cofre, pede o PIN e mostra por 30 s; o valor mostrado vive em `Keys._show` para o desenho da tela não o perder). O painel da
+  digital mora na tela de chaves do módulo (`DGO.ia.guia`): ⚙ → IA tem o cartão "Cofre das chaves e digital" com o botão
+  `cofre.tela`; o app **não** chama `painelDigital`. A tela de chaves própria do Omni (`KeyVault`) continua (decisão pendente:
+  trocá-la pela do módulo).
 - `Offline` — aba "Instalar app para acessar sem internet" (antes "Sem internet"; fala com o `sw.js` por mensagem) e atalho na tela
   inicial. `oQueFunciona()`/`avisoSemNet()` (2.15.4): a lista do que funciona e do que precisa de internet, aberta uma vez ao
   entrar na aba (marcador `omnilife.semNetAviso`) e depois pelo link "❔ O que funciona sem internet". A lista foi conferida no
@@ -277,10 +315,12 @@ sem framework: HTML, CSS e JavaScript puros.
 
 ## Publicar uma versão nova
 
-1. Subir `APP_VERSION` no `index.html`.
+1. Subir `APP_VERSION` no `index.html`. Os três arquivos mestres (`janela.js`, `cofre.js`, `diretrizes.js`) só mudam por cópia do rootify-one (`node teste/rodar.js` confere o sha256).
 2. Acrescentar a versão no topo do `versoes.json` (e na cópia embutida `VERSOES_EMB`).
 3. Subir o número em `sw.js` (`CACHE = APPC + "vN"`; arquivo novo do app entra também na lista do `install`) e a `versaoApp` do `diretrizes-config.js`.
 5. Nome do zip: `OMNI-LIFE-ONE vX.Y.Z dd-Mmm-aaaa HHhMMm.zip` (hora de Brasília).
 4. Se mudou algo de nuvem: novo arquivo `supabase/omnilife-one-vN.sql` (idempotente, regras do C10 em `PLATAFORMA-DADOS.md`), levar para revisão e só depois rodar no Supabase. O Firebase não é mais usado.
+7. Testes automáticos (Playwright, uma vez: `npm install -D playwright && npx playwright install chromium`): `node teste/rodar.js`
+   (`teste/README.md`): mestres iguais, janelas em 390 px e no computador, cofre da Fase 3. Só valores de mentira.
 6. Teste da nuvem: só contra um Supabase **local** com a base real + `supabase/omnilife-one-v1.sql` (nunca contas de teste na produção);
    o teste desvia as chamadas do endereço de produção para `http://127.0.0.1:54321`.

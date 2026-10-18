@@ -21,10 +21,20 @@
 (function (raiz) {
   'use strict';
 
-  /* 1.10.0 (16/Out/2026): as chaves de IA moram SÓ no cofre comum (cofre.js, global SolverCofre), trancadas
+  /* 1.12.0 (17/Out/2026): na tela das chaves de IA, a ajuda "como conseguir a chave" (o provedor e o guia passo a
+     passo) expande NO LUGAR, dentro da própria janela, sem remontar a tela nem voltar ao topo; e o painel da digital
+     do cofre (SolverCofre.painelDigital) é desenhado ali mesmo, logo acima do Fechar — um lugar só para todo app.
+     Pede cofre.js 1.4.1 (desenha o painel mesmo com a tela esperando a vez) e janela.js 1.0.2 (trava da rolagem só no <html>: o cabeçalho sticky não pula).
+     1.11.0 (17/Out/2026): toda janela do módulo (a janela padrão, o pop-up de anúncio, o "Estou ciente")
+     passa pela janela comum (janela.js, global SolverJanela, também em DGO.janela): a página de trás não rola
+     nem recebe toque, Esc/Voltar/toque fora cancelam, texto digitado pergunta "Descartar?". A tela das chaves
+     de IA não põe mais a chave guardada no campo: "✓ guardado", "Mostrar a chave" (pede o PIN, 30 s) e a
+     máscara "••••" nunca vira chave. Mínimos recomendados de navegador sobem para os que têm :has().
+     Ordem: janela.js -> cofre.js -> diretrizes.js -> diretrizes-config.js.
+     1.10.0 (16/Out/2026): as chaves de IA moram SÓ no cofre comum (cofre.js, global SolverCofre), trancadas
      por PIN. Sem o cofre.js na página, continua do jeito antigo (texto aberto) e avisa no console.
-     Ordem: cofre.js -> diretrizes.js -> diretrizes-config.js. Ver ARQUITETURA.md, "Cofre comum de chaves". */
-  var VERSAO = '1.10.0';
+     Ver ARQUITETURA.md, "Cofre comum de chaves" e "Janela comum". */
+  var VERSAO = '1.12.0';
   if (raiz.DGO && raiz.DGO.__carregado) { return; }
 
   /* ------------------------------------------------------------------
@@ -89,7 +99,11 @@
        sozinhas para o cofre na primeira vez que ele abrir. Ex. (RiseONE):
        fontes: [{ chave: 'riseone.v1', caminho: 'settings.ai.keys', mapa: { gemini: 'ia:gemini', openai: 'ia:openai', claude: 'ia:anthropic' } }] */
     cofre: {
-      fontes: []
+      fontes: [],
+      /* 1.11.0: true = as regras do PIN do Contador 1.25 neste app (SolverCofre.proteger, cofre.js 1.4.0): com chave
+         guardada, pede o PIN ao abrir e ao recarregar; tranca ao sair do app, com o app escondido por mais de 1 minuto
+         e com 5 minutos sem uso (trabalho rodando no Fundo só adia esse último). Quem não guarda chave nunca vê o PIN. */
+      proteger: false
     },
 
     /* o que pode ser feito em dados moveis: 'sempre' | 'wifi' | 'nunca' */
@@ -400,6 +414,7 @@
       '.dgo-guia-ilu img,.dgo-guia-ilu svg{display:block;width:100%;height:auto;border-radius:10px;}',
       '.dgo-campo{position:relative;}',
       '.dgo-olho{position:absolute;right:6px;bottom:6px;width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:#94a3b8;cursor:pointer;font-size:16px;}',
+      '.dgo-guardado{color:#34d399;font-weight:700;margin-left:4px;}',
       '.dgo-usar{flex-wrap:wrap;}.dgo-usar .dgo-b{width:auto;flex:1 1 auto;}',
       '.dgo-passo{border:2px solid var(--dgo-cor);border-radius:12px;padding:10px 12px;margin:10px 0;background:rgba(255,255,255,.04);}',
       '.dgo-passo-cab{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:13px;}',
@@ -787,7 +802,13 @@
     suaChave: ['Sua chave', 'Your key'],
     umaVez: ['aparece só uma vez!', 'shows only once!'],
     salvarTestar: ['Salvar e testar', 'Save and test'],
-    mostrarChave: ['Mostrar ou esconder a chave', 'Show or hide the key'],
+    mostrarChave: ['Mostrar a chave guardada', 'Show the saved key'],
+    mostrarChaveMotivo: ['Para mostrar a chave guardada, digite o PIN do cofre.', 'To show the saved key, type the vault PIN.'],
+    mostrandoChave: ['A chave aparece por 30 segundos e depois volta a ficar escondida.', 'The key shows for 30 seconds and then hides again.'],
+    guardado: ['✓ guardado', '✓ saved'],
+    guardadoCofre: ['✓ Guardado no cofre', '✓ Saved in the vault'],
+    chaveTrocar: ['Colar outra chave para trocar', 'Paste another key to replace it'],
+    chaveMascara: ['Isso é só a máscara da chave. Cole a chave de verdade.', 'That is just the key mask. Paste the real key.'],
     testando: ['Testando a chave com o provedor…', 'Testing the key with the provider…'],
     chaveOk: ['✓ Chave aceita. Pronto para usar.', '✓ Key accepted. Ready to use.'],
     chaveSalva: ['Chave salva.', 'Key saved.'],
@@ -1590,6 +1611,16 @@
       caixa.style.setProperty('--c-fraca', corSuave(cor, 0.10));
 
       var envelope = el('div', { class: 'dgo-pop-env' }, [caixa, fecharBt]);
+      /* 1.11.0: pela janela comum. A contagem 3, 2, 1 é a ÚNICA exceção escrita da regra "nenhuma janela sem
+         saída": enquanto ela corre, nada fecha; depois, ✕, Esc, Voltar e toque fora valem. */
+      var Jc = janelaComum();
+      if (Jc) {
+        var jAn = Jc.abrir({ conteudo: envelope, classe: 'dgo-pop-fundo', rotulo: a.nome, atributos: { 'data-dgo-ui': '1' },
+          espera: { segundos: espera, botao: fecharBt }, focar: fecharBt });
+        fecharBt.addEventListener('click', function () { if (!fecharBt.disabled) jAn.fechar('fechar'); });
+        return jAn.el;
+      }
+      avisarSemJanela();
       var fundo = el('div', { class: 'dgo-pop-fundo', 'data-dgo-ui': '1', role: 'dialog',
                               'aria-modal': 'true' }, [envelope]);
       d.body.appendChild(fundo);
@@ -2829,27 +2860,59 @@
   /* ------------------------------------------------------------------
      15. JANELAS (modais) DO MODULO
      ------------------------------------------------------------------ */
-  var modalEl = null;
+  /* 1.11.0: a janela do módulo é a janela comum (janela.js). Ela é UMA só: abrir outra tela do módulo
+     com a janela já aberta troca o conteúdo (como antes), sem empilhar nem mexer no histórico. */
+  var modalEl = null, modalJ = null;
+  function janelaComum() { var J = raiz.SolverJanela; return (J && J.__carregado) ? J : null; }
+  var _avisouSemJanela = false;
+  function avisarSemJanela() {
+    if (_avisouSemJanela) return; _avisouSemJanela = true;
+    try { console.warn('[DGO ' + VERSAO + '] janela.js não está nesta página: as janelas do módulo abrem do jeito antigo (sem travar a página de trás). Carregue <script src="janela.js"></script> antes do cofre.js e do diretrizes.js.'); } catch (e) {}
+  }
+  function focarPrimeiro(caixa) {
+    var primeiro = caixa.querySelector('input,button,select,textarea');
+    return (primeiro && !Plataforma.ehCelular()) ? primeiro : null;
+  }
   function abrirModal(caixa, recriar) {
-    fecharModal();
+    var J = janelaComum();
+    if (!J) return abrirModalAntigo(caixa, recriar);
+    if (modalJ && !modalJ.fechada) {
+      modalJ.trocar(caixa);
+    } else {
+      modalJ = J.abrir({ conteudo: caixa, classe: 'dgo-modal', focar: focarPrimeiro(caixa), atributos: { 'data-dgo-ui': '1' },
+        aoFechar: function () { OCR.pararCamera(); modalJ = null; modalEl = null; } });
+      modalEl = modalJ.el;
+    }
+    modalEl._recriar = recriar || null;
+    var f = focarPrimeiro(caixa); if (f && modalEl.open) { try { f.focus(); } catch (e) {} }
+    return modalEl;
+  }
+  function fecharModal() {
+    OCR.pararCamera();
+    if (modalJ) { var j = modalJ; modalJ = null; modalEl = null; j.fechar('fechar'); return; }
+    fecharModalAntigo();
+  }
+  /* sem o janela.js na página (app que ainda não recebeu o arquivo): o jeito de antes, com aviso no console */
+  function abrirModalAntigo(caixa, recriar) {
+    avisarSemJanela();
+    fecharModalAntigo();
     modalEl = el('div', { class: 'dgo-modal', 'data-dgo-ui': '1', role: 'dialog', 'aria-modal': 'true' }, [caixa]);
     modalEl._recriar = recriar || null;
     modalEl.addEventListener('click', function (e) { if (e.target === modalEl) fecharModal(); });
     d.addEventListener('keydown', escFecha);
     d.body.appendChild(modalEl);
-    var primeiro = modalEl.querySelector('input,button,select,textarea');
-    if (primeiro && !Plataforma.ehCelular()) { try { primeiro.focus(); } catch (e) {} }
+    var f = focarPrimeiro(caixa); if (f) { try { f.focus(); } catch (e) {} }
     return modalEl;
   }
   function escFecha(e) { if (e.key === 'Escape') fecharModal(); }
-  function fecharModal() {
-    OCR.pararCamera();
+  function fecharModalAntigo() {
     d.removeEventListener('keydown', escFecha);
     if (modalEl && modalEl.parentNode) modalEl.parentNode.removeChild(modalEl);
     modalEl = null;
   }
   function redesenharInterfaceDGO() {
-    if (modalEl && typeof modalEl._recriar === 'function') { var f = modalEl._recriar; fecharModal(); f(); }
+    /* com a janela comum o conteúdo é trocado no lugar (sem fechar e abrir de novo); no jeito antigo, abrirModal já fecha antes */
+    if (modalEl && typeof modalEl._recriar === 'function') { var f = modalEl._recriar; f(); }
     /* a faixa de anúncio é refeita no idioma novo (antes chamava imagemPlaceholder(), que não existe
        mais, e a troca de idioma quebrava com anúncio na tela — achado no CifrasONE, 10/Out/2026) */
     if (bannerEl) montarFaixa();
@@ -4483,6 +4546,14 @@
     if (cfg.cofre && cfg.cofre.fontes && cfg.cofre.fontes.length) C.registrarFontes(cfg.cofre.fontes);
     if (C.aberto()) C.migrar().catch(function () {});     /* abriu antes do app dizer onde guardava as chaves */
     if (_cofreLigado) return; _cofreLigado = true;
+    if (cfg.cofre && cfg.cofre.proteger && typeof C.proteger === 'function') {
+      var nm = cfg.nome, nPt = (nm && typeof nm === 'object') ? (nm.pt || nm.en || 'app') : String(nm || 'app'), nEn = (nm && typeof nm === 'object') ? (nm.en || nm.pt || 'the app') : String(nm || 'the app');
+      C.proteger({
+        motivo: { pt: 'Digite o PIN para usar as chaves guardadas no ' + nPt + '.', en: 'Type the PIN to use the keys saved in ' + nEn + '.' },
+        /* trabalho demorado rodando (foto, OCR, IA, importação) só adia o trancar por falta de uso */
+        ocupado: function () { var a = Fundo.ativas(); return a && a.length ? 'fundo:' + a.length : false; }
+      });
+    }
     d.addEventListener('cofre:mudou', function (e) {
       var nome = (e.detail && e.detail.nome) || '';
       if (nome === '*' || nome.indexOf('ia:') === 0) d.dispatchEvent(new CustomEvent('dgo:ia-chaves', { detail: { provedor: nome === '*' ? '' : nome.slice(3), tem: !!(e.detail && e.detail.tem) } }));
@@ -4980,6 +5051,8 @@
   function chaveParece(prov, valor) {
     var pr = PROVEDORES[prov]; valor = String(valor || '').trim();
     if (!valor) return { ok: false, pt: 'Cole a chave.', en: 'Paste the key.' };
+    /* 1.11.0: a máscara "••••••••" é só desenho do campo: nunca pode virar a chave guardada */
+    if (/^[•·●*]{3,}$/.test(valor)) return { ok: false, pt: UI.chaveMascara[0], en: UI.chaveMascara[1] };
     if (/\s/.test(valor)) return { ok: false, pt: 'A chave tem espaço ou quebra de linha no meio: copie de novo, inteira.', en: 'The key has a space or line break inside: copy it again, whole.' };
     if (valor.length < 20) return { ok: false, pt: 'Curta demais: parece que faltou um pedaço.', en: 'Too short: looks like part is missing.' };
     /* Prefixo e so uma dica: os provedores mudam o formato (o Gemini passou de AIza para AQ.
@@ -5104,6 +5177,193 @@
     }
     function reabrir() { abrirModal(montar(), function () { abrirChaves(aberto, filtro); }); }
 
+    /* 1.12.0: o corpo de um provedor (ajuda "como conseguir a chave", guia passo a passo, campo da chave) é montado
+       aqui e trocado NO LUGAR: abrir um provedor ou avançar o guia expande dentro da própria janela, sem remontar a
+       tela inteira nem voltar ao topo (diretriz "Janelas (pop-ups)": ajuda aberta de dentro de uma janela expande nela). */
+    function corpoDe(p) {
+      var pr = PROVEDORES[p];
+      var tem = pr.semChave || IA.temChave(p);
+      var corpo = el('div', { class: 'dgo-prov-corpo', 'data-dgo-corpo': p });
+      if (pr.serve) corpo.appendChild(el('p', { class: 'dgo-serve', texto: (pr.serve[Idioma.atual] || pr.serve.pt) }));
+      if (pr.limite) corpo.appendChild(el('p', { class: 'dgo-mini' }, [el('b', { texto: t('limitesTit') + ': ' }), d.createTextNode(limiteTxt(pr))]));
+      if (pr.conta) corpo.appendChild(el('p', { class: 'dgo-mini' }, [el('b', { texto: t('contaTit') + ': ' }), d.createTextNode(pr.conta[Idioma.atual] || pr.conta.pt)]));
+
+      if (pr.onde && !emGuiaDe(p)) {
+        corpo.appendChild(el('a', { class: 'dgo-b', href: pr.onde, target: '_blank', rel: 'noopener noreferrer', style: { textDecoration: 'none' },
+          texto: t('abrirSite') + ' ↗ ' + nomeProv(pr) }));
+      }
+
+      var emGuia = emGuiaDe(p);
+      if (emGuia) {
+        var n = Math.min(guia[p], pr.passos.length - 1), ps = pr.passos[n], ultimo = n === pr.passos.length - 1;
+        var rotB = null;
+        if (ps.ilu === 'botao') { var mm = (ps[Idioma.atual] || ps.pt).match(/“([^”]+)”/); rotB = mm ? mm[1].split(' / ')[0] : null; }
+        var passo = el('div', { class: 'dgo-passo', role: 'group', 'aria-label': t('guiaPasso') }, [
+          el('div', { class: 'dgo-passo-cab' }, [
+            el('b', { texto: t('passo') + ' ' + (n + 1) + ' ' + t('de') + ' ' + pr.passos.length }),
+            el('span', { class: 'dgo-passo-barra' }, [el('span', { style: { width: Math.round(((n + 1) / pr.passos.length) * 100) + '%' } })])
+          ]),
+          el('p', { class: 'dgo-passo-txt', texto: ps[Idioma.atual] || ps.pt }),
+          iluPasso(p, n + 1, ps.ilu, rotB)
+        ]);
+        var lp = el('div', { class: 'dgo-linha dgo-usar' });
+        if (ps.ilu !== 'colar') {
+          lp.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: t('abrirAoLado') + ' ↗', onclick: function () { abrirAoLado(pr, p); } }));
+        }
+        if (n > 0) lp.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: '‹ ' + t('anterior'), onclick: function () { guiaDefinir(p, n - 1); trocarCorpo(p); } }));
+        if (!ultimo) lp.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: '✓ ' + t('jaFiz') + ' ›', onclick: function () { guiaDefinir(p, n + 1); trocarCorpo(p); } }));
+        lp.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('sairGuia'), onclick: function () { guiaDefinir(p, null); trocarCorpo(p); } }));
+        passo.appendChild(lp);
+        if (ultimo) passo.appendChild(el('p', { class: 'dgo-mini', texto: t('colarAbaixo') }));
+        corpo.appendChild(passo);
+      }
+      /* guia passo a passo (lista inteira), aberto quando ainda nao ha chave */
+      if (pr.passos && pr.passos.length && !emGuia) {
+        var det = el('details', { class: 'dgo-guia' });
+        if (!tem) det.open = true;
+        det.appendChild(el('summary', { texto: '🧭 ' + t('guiaPasso') + ' (' + pr.passos.length + ')' }));
+        var ol = el('ol', { class: 'dgo-guia-lista' });
+        pr.passos.forEach(function (ps, i) {
+          var rot = null;
+          if (ps.ilu === 'botao') { var m = (ps[Idioma.atual] || ps.pt).match(/“([^”]+)”/); rot = m ? m[1].split(' / ')[0] : null; }
+          ol.appendChild(el('li', {}, [el('p', { texto: ps[Idioma.atual] || ps.pt }), iluPasso(p, i + 1, ps.ilu, rot)]));
+        });
+        det.appendChild(ol);
+        det.appendChild(el('p', { class: 'dgo-mini', texto: t('guiaPrintDica').replace('{arq}', 'guia-' + p + '-2.png') }));
+        if (pr.passos.length > 1 && !pr.semChave) corpo.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: '▶ ' + t('comecarGuia'),
+          onclick: function () { guiaDefinir(p, 0); trocarCorpo(p); } }));
+        corpo.appendChild(det);
+      }
+
+      var msg = el('div');
+      if (!pr.semChave) {
+        if (p === 'personalizado') {
+          var cB = campo(t('endereco'), { type: 'url', placeholder: 'https://…/v1', autocapitalize: 'none', spellcheck: 'false' });
+          cB._input.value = IA.baseDe(p);
+          cB._input.addEventListener('change', function () { IA.definirBase(p, cB._input.value); });
+          corpo.appendChild(cB);
+        }
+        /* 1.11.0 (as regras do Contador 1.25): a chave guardada NÃO vem para o campo. O campo serve só para colar
+           uma nova; o 👁 mostra o que se digita (sem PIN). A guardada aparece com "Mostrar a chave guardada", que
+           tranca o cofre e pede o PIN de novo (quem pegou o celular aberto não vê), por 30 segundos. */
+        var jaTem = IA.temChave(p), mostrada = '';
+        var cK = campo(t('chave') + ' — ' + nomeProv(pr), { type: 'password', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'none',
+          'data-lpignore': 'true', 'data-1p-ignore': '', 'data-sj-texto': '', placeholder: jaTem ? t('chaveTrocar') : (prefixoTxt(pr) ? prefixoTxt(pr) + '…' : '') });
+        if (jaTem) cK.firstChild.appendChild(el('span', { class: 'dgo-guardado', texto: ' ' + t('guardado') }));
+        corpo.appendChild(cK);
+        if (jaTem) {
+          var notaMostrar = el('p', { class: 'dgo-mini', role: 'status' });
+          corpo.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: '👁 ' + t('mostrarChave'), onclick: function () {
+            var b = this, C = cofreComum(); b.disabled = true;
+            var pedir = C ? C.trancar().then(function () { return C.pedir({ motivo: { pt: UI.mostrarChaveMotivo[0], en: UI.mostrarChaveMotivo[1] }, semOferta: true }); }) : Promise.resolve(true);
+            pedir.then(function (ok) {
+              b.disabled = false;
+              if (!ok) return;
+              mostrada = IA.chave(p);
+              cK._input.value = mostrada; cK._input.type = 'text'; if (cK._input._olho) cK._input._olho.pintar();
+              notaMostrar.textContent = t('mostrandoChave');
+              setTimeout(function () {
+                if (cK._input.value === mostrada) cK._input.value = '';
+                mostrada = ''; cK._input.type = 'password'; if (cK._input._olho) cK._input._olho.pintar(); notaMostrar.textContent = '';
+              }, 30000);
+            }, function () { b.disabled = false; });
+          } }));
+          corpo.appendChild(notaMostrar);
+        }
+
+        var cM = null, dl = null;
+        if ((pr.cap || []).indexOf('texto') !== -1) {
+          cM = campo(t('modelo'), { type: 'text', autocapitalize: 'none', spellcheck: 'false', list: 'dgo-modelos-' + p });
+          cM._input.value = IA.modelo(p);
+          dl = el('datalist', { id: 'dgo-modelos-' + p });
+          var cache = (Guardar.ler('ia-lista-modelos', {}, true) || {})[p];
+          (cache && cache.modelos || []).forEach(function (m) { dl.appendChild(el('option', { value: m.id })); });
+          cM.appendChild(dl);
+          corpo.appendChild(cM);
+        }
+
+        var l1 = el('div', { class: 'dgo-linha' });
+        l1.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: t('salvarTestar'), onclick: function () {
+          var b = this, valor = cK._input.value.trim();
+          /* campo vazio (ou só a chave mostrada) com chave já guardada: testa a guardada, sem gravar de novo */
+          var soTestar = jaTem && (!valor || valor === mostrada);
+          var chk = soTestar ? { ok: true } : chaveParece(p, valor);
+          msg.innerHTML = '';
+          if (!chk.ok && !(p === 'personalizado' && !valor)) { msg.appendChild(aviso(chk[Idioma.atual] || chk.pt, 'erro')); return; }
+          if (chk.aviso) msg.appendChild(aviso(chk.aviso[Idioma.atual] || chk.aviso.pt, 'info'));
+          b.disabled = true;
+          /* 1.10.0: com o cofre comum, gravar pode pedir o PIN (ou criar o cofre) antes; espera terminar */
+          (soTestar ? IA.lerChave(p).then(function (v) { valor = v; }) : Promise.resolve(IA.definirChave(p, valor))).then(function () {
+            if (cM) IA.definirModelo(p, cM._input.value.trim());
+            if ((pr.cap || []).indexOf('texto') !== -1 && IA.temChave(p) && !IA.provedoresProntos().filter(function (x) { return x !== p; }).length) IA.definirProvedor(p);
+            /* gravou: o texto do campo já está salvo (tocar fora não pergunta "Descartar?") e o campo esvazia */
+            cK._input.value = ''; cK._input.type = 'password'; mostrada = '';
+            if (modalJ) modalJ.salvo();
+            msg.appendChild(aviso(soTestar ? t('testando') : t('guardadoCofre') + ' · ' + t('testando'), 'info'));
+            return testarChave(p, valor).then(function (r) {
+              msg.innerHTML = '';
+              msg.appendChild(aviso((soTestar ? '' : t('guardadoCofre') + ' · ') + (r.semTeste ? t('chaveSalva') : t('chaveOk')), 'ok'));
+              guiaDefinir(p, null);
+              if (janelaGuia && !janelaGuia.closed) { try { janelaGuia.close(); } catch (e3) {} }
+              if (r.modelos && dl) {
+                var gratis = r.modelos.filter(function (m) { return m.gratis; });
+                var usar = (gratis.length && pr.gratis) ? gratis : r.modelos;
+                dl.innerHTML = ''; usar.slice(0, 300).forEach(function (m) { dl.appendChild(el('option', { value: m.id })); });
+                if (cM && !cM._input.value && usar.length) { cM._input.value = usar[0].id; IA.definirModelo(p, usar[0].id); }
+              }
+              setTimeout(reabrir, 900);
+            }).catch(function (e) {
+              msg.innerHTML = '';
+              var st = e && e.status;
+              var txt = st === 401 || st === 403 ? t('chaveRecusada') : (!st && /fetch|network/i.test(String(e && e.message)) ? t('corsAviso') : t('erroIA') + ' ' + ((e && e.message) || ''));
+              msg.appendChild(aviso(txt, st === 401 || st === 403 ? 'erro' : 'info'));
+            });
+          }, function (e) {
+            msg.innerHTML = ''; msg.appendChild(aviso(IA.explicarErro(e), 'erro'));
+          }).then(function () { b.disabled = false; });
+        } }));
+        corpo.appendChild(l1);
+      }
+
+      /* usar para: texto / voz -> texto / texto -> voz */
+      if (tem) {
+        var lu = el('div', { class: 'dgo-linha dgo-usar' });
+        (pr.cap || []).filter(function (c) { return c !== 'visao'; }).forEach(function (c) {
+          var ativo = PorUso.provedor(c) === p;
+          lu.appendChild(el('button', { class: 'dgo-b dgo-b2' + (ativo ? ' dgo-on' : ''), type: 'button', 'aria-pressed': ativo ? 'true' : 'false',
+            texto: (ativo ? '✓ ' : '') + t('usarPara') + ' ' + CAPS[c].icone + ' ' + (CAPS[c][Idioma.atual] || CAPS[c].pt),
+            onclick: function () { if (c === 'texto') IA.definirProvedor(p); else PorUso.definir(c, p); reabrir(); } }));
+        });
+        if (!pr.semChave) lu.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('remover'), onclick: function () {
+          Promise.resolve(IA.definirChave(p, '')).then(function () { ['stt', 'tts'].forEach(function (c) { if (PorUso.ler()[c] === p) PorUso.definir(c, ''); }); reabrir(); }, function () {}); } }));
+        corpo.appendChild(lu);
+      }
+      corpo.appendChild(msg);
+      return corpo;
+    }
+    function marcarCab(cab, on) {
+      cab.classList.toggle('dgo-on', on); cab.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (cab.lastChild) cab.lastChild.textContent = on ? '▴' : '▾';
+    }
+    function alternar(p, cab) {
+      var caixa = cab.parentNode, atual = caixa && caixa.querySelector('.dgo-prov-corpo');
+      if (atual) {
+        var q = atual.getAttribute('data-dgo-corpo'), cabA = caixa.querySelector('[data-dgo-prov="' + q + '"]');
+        atual.parentNode.removeChild(atual); if (cabA) marcarCab(cabA, false);
+      }
+      if (aberto === p) { aberto = ''; return; }
+      aberto = p;
+      cab.parentNode.insertBefore(corpoDe(p), cab.nextSibling); marcarCab(cab, true);
+    }
+    function trocarCorpo(p) {
+      var velho = d.querySelector('.dgo-cofre [data-dgo-corpo="' + p + '"]');
+      if (!velho) return reabrir();
+      var novo = corpoDe(p); velho.parentNode.replaceChild(novo, velho);
+      var f = novo.querySelector('.dgo-passo button') || novo.querySelector('button');
+      if (f) { try { f.focus({ preventScroll: true }); } catch (e) {} }
+      var passo = novo.querySelector('.dgo-passo'); if (passo && passo.scrollIntoView) { try { passo.scrollIntoView({ block: 'nearest' }); } catch (e2) {} }
+    }
+
     function montar() {
       var caixa = el('div', { class: 'dgo-caixa dgo-larga dgo-cofre' });
       caixa.appendChild(el('h2', { texto: '🔑 ' + t('cofreChaves') }));
@@ -5134,158 +5394,34 @@
         var ehAberto = (p === aberto);
         var usos = emUsoPara(p);
         var cab = el('button', { type: 'button', class: 'dgo-prov-cab' + (ehAberto ? ' dgo-on' : ''), 'aria-expanded': ehAberto ? 'true' : 'false',
-          onclick: function () { aberto = ehAberto ? '' : p; reabrir(); } }, [
+          onclick: function () { alternar(p, this); } }, [
           el('span', { class: 'dgo-prov-nome' }, [d.createTextNode(nomeProv(pr) + ' ')].concat(selos(pr)).concat([
             tem ? el('em', { class: 'dgo-selo dgo-selo-ok', texto: '✓' }) : null,
             usos.length ? el('em', { class: 'dgo-selo', texto: t('emUso') + ' ' + usos.join(' ') }) : null
           ])),
           el('span', { class: 'dgo-mini', texto: ehAberto ? '▴' : '▾' })
         ]);
+        cab.setAttribute('data-dgo-prov', p);
         caixa.appendChild(cab);
-        if (!ehAberto) return;
-
-        var corpo = el('div', { class: 'dgo-prov-corpo' });
-        if (pr.serve) corpo.appendChild(el('p', { class: 'dgo-serve', texto: (pr.serve[Idioma.atual] || pr.serve.pt) }));
-        if (pr.limite) corpo.appendChild(el('p', { class: 'dgo-mini' }, [el('b', { texto: t('limitesTit') + ': ' }), d.createTextNode(limiteTxt(pr))]));
-        if (pr.conta) corpo.appendChild(el('p', { class: 'dgo-mini' }, [el('b', { texto: t('contaTit') + ': ' }), d.createTextNode(pr.conta[Idioma.atual] || pr.conta.pt)]));
-
-        if (pr.onde && !emGuiaDe(p)) {
-          corpo.appendChild(el('a', { class: 'dgo-b', href: pr.onde, target: '_blank', rel: 'noopener noreferrer', style: { textDecoration: 'none' },
-            texto: t('abrirSite') + ' ↗ ' + nomeProv(pr) }));
-        }
-
-        var emGuia = emGuiaDe(p);
-        if (emGuia) {
-          var n = Math.min(guia[p], pr.passos.length - 1), ps = pr.passos[n], ultimo = n === pr.passos.length - 1;
-          var rotB = null;
-          if (ps.ilu === 'botao') { var mm = (ps[Idioma.atual] || ps.pt).match(/“([^”]+)”/); rotB = mm ? mm[1].split(' / ')[0] : null; }
-          var passo = el('div', { class: 'dgo-passo', role: 'group', 'aria-label': t('guiaPasso') }, [
-            el('div', { class: 'dgo-passo-cab' }, [
-              el('b', { texto: t('passo') + ' ' + (n + 1) + ' ' + t('de') + ' ' + pr.passos.length }),
-              el('span', { class: 'dgo-passo-barra' }, [el('span', { style: { width: Math.round(((n + 1) / pr.passos.length) * 100) + '%' } })])
-            ]),
-            el('p', { class: 'dgo-passo-txt', texto: ps[Idioma.atual] || ps.pt }),
-            iluPasso(p, n + 1, ps.ilu, rotB)
-          ]);
-          var lp = el('div', { class: 'dgo-linha dgo-usar' });
-          if (ps.ilu !== 'colar') {
-            lp.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: t('abrirAoLado') + ' ↗', onclick: function () { abrirAoLado(pr, p); } }));
-          }
-          if (n > 0) lp.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: '‹ ' + t('anterior'), onclick: function () { guiaDefinir(p, n - 1); reabrir(); } }));
-          if (!ultimo) lp.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: '✓ ' + t('jaFiz') + ' ›', onclick: function () { guiaDefinir(p, n + 1); reabrir(); } }));
-          lp.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('sairGuia'), onclick: function () { guiaDefinir(p, null); reabrir(); } }));
-          passo.appendChild(lp);
-          if (ultimo) passo.appendChild(el('p', { class: 'dgo-mini', texto: t('colarAbaixo') }));
-          corpo.appendChild(passo);
-        }
-        /* guia passo a passo (lista inteira), aberto quando ainda nao ha chave */
-        if (pr.passos && pr.passos.length && !emGuia) {
-          var det = el('details', { class: 'dgo-guia' });
-          if (!tem) det.open = true;
-          det.appendChild(el('summary', { texto: '🧭 ' + t('guiaPasso') + ' (' + pr.passos.length + ')' }));
-          var ol = el('ol', { class: 'dgo-guia-lista' });
-          pr.passos.forEach(function (ps, i) {
-            var rot = null;
-            if (ps.ilu === 'botao') { var m = (ps[Idioma.atual] || ps.pt).match(/“([^”]+)”/); rot = m ? m[1].split(' / ')[0] : null; }
-            ol.appendChild(el('li', {}, [el('p', { texto: ps[Idioma.atual] || ps.pt }), iluPasso(p, i + 1, ps.ilu, rot)]));
-          });
-          det.appendChild(ol);
-          det.appendChild(el('p', { class: 'dgo-mini', texto: t('guiaPrintDica').replace('{arq}', 'guia-' + p + '-2.png') }));
-          if (pr.passos.length > 1 && !pr.semChave) corpo.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: '▶ ' + t('comecarGuia'),
-            onclick: function () { guiaDefinir(p, 0); reabrir(); } }));
-          corpo.appendChild(det);
-        }
-
-        var msg = el('div');
-        if (!pr.semChave) {
-          if (p === 'personalizado') {
-            var cB = campo(t('endereco'), { type: 'url', placeholder: 'https://…/v1', autocapitalize: 'none', spellcheck: 'false' });
-            cB._input.value = IA.baseDe(p);
-            cB._input.addEventListener('change', function () { IA.definirBase(p, cB._input.value); });
-            corpo.appendChild(cB);
-          }
-          var cK = campo(t('chave') + ' — ' + nomeProv(pr), { type: 'password', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'none',
-            placeholder: IA.chave(p) ? '••••••••' : (prefixoTxt(pr) ? prefixoTxt(pr) + '…' : '') });
-          cK._input.value = IA.chave(p);
-          var olho = el('button', { type: 'button', class: 'dgo-olho', 'aria-label': t('mostrarChave'), texto: '👁', onclick: function () {
-            cK._input.type = cK._input.type === 'password' ? 'text' : 'password'; } });
-          cK.appendChild(olho);
-          corpo.appendChild(cK);
-
-          var cM = null, dl = null;
-          if ((pr.cap || []).indexOf('texto') !== -1) {
-            cM = campo(t('modelo'), { type: 'text', autocapitalize: 'none', spellcheck: 'false', list: 'dgo-modelos-' + p });
-            cM._input.value = IA.modelo(p);
-            dl = el('datalist', { id: 'dgo-modelos-' + p });
-            var cache = (Guardar.ler('ia-lista-modelos', {}, true) || {})[p];
-            (cache && cache.modelos || []).forEach(function (m) { dl.appendChild(el('option', { value: m.id })); });
-            cM.appendChild(dl);
-            corpo.appendChild(cM);
-          }
-
-          var l1 = el('div', { class: 'dgo-linha' });
-          l1.appendChild(el('button', { class: 'dgo-b', type: 'button', texto: t('salvarTestar'), onclick: function () {
-            var b = this, valor = cK._input.value.trim();
-            var chk = chaveParece(p, valor);
-            msg.innerHTML = '';
-            if (!chk.ok && !(p === 'personalizado' && !valor)) { msg.appendChild(aviso(chk[Idioma.atual] || chk.pt, 'erro')); return; }
-            if (chk.aviso) msg.appendChild(aviso(chk.aviso[Idioma.atual] || chk.aviso.pt, 'info'));
-            b.disabled = true;
-            /* 1.10.0: com o cofre comum, gravar pode pedir o PIN (ou criar o cofre) antes; espera terminar */
-            Promise.resolve(IA.definirChave(p, valor)).then(function () {
-              if (cM) IA.definirModelo(p, cM._input.value.trim());
-              if ((pr.cap || []).indexOf('texto') !== -1 && IA.temChave(p) && !IA.provedoresProntos().filter(function (x) { return x !== p; }).length) IA.definirProvedor(p);
-              msg.appendChild(aviso(t('testando'), 'info'));
-              return testarChave(p, valor).then(function (r) {
-                msg.innerHTML = '';
-                msg.appendChild(aviso(r.semTeste ? t('chaveSalva') : t('chaveOk'), 'ok'));
-                guiaDefinir(p, null);
-                if (janelaGuia && !janelaGuia.closed) { try { janelaGuia.close(); } catch (e3) {} }
-                if (r.modelos && dl) {
-                  var gratis = r.modelos.filter(function (m) { return m.gratis; });
-                  var usar = (gratis.length && pr.gratis) ? gratis : r.modelos;
-                  dl.innerHTML = ''; usar.slice(0, 300).forEach(function (m) { dl.appendChild(el('option', { value: m.id })); });
-                  if (cM && !cM._input.value && usar.length) { cM._input.value = usar[0].id; IA.definirModelo(p, usar[0].id); }
-                }
-                setTimeout(reabrir, 900);
-              }).catch(function (e) {
-                msg.innerHTML = '';
-                var st = e && e.status;
-                var txt = st === 401 || st === 403 ? t('chaveRecusada') : (!st && /fetch|network/i.test(String(e && e.message)) ? t('corsAviso') : t('erroIA') + ' ' + ((e && e.message) || ''));
-                msg.appendChild(aviso(txt, st === 401 || st === 403 ? 'erro' : 'info'));
-              });
-            }, function (e) {
-              msg.innerHTML = ''; msg.appendChild(aviso(IA.explicarErro(e), 'erro'));
-            }).then(function () { b.disabled = false; });
-          } }));
-          corpo.appendChild(l1);
-        }
-
-        /* usar para: texto / voz -> texto / texto -> voz */
-        if (tem) {
-          var lu = el('div', { class: 'dgo-linha dgo-usar' });
-          (pr.cap || []).filter(function (c) { return c !== 'visao'; }).forEach(function (c) {
-            var ativo = PorUso.provedor(c) === p;
-            lu.appendChild(el('button', { class: 'dgo-b dgo-b2' + (ativo ? ' dgo-on' : ''), type: 'button', 'aria-pressed': ativo ? 'true' : 'false',
-              texto: (ativo ? '✓ ' : '') + t('usarPara') + ' ' + CAPS[c].icone + ' ' + (CAPS[c][Idioma.atual] || CAPS[c].pt),
-              onclick: function () { if (c === 'texto') IA.definirProvedor(p); else PorUso.definir(c, p); reabrir(); } }));
-          });
-          if (!pr.semChave) lu.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('remover'), onclick: function () {
-            Promise.resolve(IA.definirChave(p, '')).then(function () { ['stt', 'tts'].forEach(function (c) { if (PorUso.ler()[c] === p) PorUso.definir(c, ''); }); reabrir(); }, function () {}); } }));
-          corpo.appendChild(lu);
-        }
-        corpo.appendChild(msg);
-        caixa.appendChild(corpo);
+        if (ehAberto) caixa.appendChild(corpoDe(p));
       });
 
       caixa.appendChild(aviso(t('chaveAvisoCusto') + ' ' + t('chaveNuncaChat'), 'info'));
       var Cc = cofreComum();
       if (Cc && Cc.aberto()) {
         caixa.appendChild(el('p', { class: 'dgo-mini', texto: Idioma.atual === 'en'
-          ? '🔐 The keys are locked with your PIN in this browser' + (Cc.lembrado() ? ' (this device is remembered).' : '.')
-          : '🔐 As chaves ficam trancadas com o seu PIN neste navegador' + (Cc.lembrado() ? ' (este aparelho está lembrado).' : '.') }));
+          ? '🔐 The keys are locked with your PIN in this browser.'
+          : '🔐 As chaves ficam trancadas com o seu PIN neste navegador.' }));
         caixa.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: Idioma.atual === 'en' ? '🔒 Lock the vault now' : '🔒 Trancar o cofre agora',
           onclick: function () { fecharModal(); Cc.trancar(); } }));
+      }
+      /* 1.12.0: o painel da digital do cofre (ligar/tirar) é desenhado AQUI, logo acima do Fechar, num lugar só para
+         todo app (antes cada app encaixava por conta própria). Chamado direto: o cofre 1.4.1 desenha mesmo com a caixa
+         ainda fora da página (ela pode estar esperando a vez de outra janela). */
+      if (raiz.SolverCofre && raiz.SolverCofre.painelDigital) {
+        var painelD = el('div', { class: 'dgo-cofre-digital' });
+        caixa.appendChild(painelD);
+        raiz.SolverCofre.painelDigital(painelD);
       }
       caixa.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: t('fechar'), onclick: fecharModal }));
       return caixa;
@@ -5504,7 +5640,9 @@
      mensagem certa; escrito sem sintaxe nova, porque roda justamente no navegador velho.
      ------------------------------------------------------------------ */
   var Compat = (function () {
-    var MINIMOS_PADRAO = { chrome: 100, edge: 100, firefox: 100, safari: 15.4, samsung: 18 };
+    /* 1.11.0: os primeiros com :has() (a trava da rolagem atrás das janelas) e, no iPhone, overscroll-behavior.
+       Fonte: MDN browser-compat-data 8.1.6 (17/Out/2026). Abaixo disso só aparece a faixa "atualize"; nada bloqueia. */
+    var MINIMOS_PADRAO = { chrome: 105, edge: 105, firefox: 121, safari: 16, samsung: 20 };
     var DENTRO = [[/Instagram/i, 'Instagram'], [/FBAN|FBAV|FB_IAB|FBIOS|FB4A/i, 'Facebook'], [/WhatsApp/i, 'WhatsApp'],
                   [/LinkedInApp/i, 'LinkedIn'], [/musical_ly|TikTok|BytedanceWebview|trill_/i, 'TikTok']];
     var NOMES = {   /* [pt, en, título pt, título en, ícone] */
@@ -5664,8 +5802,17 @@
       var b = el('button', { type: 'button', class: estilo || '', texto: L('Copiar endereço', 'Copy address') });
       b.addEventListener('click', function () {
         var u = raiz.location.href, feito = function () { b.textContent = L('✓ Copiado', '✓ Copied'); };
-        try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(u).then(feito, function () { raiz.prompt(L('Copie o endereço:', 'Copy the address:'), u); }); return; } } catch (e) {}
-        raiz.prompt(L('Copie o endereço:', 'Copy the address:'), u);
+        /* 1.11.0: sem prompt() do navegador (janela que não segue a regra): o endereço aparece selecionado ao lado do botão */
+        function mostrar() {
+          if (b._campo) { b._campo.select(); return; }
+          var c = el('input', { type: 'text', readonly: '', value: u, 'aria-label': L('Endereço para copiar', 'Address to copy'),
+            style: { display: 'block', width: '100%', marginTop: '6px', minHeight: '40px', boxSizing: 'border-box' } });
+          b._campo = c; if (b.parentNode) b.parentNode.insertBefore(c, b.nextSibling);
+          b.textContent = L('Copie o endereço abaixo', 'Copy the address below');
+          try { c.focus(); c.select(); } catch (e2) {}
+        }
+        try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(u).then(feito, mostrar); return; } } catch (e) {}
+        mostrar();
       });
       return b;
     }
@@ -5825,7 +5972,8 @@
     function explicar(id, opcoes, r) {
       opcoes = opcoes || {};
       return new Promise(function (ok) {
-        var antes = d.getElementById('dgo-compat-janela'); if (antes) antes.parentNode.removeChild(antes);
+        /* a do jeito antigo some; a da janela comum espera a vez (uma janela por vez) */
+        var antes = d.getElementById('dgo-compat-janela'); if (antes && !antes.classList.contains('sj')) antes.parentNode.removeChild(antes);
         var st = r ? (id === 'espaco' ? 'pouco' : r[id]) : 'bloqueado', nav = (r && r.navegador) || navegador(), amb = ambiente(nav);
         var nome = nomeDe(id), icone = (NOMES[id] || [])[4] || '⚠️';
         var titulo = st === 'bloqueado' ? L('O acesso a ' + nome + ' está bloqueado', 'Access to ' + nome + ' is blocked')
@@ -5843,6 +5991,14 @@
           : L('Use outro aparelho, ou abra este endereço no Chrome ou no Safari atualizado.', 'Use another device, or open this address in an up-to-date Chrome or Safari.') }));
         var ent = el('button', { class: 'dgo-b', type: 'button', texto: L('Entendi', 'Got it') });
         caixa.appendChild(ent);
+        var Jc = janelaComum();
+        if (Jc) {      /* 1.11.0: pela janela comum (Entendi, Esc, Voltar e toque fora fecham) */
+          var jc = Jc.abrir({ conteudo: caixa, classe: 'dgo-compat-janela', id: 'dgo-compat-janela', papel: 'alertdialog', rotulo: titulo, focar: ent,
+            atributos: { 'data-dgo-ui': '1', 'data-recurso-faltando': id }, aoFechar: function () { ok(); } });
+          ent.addEventListener('click', function () { jc.fechar('entendi'); });
+          return;
+        }
+        avisarSemJanela();
         var jan = el('div', { id: 'dgo-compat-janela', class: 'dgo-compat-janela', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': titulo, 'data-dgo-ui': '1', 'data-recurso-faltando': id }, [caixa]);
         function fechar() { d.removeEventListener('keydown', esc, true); if (jan.parentNode) jan.parentNode.removeChild(jan); ok(); }
         function esc(e) { if (e.key === 'Escape') { e.stopPropagation(); fechar(); } }
@@ -6949,6 +7105,9 @@
     senha: Senha,
     /* cofre comum de chaves (cofre.js) ou null, se a pagina nao carregou o cofre.js */
     get cofre() { return cofreComum(); },
+    /* janela comum (janela.js, 1.11.0) ou null, se a pagina nao carregou o janela.js. Toda janela do app usa
+       DGO.janela.abrir({ conteudo, classe, aoFechar }) (ou SolverJanela.abrir, nos apps sem o modulo) */
+    get janela() { return janelaComum(); },
 
     iniciar: function (opcoes) {
       fundir(cfg, opcoes || {});

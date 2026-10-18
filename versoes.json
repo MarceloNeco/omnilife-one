@@ -1,5 +1,18 @@
 [
  {
+  "v": "2.19.0",
+  "d": "2026-10-18",
+  "hora": "00:41:40",
+  "pt": [
+   "🪟 Janelas iguais em todo o app: formulários, avisos, perguntas, o menu ☰, o menu do seu perfil, o SOS e o tour agora se comportam do mesmo jeito. Com uma janela aberta, a tela de trás fica parada (não rola e não aceita toque). Dá para fechar no ✕ ou no botão, na tecla Esc, no Voltar do celular ou tocando na parte escura de fora. Se você já digitou algo e tentar sair, o app pergunta \"Descartar o que você digitou?\" (nas buscas não pergunta). Só uma janela aparece por vez: a pergunta rápida (\"Excluir?\") aparece por cima da janela que a pediu e some junto com ela, e a ajuda aberta de dentro de uma janela abre ali mesmo. Os avisos rápidos (\"Copiado\", \"Preencha o nome\") aparecem por cima da janela e acabaram os pop-ups do navegador.",
+   "🔐 Cofre com PIN em tudo: as chaves de IA, de clima e de trânsito, o código do robô do Telegram e agora também a chave do WhatsApp (CallMeBot) ficam só no cofre; as que já estavam salvas vão sozinhas para lá, ninguém perde nada. Com chave guardada, o app pede o PIN ao abrir e ao recarregar, e tranca ao sair, ao ficar escondido ou sem uso (com o Modo Vigilante ligado, não tranca). A chave guardada nunca aparece no campo: você vê \"✓ Guardado no cofre\" e o botão \"Mostrar a chave guardada\" (pede o PIN de novo). Para ligar a digital: ⚙ → IA → \"Abrir a tela do cofre\"."
+  ],
+  "en": [
+   "🪟 Same windows everywhere in the app: forms, notices, questions, the ☰ menu, your profile menu, SOS and the tour now behave the same way. With a window open, the screen behind stays still (it doesn't scroll or take taps). You can close it with the ✕ or the button, the Esc key, your phone's Back button, or by tapping the dark area outside. If you typed something and try to leave, the app asks \"Discard what you typed?\" (searches don't ask). Only one window shows at a time: the quick question (\"Delete?\") appears on top of the window that asked it and goes away with it, and help opened from inside a window opens right there. Quick notices (\"Copied\", \"Fill in the name\") appear on top of the window, and the browser's pop-ups are gone.",
+   "🔐 Vault with PIN for everything: the AI, weather and traffic keys, the Telegram bot code and now also the WhatsApp (CallMeBot) key live only in the vault; the ones already saved move there by themselves, nobody loses anything. With a saved key, the app asks for the PIN on opening and on reload, and locks when you leave, when it is hidden or unused (with Watch mode on, it doesn't lock). A saved key never shows in the field: you see \"✓ Saved in the vault\" and a \"Show the saved key\" button (asks for the PIN again). To turn on the fingerprint: ⚙ → AI → \"Open the vault screen\"."
+  ]
+ },
+ {
   "v": "2.18.0",
   "d": "2026-10-16",
   "hora": "19:05:22",
