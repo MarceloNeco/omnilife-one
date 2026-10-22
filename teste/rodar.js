@@ -22,12 +22,14 @@ const servidor = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': TIPOS[path.extname(arq)] || 'application/octet-stream', 'Cache-Control': 'no-store' }); res.end(d);
   });
 }).listen(PORTA, async () => {
-  const testes = ['mestres.js', 'janelas-omni.js', 'cofre-omni.js'];
+  /* um item pode ser [arquivo, argumentos...]: o sql-grants.js (sem navegador) recebe a pasta dos scripts SQL */
+  const testes = [['sql-grants.js', 'supabase'], 'mestres.js', 'janelas-omni.js', 'cofre-omni.js'];
   let falhou = false;
   for (const t of testes) {
-    console.log('\n▶ ' + t);
+    const [arq, ...args] = Array.isArray(t) ? t : [t];
+    console.log('\n▶ ' + arq);
     /* spawn (e não spawnSync): o servidor mora neste mesmo processo e precisa continuar respondendo enquanto o teste roda */
-    const codigo = await new Promise((fim) => spawn(process.execPath, [path.join(__dirname, t)], { stdio: 'inherit', env: Object.assign({}, process.env, { BASE: BASE }) }).on('exit', fim));
+    const codigo = await new Promise((fim) => spawn(process.execPath, [path.join(__dirname, arq)].concat(args), { stdio: 'inherit', cwd: raiz, env: Object.assign({}, process.env, { BASE: BASE }) }).on('exit', fim));
     if (codigo !== 0) falhou = true;
   }
   servidor.close();

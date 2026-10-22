@@ -50,18 +50,24 @@ Módulo único, igual em todos os apps:
 - `diretrizes-config.js` — o **único** arquivo diferente por app
 - `sw.js`, `manifest.json`, ícones, `servicos.json`, `anuncios.json`, `TESTE-<app>.html`
 - OCR hospedado: `ocr-worker.js`, `tesseract-core-*.wasm.js`, `*.traineddata.gz`
+- `assistone.js` — o assistente AssistONE (global `AssistONE` e `DGO.assistente`), **idêntico em todos**; master na raiz do
+  rootify-one (decisão do dono, 10/Out/2026 — seção AssistONE)
 - `ajuda-botao.png`, `ajuda-icone.png` e `assistone-hd.png` — a arte do assistente AssistONE
+- `janela.js` — a janela comum (global `SolverJanela` e `DGO.janela`), **idêntico em todos**, também nos apps sem o
+  módulo; master na raiz do rootify-one (17/Out/2026 — seção "Janelas (pop-ups)")
+- `cofre.js` — o cofre comum de chaves (global `SolverCofre` e `DGO.cofre`), **idêntico em todos**; master no rootify-one
 
-Instalação: arquivos na raiz + duas linhas antes de `</body>` em **cada** página HTML
-(`diretrizes.js` e depois `diretrizes-config.js`). Nenhuma outra edição no HTML.
+Instalação: arquivos na raiz + as linhas em **cada** página HTML: `janela.js` e `cofre.js` antes de tudo que abre
+janela (antes do `diretrizes.js`), depois `diretrizes.js`, `diretrizes-config.js` e `assistone.js` antes de `</body>`.
+O `sw.js` lista `janela.js` e `cofre.js`. Nenhuma outra edição no HTML.
 
 `app:` no config é a gaveta de dados e nunca muda — todos os sites moram na mesma origem.
 
 Tudo que depende de identidade ou permissão passa por **uma função só** (`entrar`, `pode`).
 Hoje responde localmente; com servidor, passa a perguntar a ele e nada mais no app muda.
 
-**Com Firebase os arquivos continuam intercambiáveis**: o `diretrizes.js` segue idêntico; muda
-só a *fonte* dos dados (arquivo → Firestore), escolhida no config. O config continua sendo um
+**Com o servidor da plataforma (Supabase) os arquivos continuam intercambiáveis**: o `diretrizes.js`
+segue idêntico; muda só a *fonte* dos dados (arquivo → banco), escolhida no config. O config continua sendo um
 por app, de propósito.
 
 ## Domínio (solverone.com.br)
@@ -77,13 +83,17 @@ por app, de propósito.
   Custom domain (tudo volta para marceloneco.github.io).
 - **Nunca fixar endereço no código.** Links entre apps e para o Portal usam o endereço atual
   (`SITE_BASE = location.origin + '/'`); só a cópia baixada (arquivo) usa `https://solverone.com.br/`.
+- *Módulo comum 1.7.0:* `DGO.siteBase()` = `cfg.siteBase`, senão a origem de um `fonteCentral` completo, senão
+  `location.origin + '/'`; página aberta como arquivo usa `https://solverone.com.br/`. Os anúncios dos apps (`APPS_HUB`)
+  guardam só a pasta e o menu do módulo tem "Todos os apps SolverONE" (outra aba). App em outra origem (RootifyONE)
+  põe `siteBase: 'https://solverone.com.br/'` no config.
 - **Mudar de endereço = mudar de origem.** O que fica no navegador (localStorage, IndexedDB,
   cofre de IA, digital/WebAuthn, app instalado) **não passa** para a origem nova. Por isso: no
   endereço antigo, aviso "Guardar meus dados" (backup com arquivos) para quem usa "só neste
   aparelho"; no novo, ajuda "Trazer os dados do endereço antigo" (importar o backup); depois
   reativar a digital e reinstalar o ícone. Dados na nuvem não mudam.
-- **Firebase:** acrescentar `solverone.com.br` e `www.solverone.com.br` em Authentication →
-  Domínios autorizados (senão o login Google falha); a mensagem de erro do app diz isso.
+- **Supabase:** acrescentar `https://solverone.com.br/**` e `https://www.solverone.com.br/**` em
+  Authentication → URL Configuration (Site URL e Redirect URLs), senão o login volta para o endereço errado.
 
 ## RootifyONE — admin central
 
@@ -190,10 +200,32 @@ fonte, não o formato. No config: `fonteCentral: '/solverone-dados/'`.
 validade, colado no navegador dele e **nunca** no código. A proteção real é o GitHub: sem esse
 token, a tela do admin até abre, mas não publica nada. O histórico de commits é o log.
 
-**Fase 2 (Firebase):** mesmas coleções no Firestore; administrador = documento
-`admins/{uid}` conferido pelas regras do Firestore (funciona no plano gratuito); log numa
-coleção `log` só de inclusão (`quando, quem, app, acao, antes, depois`), sem editar nem apagar.
-Cobrança e painel de receita exigem gateway e Functions (plano pago) — fase 3.
+**Publicar: um conceito, um botão (RootifyONE 0.18.2, 17/Out/2026).** O que se salva no RootifyONE fica
+**neste aparelho**; os apps só recebem depois de **Publicar**. Regras, para o RootifyONE inteiro:
+
+1. Depois de salvar algo que depende de Publicar, o aviso **"Salvo neste aparelho. Os apps só recebem
+   depois de Publicar."** com o botão **"Revisar e publicar"**; a linha fica com o selo **"não publicado"**
+   até publicar. Sai sozinho de `RF.mudar` (componente único `rootify-publicar.js`); nenhuma tela repete.
+2. **A ação principal de toda tela fica visível sem rolar, em qualquer tamanho.** Para Publicar, é a
+   **barra fixa** no rodapé "N alterações não publicadas · Revisar e publicar", em qualquer tela enquanto
+   houver pendência; some quando não há. Nada de botão "Publicar" solto no topo das telas.
+3. **Tela Publicar, nesta ordem:** (a) **"O que vai mudar"**: só os arquivos que mudaram, cada mudança em
+   português, item por item ("Versão mínima do navegador: Chrome 100 → 105, Edge 100 → 105"), e logo
+   abaixo o botão grande **"🚀 Publicar N alterações"**, visível sem rolar; os iguais atrás de "ver os N
+   iguais"; (b) erros que impedem, em vermelho, só se existirem; (c) avisos que não impedem numa linha
+   recolhida ("21 avisos que não impedem · ver"), agrupados por tipo com a contagem ("17 serviços com
+   regra sugerida ainda não confirmada") e o link da tela que resolve; (d) o histórico. Depois de
+   publicar: "Publicado às HH:MM, N arquivos" e o contador zera.
+4. **Uma palavra só: "Publicar"; o destino é "os apps".** No caminho normal não aparece "GitHub", "zip",
+   "main" nem "commit". O pacote para subir à mão fica em **"Outros jeitos de publicar"**, recolhido, "só se
+   a publicação automática falhar". No histórico, a coluna "Como" diz "Automática" ou "Manual".
+5. **Padrão trocado no código nunca depende de passo manual do dono:** valor gravado que ainda é
+   exatamente o padrão antigo vira o novo sozinho, uma vez, com registro no log; valor mudado à mão
+   não é tocado (ex.: `compat.minimos` 100/100/100/15.4/18 → 105/105/121/16/20 na 0.18.2).
+
+**Fase 2 (servidor da plataforma, Supabase):** as mesmas coleções em tabelas do banco; equipe com
+login e papel conferido por regra no banco; log só de inclusão (`quando, quem, app, acao, antes,
+depois`), sem editar nem apagar. Cobrança e painel de receita exigem gateway de pagamento — fase 3.
 
 **Forçar atualização e termos novos:**
 
@@ -203,6 +235,48 @@ Cobrança e painel de receita exigem gateway e Functions (plano pago) — fase 3
   antes de usar; recusar = sair. Aceite gravado com versão e data (e no log).
 - App que precisa de aviso legal (RiseONE: exercício não substitui profissional) usa o mesmo
   mecanismo, com "Estou ciente".
+
+### Interruptores do Controle dos apps (vale para todo app, atual e futuro — 10/Out/2026)
+
+Decisão do dono: **toda configuração oferecida no RootifyONE → Controle dos apps tem que valer de
+verdade no app**. Interruptor que nenhum app lê é proibido de parecer que funciona.
+
+- **Onde mora:** `solverone-dados/recursos/global.json` (vale para todos) e
+  `recursos/<app>.json` (o app vence o global): `recursos` (ligado/desligado) e `comportamentos`
+  (valores). Publicados pelo RootifyONE; o app lê ao abrir e ao voltar para ele (no máximo a cada
+  5 min), guarda a última cópia (funciona sem internet) e, sem cópia, usa o padrão do código.
+- **Como o app obedece (uma linha por coisa):** marcar o elemento com `data-recurso="id"` (some
+  sozinho quando desligado, inclusive o que aparecer depois) e, no código, perguntar
+  `DGO.recursos.ligado('id', padrão)` / `DGO.recursos.valor('id', padrão)`;
+  `DGO.recursos.aoMudar(fn)` avisa quando chegou arquivo novo. App **sem** o módulo comum carrega
+  `recursos.js` (cópia avulsa, master no rootify-one) com `data-app="<app>"` e usa
+  `SolverRecursos.*`, com o mesmo jeito.
+- **O app declara o que obedece** em `recursos-do-app.json`, na raiz do site:
+  `{ "formato": 1, "app": "<app>", "versao": "x.y.z", "recursos": [...], "comportamentos": [...] }`.
+  A lista pode ser simples (`["assistone"]`) ou detalhada (`[{ "id": "assistone", "pt": "…", "en": "…" }]`).
+  O RootifyONE lê esse arquivo e mostra **"Quem obedece"** ao lado de cada interruptor (⚠ quando
+  nenhum app lê). Ligar um recurso novo no código = acrescentar o id nessa lista na mesma versão.
+- **Ids comuns a todos** (cada app liga os que tem): `assistone`, `assistone.dicas`, `anuncios`,
+  `ia`, `voz`, `ocr`, `offline`, `telemetria`. Id novo só de um app: criado no RootifyONE na aba do
+  app, com o mesmo id no código.
+- **App novo** já nasce com isso: módulo comum ≥ 1.6.0 (ou `recursos.js`), `data-recurso` nos
+  recursos comuns que ele tiver e `recursos-do-app.json` na primeira entrega.
+- **⚡ Modo DEUS** (RootifyONE → Controle dos apps → ⚡ Modo DEUS, só o dono; 10/Out/2026): grade app × função
+  para ligar e desligar **qualquer** função de **qualquer** app. Para isso valer, cada app declara no
+  `recursos-do-app.json` **todas** as funções principais (telas, abas, botões grandes) no formato detalhado
+  `{ "id": "compras", "nome": { "pt": "…", "en": "…" }, "onde": { "pt": "Início → Compras", "en": "…" } }`
+  e marca cada uma com `data-recurso="id"` (ou pergunta `ligado()` no código). Função nova: perguntar ao dono
+  se ela entra no Modo DEUS (o normal é entrar) e já declarar na mesma versão.
+- **Id reservado `app` = o app inteiro (manutenção).** Recurso `app` com `ligado: false` → o app mostra uma
+  tela cheia "Em manutenção" (PT/EN) com "Tentar de novo"; a mensagem vem do comportamento opcional
+  `app.mensagem` (`{pt, en}` ou texto). Já vem pronto no `diretrizes.js` (bloco Interruptores) e no
+  `recursos.js`; o app que tiver essa peça declara `app` no `recursos-do-app.json`. Ninguém usa `app` (nem
+  `app.*`) para outra coisa. O RootifyONE nunca entra em manutenção (`manutencao: false` no config dele).
+- **Segurança:** os arquivos são **públicos** (qualquer um lê; não pode ter segredo, chave nem dado
+  de pessoa). Escrever só com o token do GitHub do administrador. Interruptor **não é trava de
+  segurança**: esconde e desliga no app, mas quem mexe no navegador consegue religar no aparelho
+  dele. O que precisa ser garantido (pago, permissão, dado de outra pessoa) é conferido no **banco**
+  (Supabase, regras RLS), nunca só por interruptor.
 
 ### Planos de usuário
 
@@ -315,6 +389,72 @@ O que se repete em todos, sempre no mesmo lugar e com o mesmo jeito:
 - No celular, a parte fixada no topo ocupa o mínimo: **ícones em vez de palavras**, com
   `aria-label` e dica ao tocar e segurar.
 
+### Janelas (pop-ups) — vale para todo app, atual e futuro, e para toda janela (17/Out/2026)
+
+Problema que originou a regra: no Contador 1.25, com a janela do PIN aberta, arrastar o dedo fora dela continuava
+rolando a página de trás. Vale para **qualquer** janela que cobre a tela e espera a pessoa, feita pelo módulo comum
+ou pelo próprio app: PIN do cofre, avisos, "Estou ciente", confirmações, compatibilidade, menu ☰ e gavetas
+laterais, seletores, foto ampliada, telas de ajuda, janelas próprias de cada app.
+
+1. Enquanto uma janela estiver aberta, a página de trás **não rola, não recebe toque, nem foco, nem leitura pelo
+   leitor de tela**. Só a janela responde.
+2. Janela mais alta que a tela: rola **só o conteúdo da janela**.
+3. Toda janela tem **três saídas**: um botão na própria janela (✕ no canto ou "Cancelar"/"Agora não"), **Esc** no
+   computador e o **Voltar do celular**. Tocar na parte escura fora da janela vale como "cancelar" (só quando o toque
+   **começa e termina** na parte escura: arrastar de dentro da caixa e soltar fora não fecha), em toda janela,
+   inclusive a do PIN (= "Agora não") e os avisos (= não usar a função agora). Nenhuma janela fica sem saída;
+   "obrigatória" não existe.
+   - **Única exceção escrita**: o pop-up de **anúncio** com contagem visível **3, 2, 1**. Enquanto ela corre, nada
+     fecha; passada a contagem, **todas** as saídas valem (✕, Esc, Voltar, toque fora). Não é regra geral: nenhuma
+     outra janela pode ter espera para fechar.
+4. Janela com **algo digitado e ainda não salvo**: tocar fora, Esc ou Voltar não jogam fora em silêncio; perguntam
+   **"Descartar o que você digitou?"** com "Descartar" e "Continuar". Senha e PIN digitados pela metade não
+   perguntam (não fazem falta e não devem ficar guardados); a chave de IA colada pergunta.
+5. Ao fechar, a página volta **exatamente onde estava** (mesma rolagem) e o **foco volta ao botão que abriu**.
+6. **Nunca duas janelas ao mesmo tempo**: a segunda espera a primeira fechar. **Lista fechada** do que abre **por cima**
+   da janela aberta (`porCima`), e nada mais empilha:
+   - a pergunta **"Descartar o que você digitou?"**;
+   - o **PIN do cofre** quando a própria janela precisa dele (ex.: guardar uma chave nas Configurações);
+   - a **confirmação curta pedida pela própria janela** ("Excluir?", "Tem certeza?"): papel `alertdialog`, sem
+     "Descartar?" nela; Cancelar, Esc, Voltar e toque fora fecham só a confirmação, e a pessoa continua vendo o
+     formulário escurecido atrás, com o que foi digitado.
+   O que abre por cima fecha junto com a janela de baixo.
+
+**Telas de bloqueio não são janelas**: as que **substituem** o app inteiro e não têm página de trás para usar
+(bloqueio total da compatibilidade, manutenção, bloqueio por digital do Omni, tela de senha do MoneyTRIO, "O app não
+abriu" do RiseONE, "Conta encerrada" do Lab). Ficam com a saída que já têm e só ganham a trava da rolagem.
+
+**Como fazer (um mecanismo só, o do próprio navegador, em todo lugar): `janela.js` (`SolverJanela`)**, arquivo
+mestre no rootify-one, idêntico em todos os apps, como o `cofre.js`. Vale também nos apps sem o módulo comum
+(Eleições, MoneyTRIO, RiseONE, Leitor OCR). Carrega antes de tudo que abre janela:
+`janela.js` → `cofre.js` → `diretrizes.js` → `diretrizes-config.js`. O `sw.js` de cada app lista o arquivo.
+- Por baixo é o `<dialog>` nativo com `showModal()`: o navegador deixa o resto inerte (sem toque, foco ou leitor de
+  tela), prende o foco e fecha com Esc. A rolagem: `html:has(dialog.sj[open])` com `overflow:hidden` **só no `<html>`**
+  (nunca no `<body>`: o body vira área de rolagem própria e o cabeçalho `sticky` pula para o topo; 1.0.2) e
+  `overscroll-behavior: contain` dentro da janela. Tocar fora: atributo padrão `closedby="any"` e, onde ele ainda
+  não existe, o clique cujo alvo é o próprio `<dialog>` (a parte escura). "Descartar?" mora no `cancel`, uma vez só,
+  no `janela.js`; cada janela só diz se tem texto não salvo (`temTexto`) ou deixa o `janela.js` descobrir.
+- Voltar do celular: cada janela ganha uma entrada no histórico; o Voltar fecha só a de cima e **não chega ao app**
+  (o `janela.js` ouve o `popstate` antes, em capture); fechar por outro jeito tira a entrada.
+- Uso: `SolverJanela.abrir({ conteudo, classe, aoFechar(motivo, como), temTexto, porCima, espera })` → `{ el, fechar,
+  trocar, pedirFechar, salvo }`; `SolverJanela.quandoQuieto(fn)` roda `fn` depois que o histórico acompanhou
+  (trocar de tela logo depois de fechar). A versão que os apps copiam é a **1.0.2** (master no rootify-one; trava só no `<html>`); do cofre, a **1.5.0** (a digital só abre depois do toque na janela; `painelDigital` desenha mesmo com a tela esperando a vez de outra janela); do módulo, a **1.13.0** (regras do PIN pelo comportamento `cofre.proteger` do RootifyONE). As cópias para os apps que já migraram ficam para a varredura final (pendência #118 do rootify-one). No módulo também `DGO.janela`. A aparência é a de hoje: a classe do app
+  (`.dgo-modal`, `.sc-fundo`…) vai no `<dialog>`.
+- **Proibido**: remendo em `app.js`, `MutationObserver`, `setTimeout` para "consertar depois", `!important` por cima,
+  cópia da função em cada app, exceção para um app só, truque diferente por navegador.
+- Sem o `janela.js` na página, o módulo e o cofre avisam no console com uma frase clara e abrem do jeito antigo,
+  sem quebrar (app que ainda não recebeu o arquivo).
+- **Aceite no celular, em cada app**: abrir cada janela, arrastar o dedo fora e em cima dela (a página de trás não se
+  mexe), tentar tocar num botão de trás (nada acontece além de fechar a janela, que é o "cancelar"), fechar (volta
+  ao mesmo lugar). Teste automático no rootify-one: `teste/janela.js`, `teste/janela-modulo.js`, `teste/cofre-janela.js`.
+- Compatibilidade (MDN browser-compat-data 8.1.6, 17/Out/2026): `<dialog>`/`showModal` em todos os navegadores do
+  quadro; `:has()` só a partir de Chrome/Edge 105, Firefox 121, Safari 15.4, Samsung 20; `overscroll-behavior` no
+  Safari só a partir do 16; `closedby` só Chrome 134+/Firefox 141+ (o complemento cobre o resto). Por isso os mínimos
+  **recomendados** subiram (seção "Compatibilidade"); abaixo deles a janela continua bloqueando toque e foco atrás,
+  só a rolagem de trás pode mexer.
+- Inventário de todas as janelas dos 13 repositórios e a passada por app: `docs/janelas/INVENTARIO-JANELAS-17-Out-2026.md`
+  no rootify-one (um PR por app, sessão filha, junto com a Fase 3 do cofre onde ela ainda falta).
+
 ## Faixa do topo
 
 `[ANÚNCIO na vertical]` · `[carrossel]` · `[×]` — **só anúncio.**
@@ -326,6 +466,8 @@ app para baixo em vez de cobri-las, e some sozinha em telas cheias.
 
 Como ela é fixa, precisa de `scroll-padding-top` igual à sua altura: sem isso ela cobre o
 elemento que acabou de receber foco pelo teclado (WCAG 2.4.11 Focus Not Obscured).
+*Módulo comum 1.7.0:* já faz `:where(html){scroll-padding-top:var(--dgo-topo)}` (a altura que `ajustarTopo` calcula);
+o app com cabeçalho fixo próprio declara o dele em `html {}` somando `--dgo-topo` (como o RootifyONE) e vence sozinho.
 
 ## Menus e navegação
 
@@ -424,6 +566,15 @@ Em todos os apps e no RootifyONE, uma lupa busca **funções, telas, seções e 
      linha).
   2. "O quadro é mais largo que a tela: role para o lado para ver o restante de *xxx*." — só
      quando o quadro de fato é mais largo.
+- **Nada se edita dentro da tabela** (17/Out/2026, valendo em todo app e no RootifyONE): nenhuma caixinha,
+  campo ou lista que grava sozinha numa célula. Toda linha editável tem um **✏️ "Editar"** (primeira
+  coluna, para não sumir na rolagem lateral) **e** a linha inteira é clicável; os dois abrem a **mesma
+  ficha**, pela janela comum (`janela.js`). A tabela só mostra. Matriz de marcar (ex.: planos × serviços,
+  papéis × permissões) é exceção a decidir caso a caso: precisa de botão "Salvar" explícito.
+- **Ficha de um valor que os apps leem:** em destaque, **"Valor (o que os apps leem)"**; JSON em várias
+  linhas, arrumado, e **conferido ao salvar** (JSON inválido não grava e diz o que conferir: aspas,
+  vírgulas, chaves). Abaixo, **"Padrão (valor de fábrica, usado só quando o Valor está vazio)"**, com o
+  botão **"Voltar ao padrão"**. Valor e Padrão gravam cada um no seu campo; Valor vazio = segue o Padrão.
 - Site com muita informação granular (Eleições) declara `melhorEmTelaGrande: true` no config:
   no celular, aviso "Estou ciente" uma vez por sessão.
 - **Em pé e deitado** funcionam os dois, em celular e tablet, e também na **impressão**
@@ -538,7 +689,7 @@ Um lugar só, em todos os apps, para três tipos de mensagem:
    quem não viu na hora.
 3. **Recado de outra pessoa** — "Novo recado de XXXX para YYYY sobre ZZZZ". Caso principal:
    família no [[omnilife-one]]. **Exige servidor**. Deixar tela e formato prontos e ligar no
-   Firebase.
+   servidor da plataforma (Supabase).
 
 Cada recado tem **prioridade** (urgente, importante, só para saber), **destino** (família toda
 ou membros específicos) e pode ser **recorrente**. Lido/não lido visível **para quem lê e para
@@ -592,9 +743,8 @@ OmniLifeONE 2.3.0 (módulos `Gov`, `Devices`, `Grow`, `Areas`, `Duas`).
 9. **Responsável por área:** dividir Compras, Saúde, Casa… entre adultos; o nome aparece no topo
    da área e os avisos daquela área vão primeiro para essa pessoa.
 
-Na nuvem, as partes de segurança (1, 3, 5, 6, 8) são garantidas pelas **regras do Firebase**, não
-só pela tela; a cada mudança de regra, o pacote traz o arquivo `regras-firestore-<app>.txt` e o
-LEIA-ME manda colar de novo. Sem servidor, "desconectar" encerra a sessão quando o aparelho abre o
+Na nuvem, as partes de segurança (1, 3, 5, 6, 8) são garantidas pelas **regras do banco (RLS do Supabase)**, não
+só pela tela; a cada mudança de regra, o pacote traz o SQL para revisar e o LEIA-ME diz onde colar. Sem servidor, "desconectar" encerra a sessão quando o aparelho abre o
 app; revogar o login na hora exige servidor (Admin SDK) — fase 2.
 
 ## Linguagem para leigos (prioridade)
@@ -812,6 +962,18 @@ Regras técnicas:
   apresentar como Mac.
 - Funcionar em aparelho antigo o quanto der: sem sintaxe moderna que quebre navegador velho no
   módulo comum, e recurso novo sempre com teste de existência antes de usar.
+- *Módulo comum 1.7.0 (`DGO.compat`):* `verificar()` → `{ camera, microfone, localizacao, notificacoes, espaco: { livreMB,
+  usadoMB }, wakeLock, indexedDB, … }` com `'ok' | 'bloqueado' | 'sem-suporte' | 'desconhecido'` (permissions,
+  mediaDevices, storage.estimate, Notification.permission; **nunca pede permissão só para conferir**);
+  `exigir('camera', { motivo })` → `Promise<boolean>` e, se faltar, aviso curto PT/EN com o passo a passo para Android,
+  iPhone e computador (o OCR do módulo já usa); quadro "O seu aparelho" no topo das Configurações do módulo só quando
+  falta algo do que o app usa (`cfg.compat.usa`). `navegador(ua)` → `{ nome, versao, sistema, dentroDeApp }` (Chrome,
+  Edge, Firefox, Safari pela versão do iOS, Samsung Internet; Instagram, Facebook, WhatsApp, LinkedIn, TikTok).
+  Duas camadas: **bloqueio** em tela cheia só quando falta o essencial (fetch, Promise, IndexedDB, CSS custom
+  properties, localStorage — por recurso, nunca pela versão) e **faixa fechável** quando a versão é menor que a
+  recomendada ou o site abriu dentro de outro app. Mínimos (desde o módulo 1.11.0, 17/Out/2026, os primeiros com `:has()` para a trava de rolagem das janelas): `{ chrome: 105,
+  edge: 105, firefox: 121, safari: 16, samsung: 20 }` (antes 100/100/100/15.4/18), trocáveis por `cfg.compat.minimos` e pelo
+  comportamento global `compat.minimos` do RootifyONE (vence: se ele já tiver os antigos, trocar lá).
 
 ## Público e desempenho
 
@@ -1001,6 +1163,14 @@ o `Fundo` vira **serviço em primeiro plano** (foreground service), com a notifi
 - No **Feature Tester**, o `Fundo` tem um cartão próprio para testar os cenários acima com um trabalho
   simulado de 30 s.
 
+**6. Como está no módulo comum (diretrizes.js 1.5.0, 10/Out/2026).** `DGO.fundo` faz os itens 1 a 4 (menos o que
+segue abaixo). `DGO.tarefa`, nome da 1.4.0 que já está em vários apps, continua valendo: é o mesmo motor, sem ✕ por
+padrão. `executar(andamento, ctrl)` recebe `ctrl.sinal` (AbortSignal) e `ctrl.aoCancelar(fn)`; `aoTerminar` grava,
+`aoAbrir` mostra. A Inbox entra pelo config (`fundo: { inbox: fn }`); retomar por `DGO.fundo.aoRetomar(tipo, fn)`;
+app de loja por `Plataforma.adaptadores.fundo`. Ainda falta no módulo: fila do Wi-Fi, "Avisar que deu erro" com o erro
+anexado, aviso do Voltar do celular e o cartão do Feature Tester. Detalhe e tabela de onde está aplicado:
+`DIRETRIZ-TAREFAS-LONGAS.md` no RootifyONE.
+
 ## Segurança, criptografia, log e LGPD
 
 **Hoje (site estático):** não há servidor para invadir; o risco está no que é publicado e no
@@ -1010,13 +1180,14 @@ microfone, notificação e drive, e nunca dado pessoal em endereço de página.
 
 **Criptografia:** senha nunca guardada, só o PBKDF2. Dado pessoal, chave de API e dado de saúde
 guardados no aparelho ficam **cifrados** (AES-GCM do WebCrypto, com chave derivada da senha da
-pessoa). Na nuvem, **cifrar antes de enviar** para o servidor só ver texto embaralhado — o
+pessoa). Chave de API e token: só no cofre comum `cofre.js` (ver "IA: provedores, chaves e o guia"),
+nunca em texto aberto no navegador, em link ou em backup sem cifra. Na nuvem, **cifrar antes de enviar** para o servidor só ver texto embaralhado — o
 preço: senha e código de recuperação perdidos = dado perdido, e isso tem de ser dito na tela.
 Visitante (sem senha) não tem como cifrar; por isso não guarda nada.
 
 **Log de alterações:** toda mudança de dado (cadastro, configuração, dado pessoal, plano,
 termos aceitos) grava `quando, quem, o quê, antes, depois`. Hoje: log local por app, com limite
-de tamanho, visível nas Configurações. Com Firebase: coleção `log` só de inclusão, lida pelo
+de tamanho, visível nas Configurações. Com o servidor da plataforma: tabela de log só de inclusão, lida pelo
 RootifyONE. O `quando` é gravado em **UTC** (ISO 8601) e a tela converte para o horário local;
 em telas de log e auditoria, mostrar **segundos e o fuso** (`UTC−03:00`), para comparar registros
 de aparelhos e países diferentes sem ambiguidade.
@@ -1033,8 +1204,8 @@ consentimento separado para notificação, nuvem e cada uso de dado sensível; e
 
 - **Dado sensível** (saúde no RiseONE: exames, carteirinha, CID; dados de crianças no Contador)
   tem regra própria: consentimento específico, cifrado sempre, nunca para IA sem avisar.
-- Definir, por app, se a SolverONE é **controladora** ou **operadora** do dado — com Firebase,
-  o Google é operador.
+- Definir, por app, se a SolverONE é **controladora** ou **operadora** do dado — com o Supabase,
+  ele é operador.
 - Todo texto legal leva **legislação e data de referência**, e uma rotina de revisar se a regra
   mudou. Isso não é assessoria jurídica: validar com advogado antes de coletar dado de gente.
 
@@ -1042,6 +1213,23 @@ consentimento separado para notificação, nuvem e cada uso de dado sensível; e
 (`[NOME1]`…) no ponto único que chama a IA e restaurar no aparelho, com campo para outros nomes
 (irmãos, pets, escola). Avisar que voz de internet recebe o texto a ler. Nada de nome real de
 criança em arquivo público do repositório (`historias.json` e afins).
+
+**Permissões explícitas no Supabase (regra de 22/Out/2026).** Desde 30/Out/2026 o Supabase não concede acesso
+automático pela Data API a objetos **novos** do schema `public` (sem GRANT, a API responde `42501 permission denied`).
+Todo script SQL que cria tabela, view, função ou sequência em `public` traz, **no mesmo arquivo e logo abaixo do CREATE**:
+1. **GRANT explícito por papel**, com o mínimo necessário: `service_role` tudo; `authenticated` só o que o app usa com
+   login; `anon` só onde o app lê sem login, **nunca** `insert`, `update` ou `delete`.
+2. `alter table ... enable row level security` **e as políticas** no mesmo script: o GRANT diz quem chega à tabela, a
+   RLS diz quais linhas.
+3. Em função: `revoke execute on function ... from public` e `grant execute` só aos papéis que a chamam; em
+   `security definer`, `search_path` fixo (`set search_path = ''`) e validação dos parâmetros.
+4. Em sequência (`serial`; `identity` não precisa): `grant usage, select on sequence` só aos papéis que inserem.
+5. O verificador **`teste/sql-grants.js`** (arquivo master no rootify-one, copiado igual) roda no teste do repositório
+   e **falha se algum CREATE não tiver o GRANT no mesmo arquivo**; script reprovado não entra em PR. Os scripts
+   aplicados antes de 30/Out/2026 ficam na lista de exceção `teste/sql-grants-legado.json`, cada um com o motivo; a
+   lista não aceita script novo.
+6. **Script já aplicado não se edita:** mudança de permissão vai em script novo datado, com o comando inverso ao lado
+   para desfazer, e só é aplicada no projeto depois do **"pode aplicar"** do dono.
 
 **Nuvem gratuita em pequena escala:** Firebase ou Supabase resolvem sem servidor próprio.
 AWS, GCP e Azure também têm camada grátis, mas cobram cedo e exigem operação — para este
@@ -1138,6 +1326,15 @@ na entrada e nos Termos, em PT e EN, versionado pelo RootifyONE.
 O **AssistONE** é o assistente de todos os apps (arte: ponto de interrogação dourado com rosto de
 perfil, fibras e pérola; arquivos `ajuda-botao.png`, `ajuda-icone.png` e `assistone-hd.png`).
 É a mesma ideia do antigo "clipe" do Office, mas sem atrapalhar.
+
+**Onde mora o código (decisão do dono, 10/Out/2026):** o AssistONE fica no arquivo próprio **`assistone.js`**, e **não**
+dentro do `diretrizes.js` (o módulo 1.9.0 não tem mais o AssistONE). O master fica na raiz do **rootify-one**, como o
+`recursos.js`, e a cópia é **idêntica em todos os apps** (nunca editar a cópia de um app; mudar no master e copiar). Ordem na
+página: `<script src="diretrizes.js"></script><script src="diretrizes-config.js"></script><script src="assistone.js"></script>`
+(o `recursos.js`, quando houver, antes ou depois, como o app já faz). O config continua o mesmo (`assistente:` no
+`diretrizes-config.js`); `DGO.assistente.*` continua funcionando; as preferências da pessoa (`dgo:<app>:pref:aone:*`) são as
+mesmas de antes. App sem o módulo comum: só `assistone.js` + `AssistONE.configurar({ app, nome, assistente })`. Com o módulo
+antigo (que já tem o AssistONE dentro) o arquivo não faz nada. Detalhes no `ARQUITETURA.md` do rootify-one.
 
 - **Ligado por padrão.** Liga/desliga em ⚙ → Geral, num cartão com o botão no estilo
   "ASSIST ONE ATIVADO" (arte + chave dourada). Ali também: "Abrir o AssistONE" e "Recomeçar o
@@ -1335,15 +1532,59 @@ continua sendo `DGO.ia.provedor()`. Provedores só de voz (`soVoz`) não entram 
 - **Cofre único** compartilhado entre os apps (mesma origem): cola uma vez, vale em todos. A
   chave é da pessoa e fica só no navegador; nunca no repositório. Política (mesma chave ou uma
   por app) definida no RootifyONE.
+- **Segredo mora SÓ no `cofre.js` (desde 16/Out/2026, leitura de segurança).** Chave de IA, token de bot
+  (Telegram) e afins ficam **apenas** no cofre comum `cofre.js` (`SolverCofre`; master na raiz do rootify-one,
+  **igual em todos os apps** — mudar no master e copiar), trancado por PIN (PBKDF2-SHA256 310 mil rodadas + AES-GCM
+  256, o mesmo jeito do cofre do RootifyONE), sem "Lembrar neste aparelho" (saiu na 1.1.0, 17/Out/2026), **com a digital como jeito principal de abrir (1.2.0/1.3.0, 17/Out/2026: a janela do cofre oferece a digital e tem o PIN como reserva — desde a 1.5.0, só depois do toque da pessoa, ver abaixo; a mesma janela pergunta uma vez "Quer abrir com a digital da próxima vez?" depois do PIN; o app só reserva um elemento e chama `SolverCofre.painelDigital(elemento)` — nunca desenha botão ou texto da digital por conta própria)**, com o
+  campo do PIN como senha que não se guarda nem se copia, e sem pedir o PIN de novo ao recarregar a aba — **a não ser
+  no app que liga as regras do PIN** (cofre 1.4.0, 17/Out/2026: `SolverCofre.proteger({...})`, ou `cofre: { proteger:
+  true }` no config do módulo ≥ 1.11.0): com chave guardada, PIN ao abrir e ao recarregar; tranca ao sair do app,
+  escondido por mais de 1 minuto e com 5 minutos sem uso (trabalho rodando só adia este último); passar de página no
+  mesmo app não pede de novo; sem chave guardada, nunca pede. A janela do PIN segue a regra "Janelas (pop-ups)"
+  (tocar fora/Esc/Voltar = "Agora não"). Tela de chaves: a guardada nunca vem para o campo; "✓ guardado" e "Mostrar a
+  chave guardada" (pede o PIN, 30 s); a máscara "••••" nunca vira chave. Nomes com prefixo: `ia:<provedor>` (`ia:gemini`, `ia:openai`, `ia:anthropic`,
+  `ia:elevenlabs`…), `telegram:<app>`, `wx:<provedor>`. Regras: **nunca** em `localStorage`/`sessionStorage` em
+  texto aberto; **nunca** em link (`#cfg=`, `?key=`); **nunca** em backup/cópia, a não ser cifrada; nunca no
+  objeto de estado do app. Ordem na página: **`janela.js` → `cofre.js` → `diretrizes.js` → `diretrizes-config.js`**. O módulo
+  comum ≥ 1.10.0 lê e grava as chaves de IA só pelo cofre (`DGO.ia.lerChave`, `DGO.cofre`); app sem o módulo usa
+  `SolverCofre.ler/gravar`. Onde o app guardava chaves antes, declarar em `cofre: { fontes: [...] }` (ou
+  `SolverCofre.registrarFontes`): elas vão sozinhas para o cofre na primeira abertura e só esses campos saem do
+  lugar antigo. Os lugares que vários apps leem (`dgo:global:chaves-ia`, `dgo:global:ia`) só são copiados até o último app
+  ter o `cofre.js`; aí `LIMPAR_COMPARTILHADAS = true` no master tira a cópia aberta. Limite: mesma
+  origem = um script ruim na página, com o cofre aberto, poderia usar as chaves — por isso CSP sem script de
+  terceiros. Detalhes: `ARQUITETURA.md` do rootify-one, "🔐 Cofre comum de chaves".
+- **A digital nunca dispara sozinha (cofre 1.5.0, 18/Out/2026).** Com a digital ligada, ao abrir o app com chave
+  guardada (regras do PIN ligadas) e sempre que o cofre for pedido, **a janela aparece primeiro**, com três saídas:
+  **"👆 Abrir com a digital"** (o leitor do aparelho — `navigator.credentials.get` — só abre **depois desse toque**),
+  **"Digitar o PIN"** (o campo aparece só aí; o teclado do celular não abre sozinho) e **"Agora não"**. **Sem a digital
+  ligada**, a janela abre direto no formulário do PIN (campo focado, "Abrir", "Agora não", "Esqueci o PIN"), como antes.
+  "Agora não" deixa navegar trancado; o PIN volta a ser pedido quando uma chave for usada ou quando o cofre trancar de
+  novo. Por quê: no Android a caixa da digital só fecha pelo botão Voltar (a pessoa fica presa nela), e no iPhone o
+  WebAuthn exige um toque da pessoa, então a tentativa automática nem abre. Nenhum app chama a digital por conta própria.
+- **Quem liga as regras do PIN é o RootifyONE (módulo 1.13.0, 18/Out/2026).** O módulo lê o comportamento
+  **`cofre.proteger`** publicado pelo RootifyONE (Controle dos apps; `SolverRecursos.valor('cofre.proteger', padrão)`,
+  que no módulo é `DGO.recursos.valor`) e só chama `SolverCofre.proteger` quando ele está ligado. **O padrão é o
+  `cofre: { proteger }` do `diretrizes-config.js` de cada app**, valendo enquanto não houver registro no RootifyONE:
+  **ligado** nos apps com dado pessoal (Contador de Histórias, HyperNutry, OmniLifeONE, MoneyTRIO, RiseONE, Leitor OCR)
+  e **desligado** nos públicos (Eleições 2026, CifrasONE). O registro que chega da rede depois de a página abrir liga
+  a proteção na hora; desligar vale a partir da próxima abertura (nunca destranca no meio do uso). Cada app **declara o
+  comportamento** no `recursos-do-app.json`, com o padrão dele:
+  `{ "id": "cofre.proteger", "tipo": "sim-nao", "padrao": true, "nome": {"pt": "🔐 Pedir o PIN do cofre ao abrir", "en": "🔐 Ask for the vault PIN on open"}, "onde": {…} }`.
+  App sem o módulo comum faz o mesmo com o `recursos.js` (`SolverRecursos.valor('cofre.proteger', padrão)`) antes de
+  chamar `SolverCofre.proteger`. (As Eleições 2.5.1 já fazem isso por conta própria; na varredura final passam a usar o
+  módulo.)
 - Modelos mudam de nome (o Google aposentou o `gemini-2.5-flash` para chaves novas em set/2026):
   nunca fixar um só. Guardar o modelo escolhido por provedor, botão **"Ver modelos que esta
   chave aceita"** (filtra os grátis nos provedores grátis) e trocar sozinho quando o salvo saiu.
 - Pedido com insistência (503/429 → esperar 6/15/30 s, depois modelo reserva); em gerações em
-  partes, nunca perder as partes já prontas. Widget mostra "o que a IA recebe junto" e aviso de
+  partes, nunca perder as partes já prontas. *Módulo comum 1.7.0:* `DGO.ia.perguntar(p, { insistir: true })` faz isso
+  (429/503/529 ou resposta vazia → 6, 15 e 30 s, com `aoEsperar(segundos)` para a pílula; ainda falhando, tenta uma vez
+  outro provedor com chave no cofre e avisa por `aoTrocar(nome)`; `sinal` para cancelar; `esperas` para testes).
+  Desligado por padrão, para não mudar o que os apps já fazem. Widget mostra "o que a IA recebe junto" e aviso de
   que a resposta pode errar.
 - Resposta sobre lei, imposto ou saúde sempre com **data de referência e fonte**.
 - **Futuro, já preparado — chave escondida:** `ia.proxy: { openrouter: 'https://…' }` aponta
-  para um proxy do usuário (Firebase Function no Blaze, Cloudflare Worker grátis) que guarda a
+  para um proxy do usuário (Supabase Edge Function, Cloudflare Worker grátis) que guarda a
   chave e repassa `{ provedor, modelo, sistema, mensagens, app }`. Ligado, o widget para de
   pedir chave e nada mais muda. `cofreBackend` só sincroniza chaves entre aparelhos — não as
   esconde; esconder é o proxy.
@@ -1477,19 +1718,14 @@ chamadas do endereço de produção para o local). Nunca criar contas de teste n
 
 **Decisão de 03/Out/2026:** a nuvem da plataforma é o **Supabase** (projeto `solverone-app`, São
 Paulo), com o contrato de dados v1 (`PLATAFORMA-DADOS.md`: grupos/família, tabelas por app com
-RLS, ponte entre apps, arquivos, cifra no aparelho, LGPD por app). O Firebase não será usado; o
-texto abaixo fica como histórico. Notificação com o app fechado continua precisando de Web Push
+RLS, ponte entre apps, arquivos, cifra no aparelho, LGPD por app). O Firebase não será usado (os
+textos antigos com Firebase saíram em 17/Out/2026). Notificação com o app fechado continua precisando de Web Push
 (chave VAPID e uma Edge Function), que o Supabase não faz sozinho.
 
-Hoje, sem servidor: Formspree (contato e pedidos), Google Drive em pasta do app, login Google,
-chaves de IA coladas pela pessoa, `solverone-dados` publicado pelo RootifyONE. Depois,
-**Firebase** é o salto que resolve de uma vez conta valendo em qualquer aparelho, "esqueci a
-senha" por e-mail, dados compartilhados, recado entre pessoas na inbox, planos família, log
-central e push com o app fechado — e é o único que cobre push (Supabase não envia notificação).
-Cobrança de assinatura ainda exige gateway e Functions, que não entram no plano gratuito.
-
-Um **projeto Firebase só** para todos os apps = uma conta vale em todos (como o cofre de IA hoje).
-Projetos separados = logins separados. Decidir quando for montar.
+Hoje: Formspree (contato e pedidos), Google Drive em pasta do app, chaves de IA coladas pela pessoa,
+`solverone-dados` publicado pelo RootifyONE e o Supabase (um projeto só para todos os apps: uma conta
+vale em todos) para conta, dados compartilhados, recado entre pessoas, planos família e log central.
+Cobrança de assinatura ainda exige gateway de pagamento.
 
 Nunca pôr senha de e-mail ou chave secreta nos repositórios: são públicos.
 
@@ -1606,6 +1842,21 @@ outras pessoas. O print é o único lugar onde pode aparecer dado pessoal — po
 - Teste de toda entrega: pergunta do dia respeita as regras de quando não aparecer; 💬 abre com a tela
   certa em pelo menos 3 telas; envio offline e depois online; print com borrar; vídeo de 50 MB; a pessoa
   vê e apaga o próprio envio; o RootifyONE mostra a ficha com os anexos.
+
+**Como está implementado (10/Out/2026, RootifyONE; SQL ainda não rodado):**
+- Módulo comum: bloco `Feedback` do `diretrizes.js` → `DGO.feedback` (`abrir`, `botao`, `registrarAcao`, `perguntaDoDia`,
+  `meus`, `sincronizar`, `pendentes`); envio pelo `Fundo`; fila própria no IndexedDB `dgo:<app>:feedback` (ainda não o
+  `DGO.fila`); interruptores `feedback` e `feedback.pergunta-do-dia`. O app põe `supabase: { url, anonKey }` (chave
+  pública) no `diretrizes-config.js`; sem isso guarda no aparelho e avisa.
+- Banco: o nome ficou **`sol_feedback`** (prefixo da plataforma, C3) em vez de `feedback`, mais `sol_feedback_perguntas`,
+  `sol_feedback_arquivos` e `sol_feedback_contador`; anexos no bucket **`sol-arquivos`**, pasta `feedback/<app>/<id>/`
+  (não um bucket `feedback`), até 5 por envio e **10 MB** cada (limite do bucket no plano grátis, não 200 MB). Grava só
+  por `sol_enviar_feedback` (sem Edge Function: a função aceita a chave pública). Situações: `novo`, `lido`,
+  `em_analise`, `pendencia`, `respondido`, `fechado`.
+- RootifyONE: módulo **Central de feedback** (grupo Clientes; `feedback:ver | responder | editar`), 💬 no AssistONE, no ☰
+  e na tela de erro. Detalhes em `ARQUITETURA.md` e `PLATAFORMA-DADOS.md`.
+- Falta: pincel para borrar o print, 🎙 gravar áudio, lista de beta testers (`beta_testers`/`beta.json`), aviso na
+  Inbox quando vira "feito", envio de e-mail da resposta, exportar CSV, retenção de 24 meses.
 
 ## Telemetria
 

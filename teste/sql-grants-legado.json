@@ -1,0 +1,7 @@
+{
+  "formato": 1,
+  "nota": "Lista de exceção do verificador teste/sql-grants.js (OmniLifeONE). Só entram scripts aplicados no projeto ANTES de 30/Out/2026. O acerto das permissões vai num script novo datado (supabase/2026-10-23-grants-explicitos.sql), nunca editando o script aplicado. Script novo não entra aqui: nasce com GRANT.",
+  "arquivos": [
+    { "arquivo": "supabase/omnilife-one-v1.sql", "data": "2026-10-03", "motivo": "aplicado antes de 30/Out/2026 (as tabelas e funções omni_* existem no projeto, leitura de 22/Out); fecha PUBLIC e anon das funções num laço que procura as omni_* no banco (o verificador não lê) e deixa gatilhos e internas sem EXECUTE de propósito" }
+  ]
+}
