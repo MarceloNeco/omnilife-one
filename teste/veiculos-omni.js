@@ -181,6 +181,40 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(erroMeio === 'falha de mentira' && JSON.stringify(n) === JSON.stringify(antes) && await p.evaluate(() => !DB.all('maint').some((m) => /óleo/.test(m.title))), 'falha no meio da ficha: desfaz carro, cofre, documento e PDF (' + JSON.stringify(n) + ')');
   conferir(await p.evaluate(async () => { const s = Cars.validar({ formato: 'omnilife.ficha-veiculo', versao: 1, veiculo: { nome: 'x' }, documento: { arquivo: { base64: 'AAAAA' } } }); return s !== ''; }), 'PDF em base64 cortado é recusado antes de gravar');
 
+  /* 2.20.1: manutenção do carro vai ao MoneyTRIO com a categoria que existe lá (nunca "Manutenção") */
+  const PONTE = 'ecossistema.ponte.v1';
+  const ids = await p.evaluate(async (PONTE) => {
+    localStorage.removeItem(PONTE); await DB.saveSetting({ mt: Object.assign({}, Bridge.cfg(), { enabled: true }) });
+    const rev = DB.all('maint').find((m) => m.title === 'Revisão do carro');
+    const cox = await DB.put('maint', { title: 'Troca do coxim (teste)', cat: 'carro', interval: 365 });
+    const casa = await DB.put('maint', { title: 'Limpeza da caixa (teste)', cat: 'casa', interval: 180 });
+    return { rev: rev.id, cox: cox.id, casa: casa.id };
+  }, PONTE);
+  const registrar = async (id, escolha) => {
+    await p.evaluate((id) => { ACT['mt.done']({ id }); }, id); await p.waitForSelector('dialog[open] [name="cost"]');
+    const sugestao = await p.evaluate(() => { const s = document.querySelector('dialog[open] [name="mtsub"]'); return s ? s.value : null; });
+    if (escolha) await p.selectOption('dialog[open] [name="mtsub"]', escolha);
+    await p.fill('dialog[open] [name="cost"]', '100'); await p.locator('dialog[open] [data-ok]').click(); await p.waitForTimeout(300);
+    const ultima = await p.evaluate((PONTE) => { const m = (JSON.parse(localStorage.getItem(PONTE) || '{"msgs":[]}').msgs || []); return m[m.length - 1] && m[m.length - 1].dados; }, PONTE);
+    return { sugestao, ultima };
+  };
+  let rg = await registrar(ids.rev);
+  conferir(rg.sugestao === 'Revisao Periodica' && rg.ultima.grupo === 'VEICULO' && rg.ultima.sub === 'Revisao Periodica', 'revisão do carro: sugere e envia "Revisao Periodica" (' + JSON.stringify(rg) + ')');
+  rg = await registrar(ids.cox);
+  conferir(rg.sugestao === 'Mecânico / Eletrico / Funilaria' && rg.ultima.sub === 'Mecânico / Eletrico / Funilaria', 'coxim: sugere e envia "Mecânico / Eletrico / Funilaria"');
+  rg = await registrar(ids.cox, 'Revisao Periodica');
+  conferir(rg.ultima.sub === 'Revisao Periodica', 'dá para trocar a categoria sugerida');
+  rg = await registrar(ids.casa);
+  conferir(rg.sugestao === null && rg.ultima.grupo === 'HABITACAO' && rg.ultima.sub === 'Manutenção', 'manutenção da casa continua igual (HABITACAO, "Manutenção")');
+  conferir(await p.evaluate((PONTE) => !(JSON.parse(localStorage.getItem(PONTE)).msgs || []).some((m) => m.dados && m.dados.grupo === 'VEICULO' && m.dados.sub === 'Manutenção'), PONTE), 'nenhum custo do carro sai com "Manutenção"');
+  /* enviados antes com "Manutenção": só listados, nada reenviado */
+  const antes2 = await p.evaluate((PONTE) => { const b = JSON.parse(localStorage.getItem(PONTE)); b.msgs.push({ id: 'velho1', de: 'omnilife-one', para: 'moneytrio', tipo: 'gasto', criadoEm: '2026-10-20T10:00:00Z', lidoEm: null, dados: { valor: 350, grupo: 'VEICULO', sub: 'Manutenção', desc: 'Troca de óleo (OmniLifeONE)', data: '2026-10-20' } }); localStorage.setItem(PONTE, JSON.stringify(b)); return b.msgs.length; }, PONTE);
+  await p.evaluate(() => go('settings', 'integr')); await p.waitForTimeout(400);
+  txt = await p.locator('body').innerText();
+  conferir(txt.includes('Custos do carro enviados com "Manutenção"') && txt.includes('Troca de óleo (OmniLifeONE)') && /350,00/.test(txt) && txt.includes('o MoneyTRIO ainda não leu'), 'Integrações lista o que já foi com "Manutenção" (data, valor, descrição)');
+  conferir(await p.evaluate((PONTE) => JSON.parse(localStorage.getItem(PONTE)).msgs.length, PONTE) === antes2, 'a lista não reenvia nada');
+  await foto(p, '08-integracoes-moneytrio', '#main h4');
+
   /* inglês */
   await p.evaluate(() => { S.lang = 'en'; go('house', 'cars', Cars.list()[0].id); }); await p.waitForTimeout(400);
   txt = await p.locator('body').innerText();
