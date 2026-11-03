@@ -6,7 +6,7 @@ const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const raiz = path.join(__dirname, '..');
 const MESTRES = {
   'janela.js': '7f38e4d94b24c4e771a0bf52add9fa1767ba0329ab0259c5155b5bf096627ef5',   /* SolverJanela 1.0.2 */
-  'cofre.js': 'df9338d50576fa7f5eee44f3a23ba24466163eab8a7d153851e3d6fda8d53e7d',     /* SolverCofre 1.4.1 */
+  'cofre.js': 'bb99df4ed87fe554f374ba3894851d1a4e71ab88bca979fbd8f6be1c28f48eea',     /* SolverCofre 1.6.0 */
   'diretrizes.js': 'c9d3d4fdccf87a5e4934f682cca0ee5322f284d2850d62b04418d96cf0ea2e54' /* módulo 1.12.0 */
 };
 const falhas = [];

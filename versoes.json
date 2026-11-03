@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.21.0",
+  "d": "2026-11-03",
+  "hora": "17:37:00",
+  "pt": [
+   "🔢 Um PIN só: o PIN das Senhas da casa agora abre também as chaves de IA. Em vez de dois pedidos, é um só (ou a digital), e o PIN das chaves passa a ser o mesmo PIN seu nos outros apps SolverONE. Com as Senhas da casa abertas, usar a IA não pede nada.",
+   "🔐 Quem tinha um PIN diferente nas chaves de IA digita o PIN antigo uma última vez (janela \"Juntar tudo num PIN só\"); depois disso, vale só o seu PIN. As chaves guardadas por uma pessoa não abrem com o PIN de outra.",
+   "🔑 Chaves de IA com permissão: o chefe da família vê e mexe nas chaves (⚙ → IA) e pode liberar para outra pessoa em Família → ✏️ no nome dela → \"Pode ver e usar as chaves de IA\". Quem não tem a permissão vê só um aviso."
+  ],
+  "en": [
+   "🔢 One PIN only: the home-passwords PIN now also opens the AI keys. Instead of two prompts there's just one (or the fingerprint), and the key PIN becomes your same PIN in the other SolverONE apps. With the home passwords open, using AI asks nothing.",
+   "🔐 Anyone who had a different AI-key PIN types the old PIN one last time (\"Merge everything into one PIN\" window); after that, only your PIN counts. Keys saved by one person don't open with someone else's PIN.",
+   "🔑 AI keys with permission: the family head sees and manages the keys (⚙ → AI) and can allow someone else in Family → ✏️ on their name → \"Can see and use the AI keys\". Anyone without permission sees only a notice."
+  ]
+ },
+ {
   "v": "2.20.0",
   "d": "2026-11-03",
   "hora": "00:50:29",

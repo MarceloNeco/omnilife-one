@@ -1,7 +1,7 @@
 {
  "formato": 1,
  "app": "omnilife-one",
- "versao": "2.20.0",
+ "versao": "2.21.0",
  "atualizado": "2026-11-03",
  "nota": {
   "pt": "O que este app lê do Controle dos apps e do ⚡ Modo DEUS do RootifyONE (recursos/global.json e recursos/omnilife-one.json), pelo módulo comum 1.10.0 (o recursos.js repassa para ele). Nunca desligáveis: Início, ⚙ Configurações, a tela de entrar e Sobre (o app não fica sem saída). Trancar as Senhas da casa, desconectar o aparelho e parar o Modo Vigilante sempre funcionam.",
