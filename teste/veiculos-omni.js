@@ -85,7 +85,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
     return { lugar: JSON.stringify(c), cofre: JSON.stringify(v), dentroIdb, ls, temBusca: busca.some((x) => x.t === c.name), buscaPlaca: busca.some((x) => x.q.includes(placa.toLowerCase()) || x.q.includes(chassi.toLowerCase())),
       lembretes: DB.all('reminders').filter((r) => r.veiculo === carId).map((r) => r.due), mt: Maint.list().find((m) => m.veiculo === carId), doc, fmEnc: !!(fm && fm.enc), pdf: pdf.slice(0, 8), sec, vaultKind: v && v.kind };
   }, [PLACA, CHASSI, carId]);
-  conferir(!d.lugar.includes(PLACA) && !d.lugar.includes(CHASSI) && !d.lugar.includes(APOLICE), 'registro do carro sem placa, chassi e apólice');
+  conferir(!d.lugar.includes(PLACA) && !d.lugar.includes(CHASSI) && !d.lugar.includes(APOLICE) && !d.lugar.includes('1234.5') && !d.lugar.includes('pontos'), 'registro do carro sem placa, chassi, apólice e custo');
   conferir(!!d.cofre && !d.cofre.includes(PLACA) && d.vaultKind === 'seguro', 'placa e chassi embaralhados num item das Senhas da casa');
   conferir(!d.dentroIdb.includes(PLACA) && !d.dentroIdb.includes(CHASSI), 'nada de placa e chassi às claras no aparelho (IndexedDB)');
   conferir(!d.ls.includes(PLACA) && !d.ls.includes(CHASSI), 'nada de placa e chassi no localStorage/sessionStorage');
@@ -99,7 +99,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   const [fc2] = await Promise.all([p.waitForEvent('filechooser'), p.evaluate(() => { go('house', 'cars'); setTimeout(() => document.querySelector('[data-act="car.import"]').click(), 300); })]);
   await fc2.setFiles({ name: 'ficha-teste.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(FICHA)) });
   await p.waitForTimeout(600);
-  conferir(await p.evaluate(() => Cars.list().length) === 1 && (await p.locator('text=já foi trazida').count()) >= 1, 'a mesma ficha não entra duas vezes');
+  conferir(await p.evaluate(() => Cars.list().length) === 1 && (await p.locator('text=Esta ficha já está no app').count()) >= 1, 'a mesma ficha não entra duas vezes');
   await p.evaluate(() => { document.querySelectorAll('.toast').forEach((t) => t.remove()); });
   await foto(p, '04-lista-com-carro');
   /* ficha estragada: recusada antes de gravar qualquer coisa */
@@ -113,7 +113,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   /* editar: placa vem preenchida (cofre aberto) e a franquia muda */
   await p.evaluate((id) => go('house', 'cars', id), carId); await p.waitForTimeout(400);
   await p.click('[data-act="car.edit"]'); await p.waitForSelector('dialog[open] [name="_sec.placa"]');
-  conferir(await p.inputValue('dialog[open] [name="_sec.placa"]') === PLACA, 'editar: placa preenchida, com as Senhas da casa abertas');
+  conferir(await p.inputValue('dialog[open] [name="_sec.placa"]') === PLACA && await p.inputValue('dialog[open] [name="_sec.custoTotal"]') === '1234.5', 'editar: placa e custo preenchidos, com as Senhas da casa abertas');
   await foto(p, '05-editar-carro');
   await p.fill('dialog[open] [name="seguro.franquia"]', '6000');
   await p.locator('dialog[open] [data-ok]').click(); await p.waitForTimeout(600);
@@ -144,8 +144,45 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(await p.evaluate(() => Docs.fields().some((f) => f.k === 'veiculo') && Maint.fields().some((f) => f.k === 'veiculo')), 'documento e manutenção têm "De qual veículo"');
   conferir(await p.evaluate(() => !!HELP().veiculos && Search.sources().some((x) => /Veículos: o carro e o seguro/.test(x.t))), 'ajuda ❓ do carro, também na busca');
 
+  /* o que a revisão da 2.20.0 achou */
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); });
+  await p.evaluate((id) => go('house', 'cars', id), carId); await p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 5000 });
+  await p.locator('#carsec [data-olho]').first().click();
+  conferir(await p.evaluate(() => { A11y.read(); try { A11y.stop(); } catch (e) {} return !document.querySelector('#carsec').innerText.includes('TST0A00'); }), 'ler a tela em voz alta esconde de novo a placa revelada');
+  /* item do cofre que não está neste aparelho: avisa, não cria outro e não apaga nada */
+  const vidOk = await p.evaluate(async (id) => { const c = DB.get('places', id), v = c.vaultId; await DB.put('places', Object.assign({}, c, { vaultId: 'nao-esta-aqui' })); return v; }, carId);
+  await p.waitForFunction(() => /não estão neste aparelho/.test(document.querySelector('#carsec').innerText), null, { timeout: 5000 });
+  conferir(await p.locator('[data-act="car.secnovo"]').count() === 1, 'item do cofre que não chegou: avisa e oferece "começar de novo"');
+  conferir(await p.evaluate(async (id) => { const c = DB.get('places', id), antes = DB.raw('vault').length; const r = await Cars.guardarSegredo(c, { placa: 'OUTRA00' }); return r === 'nao-esta-aqui' && DB.raw('vault').length === antes; }, carId), 'sem o item, salvar não cria outro item solto');
+  await p.evaluate(async ([id, v]) => { const c = DB.get('places', id); await DB.put('places', Object.assign({}, c, { vaultId: v })); }, [carId, vidOk]);
+  conferir(await p.evaluate(async (id) => { const c = DB.get('places', id), v = DB.col('vault').get(c.vaultId), u = v.updatedAt; const o = await Cars.segredo(c); await new Promise((r) => setTimeout(r, 20)); await Cars.guardarSegredo(c, o); return DB.col('vault').get(c.vaultId).updatedAt === u; }, carId), 'salvar sem mudar a placa não regrava o item do cofre');
+  /* cofre fecha com o formulário aberto: placa some da janela */
+  await p.evaluate((id) => go('house', 'cars', id), carId); await p.waitForTimeout(300);
+  await p.click('[data-act="car.edit"]'); await p.waitForSelector('dialog[open] [name="_sec.placa"]');
+  await p.evaluate(() => Vault.lock()); await p.waitForTimeout(1500);
+  conferir(await p.evaluate(() => { const i = document.querySelector('dialog[open] [name="_sec.placa"]'); return !!i && i.value === '' && i.closest('.fld').classList.contains('hidden'); }), 'Senhas da casa fecham com o formulário aberto: placa some da janela');
+  await fecharJanelas(p); await p.waitForTimeout(300);
+  /* apagar o carro e trazer a ficha de novo: nada duplicado, PDF e revisão reaproveitados */
+  const conta = () => p.evaluate(() => ({ carros: Cars.list().length, cofre: DB.raw('vault').filter((v) => v.id !== '_meta').length, lembretes: DB.all('reminders').filter((r) => /\(teste\)/.test(r.title)).length,
+    docs: DB.all('docs').length, docsLigados: DB.all('docs').filter((d) => d.veiculo).length, revisoes: DB.all('maint').filter((m) => m.title === 'Revisão do carro').length, revLigada: DB.all('maint').filter((m) => m.veiculo).length, arquivos: DB.raw('files').length }));
+  await p.evaluate(async (id) => { await Vault.unlock('senha-de-mentira-123'); await Cars.apagar(DB.get('places', id)); }, carId); await p.waitForTimeout(300);
+  let n = await conta();
+  conferir(n.carros === 0 && n.cofre === 0 && n.lembretes === 0 && n.docs === 1 && n.docsLigados === 0 && n.revisoes === 1 && n.revLigada === 0, 'apagar o carro: leva o item do cofre e os lembretes; documento e revisão ficam soltos (' + JSON.stringify(n) + ')');
+  await p.evaluate((f) => Cars.gravar(f), FICHA); n = await conta();
+  conferir(n.carros === 1 && n.cofre === 1 && n.lembretes === 2 && n.docs === 1 && n.docsLigados === 1 && n.revisoes === 1 && n.revLigada === 1, 'trazer de novo depois de apagar: nada duplicado (' + JSON.stringify(n) + ')');
+  /* falha no meio da importação: desfaz tudo */
+  const antes = await conta();
+  const erroMeio = await p.evaluate(async (f) => {
+    const g = Object.assign(JSON.parse(JSON.stringify(f)), { id: 'ficha-teste-2' }); g.veiculo.nome = 'Outro carro'; g.documento.titulo = 'Outro documento'; g.manutencao = [{ titulo: 'Troca de óleo (teste)', ultima: '2026-02-01' }];
+    const orig = DB.put.bind(DB); DB.put = async (c, d, q) => { if (c === 'reminders') throw new Error('falha de mentira'); return orig(c, d, q); };
+    try { await Cars.gravar(g); return 'não falhou'; } catch (e) { return e.message; } finally { DB.put = orig; }
+  }, FICHA);
+  n = await conta();
+  conferir(erroMeio === 'falha de mentira' && JSON.stringify(n) === JSON.stringify(antes) && await p.evaluate(() => !DB.all('maint').some((m) => /óleo/.test(m.title))), 'falha no meio da ficha: desfaz carro, cofre, documento e PDF (' + JSON.stringify(n) + ')');
+  conferir(await p.evaluate(async () => { const s = Cars.validar({ formato: 'omnilife.ficha-veiculo', versao: 1, veiculo: { nome: 'x' }, documento: { arquivo: { base64: 'AAAAA' } } }); return s !== ''; }), 'PDF em base64 cortado é recusado antes de gravar');
+
   /* inglês */
-  await p.evaluate((id) => { S.lang = 'en'; go('house', 'cars', id); }, carId); await p.waitForTimeout(400);
+  await p.evaluate(() => { S.lang = 'en'; go('house', 'cars', Cars.list()[0].id); }); await p.waitForTimeout(400);
   txt = await p.locator('body').innerText();
   conferir(txt.includes('Vehicles') && txt.includes("Above this, it's worth filing a claim.") && txt.includes('24h assistance and phones'), 'textos em inglês');
   await foto(p, '07-ingles');
