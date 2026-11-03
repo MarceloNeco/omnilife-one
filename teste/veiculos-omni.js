@@ -226,6 +226,44 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   await p.context().close();
 
   /* visitante: sem cofre, não oferece a ficha pronta */
+  /* a jornada não é cortada: com as Senhas da casa fechadas, trazer a ficha e abrir a placa pedem a senha ali mesmo */
+  console.log('\n[celular, só neste aparelho, Senhas da casa fechadas]');
+  {
+    const s2 = await abrirApp(browser, 'celular', { semEntrar: true });
+    await s2.p.evaluate(() => ACT['gate.local']());
+    await s2.p.waitForSelector('#fn', { timeout: 10000 });
+    await s2.p.fill('#fn', 'Família Teste'); await s2.p.fill('#mn', 'Pessoa Teste'); await s2.p.click('#go');
+    await s2.p.waitForFunction(() => S.booted, null, { timeout: 15000 }); await s2.p.waitForTimeout(600); await fecharJanelas(s2.p);
+    await s2.p.evaluate(async () => { await Vault.setup('senha-de-mentira-123'); Vault.lock(); AOne.save({ tips: { house: 1 } }); go('house', 'cars'); });
+    await s2.p.waitForTimeout(400); await fecharJanelas(s2.p);
+    const [fc3] = await Promise.all([s2.p.waitForEvent('filechooser'), s2.p.click('[data-act="car.import"]')]);
+    await fc3.setFiles({ name: 'ficha-teste.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(FICHA)) });
+    await s2.p.waitForSelector('text=Vai trazer:', { timeout: 5000 });
+    await s2.p.locator('dialog[open] button', { hasText: 'Trazer' }).click();
+    await s2.p.waitForSelector('dialog[open] #askv[type="password"]', { timeout: 5000 });
+    conferir(await s2.p.evaluate(() => S.route.tab === 'house' && S.route.sub === 'cars'), 'ficha com as Senhas da casa fechadas: pede a senha ali mesmo, sem trocar de tela');
+    await s2.p.fill('dialog[open] #askv', 'senha-de-mentira-123'); await s2.p.locator('dialog[open] [data-ok]').click();
+    await s2.p.waitForFunction(() => S.route && S.route.arg && Cars.list().length === 1, null, { timeout: 15000 }).catch(() => {});
+    conferir(await s2.p.evaluate(() => Cars.list().length === 1 && S.route.sub === 'cars' && !!S.route.arg), 'com a senha certa, a ficha entra e o app abre o carro (sem passar pelas Senhas da casa)');
+    /* placa: trancado → toque no 🔓 → senha ali mesmo → aparece */
+    await s2.p.evaluate(() => { Vault.lock(); render(); }); await s2.p.waitForTimeout(400);
+    await s2.p.click('[data-act="car.abrircasa"]'); await s2.p.waitForSelector('dialog[open] #askv[type="password"]', { timeout: 5000 });
+    await s2.p.fill('dialog[open] #askv', 'senha-de-mentira-123'); await s2.p.locator('dialog[open] [data-ok]').click();
+    await s2.p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 8000 }).catch(() => {});
+    conferir(await s2.p.evaluate(() => !!document.querySelector('#carsec [data-olho]') && S.route.sub === 'cars'), 'ficha do carro: "Abrir as Senhas da casa" abre ali mesmo e mostra a placa escondida (👁)');
+    /* "Agora não" (Cancelar) não grava nada */
+    await s2.p.evaluate(() => { Vault.lock(); go('house', 'cars'); }); await s2.p.waitForTimeout(400);
+    const g = Object.assign(JSON.parse(JSON.stringify(FICHA)), { id: 'ficha-teste-3' });
+    const [fc4] = await Promise.all([s2.p.waitForEvent('filechooser'), s2.p.click('[data-act="car.import"]')]);
+    await fc4.setFiles({ name: 'ficha-teste-3.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(g)) });
+    await s2.p.waitForSelector('text=Vai trazer:', { timeout: 5000 });
+    await s2.p.locator('dialog[open] button', { hasText: 'Trazer' }).click();
+    await s2.p.waitForSelector('dialog[open] #askv', { timeout: 5000 }); await s2.p.locator('dialog[open] [data-x]:not(.xbtn)').first().click(); await s2.p.waitForTimeout(500);
+    conferir(await s2.p.evaluate(() => Cars.list().length === 1), 'cancelar a senha não grava nada');
+    conferir(!s2.lixo.erros.length && !s2.lixo.nativos.length, 'Senhas da casa fechadas: nenhum erro de script nem janela nativa' + (s2.lixo.erros.length ? ': ' + s2.lixo.erros.join(' | ') : ''));
+    await s2.ctx.close();
+  }
+
   console.log('\n[celular, visitante]');
   const v = await abrirApp(browser, 'celular');
   await v.p.evaluate(() => go('house', 'cars')); await v.p.waitForTimeout(400); await fecharJanelas(v.p);

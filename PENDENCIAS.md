@@ -86,6 +86,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **03/Nov/2026 (sem mudança no app):** o dono aprovou o nome "🚗 Veículos" (fecha #48) e decidiu o #52; textos para os chats do MoneyTRIO (#51) e do RootifyONE (#50) entregues; novos #55 (Vida do veículo) e #56 (dois PINs confundem).
 - **2.20.1 (03/Nov/2026):** a pedido do MoneyTRIO, a manutenção do carro vai com "Revisao Periodica" ou "Mecânico / Eletrico / Funilaria" (escolha no registro, sugerida pelo nome), nunca "Manutenção"; lista só de leitura do que já tinha ido com "Manutenção" em ⚙ → Integrações; dado salvo não mudou; novo #57.
 - **2.21.0 (03/Nov/2026):** um PIN só — o PIN das Senhas da casa abre também as chaves de IA (cofre.js 1.6.0 do rootify-one); cofre antigo junta uma vez; permissão "🔑 Chaves de IA" (chefe; ele dá a outros no ✏️ da pessoa). Fecha o #56.
+- **2.21.1 (03/Nov/2026):** a ficha do carro e a placa/chassi destrancam ali mesmo (PIN, digital ou senha principal), sem levar à tela das Senhas da casa (pedido do dono: "a jornada não pode ser cortada"). Uma versão paralela do PIN único (PR #44) foi fechada sem merge porque o #43, pelo caminho oficial do cofre.js 1.6.0, já estava no ar.
 
 ## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
 
