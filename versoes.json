@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.21.0",
+  "d": "2026-11-03",
+  "hora": "19:33:43",
+  "pt": [
+   "🔐 Um PIN só: o PIN das Senhas da casa (ou a digital) agora abre também as chaves de IA. Ao entrar no app não aparece mais a janela \"Proteger as chaves de IA\", e você não precisa criar outro PIN. Quando o app precisar das chaves com tudo fechado, aparece uma janela só, \"Confirme que é você\": toque na digital ou digite o PIN das Senhas da casa. \"Mostrar a chave guardada\" sempre pede a confirmação. Na primeira vez depois desta versão, digite o PIN uma vez; depois a digital basta.",
+   "🚗 Sem sair do caminho: ao trazer a ficha do carro, ou ao abrir a placa e o chassi, o app pede a digital ou o PIN numa janelinha ali mesmo e continua, sem levar você para a tela das Senhas da casa.",
+   "🛡 Mais proteção: trocar o PIN e ligar a digital das Senhas da casa pedem o PIN de agora; \"Esqueci o PIN\" tranca também as chaves de IA; sair da conta tranca as chaves; no modo \"só neste aparelho\", errar muitas vezes a senha principal faz esperar."
+  ],
+  "en": [
+   "🔐 One PIN only: the home passwords PIN (or your fingerprint) now also opens the AI keys. The \"Protect your AI keys\" window no longer shows up when you open the app, and you don't need to create another PIN. When the app needs the keys and everything is closed, a single \"Confirm it's you\" window shows up: use your fingerprint or type the home passwords PIN. \"Show the saved key\" always asks for confirmation. The first time after this version, type the PIN once; after that the fingerprint is enough.",
+   "🚗 No detours: when you bring in the car record, or open the plate and VIN, the app asks for your fingerprint or PIN in a small window right there and carries on, without taking you to the home passwords screen.",
+   "🛡 More protection: changing the PIN and turning on the fingerprint for the home passwords ask for the current PIN; \"Forgot the PIN\" also locks the AI keys; signing out locks the keys; in \"this device only\" mode, many wrong main passwords make you wait."
+  ]
+ },
+ {
   "v": "2.20.1",
   "d": "2026-11-03",
   "hora": "17:17:48",

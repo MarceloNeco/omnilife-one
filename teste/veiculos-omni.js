@@ -266,6 +266,42 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(!lixo.nativos.length, 'nenhum alert/confirm/prompt nativo');
   await p.context().close();
 
+  /* só neste aparelho, responsável que ainda não criou as Senhas da casa: "🔓 Abrir as Senhas da casa" avisa e leva até lá */
+  console.log('\n[celular, só neste aparelho, sem Senhas da casa]');
+  {
+    const s = await abrirApp(browser, 'celular', { semEntrar: true });
+    await s.p.evaluate(() => ACT['gate.local']());
+    await s.p.waitForSelector('#fn', { timeout: 10000 });
+    await s.p.fill('#fn', 'Família Teste'); await s.p.fill('#mn', 'Pessoa Teste'); await s.p.click('#go');
+    await s.p.waitForFunction(() => S.booted, null, { timeout: 15000 }); await s.p.waitForTimeout(600); await fecharJanelas(s.p);
+    const id = await s.p.evaluate(async () => { AOne.save({ tips: { house: 1 } }); const c = await DB.put('places', { name: 'Carro sem cofre (teste)', kind: 'veiculo', carro: {} }); go('house', 'cars', c.id); return c.id; });
+    await s.p.waitForTimeout(400); await fecharJanelas(s.p);
+    conferir(await s.p.evaluate(() => !Vault.meta() && canVault()), 'preparo: responsável sem Senhas da casa');
+    const tocar = async (sel, nome) => {
+      await s.p.click(sel);
+      const aviso = await s.p.waitForSelector('dialog[open] [data-yes]', { timeout: 5000 }).then(() => s.p.evaluate(() => document.querySelector('dialog[open] [data-yes]').closest('.modal').textContent), () => '');
+      conferir(/abra ou crie as 🔐 Senhas da casa/.test(aviso), nome + ': o toque avisa onde criar as Senhas da casa (antes não fazia nada)');
+      if (aviso) await s.p.click('dialog[open] [data-yes]');
+      await s.p.waitForTimeout(500);
+      /* (a apresentação "Passo 1 de 4" das Senhas da casa pode abrir por cima: é da tela nova, e não do carro) */
+      const fim = await s.p.evaluate(() => ({ tab: S.route.tab, sub: S.route.sub, carro: !!document.querySelector('dialog[open] [data-casa], dialog[open] .omni-chaves') }));
+      conferir(fim.tab === 'house' && fim.sub === 'vault' && !fim.carro, nome + ': ao confirmar, fecha o que era do carro e vai para Casa → Senhas da casa (' + JSON.stringify(fim) + ')');
+      await fecharJanelas(s.p);
+    };
+    await tocar('[data-act="car.abrircasa"]', 'ficha do carro');
+    await s.p.evaluate((i) => go('house', 'cars', i), id); await s.p.waitForTimeout(400);
+    /* no formulário, sem Senhas da casa: avisa e NÃO fecha (o que foi digitado fica) */
+    await s.p.evaluate(() => document.querySelector('[data-act="car.edit"]').click()); await s.p.waitForSelector('dialog[open] [data-casa]', { timeout: 5000 });
+    await s.p.fill('dialog[open] [name="name"]', 'Nome digitado de mentira');
+    await s.p.evaluate(() => document.querySelectorAll('.toast').forEach((t) => t.remove()));
+    await s.p.click('dialog[open] [data-casa]'); await s.p.waitForTimeout(700);
+    const form = await s.p.evaluate(() => ({ tab: S.route.tab, sub: S.route.sub, nome: (document.querySelector('dialog[open] [name="name"]') || {}).value, t: [...document.querySelectorAll('.toast')].map((x) => x.textContent).join(' | ') }));
+    conferir(form.sub === 'cars' && form.nome === 'Nome digitado de mentira' && /Primeiro salve o carro/.test(form.t), 'formulário do carro sem Senhas da casa: avisa e o que foi digitado fica (' + JSON.stringify(form).slice(0, 120) + ')');
+    await fecharJanelas(s.p);
+    conferir(!s.lixo.erros.length && !s.lixo.nativos.length, 'sem Senhas da casa: nenhum erro de script nem janela nativa' + (s.lixo.erros.length ? ': ' + s.lixo.erros.join(' | ') : ''));
+    await s.ctx.close();
+  }
+
   /* visitante: sem cofre, não oferece a ficha pronta */
   console.log('\n[celular, visitante]');
   const v = await abrirApp(browser, 'celular');

@@ -19,7 +19,7 @@ var OMNI_CHAVES = { 'wx:weatherapi': 'wx:weatherapi', 'wx:openweathermap': 'wx:o
 DGO.iniciar({
   app: 'omnilife-one',                      /* gaveta de dados: nunca mude */
   nome: { pt: 'OmniLifeONE', en: 'OmniLifeONE' },
-  versaoApp: '2.20.1',
+  versaoApp: '2.21.0',
   cor: '#8a6ff2',
   corFundoBarra: '#0e1016',
 
@@ -43,7 +43,8 @@ DGO.iniciar({
   notificacoes: { ativo: false },
   pwa: { ativo: false },
   cofre: {
-    proteger: true,   /* regras do PIN (cofre.js 1.4): com chave guardada, PIN ao abrir e ao recarregar; tranca ao sair, escondido e sem uso */
+    proteger: true,   /* regras do PIN (cofre.js 1.4): tranca ao abrir, ao recarregar, ao sair, escondido e sem uso. No OmniLifeONE (2.21.0, um PIN só)
+                         quem pergunta é o app, só quando uma chave é usada, com o PIN ou a digital das Senhas da casa (index.html, ChavesPin) */
     fontes: [
       { chave: 'investifyme.chaves.v1', caminho: 'chaves', mapa: OMNI_CHAVES },   /* { cifrado: false, chaves: { gemini, 'wx:…', 'rt:tomtom' } } */
       { chave: 'investifyme.chaves.v1', caminho: '', mapa: OMNI_CHAVES },         /* formato plano antigo */

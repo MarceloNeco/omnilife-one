@@ -258,6 +258,18 @@ sem framework: HTML, CSS e JavaScript puros.
 - `moreBox(título, html)` — explicação longa recolhida num `<details class="more">` (“› Saiba mais”). Use em vez de parágrafos longos de ajuda dentro dos cartões.
 - `CAPS`, `AI_PROV`, `AI`, `aiSTT`, `aiTTS`, `KeyVault` — cofre de chaves com capacidades e guia por provedor.
   `AI.key(id)` só diz se **tem** chave (sem abrir o cofre); `AI.chave(id)` (Promise) pega a chave na hora de chamar o provedor.
+- **Um PIN só (2.21.0, decisão do dono de 03/Nov/2026)** — o cofre comum de chaves (`cofre.js`) é criado, aberto e trocado com o PIN
+  das Senhas da casa (nuvem: `Cofre`; local: senha principal do `Vault`). Um `<script>` inline logo depois do `cofre.js` troca
+  `SolverCofre.pedir`: só o pedido marcado `{ omni: 1 }` (vindo de `Keys.need`/`Keys.set`/`keys.show`) pode mostrar janela, e vai para
+  `ChavesPin` (janela única "🔓 Confirme que é você": digital ou PIN da casa, passo "PIN antigo" e "Não lembro"); pedido automático
+  (regras do `proteger`, módulo) só tenta a sessão da aba, sem janela — por isso a janela do `cofre.js` não aparece na entrada.
+  Depende do `cofre.js` 1.4.1 (`API.pedir` lido na hora): ao copiar um mestre novo, rodar `teste/um-pin-omni.js` antes.
+  `ChavesPin.alinhar(pin, { velho, trocar, criar, provado })` deixa as chaves com o PIN da casa (uma tentativa por vez, marcador
+  sem segredo `omnilife.chaves.pin` com o dono) e **nunca troca o PIN das chaves que já estavam abertas sem prova nesta chamada**
+  (abrir com o PIN antigo ou a digital das próprias chaves). Na nuvem, o PIN fica embrulhado em `L.chaves` (HKDF do `dukRaw`),
+  para a digital da casa abrir as chaves sem digitar. `ChavesPin.abrirCasa(motivo)` destranca as Senhas da casa na própria janela
+  (ficha do carro, "Trazer ficha pronta"). Trocar o PIN e ligar a digital da casa pedem o PIN de agora; "Esqueci o PIN" e sair
+  da conta trancam as chaves; o `Vault` local conta erros (`omnilife.vault.erros:<família>`). Teste: `teste/um-pin-omni.js`.
 - **Chaves no cofre comum (2.18.0; Fase 3 na 2.19.0)** — `Keys` (perto de `Bridge`) é o único lugar que lê e grava chave: `Keys.has(nome)` sabe sem
   abrir, `Keys.get(nome)` só com o cofre aberto (`''` trancado), `Keys.need(nome, motivo, ask)` pede o PIN se precisar
   (`ask === false`: só abre sem PIN, nunca mostra a janela — usado pelo clima em segundo plano), `Keys.set(nome, valor)` grava/apaga
