@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.20.0",
+  "d": "2026-11-03",
+  "hora": "00:50:29",
+  "pt": [
+   "🚗 Novo em Casa → Veículos: cadastre o carro (modelo, ano, combustível) e o seguro. A franquia aparece em destaque (\"acima disso, vale acionar o seguro\"), cada telefone da assistência 24h ganha o botão 📞 Ligar (ou 💬 WhatsApp), o corretor tem 📞 e ✉️, e há o botão \"Abrir o app da seguradora\". Placa, chassi, renavam e o número da apólice ficam trancados nas Senhas da casa: só aparecem na ficha do carro, escondidos até você tocar no 👁, e nunca vão para listas, busca, avisos ou para a IA.",
+   "📥 Trazer ficha pronta: com as Senhas da casa abertas, escolha um arquivo .json com os dados do carro e do seguro e o app traz tudo de uma vez: o carro, o seguro, os lembretes, a revisão e o PDF da apólice (trancado). Antes, ele mostra o que vai trazer, e a mesma ficha não entra duas vezes.",
+   "📄🛠 Documentos e manutenções agora podem ser de um carro (\"De qual veículo\"). A ficha do carro mostra os documentos, a revisão, os lembretes e quanto o seguro custa, como referência do MoneyTRIO (só referência: nada é enviado para lá)."
+  ],
+  "en": [
+   "🚗 New in House → Vehicles: add your car (model, year, fuel) and its insurance. The deductible is highlighted (\"above this, it's worth filing a claim\"), each 24h assistance phone gets a 📞 Call button (or 💬 WhatsApp), the broker has 📞 and ✉️, and there's an \"Open the insurer's app\" button. Plate, VIN, registration number and policy number stay locked in the home vault: they only show on the car's page, hidden until you tap 👁, and never go to lists, search, alerts or the AI.",
+   "📥 Bring a ready-made record: with the vault open, choose a .json file with the car and insurance data and the app brings it all at once: the car, the insurance, reminders, service and the policy PDF (locked). It first shows what it will add, and the same record can't come in twice.",
+   "📄🛠 Documents and maintenance can now belong to a car (\"Which vehicle\"). The car's page shows its documents, service, reminders and the insurance cost as a MoneyTRIO reference (reference only: nothing is sent there)."
+  ]
+ },
+ {
   "v": "2.19.0",
   "d": "2026-10-18",
   "hora": "00:41:40",

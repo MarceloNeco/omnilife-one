@@ -1,8 +1,8 @@
 {
  "formato": 1,
  "app": "omnilife-one",
- "versao": "2.18.0",
- "atualizado": "2026-10-16",
+ "versao": "2.20.0",
+ "atualizado": "2026-11-03",
  "nota": {
   "pt": "O que este app lê do Controle dos apps e do ⚡ Modo DEUS do RootifyONE (recursos/global.json e recursos/omnilife-one.json), pelo módulo comum 1.10.0 (o recursos.js repassa para ele). Nunca desligáveis: Início, ⚙ Configurações, a tela de entrar e Sobre (o app não fica sem saída). Trancar as Senhas da casa, desconectar o aparelho e parar o Modo Vigilante sempre funcionam.",
   "en": "What this app reads from RootifyONE's App control and ⚡ GOD mode (recursos/global.json and recursos/omnilife-one.json), through shared module 1.10.0 (recursos.js hands over to it). Never switchable: Home, ⚙ Settings, the sign-in screen and About (the app always has a way out). Locking Home passwords, disconnecting the device and stopping Watch mode always work."
@@ -292,6 +292,17 @@
    "onde": {
     "pt": "Casa › Manutenção. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
     "en": "House › Maintenance. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
+   "id": "casa.veiculos",
+   "nome": {
+    "pt": "🚗 Veículos (carro e seguro)",
+    "en": "🚗 Vehicles (car and insurance)"
+   },
+   "onde": {
+    "pt": "Casa › Veículos: o carro, o seguro (franquia em destaque, assistência 24h com 📞, corretor, coberturas), documentos e revisão do carro, e \"Trazer ficha pronta\". Placa, chassi e apólice ficam trancados nas Senhas da casa. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "House › Vehicles: the car, its insurance (highlighted deductible, 24h assistance with 📞, broker, coverage), the car's documents and service, and \"Bring a ready-made record\". Plate, VIN and policy stay locked in the vault. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
    }
   },
   {

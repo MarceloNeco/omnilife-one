@@ -300,6 +300,21 @@ sem framework: HTML, CSS e JavaScript puros.
   com quantas funções podem falhar) e só na aba Geral (`Compat.view(sub)`); navegador velho abre o quadro em todas as abas.
 - `Sess` — sessão da aba (recarregar não pede PIN por 30 min) e volta ao mesmo lugar depois de entrar.
 - `Batch` — vários arquivos de uma vez (Documentos), com fila, duplicados e conferência.
+- `Cars` (2.20.0) — **Casa → 🚗 Veículos** (`HouseViews.cars`, rota `house/cars[/id]`, id `casa.veiculos` em `Rec` e no
+  `recursos-do-app.json`). O carro é um **Lugar** do tipo `veiculo` (coleção `places`: não mudou o banco; continua servindo para
+  "o que está guardado no carro" no Onde está?). No registro ficam só `carro.{marca, modelo, anoFab, anoMod, comb}` e
+  `seguro.{seguradora, inicio, fim, bonus, franquia, franquias, coberturas, assist, app, corretor, custo}`. **Placa, chassi,
+  renavam e nº/item da apólice** (`CAR_SEC`) vão num item das **Senhas da casa** (`vault`, `kind: "seguro"`, `carId`) ligado por
+  `vaultId`: `Cars.segredo(c)` abre (só com o cofre aberto), `Cars.guardarSegredo(c, sec)` grava. Nunca entram em lista, busca,
+  aviso, `ChangeLog` (só o envelope cifrado) nem IA; na ficha aparecem como `••••••` até o 👁. Só responsável edita; membro não vê
+  o custo. `assist` = um telefone por linha `Nome: número` (`Cars.fones`): 📞 `telHref`, 💬 `waHref` se o nome tiver "WhatsApp".
+  A franquia aparece em destaque ("acima disso, vale acionar o seguro"). `seguro.custo` é **só referência do MoneyTRIO** (nada
+  vai pela `Bridge`). Documentos (`docs.veiculo`), manutenções (`maint.veiculo`) e lembretes (`reminders.veiculo`) ligam ao carro;
+  "De qual veículo" só aparece nos formulários quando há carro. **Ficha pronta** (`Cars.importar` → `validar` → `resumo` →
+  `gravar`, pelo `DGO.fundo`, tipo `importar`): arquivo `.json` `{ formato: "omnilife.ficha-veiculo", versao: 1, id, veiculo,
+  protegido, seguro, lembretes[], manutencao[], documento{ arquivo{ nome, tipo, base64 } } }`; exige responsável e cofre aberto
+  (placa e PDF entram trancados, PDF até 12 MB, `Files.save` com `encrypt`); a mesma ficha (`places.ficha` = `id`) não entra duas
+  vezes; manutenção com o mesmo título e sem carro é aproveitada. Ajuda `HELP().veiculos`. Teste: `teste/veiculos-omni.js`.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento. Na tela (2.15.3), `LOG_COL` dá o
   nome da parte do app ("Lista de compras", "Pessoas") e `logLegivel()` mostra os valores em vez do JSON; o CSV continua completo.
 - `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Desde a 2.15.0 o código de emergência abre o cofre da nuvem (envelope `_em` com a chave do cofre; ver `Cofre`); quando o acesso é liberado, o `poll` refaz a cópia para o contato receber o cofre cifrado.
@@ -323,6 +338,6 @@ sem framework: HTML, CSS e JavaScript puros.
 5. Nome do zip: `OMNI-LIFE-ONE vX.Y.Z dd-Mmm-aaaa HHhMMm.zip` (hora de Brasília).
 4. Se mudou algo de nuvem: novo arquivo `supabase/omnilife-one-vN.sql` (idempotente, regras do C10 em `PLATAFORMA-DADOS.md`), levar para revisão e só depois rodar no Supabase. O Firebase não é mais usado.
 7. Testes automáticos (Playwright, uma vez: `npm install -D playwright && npx playwright install chromium`): `node teste/rodar.js`
-   (`teste/README.md`): mestres iguais, janelas em 390 px e no computador, cofre da Fase 3. Só valores de mentira.
+   (`teste/README.md`): mestres iguais, janelas em 390 px e no computador, cofre da Fase 3, veículos (2.20.0). Só valores de mentira.
 6. Teste da nuvem: só contra um Supabase **local** com a base real + `supabase/omnilife-one-v1.sql` (nunca contas de teste na produção);
    o teste desvia as chamadas do endereço de produção para `http://127.0.0.1:54321`.
