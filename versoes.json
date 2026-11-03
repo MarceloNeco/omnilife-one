@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.21.1",
+  "d": "2026-11-03",
+  "hora": "19:58:33",
+  "pt": [
+   "🚗 Sem sair do caminho: ao trazer a ficha do carro com as Senhas da casa fechadas, o app pede o PIN (ou a digital) ali mesmo e continua, sem levar você para a tela das Senhas da casa. O mesmo vale para o botão \"🔓 Abrir as Senhas da casa\" da ficha do carro, que agora abre ali e mostra a placa e o chassi escondidos (👁). Se você desistir, nada é gravado."
+  ],
+  "en": [
+   "🚗 No detours: when you bring in the car record with the home passwords closed, the app asks for your PIN (or fingerprint) right there and carries on, without taking you to the home passwords screen. The same goes for the car page's \"🔓 Open the vault\" button, which now opens right there and shows the hidden plate and VIN (👁). If you give up, nothing is saved."
+  ]
+ },
+ {
   "v": "2.21.0",
   "d": "2026-11-03",
   "hora": "17:37:00",

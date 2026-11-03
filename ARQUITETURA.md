@@ -323,7 +323,10 @@ sem framework: HTML, CSS e JavaScript puros.
   que já foi gravado): arquivo `.json` `{ formato: "omnilife.ficha-veiculo", versao: 1, id, veiculo,
   protegido, seguro, lembretes[], manutencao[], documento{ arquivo{ nome, tipo, base64 } } }`; exige responsável e cofre aberto
   (placa e PDF entram trancados, PDF até 12 MB, `Files.save` com `encrypt`); a mesma ficha (`places.ficha` = `id`) não entra duas
-  vezes; manutenção com o mesmo título e documento com o mesmo título e tipo, soltos de um carro apagado, são aproveitados. Ajuda `HELP().veiculos`. Teste: `teste/veiculos-omni.js`.
+  vezes; manutenção com o mesmo título e documento com o mesmo título e tipo, soltos de um carro apagado, são aproveitados.
+  Senhas da casa fechadas (2.21.1): `Cars.abrirCasa(motivo)` destranca ali mesmo, sem trocar de tela (nuvem: `PinUnico.pedir`, PIN
+  ou digital; local: senha principal); `null` = não há Senhas da casa para abrir aqui → `Cars.irParaCasa()`. Usado no "📥 Trazer"
+  (depois de escolher e conferir o arquivo) e no botão 🔓 da ficha (`car.abrircasa`); contato de emergência vai à tela com o código. Ajuda `HELP().veiculos`. Teste: `teste/veiculos-omni.js`.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento. Na tela (2.15.3), `LOG_COL` dá o
   nome da parte do app ("Lista de compras", "Pessoas") e `logLegivel()` mostra os valores em vez do JSON; o CSV continua completo.
 - `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Desde a 2.15.0 o código de emergência abre o cofre da nuvem (envelope `_em` com a chave do cofre; ver `Cofre`); quando o acesso é liberado, o `poll` refaz a cópia para o contato receber o cofre cifrado.
