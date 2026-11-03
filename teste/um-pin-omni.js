@@ -438,15 +438,28 @@ const nadaEmClaro = (p, pedacos) => p.evaluate(async (ped) => {
     /* trocar o PIN da casa pede o PIN de agora (mesmo com a casa aberta): errado não troca nada */
     r = await p.evaluate(async ([n, v]) => {
       const antes = JSON.stringify((await Cofre.local()).pin); let novos = 0; window.__perguntas = 0;
+      window.__prfOk = Cofre.prfAvaliar; Cofre.prfAvaliar = async () => null;   /* a digital não confirma: cai no PIN de agora */
       window.askText = async () => { window.__perguntas++; return '000000'; }; Cofre.pedirNovoPin = async () => { novos++; return n; };
       document.querySelectorAll('.toast').forEach((t) => t.remove());
       await Cofre.trocarPin(); await ChavesPin._p;
       const L = await Cofre.local(), t = [...document.querySelectorAll('.toast')].map((x) => x.textContent).join(' | ');
       await SolverCofre.trancar(); const velho = await SolverCofre.abrir(v).then(() => true, () => false);
-      L.erros = 0; L.ate = 0; await Cofre.gravarLocal(L);
+      L.erros = 0; L.ate = 0; await Cofre.gravarLocal(L); Cofre.prfAvaliar = window.__prfOk;
       return { mesmo: JSON.stringify(L.pin) === antes, novos, velho, perguntas: window.__perguntas, t };
     }, [PIN2, PIN]);
     conferir(r.perguntas === 1 && r.mesmo && r.novos === 0 && r.velho && /PIN errado/.test(r.t), 'trocar o PIN com a casa aberta pede o PIN de agora; errado não troca nem o PIN da casa nem o das chaves (' + JSON.stringify(r) + ')');
+    /* só com a digital (o dono esqueceu o PIN de agora): o toque da digital da casa basta para trocar */
+    r = await p.evaluate(async ([n, v]) => {
+      let perguntas = 0; window.askText = async () => { perguntas++; return ''; }; Cofre.pedirNovoPin = async () => n; window.__prf = 0;
+      await Cofre.trocarPin(); await ChavesPin._p;
+      await SolverCofre.trancar(); const novo = await SolverCofre.abrir(n).then(() => true, () => false);
+      /* volta ao PIN de antes (casa e chaves), para o resto do teste */
+      window.askText = async () => n; Cofre.pedirNovoPin = async () => v; const prfOk = Cofre.prfAvaliar; Cofre.prfAvaliar = async () => null; await Cofre.trocarPin(); await ChavesPin._p; Cofre.prfAvaliar = prfOk;
+      await SolverCofre.trancar(); const voltou = await SolverCofre.abrir(v).then(() => true, () => false);
+      return { perguntas, prf: window.__prf, novo, voltou };
+    }, [PIN3, PIN]);
+    conferir(r.perguntas === 0 && r.prf >= 1 && r.novo && r.voltou, 'trocar o PIN só com a digital da casa (sem saber o PIN de agora) funciona (' + JSON.stringify(r) + ')');
+    await p.evaluate(() => localStorage.removeItem('dgo:global:cofre:erros'));
     /* trocar o PIN da casa troca o das chaves */
     r = await p.evaluate(async ([n, v]) => {
       window.askText = async () => v; Cofre.pedirNovoPin = async () => n; await Cofre.trocarPin();

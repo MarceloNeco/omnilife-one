@@ -2911,7 +2911,7 @@ const Vault = {
     if (!S.vaultKey) return false;
     const pw = await askText("👆 " + tt("Digital nas Senhas da casa", "Fingerprint for the vault"), tt("Digite a senha principal para confirmar", "Type the vault password to confirm"), "", "password");
     if (!pw) return false;
-    if (!(await this.unlock(pw))) { toast(tt("Senha incorreta.", "Wrong password.")); return false; }
+    if (!(await this.unlock(pw))) { const e = this.espera(); toast(e ? tt("Muitas tentativas. Espere " + e + " s.", "Too many tries. Wait " + e + " s.") : tt("Senha incorreta.", "Wrong password.")); return false; }
     const p = await Cofre.prfNovo(); if (!p) return false;
     const reg = Object.assign({ cred: p.cred, sal: p.sal }, await Cofre.cifrar(await Cofre.hkdf(p.out, "omnilife-cofre-local"), new TextEncoder().encode(pw))); p.out.fill(0);
     await IDB.set("kv", this.famKey(), reg);
@@ -3285,14 +3285,19 @@ const Cofre = {
       setTimeout(() => { const i = $("#np1", m.el); if (i) i.focus(); }, 60);
     });
   },
+  /* um PIN só: com a digital da casa ligada, o toque dela prova que é o dono (sem digitar). false = não ligada ou não deu:
+     quem chamou pede o PIN de agora */
+  async confirmarDono() { const L = await this.local(); if (!L || !L.prf) return false; const d = await this.destrancarDigital(); return !!(d && d.ok); },
   async trocarPin() {
     if (!this.aberto() || !this.dukRaw) return toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
     /* um PIN só: trocar aqui troca também o PIN das chaves de IA (em todos os apps), então a casa aberta não basta:
-       pede o PIN de agora, pelo caminho que conta os erros (espera e bloqueio) */
-    const atual = await askText("🔢 " + tt("Trocar o PIN", "Change PIN"), tt("Digite o PIN de agora para trocar", "Type your current PIN to change it"), "", "password"); if (!atual) return;
-    const c = await this.destrancarPin(atual);
-    if (!c.ok) return toast(c.erro === "bloqueado" ? tt("O PIN foi digitado errado 10 vezes e ficou bloqueado. Use \"Esqueci o PIN\".", "The PIN was typed wrong 10 times and is blocked. Use \"Forgot the PIN\".")
-      : (c.erro === "espera" ? tt("Muitas tentativas.", "Too many tries.") : tt("PIN errado. O PIN não foi trocado.", "Wrong PIN. The PIN wasn't changed.")) + (c.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((c.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : ""), 6000);
+       pede a digital da casa (se ligada) ou o PIN de agora, pelo caminho que conta os erros (espera e bloqueio) */
+    if (!(await this.confirmarDono())) {
+      const atual = await askText("🔢 " + tt("Trocar o PIN", "Change PIN"), tt("Digite o PIN de agora para trocar", "Type your current PIN to change it"), "", "password"); if (!atual) return;
+      const c = await this.destrancarPin(atual);
+      if (!c.ok) return toast(c.erro === "bloqueado" ? tt("O PIN foi digitado errado 10 vezes e ficou bloqueado. Use \"Esqueci o PIN\".", "The PIN was typed wrong 10 times and is blocked. Use \"Forgot the PIN\".")
+        : (c.erro === "espera" ? tt("Muitas tentativas.", "Too many tries.") : tt("PIN errado. O PIN não foi trocado.", "Wrong PIN. The PIN wasn't changed.")) + (c.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((c.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : ""), 6000);
+    }
     const pin = await this.pedirNovoPin(); if (!pin) return;
     const L = await this.local(), sal = b64FromBuf(this.rnd(16));
     const velho = await ChavesPin.lerPin(this.dukRaw, L);   /* o PIN de antes, para as chaves de IA passarem ao novo */
@@ -3302,11 +3307,17 @@ const Cofre = {
     const ok = await ChavesPin.alinhar(pin, { velho, trocar: true });
     /* as chaves só mudam se abriram com o PIN de antes (em pausa ou com outro PIN, ficam como estavam) */
     toast("✓ " + (ok || !SolverCofre.existe() ? tt("PIN trocado (vale também para as chaves de IA).", "PIN changed (it also works for the AI keys).")
-      : tt("PIN trocado. As chaves de IA continuam com o PIN antigo; na próxima vez que usar a IA, o app pede para passar para o PIN novo.", "PIN changed. The AI keys still use the old PIN; next time you use AI, the app will ask to move them to the new PIN.")), 8000);
+      : tt("PIN trocado. As chaves de IA continuam com o PIN antigo; na próxima vez que usar a IA, o app pede uma vez o PIN antigo delas.", "PIN changed. The AI keys still use the old PIN; next time you use AI, the app will ask once for their old PIN.")), 8000);
   },
   async novoCodigo() {
     if (!this.aberto() || !this.dukRaw) return toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
     if (!navigator.onLine) return toast(tt("Conecte à internet.", "Connect to the internet."));
+    /* um código novo + "Esqueci o PIN" daria as Senhas da casa a quem pegou o aparelho aberto: pede a digital ou o PIN de agora */
+    if (!(await this.confirmarDono())) {
+      const atual = await askText("🔑 " + tt("Código novo", "New code"), tt("Digite o PIN de agora para fazer um código novo", "Type your current PIN to make a new code"), "", "password"); if (!atual) return;
+      const c = await this.destrancarPin(atual);
+      if (!c.ok) return toast(c.erro === "bloqueado" ? tt("O PIN foi digitado errado 10 vezes e ficou bloqueado. Use \"Esqueci o PIN\".", "The PIN was typed wrong 10 times and is blocked. Use \"Forgot the PIN\".") : tt("PIN errado. O código não foi trocado.", "Wrong PIN. The code wasn't changed."), 5000);
+    }
     const L = await this.local(); if (!L || !L.sk) return;
     const pkcs8 = await this.decifrar(await this.aes(this.dukRaw), L.sk), { pub } = await this.minhasNoBanco(); if (!pub) return;
     const codigo = Restore.code(); if (!(await this.mostrarCodigo(codigo))) return;
@@ -3318,7 +3329,7 @@ const Cofre = {
   /* esqueci o PIN / 10 erros: refaz este aparelho (com o código ou pedindo a outro responsável) */
   async esqueci() {
     if (!navigator.onLine) return toast(tt("Para isso, ligue a internet.", "For this, turn on the internet."), 4000);
-    if (!(await confirmBox(tt("Esqueceu o PIN? Dá para escolher um PIN novo usando o código de recuperação que você anotou no papel (ou pedindo para outro responsável liberar de novo). Nada do que está guardado se perde.", "Forgot the PIN? You can choose a new PIN using the recovery code you wrote on paper (or by asking another guardian to release it again). Nothing stored is lost."), tt("Escolher um PIN novo", "Choose a new PIN")))) return;
+    if (!(await confirmBox(tt("Esqueceu o PIN? Dá para escolher um PIN novo usando o código de recuperação que você anotou no papel (ou pedindo para outro responsável liberar de novo). Nada do que está guardado se perde (as chaves de IA, se houver, podem pedir uma vez o PIN antigo).", "Forgot the PIN? You can choose a new PIN using the recovery code you wrote on paper (or by asking another guardian to release it again). Nothing stored is lost (the AI keys, if any, may ask once for the old PIN)."), tt("Escolher um PIN novo", "Choose a new PIN")))) return;
     /* quem diz que esqueceu o PIN não fica com as chaves de IA abertas */
     this.trancar(); SolverCofre.trancar().catch(() => {}); try { await IDB.del("kv", this.K()); } catch (e) {}
     this.comecar();
@@ -3785,7 +3796,7 @@ const ChavesPin = {
       /* as chaves já estavam abertas e ninguém provou o PIN delas nesta chamada (ex.: criar as Senhas da casa ou "Começar"
          com o aparelho de outra pessoa nas mãos): não troca. Continuam funcionando agora; quando trancarem, a janela pede
          uma vez o PIN antigo (ou "Não lembro"). Assim ninguém toma as chaves só por ter o aparelho destravado. */
-      if (!provou) { this.marcar(false); return false; }
+      if (!provou) return false;
       await C.trocarPin(pin);
       if (!o.trocar) toast("✓ " + (Cofre.usa() ? tt("Pronto: as chaves de IA agora abrem com o mesmo PIN das Senhas da casa, em todos os apps SolverONE deste navegador.", "Done: the AI keys now open with the same PIN as the home passwords, in every SolverONE app in this browser.")
         : tt("Pronto: as chaves de IA agora abrem com a mesma senha principal das Senhas da casa, em todos os apps SolverONE deste navegador.", "Done: the AI keys now open with the same main password as the home passwords, in every SolverONE app in this browser.")), 6000);
@@ -3839,7 +3850,7 @@ const ChavesPin = {
       '<button type="button" class="btn big hidden" data-dig style="width:100%;margin-bottom:10px">👆 ' + tt("Usar a digital", "Use fingerprint") + "</button>" +
       '<label class="fld"><span>' + (nuvem ? tt("PIN das Senhas da casa", "Home passwords PIN") : tt("Senha principal das Senhas da casa", "Home passwords main password")) + '</span><input type="password" id="omni-pin"' + (nuvem ? ' inputmode="numeric"' : "") + ' autocomplete="current-password"></label>' +
       (nuvem ? '<button type="button" class="linkbtn tiny" data-esqueci>' + tt("Esqueci o PIN", "Forgot the PIN") + "</button>" : "") + "</div>" +
-      '<div data-antigo hidden><p class="small">' + tt("Só desta vez: as chaves de IA deste navegador foram trancadas antes com um PIN antigo (de antes do PIN único, criado aqui ou em outro app SolverONE). Digite esse PIN antigo; depois fica valendo só " + (nuvem ? "o PIN" : "a senha principal") + " das Senhas da casa. Se não lembrar, toque em \"Não lembro\".", "Just this once: the AI keys in this browser were locked before with an old PIN (from before the single PIN, created here or in another SolverONE app). Type that old PIN; after that only the home passwords " + (nuvem ? "PIN" : "main password") + " counts. If you don't remember it, tap \"I don't remember\".") + "</p>" +
+      '<div data-antigo hidden><p class="small">' + tt("Só desta vez: as chaves de IA deste navegador foram trancadas antes com um PIN antigo (de antes do PIN único ou de antes de trocar o PIN, criado aqui ou em outro app SolverONE). Digite esse PIN antigo; depois fica valendo só " + (nuvem ? "o PIN" : "a senha principal") + " das Senhas da casa. Se não lembrar, toque em \"Não lembro\".", "Just this once: the AI keys in this browser were locked before with an old PIN (from before the single PIN or before the PIN was changed, created here or in another SolverONE app). Type that old PIN; after that only the home passwords " + (nuvem ? "PIN" : "main password") + " counts. If you don't remember it, tap \"I don't remember\".") + "</p>" +
       '<button type="button" class="btn big hidden" data-digvelha style="width:100%;margin-bottom:10px">👆 ' + tt("Usar a digital das chaves de IA", "Use the AI keys fingerprint") + "</button>" +
       '<label class="fld"><span>' + tt("PIN antigo das chaves de IA", "Old AI keys PIN") + '</span><input type="password" id="omni-antigo" autocomplete="off"></label><button type="button" class="linkbtn tiny" data-naolembro>' + tt("Não lembro", "I don't remember") + "</button></div>" +
       '<p class="small" data-msg role="status" aria-live="polite" style="margin-top:8px">' + (casa === "bloqueada" ? "⛔ " + BLOQ : "") + "</p>";
