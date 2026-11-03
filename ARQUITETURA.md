@@ -300,6 +300,10 @@ sem framework: HTML, CSS e JavaScript puros.
   com quantas funções podem falhar) e só na aba Geral (`Compat.view(sub)`); navegador velho abre o quadro em todas as abas.
 - `Sess` — sessão da aba (recarregar não pede PIN por 30 min) e volta ao mesmo lugar depois de entrar.
 - `Batch` — vários arquivos de uma vez (Documentos), com fila, duplicados e conferência.
+- Manutenção → MoneyTRIO (2.20.1) — `Maint.done` manda pela `Bridge` (`ecossistema.ponte.v1`). Carro: grupo `VEICULO` e a subcategoria
+  escolhida na hora entre `MT_SUB_CARRO()` ("Revisao Periodica" ou "Mecânico / Eletrico / Funilaria", texto exato do MoneyTRIO),
+  sugerida por `mtSubCarro(título)`; nunca "Manutenção" (não existe lá). Casa, eletros, jardim e pet seguem `HABITACAO` /
+  "Manutenção". `Bridge.antigosCarro()` lista, só para conferir em ⚙ → Integrações, o que já tinha ido com "Manutenção".
 - `Cars` (2.20.0) — **Casa → 🚗 Veículos** (`HouseViews.cars`, rota `house/cars[/id]`, id `casa.veiculos` em `Rec` e no
   `recursos-do-app.json`). O carro é um **Lugar** do tipo `veiculo` (coleção `places`: não mudou o banco; continua servindo para
   "o que está guardado no carro" no Onde está?). No registro ficam só `carro.{marca, modelo, anoFab, anoMod, comb}` e
