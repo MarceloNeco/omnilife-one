@@ -15,6 +15,17 @@
   ]
  },
  {
+  "v": "2.20.1",
+  "d": "2026-11-03",
+  "hora": "17:17:48",
+  "pt": [
+   "💰 Manutenção do carro no MoneyTRIO: ao registrar uma manutenção do carro com custo, você escolhe a categoria que existe no MoneyTRIO, \"Revisao Periodica\" ou \"Mecânico / Eletrico / Funilaria\" (o app já sugere pelo nome e dá para trocar); o carro não vai mais como \"Manutenção\". Em ⚙ → Integrações aparece, só para conferir, a lista do que já tinha ido com \"Manutenção\": nada é reenviado nem apagado."
+  ],
+  "en": [
+   "💰 Car maintenance in MoneyTRIO: when you log a car maintenance with a cost, you pick the category that exists in MoneyTRIO, \"Revisao Periodica\" or \"Mecânico / Eletrico / Funilaria\" (the app suggests one from the name and you can change it); the car no longer goes as \"Manutenção\". In ⚙ → Integrations, a list of what had already gone as \"Manutenção\" shows up just for checking: nothing is resent or deleted."
+  ]
+ },
+ {
   "v": "2.20.0",
   "d": "2026-11-03",
   "hora": "00:50:29",
