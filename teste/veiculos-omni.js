@@ -1,4 +1,5 @@
 /* 🚗 Veículos (2.20.0), em 390 px: ficha pronta, franquia em destaque, assistência com 📞, placa e chassi trancados.
+   Um PIN só (03/Nov/2026): com as Senhas da casa fechadas, trazer a ficha, ver a placa e editar abrem a janela "Confirme que é você" ali mesmo.
    Só valores de mentira (placa, chassi, apólice e telefones inventados). Prints: PRINTS=<pasta> node teste/veiculos-omni.js */
 const fs = require('fs'), path = require('path');
 const { BASE, criarConferir, abrirApp, iniciar, terminar } = require('./_base');
@@ -214,6 +215,46 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(txt.includes('Custos do carro enviados com "Manutenção"') && txt.includes('Troca de óleo (OmniLifeONE)') && /350,00/.test(txt) && txt.includes('o MoneyTRIO ainda não leu'), 'Integrações lista o que já foi com "Manutenção" (data, valor, descrição)');
   conferir(await p.evaluate((PONTE) => JSON.parse(localStorage.getItem(PONTE)).msgs.length, PONTE) === antes2, 'a lista não reenvia nada');
   await foto(p, '08-integracoes-moneytrio', '#main h4');
+
+  /* um PIN só (03/Nov/2026): Senhas da casa fechadas não cortam o caminho — abrem ali mesmo (a janela "Confirme que é você") */
+  const SENHA = 'senha-de-mentira-123';
+  const abrirNaJanela = async (senha) => { await p.waitForSelector('dialog[open] .omni-chaves', { timeout: 5000 }); await p.fill('.omni-chaves #omni-pin', senha); await p.click('.omni-chaves [data-ok]'); };
+  const F3 = JSON.parse(JSON.stringify(FICHA)); F3.id = 'ficha-teste-3'; F3.veiculo.nome = 'Carro de Teste 3'; delete F3.documento; F3.lembretes = []; F3.manutencao = [];
+  await p.evaluate(() => { Vault.lock(); go('house', 'cars'); }); await p.waitForTimeout(400); await fecharJanelas(p);
+  const nAntes = await p.evaluate(() => Cars.list().length);
+  const trazerF3 = async () => {
+    const [fc3] = await Promise.all([p.waitForEvent('filechooser'), p.click('[data-act="car.import"]')]);
+    await fc3.setFiles({ name: 'ficha-teste-3.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(F3)) });
+    await p.waitForSelector('text=Vai trazer:', { timeout: 5000 });
+  };
+  await trazerF3();
+  conferir(await p.evaluate(() => !S.vaultKey && S.route.sub === 'cars'), 'Senhas da casa fechadas: escolhe o arquivo e confere antes, sem sair de 🚗 Veículos');
+  await p.locator('dialog[open] button', { hasText: 'Trazer' }).click();
+  conferir(await p.waitForSelector('dialog[open] .omni-chaves', { timeout: 5000 }).then(() => true, () => false) && await p.evaluate(() => S.route.sub === 'cars' && !document.querySelector('dialog#solver-cofre')), 'ao tocar em 📥 Trazer, a janela "🔓 Confirme que é você" abre ali mesmo');
+  await foto(p, '09-trazer-confirme-que-e-voce');
+  await p.locator('.omni-chaves [data-x]', { hasText: 'Agora não' }).click(); await p.waitForTimeout(500);
+  conferir(await p.evaluate((n) => Cars.list().length === n && !S.vaultKey && S.route.sub === 'cars' && !document.querySelector('dialog[open]'), nAntes), '"Agora não" cancela sem gravar nada e fica em 🚗 Veículos');
+  await trazerF3(); await p.locator('dialog[open] button', { hasText: 'Trazer' }).click();
+  await abrirNaJanela('errada-de-mentira'); await p.waitForTimeout(800);
+  conferir(await p.evaluate(() => /Senha errada/.test(document.querySelector('.omni-chaves [data-msg]').textContent) && !S.vaultKey), 'senha errada: avisa na própria janela e continua fechado');
+  await abrirNaJanela(SENHA);
+  await p.waitForFunction((n) => Cars.list().length === n + 1 && S.route.arg, nAntes, { timeout: 15000 });
+  conferir(await p.evaluate(() => S.route.tab === 'house' && S.route.sub === 'cars' && Cars.list().some((c) => c.ficha === 'ficha-teste-3' && c.vaultId)), 'com a senha certa, a ficha entra (placa trancada) e a tela vai para o carro, nunca para as Senhas da casa');
+  /* ficha do carro: "🔓 Abrir as Senhas da casa" abre ali mesmo e redesenha */
+  await p.evaluate(() => { Vault.lock(); render(); }); await p.waitForTimeout(400);
+  const rota = await p.evaluate(() => S.route.arg);
+  await p.click('[data-act="car.abrircasa"]'); await abrirNaJanela(SENHA);
+  conferir(await p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 10000 }).then(() => true, () => false) && await p.evaluate((a) => S.route.sub === 'cars' && S.route.arg === a, rota), 'ficha do carro: 🔓 abre as Senhas da casa ali mesmo e mostra a placa escondida, sem trocar de tela');
+  /* formulário do carro: a nota abre as Senhas da casa por cima e reabre com a placa, sem perder o que foi digitado */
+  await p.evaluate(() => { Vault.lock(); render(); }); await p.waitForTimeout(400);
+  await p.click('[data-act="car.edit"]'); await p.waitForSelector('dialog[open] [data-casa]');
+  await p.fill('dialog[open] [name="name"]', 'Carro de Teste 3 mudado');
+  await p.click('dialog[open] [data-casa]'); await p.waitForSelector('dialog[open] .omni-chaves', { timeout: 5000 });
+  conferir(await p.evaluate(() => SolverJanela.quantas()) === 2, 'formulário do carro: a janela "Confirme que é você" abre por cima do formulário');
+  await abrirNaJanela(SENHA);
+  await p.waitForSelector('dialog[open] [name="_sec.placa"]', { timeout: 10000 });
+  conferir(await p.inputValue('dialog[open] [name="_sec.placa"]') === PLACA && await p.inputValue('dialog[open] [name="name"]') === 'Carro de Teste 3 mudado', 'formulário do carro: reabre com a placa e com o que já tinha sido digitado');
+  await fecharJanelas(p); await p.waitForTimeout(300);
 
   /* inglês */
   await p.evaluate(() => { S.lang = 'en'; go('house', 'cars', Cars.list()[0].id); }); await p.waitForTimeout(400);

@@ -1,5 +1,5 @@
 /* Teste automático: os três arquivos mestres do rootify-one estão iguais aos originais (sha256), carregam na ordem certa
-   (janela.js → cofre.js → diretrizes.js → diretrizes-config.js), estão no pré-carregamento do sw.js, a versão do app
+   (janela.js → cofre.js → diretrizes.js → diretrizes-config.js, com o desvio "um PIN só" entre o cofre.js e o diretrizes.js), estão no pré-carregamento do sw.js, a versão do app
    bate nos quatro lugares e não sobrou alert(), confirm() nem prompt() do navegador no código.
    Uso: node teste/rodar.js */
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
@@ -20,6 +20,9 @@ for (const [f, h] of Object.entries(MESTRES)) {
 const html = ler('index.html'), sw = ler('sw.js'), cfg = ler('diretrizes-config.js'), vj = JSON.parse(ler('versoes.json'));
 const ordem = ['janela.js', 'cofre.js', 'diretrizes.js', 'diretrizes-config.js'].map(f => html.indexOf('<script src="' + f + '"></script>'));
 conferir(ordem.every(i => i > 0) && ordem.every((v, i) => !i || v > ordem[i - 1]), 'ordem na página: janela.js → cofre.js → diretrizes.js → diretrizes-config.js');
+/* um PIN só (03/Nov/2026): o desvio do SolverCofre.pedir fica logo depois do cofre.js e antes do diretrizes.js (que já pede o PIN ao carregar) */
+const desvio = html.indexOf('C.__omniUmPin');
+conferir(desvio > ordem[1] && desvio < ordem[2], 'o desvio "um PIN só" (C.__omniUmPin) está entre o cofre.js e o diretrizes.js');
 conferir(['janela.js', 'cofre.js', 'diretrizes.js', 'diretrizes-config.js'].every(f => sw.indexOf('"./' + f + '"') > 0), 'os quatro arquivos estão no pré-carregamento do sw.js');
 const vApp = (html.match(/const APP_VERSION = "([^"]+)"/) || [])[1];
 conferir(vApp && cfg.indexOf("versaoApp: '" + vApp + "'") > 0 && vj[0].v === vApp && html.indexOf('const VERSOES_EMB = [{"v": "' + vApp + '"') > 0, 'a versão ' + vApp + ' bate no index.html, no diretrizes-config.js, no versoes.json e na cópia embutida');

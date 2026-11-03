@@ -1,12 +1,14 @@
-/* Teste automático: Fase 3 do cofre no OmniLifeONE (cofre.js 1.4.1 + módulo 1.12.0 + `cofre: { proteger: true }`).
+/* Teste automático: Fase 3 do cofre no OmniLifeONE (cofre.js 1.4.1 + módulo 1.12.0 + `cofre: { proteger: true }`),
+   em modo visitante (sem Senhas da casa: o PIN das chaves é o do cofre.js). Desde o "um PIN só" (03/Nov/2026) a janela
+   do PIN NÃO aparece ao abrir, ao recarregar nem ao voltar: só quando o app usa uma chave. O resto está em teste/um-pin-omni.js.
    Só valores de mentira (PIN, chaves e token inventados): nenhuma chave, token ou senha de verdade.
      - sem segredo guardado, o app nunca pede PIN
      - segredos antigos (IA, clima, trânsito, token do Telegram, apikey do CallMeBot) vão sozinhos para o cofre
        e somem do lugar antigo (nada em texto aberto no localStorage, no sessionStorage nem nas preferências em memória)
-     - com segredo guardado: PIN ao abrir e ao recarregar ("Agora não" deixa trancado); tranca ao sair do app,
-       sem uso e escondido; o Modo Vigilante ligado conta como trabalho em andamento (não tranca por falta de uso)
+     - com segredo guardado: abrir, recarregar e voltar deixam trancado e SEM janela; ao usar uma chave, a janela do cofre.js
+       ("Agora não" deixa trancado); tranca ao sair do app, sem uso e escondido; o Modo Vigilante ligado só adia
      - a chave guardada nunca vem para o campo: "✓ guardado" e "Mostrar a chave guardada" (pede o PIN, some em 30 s)
-     - o painel da digital aparece na tela de chaves do módulo (o app não encaixa painel próprio)
+     - a tela de IA não tem mais a tela do cofre do módulo nem painel da digital (seria uma 4ª digital)
    Uso: node teste/rodar.js */
 const fs = require('fs'), path = require('path');
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
@@ -40,7 +42,7 @@ function encurtar() {
   const browser = await iniciar();
   const { falhas, conferir } = criarConferir();
   const arquivo = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  conferir(arquivo.indexOf('painelDigital') === -1, 'o index.html não encaixa painel da digital por conta própria (vem da tela de chaves do módulo)');
+  conferir(arquivo.indexOf('painelDigital') === -1 && arquivo.indexOf('cofre.tela') === -1, 'o index.html não encaixa painel da digital nem abre a tela do cofre do módulo');
 
   for (const nome of ['celular', 'computador']) {
     console.log('\n[' + nome + ']');
@@ -87,20 +89,27 @@ function encurtar() {
     conferir(bruto.length > 0 && PRIMEIRO.every(x => bruto.indexOf(x) === -1) && bruto.indexOf(PIN) === -1, 'o que fica no cofre está embaralhado (nenhum valor nem PIN em claro; só os nomes)');
     conferir(await ev(() => JSON.parse(localStorage.getItem('omnilife.prefs.v1')).alertas.recips[0].name) === 'Ana', 'o resto das preferências ficou (só os campos de segredo saíram)');
 
-    /* ---------- 2. PIN ao abrir e ao recarregar; tranca ao sair, escondido e sem uso ---------- */
+    /* ---------- 2. ao abrir, recarregar e voltar: trancado e SEM janela; a janela só ao usar a chave; tranca ao sair, escondido e sem uso ---------- */
+    const semJanela = async (msg) => {
+      await esperar(2500);
+      conferir(!(await aberto()) && !(await ev(() => !!document.querySelector('dialog#solver-cofre, .omni-chaves'))), msg);
+    };
+    const usarChave = () => ev(() => { window.__v = 'esperando'; Keys.need('ia:gemini', { pt: 'Teste', en: 'Test' }).then(v => { window.__v = v; }, e => { window.__v = 'erro:' + e.message; }); });
     await p.reload(); await p.waitForFunction(() => typeof SolverCofre !== 'undefined', null, { timeout: 15000 });
-    conferir(await esperarPin(), 'com segredo guardado, recarregar a página pede o PIN');
+    await semJanela('com segredo guardado, recarregar a página deixa trancado e NÃO mostra janela de PIN (um PIN só)');
+    await usarChave();
+    conferir(await esperarPin(), 'ao usar uma chave, o visitante (sem Senhas da casa) vê a janela do cofre.js');
     conferir(await ev(() => getComputedStyle(document.documentElement).overflow) === 'hidden', 'a janela do PIN trava a rolagem da página de trás');
     await p.keyboard.press('Escape'); await esperar(500);
-    conferir(!(await aberto()) && !(await ev(() => !!document.getElementById('solver-cofre'))), '"Agora não" (Esc) deixa o cofre trancado e o app segue');
+    conferir(!(await aberto()) && !(await ev(() => !!document.getElementById('solver-cofre'))) && /^erro:/.test(await ev(() => window.__v)), '"Agora não" (Esc) deixa o cofre trancado e o app segue');
     await p.goto(p.url().split('#')[0] + '?de=novo'); await p.waitForFunction(() => typeof SolverCofre !== 'undefined', null, { timeout: 15000 });
-    conferir(await esperarPin(), 'abrir o app de novo também pede o PIN');
-    await digitarPin();
-    conferir(await aberto(), 'o PIN certo abre o cofre');
+    await semJanela('abrir o app de novo também não mostra janela de PIN');
+    await usarChave(); await esperarPin(); await digitarPin();
+    conferir(await aberto() && await ev(() => window.__v) === FALSO.gemini, 'o PIN certo abre o cofre e entrega a chave');
     await p.goto(p.url().split('#')[0].replace('index.html', 'sw.js')); await esperar(300);
     await p.goto(p.url().split('#')[0].replace('sw.js', 'index.html')); await p.waitForFunction(() => typeof SolverCofre !== 'undefined', null, { timeout: 15000 });
-    conferir(await esperarPin(), 'sair do app (ir para outra página) tranca: ao voltar, pede o PIN');
-    await digitarPin();
+    await semJanela('sair do app (ir para outra página) tranca: ao voltar, trancado e sem janela');
+    await ev(() => { window.__p = SolverCofre.pedir({ omni: 1 }); }); await esperarPin(); await digitarPin();
 
     /* sem uso tranca; trabalho rodando (Modo Vigilante) só adia */
     await ev(() => ACT['gate.visitor'] && ACT['gate.visitor']()); await p.waitForFunction(() => S.booted, null, { timeout: 15000 }); await esperar(500);
@@ -110,12 +119,12 @@ function encurtar() {
     await ev(() => { Vigia.on = false; });
     await p.waitForFunction(() => !SolverCofre.aberto(), null, { timeout: 9000 }).catch(() => {});
     conferir(!(await aberto()), 'sem Vigilante e sem uso, o cofre tranca sozinho');
-    await ev(() => { window.__p = SolverCofre.pedir(); }); await esperarPin(); await digitarPin();
+    await ev(() => { window.__p = SolverCofre.pedir({ omni: 1 }); }); await esperarPin(); await digitarPin();
     await ev(() => Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })); await ev(() => document.dispatchEvent(new Event('visibilitychange')));
     await p.waitForFunction(() => !SolverCofre.aberto(), null, { timeout: 9000 }).catch(() => {});
     conferir(!(await aberto()), 'com o app escondido além do prazo, o cofre tranca');
     await ev(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
-    await ev(() => { window.__p = SolverCofre.pedir(); }); await esperarPin(); await digitarPin();
+    await ev(() => { window.__p = SolverCofre.pedir({ omni: 1 }); }); await esperarPin(); await digitarPin();
 
     /* ---------- 3. "✓ guardado" e "Mostrar a chave guardada" ---------- */
     await ev(() => { Vigia.on = true; });   /* só para o cofre não trancar sozinho durante esta parte */
@@ -136,13 +145,9 @@ function encurtar() {
     conferir(await ev(() => !!document.querySelector('.sj-pergunta[open]')), 'a chave colada e não salva pergunta "Descartar?" ao sair');
     await p.click('[data-sj=descartar]'); await esperar(450);
 
-    /* ---------- 4. o painel da digital está na tela de chaves do módulo ---------- */
-    await p.click('[data-act="cofre.tela"]'); await esperar(700);
-    const painel = await ev(() => { const d = document.querySelector('dialog.sj[open] .dgo-cofre-digital'); return d ? d.textContent.trim().length : -1; });
-    conferir(painel > 0, 'o painel da digital aparece na tela de chaves do módulo (texto: ' + painel + ' letras)');
-    conferir(await ev(() => !!document.querySelector('dialog.sj[open].dgo-modal')), 'a tela do cofre é a janela do módulo comum');
-    await p.keyboard.press('Escape'); await esperar(450);
-    conferir(await ev(() => document.querySelectorAll('.dgo-cofre-digital').length) === 0, 'fora da tela de chaves do módulo não há painel da digital');
+    /* ---------- 4. um PIN só: a tela de IA não tem a tela do cofre do módulo nem painel da digital (seria uma 4ª digital) ---------- */
+    conferir(await ev(() => !document.querySelector('[data-act="cofre.tela"]') && !document.querySelector('.dgo-cofre-digital')), 'a tela de IA não tem "Abrir a tela do cofre" nem painel da digital');
+    conferir(/PIN deste navegador/.test(await ev(() => document.body.innerText)), 'sem Senhas da casa (visitante), a tela explica que as chaves têm um PIN deste navegador');
 
     /* ---------- 5. apikey do WhatsApp: só no cofre, campo sem a chave ---------- */
     await ev(() => { go('security', 'alertas'); }); await esperar(700);

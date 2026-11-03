@@ -1117,6 +1117,23 @@ details.more>.morein>ol,details.more>.morein>ul{margin:4px 0 6px}
 <div id="toasts" popover="manual"></div>
 <script src="janela.js"></script>
 <script src="cofre.js"></script>
+<script>
+/* Um PIN só (decisão do dono, 03/Nov/2026): no OmniLifeONE a janela própria do cofre.js não abre sozinha.
+   - Pedido do app (marcado { omni: 1 }, vindo de Keys) vai para o ChavesPin: digital ou PIN das Senhas da casa.
+   - Pedido automático (regras do PIN ao abrir, recarregar ou voltar, e o módulo) só tenta a sessão da aba, sem janela.
+   Por que aqui, logo depois do cofre.js: o módulo (diretrizes.js) já pede o PIN ao carregar, e o desvio precisa existir antes.
+   Depende do cofre.js 1.4.1: API.pedir é lido na hora de cada uso e o objeto não é congelado (teste/um-pin-omni.js confere). */
+(function (C) {
+  if (!C || typeof C.pedir !== "function" || C.__omniUmPin) return;
+  var original = C.pedir;
+  C.pedir = function (op) {
+    if (C.aberto()) return Promise.resolve(true);
+    if (!op || !op.omni || !window.OmniChaves) return C.abrirSemPin();
+    return window.OmniChaves.pedir(op, function (o) { return original.call(C, o); });
+  };
+  C.__omniUmPin = true;
+})(window.SolverCofre);
+</script>
 <script src="diretrizes.js"></script>
 <script src="diretrizes-config.js"></script>
 <script src="recursos.js" data-app="omnilife-one"></script>
@@ -1314,7 +1331,7 @@ function toast(msg, ms) {
    uma janela por vez. A única coisa que abre POR CIMA de outra é a confirmação curta pedida de dentro dela
    (confirmBox: "Excluir?", alertdialog), que fecha junto com a de baixo. O Voltar do celular é do janela.js. */
 const MODAIS = [];   /* janelas do app abertas (a de cima por último) */
-function modal({ title, body, foot, wide, onClose, cls, confirmacao, temTexto, espera, campo }) {
+function modal({ title, body, foot, wide, onClose, cls, confirmacao, temTexto, espera, campo, porCima }) {
   const caixa = document.createElement("div");
   caixa.className = "modal " + (wide ? "wide " : "") + (cls || "");
   caixa.innerHTML = '<div class="mh"><h3>' + (title || "") + '</h3><button class="xbtn" type="button" data-x aria-label="' + tt("Fechar", "Close") + '">×</button></div><div class="mb">' + (body || "") + "</div>" + (foot ? '<div class="mf">' + foot + "</div>" : "");
@@ -1325,7 +1342,9 @@ function modal({ title, body, foot, wide, onClose, cls, confirmacao, temTexto, e
   reg.j = SolverJanela.abrir({
     conteudo: caixa, classe: "mback", temTexto: confirmacao ? false : temTexto,
     focar: first && (campo || window.innerWidth > 700) ? first : undefined,
-    porCima: !!(confirmacao && topo && MODAIS.some((r) => r.j === topo)), papel: confirmacao ? "alertdialog" : undefined,
+    /* porCima: só a janela "Confirme que é você" (ChavesPin), que é o PIN do cofre pedido de dentro de outra janela;
+       sem isso ela entraria na fila atrás da janela da chave e as duas ficariam esperando uma pela outra */
+    porCima: porCima || !!(confirmacao && topo && MODAIS.some((r) => r.j === topo)), papel: confirmacao ? "alertdialog" : undefined,
     espera: espera ? { segundos: espera, botao: caixa.querySelector("[data-x]") } : undefined,
     aoFechar: () => { const k = MODAIS.indexOf(reg); if (k !== -1) MODAIS.splice(k, 1); if (onClose && !reg.mudo) onClose(); }
   });
@@ -2858,11 +2877,26 @@ const Vault = {
     const check = await this.encStr("omnilife-ok", key);
     await DB.put("vault", { id: "_meta", salt, iter, check, vis: "restrito" });
     S.vaultKey = key;
+    ChavesPin.alinhar(pass);   /* um PIN só: a senha principal também tranca as chaves de IA (só cria o cofre de chaves se houver chave para guardar) */
   },
-  async unlock(pass) {
+  /* porDigital: a digital já provou a pessoa, então não conta erro nem espera.
+     Senha errada conta (sem segredo: só { n, ate }) e, depois de 4, espera como o PIN da nuvem (Cofre.ESPERAS, até 1 h).
+     Por quê: a senha principal passou a abrir também as chaves de IA, que têm espera; sem isto a porta ficaria mais fraca.
+     Não bloqueia: no modo "só neste aparelho" não há como recuperar. */
+  async unlock(pass, porDigital) {
     const m = this.meta(); if (!m) return false;
+    if (!porDigital && this.espera()) return false;
     const key = await this.derive(pass, m.salt, m.iter);
-    try { if ((await this.decStr(m.check, key)) !== "omnilife-ok") return false; S.vaultKey = key; return true; } catch (e) { return false; }
+    let ok = false; try { ok = (await this.decStr(m.check, key)) === "omnilife-ok"; } catch (e) {}
+    if (!ok) { if (!porDigital) this.errou(); return false; }
+    lsDel(this.KE()); S.vaultKey = key; ChavesPin.alinhar(pass); return true;
+  },
+  KE() { return "omnilife.vault.erros:" + this.famKey(); },
+  espera() { const o = lsGet(this.KE(), null); return o && o.ate > Date.now() ? Math.ceil((o.ate - Date.now()) / 1000) : 0; },
+  errou() {
+    const o = lsGet(this.KE(), null) || { n: 0, ate: 0 }, E = Cofre.ESPERAS;
+    o.n = (o.n || 0) + 1; const w = E[Math.min(o.n, E.length - 1)] || 0; o.ate = w ? Date.now() + w * 1000 : 0;
+    lsSet(this.KE(), o);
   },
   lock() { Cofre.trancar(); S.vaultKey = null; Files.urls.clear(); },
   async encStr(str, key) { key = key || S.vaultKey; const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(str)); return { iv: b64FromBuf(iv), ct: b64FromBuf(ct) }; },
@@ -2887,7 +2921,7 @@ const Vault = {
   async unlockBio() {
     const v = await IDB.get("kv", this.famKey()); if (!v || !v.cred) return false;
     const out = await Cofre.prfAvaliar(v.cred, v.sal); if (!out) return false;
-    try { const pw = new TextDecoder().decode(await Cofre.decifrar(await Cofre.hkdf(out, "omnilife-cofre-local"), v)); out.fill(0); return await this.unlock(pw); } catch (e) { return false; }
+    try { const pw = new TextDecoder().decode(await Cofre.decifrar(await Cofre.hkdf(out, "omnilife-cofre-local"), v)); out.fill(0); return await this.unlock(pw, true); } catch (e) { return false; }
   },
   async forgetBio() { await IDB.del("kv", this.famKey()); }
 };
@@ -3023,15 +3057,27 @@ const Cofre = {
       await this.gravarLocal(L);
       return { erro: L.bloqueado ? "bloqueado" : "pin", erros: L.erros, ate: L.ate };
     }
-    L.erros = 0; L.ate = 0; await this.gravarLocal(L);
+    L.erros = 0; L.ate = 0;
+    /* um PIN só: o PIN fica embrulhado pela chave do aparelho (para a digital abrir também as chaves de IA) e já abre
+       (ou cria) as chaves. Sem await: as voltas do cofre de chaves não atrasam a casa. Vem antes de comChaveDoAparelho,
+       então as chaves abrem também nos casos "aguardando" e "offline". */
+    try { L.chaves = await ChavesPin.embrulhar(pin, raw); } catch (e) {}
+    await this.gravarLocal(L);
+    ChavesPin.alinhar(pin);
+    /* a casa já estava aberta (o PIN foi pedido só para as chaves): não abre a casa de novo */
+    if (this.aberto()) { raw.fill(0); return { ok: true }; }
     return this.comChaveDoAparelho(L, raw);
   },
   async destrancarDigital() {
     const L = await this.local(); if (!L || !L.prf) return { erro: "semdigital" };
     if (L.bloqueado) return { erro: "bloqueado" };
     const out = await this.prfAvaliar(L.prf.cred, L.prf.sal); if (!out) return { erro: "digital" };
-    let raw; try { raw = await this.decifrar(await this.hkdf(out, "omnilife-cofre-prf"), L.prf); } catch (e) { return { erro: "digital" }; }
+    let raw; try { raw = await this.decifrar(await this.hkdf(out, "omnilife-cofre-prf"), L.prf); } catch (e) { out.fill(0); return { erro: "digital" }; }
+    out.fill(0);   /* o segredo da digital não fica na memória */
     if (L.erros || L.ate) { L.erros = 0; L.ate = 0; await this.gravarLocal(L); }   /* a digital confirmou a pessoa: os erros de PIN zeram */
+    /* um PIN só: um toque abre a casa e as chaves de IA (o PIN embrulhado em L.chaves abre o cofre de chaves) */
+    try { const pin = await ChavesPin.lerPin(raw, L); if (pin) ChavesPin.alinhar(pin); } catch (e) {}
+    if (this.aberto()) { raw.fill(0); return { ok: true }; }
     return this.comChaveDoAparelho(L, raw);
   },
   async comChaveDoAparelho(L, raw) {
@@ -3168,6 +3214,9 @@ const Cofre = {
     if (par) { try { await this.publicarPar(par, codigo); } catch (e) { return toast(Cloud.errMsg(e), 6000); } }
     const dukRaw = this.rnd(32), duk = await this.aes(dukRaw), sal = b64FromBuf(this.rnd(16));
     const L = { v: 1, uid: Conta.uid(), pin: Object.assign({ sal, iter: COFRE_ITER }, await this.cifrar(await this.kdf(pin, sal, COFRE_ITER), dukRaw)), prf: null, sk: await this.cifrar(duk, pkcs8), fam: {}, erros: 0, ate: 0, bloqueado: false };
+    /* um PIN só (primeira vez, aparelho novo e "Esqueci o PIN"): as chaves de IA passam para o PIN novo; trancadas, UMA tentativa */
+    try { L.chaves = await ChavesPin.embrulhar(pin, dukRaw); } catch (e) {}
+    ChavesPin.alinhar(pin, { trocar: true });
     /* 3) a CF: nova (primeira vez da família) ou a que já existe, embrulhada para mim */
     if (!reg || !reg.fk) { try { const l = await CloudDriver.linha("settings", "cofre"); if (l && !l.apagado_em && l.dados && l.dados.fk) reg = l.dados; } catch (e) {} }
     if (!reg || !reg.fk) {
@@ -3212,6 +3261,7 @@ const Cofre = {
     return new Promise((res) => {
       const m = modal({ title: "🔢 " + tt("Escolha o seu PIN", "Choose the vault PIN"), onClose: () => res(null), body:
         '<p>' + tt("O PIN abre as Senhas da casa neste " + apN() + ", até sem internet. Escolha <b>6 números</b> fáceis para você lembrar e difíceis para os outros adivinharem — não use data de aniversário nem 123456. Não é a senha do e-mail.", "The PIN opens the vault on this " + apN() + ", even offline. Choose <b>6 digits</b> easy for you to remember and hard for others to guess — not a birthday or 123456. It's not your e-mail password.") + "</p>" +
+        '<p class="small">🔐 ' + tt("Este mesmo PIN também tranca as chaves de IA do app: é um PIN só.", "This same PIN also locks the app's AI keys: it's just one PIN.") + "</p>" +
         '<label class="fld"><span>' + tt("PIN (6 números ou mais)", "PIN (6 digits or more)") + '</span><input type="password" id="np1" inputmode="numeric" autocomplete="new-password"></label><label class="fld"><span>' + tt("Digite o mesmo PIN de novo", "Type the same PIN again") + '</span><input type="password" id="np2" inputmode="numeric" autocomplete="new-password"></label><label class="check small"><input type="checkbox" id="npl"> ' + tt("Prefiro usar letras também (mais seguro)", "I'd rather use letters too (safer)") + "</label>",
         foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>' + tt("Salvar o PIN", "Save PIN") + "</button>" });
       $("#npl", m.el).onchange = (e) => { ["#np1", "#np2"].forEach((s) => { $(s, m.el).inputMode = e.target.checked ? "text" : "numeric"; }); };
@@ -3229,8 +3279,12 @@ const Cofre = {
     if (!this.aberto() || !this.dukRaw) return toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
     const pin = await this.pedirNovoPin(); if (!pin) return;
     const L = await this.local(), sal = b64FromBuf(this.rnd(16));
+    const velho = await ChavesPin.lerPin(this.dukRaw, L);   /* o PIN de antes, para as chaves de IA passarem ao novo */
     L.pin = Object.assign({ sal, iter: COFRE_ITER }, await this.cifrar(await this.kdf(pin, sal, COFRE_ITER), this.dukRaw)); L.erros = 0; L.ate = 0; L.bloqueado = false;
-    await this.gravarLocal(L); toast("✓ " + tt("PIN trocado.", "PIN changed."));
+    try { L.chaves = await ChavesPin.embrulhar(pin, this.dukRaw); } catch (e) {}
+    await this.gravarLocal(L);
+    await ChavesPin.alinhar(pin, { velho, trocar: true });
+    toast("✓ " + tt("PIN trocado (vale também para as chaves de IA).", "PIN changed (it also works for the AI keys)."));
   },
   async novoCodigo() {
     if (!this.aberto() || !this.dukRaw) return toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
@@ -3597,10 +3651,11 @@ const Keys = {
     if (SolverCofre.aberto()) return this.get(name);
     if (!this.has(name)) return "";
     if (ask === false) return (await SolverCofre.abrirSemPin()) ? this.get(name) : "";
-    try { return await SolverCofre.ler(this.nome(name), { motivo }); } catch (e) { throw this.erro(e); }
+    /* omni: 1 = pedido do próprio app: só ele mostra janela (a "Confirme que é você" do ChavesPin, com o PIN das Senhas da casa) */
+    try { return await SolverCofre.ler(this.nome(name), { motivo, omni: 1 }); } catch (e) { throw this.erro(e); }
   },
-  async set(name, val, motivo) { try { return await SolverCofre.gravar(this.nome(name), val, { motivo }); } catch (e) { throw this.erro(e); } },
-  erro(e) { return e && e.message === "cofre-trancado" ? new Error(tt("O cofre de chaves ficou trancado. Abra com o seu PIN para continuar.", "The key vault stayed locked. Open it with your PIN to continue.")) : e; },
+  async set(name, val, motivo) { try { return await SolverCofre.gravar(this.nome(name), val, { motivo, omni: 1 }); } catch (e) { throw this.erro(e); } },
+  erro(e) { return e && e.message === "cofre-trancado" ? new Error(tt("As chaves ficaram trancadas. Para usar, abra com a digital ou com o seu PIN.", "The keys stayed locked. To use them, open with your fingerprint or your PIN.")) : e; },
   /* a chave que está sendo mostrada (30 s): vive aqui para o desenho da tela (que se refaz quando o cofre abre ou tranca) não a perder */
   _show: null,
   /* ⚙: "✓ Guardado no cofre", "👁 Mostrar a chave guardada" (tranca e pede o PIN de novo; mostra por 30 s) e "🔒 Trancar o cofre agora" */
@@ -3612,13 +3667,15 @@ const Keys = {
       (has && name ? '<div class="tiny keyshown" role="status" data-shown="' + esc(name) + '" style="margin-top:4px;word-break:break-all;user-select:text">' + (sh ? tt("Chave guardada (some em 30 s): ", "Saved key (hides in 30 s): ") + "<b>" + esc(sh) + "</b>" : "") + "</div>" : "") + "</div>";
   }
 };
-/* "Mostrar a chave guardada": quem pegou o aparelho com o cofre aberto não vê a chave, porque o cofre tranca e pede o PIN de novo */
+/* "Mostrar a chave guardada": quem pegou o aparelho com o cofre aberto não vê a chave, porque o cofre tranca e pede
+   a digital ou o PIN de novo. confirmar: 1 = pede SEMPRE, mesmo com as Senhas da casa abertas. */
 ACT["keys.show"] = async (d, el) => {
   const q = () => document.querySelector('[data-shown="' + d.k + '"]');
   el.disabled = true;
   try {
     await SolverCofre.trancar();
-    const v = await Keys.need(d.k, { pt: "Para mostrar a chave guardada, digite o PIN do cofre.", en: "To show the saved key, type the vault PIN." });
+    let v = "";
+    try { v = await SolverCofre.ler(Keys.nome(d.k), { motivo: { pt: "Para mostrar a chave guardada, confirme que é você.", en: "To show the saved key, confirm it's you." }, omni: 1, confirmar: 1 }); } catch (e) { throw Keys.erro(e); }
     if (!v) return;
     Keys._show = { name: d.k, v, ate: Date.now() + 30000 };
     const box = q(); if (box) box.innerHTML = tt("Chave guardada (some em 30 s): ", "Saved key (hides in 30 s): ") + "<b>" + esc(v) + "</b>";
@@ -3633,7 +3690,194 @@ document.addEventListener("cofre:migrado", (e) => (((e.detail || {}).itens) || [
   const o = it.caminho ? S.prefs[it.caminho] : S.prefs;
   if (o && typeof o === "object") it.campos.forEach((c) => delete o[c]);
 }));
-/* regras do PIN (cofre.js 1.4): o módulo as liga com `cofre: { proteger: true }` (PIN ao abrir e ao recarregar, tranca ao sair, escondido e sem uso).
+/* ---------- um PIN só (decisão do dono, 03/Nov/2026) ----------
+   O cofre comum de chaves (cofre.js: IA, clima, trânsito, Telegram) abre com o MESMO PIN das Senhas da casa (no modo
+   "só neste aparelho", com a senha principal), e a digital da casa abre as duas coisas num toque. A janela própria do
+   cofre.js não aparece na entrada (ver o desvio logo depois do <script src="cofre.js">).
+   Nada de segredo às claras:
+   - o PIN vai em L.chaves, embrulhado pela chave do aparelho (que só existe aberta com a casa aberta);
+   - o marcador "omnilife.chaves.pin" só diz QUAL cofre de chaves (criado|sal, que já é público), se ele abre com o PIN
+     da casa (ok) e de quem é (dono): nunca se mexe no PIN de outra pessoa que use o mesmo navegador;
+   - o PIN digitado fica na memória só enquanto a janela está aberta (_pinCasa).
+   Quem não tem Senhas da casa (visitante, membro, antes de "Começar") continua com a janela do cofre.js, só ao usar uma chave. */
+const ChavesPin = {
+  K: "omnilife.chaves.pin", INFO: "omnilife-solvercofre",
+  _p: null, _ped: null, _jp: null, _janela: false, _pinCasa: "", _espera: 0,
+  idCofre() { try { const r = JSON.parse(localStorage.getItem("dgo:global:cofre") || "null"); return r ? r.criado + "|" + r.sal : ""; } catch (e) { return ""; } },
+  dono() { return Cofre.usa() ? "c:" + Conta.uid() : "l:" + Vault.famKey(); },
+  /* o marcador vale só para o cofre de chaves de agora: trocar o PIN (aqui ou em outro app) muda o sal e o desfaz */
+  marca() { const m = lsGet(this.K, null); return m && m.id && m.id === this.idCofre() ? m : null; },
+  marcar(ok) { lsSet(this.K, { id: this.idCofre(), ok: !!ok, dono: this.dono() }); },
+  deOutro() { const m = this.marca(); return !!(m && m.dono !== this.dono()); },
+  async embrulhar(pin, duk) { const b = new TextEncoder().encode(pin); try { return await Cofre.cifrar(await Cofre.hkdf(duk, this.INFO), b); } finally { b.fill(0); } },
+  async lerPin(duk, L) {
+    if (!duk || !L || !L.chaves) return "";
+    try { const b = await Cofre.decifrar(await Cofre.hkdf(duk, this.INFO), L.chaves); const s = new TextDecoder().decode(b); b.fill(0); return s; } catch (e) { return ""; }
+  },
+  /* as Senhas da casa desta pessoa: "nuvem", "bloqueada", "local" ou null (não tem: fica a janela do cofre.js) */
+  async casa() {
+    if (Cofre.usa()) { if (!isGuardian()) return null; const L = await Cofre.local(); return !L || !L.pin ? null : L.bloqueado ? "bloqueada" : "nuvem"; }
+    return S.mode === "local" && canVault() && Vault.meta() ? "local" : null;
+  },
+  /* para os textos da tela (sem esperar): esta pessoa usa as Senhas da casa? */
+  temCasa() { return Cofre.usa() ? isGuardian() && !(Cofre.status && Cofre.status.fase === "novo") : !!(S.mode === "local" && canVault() && Vault.meta()); },
+  /* deixa o cofre de chaves com o PIN da casa. Nunca lança erro; uma alinhada por vez. */
+  alinhar(pin, o) {
+    if (typeof pin !== "string" || pin.length < 6) return Promise.resolve(false);
+    const antes = this._p || Promise.resolve();
+    return (this._p = antes.then(() => this._alinhar(pin, o || {})).catch(() => false));
+  },
+  async _alinhar(pin, o) {
+    const C = SolverCofre, m = this.marca();
+    if (m && m.dono !== this.dono()) return false;   /* cofre de chaves alinhado por outra pessoa deste navegador */
+    if (!C.existe()) {
+      /* só cria quando há chave para guardar (ou a pessoa está na janela pedindo uma) */
+      if (!(o.criar || this._janela || C.pendentes().length)) return false;
+      await C.criar(pin); this.marcar(true); return true;
+    }
+    let abriuAgora = false;
+    if (!C.aberto()) {
+      /* já se sabe que ele tem outro PIN: não gasta tentativa; a janela pede o PIN antigo */
+      if (m && !m.ok && !o.velho) { if (this._janela) this._pinCasa = pin; return false; }
+      try { await C.abrir(o.velho || pin); abriuAgora = !o.velho; }
+      catch (e) {
+        const q = e && e.message;
+        if (q === "pin-errado" && !o.velho) { this.marcar(false); if (this._janela) this._pinCasa = pin; }
+        else if (q === "esperar") this._espera = e.segundos || 0;
+        return false;
+      }
+    }
+    if ((o.velho || o.trocar || !(m && m.ok)) && !abriuAgora) {
+      await C.trocarPin(pin);
+      if (!o.trocar) toast("✓ " + tt("Pronto: as chaves de IA agora abrem com o mesmo PIN das Senhas da casa, em todos os apps SolverONE deste navegador.", "Done: the AI keys now open with the same PIN as the home passwords, in every SolverONE app in this browser."), 6000);
+    }
+    this.marcar(true); return true;
+  },
+  /* o desvio do SolverCofre.pedir chega aqui (só pedido do app). Pedidos ao mesmo tempo viram um só. */
+  pedir(op, original) {
+    op = op || {};
+    if (SolverCofre.aberto() && !op.confirmar) return Promise.resolve(true);
+    if (this._ped) return this._ped;
+    return (this._ped = this._pedir(op, original).catch(() => SolverCofre.aberto()).finally(() => { this._ped = null; }));
+  },
+  async _pedir(op, original) {
+    if (this._p) await this._p;
+    if (!op.confirmar && (SolverCofre.aberto() || (await SolverCofre.abrirSemPin()))) return true;
+    const casa = await this.casa();
+    if (!casa || this.deOutro()) return original(op);   /* o PIN do cofre.js é o único de quem não tem Senhas da casa */
+    /* Senhas da casa abertas na nuvem: o PIN embrulhado abre as chaves sem perguntar nada */
+    if (casa === "nuvem" && !op.confirmar && Cofre.aberto() && Cofre.dukRaw) {
+      const pin = await this.lerPin(Cofre.dukRaw, await Cofre.local());
+      if (pin && (await this.alinhar(pin, { criar: true })) && SolverCofre.aberto()) return true;
+    }
+    return this.janela(op, casa);
+  },
+  /* abre as SENHAS DA CASA na própria janela (digital ou PIN), sem trocar de tela: true/false.
+     Para o 🚗 (trazer a ficha, ver a placa): a pessoa não perde o caminho indo até a tela das Senhas da casa. */
+  async abrirCasa(motivo) {
+    if (S.vaultKey) return true;
+    if (this._jp) { await this._jp; return !!S.vaultKey; }
+    const casa = await this.casa(); if (!casa) return false;
+    return this.janela({ motivo, soCasa: true }, casa);
+  },
+  /* a janela única "🔓 Confirme que é você": digital (só depois do toque) ou o PIN das Senhas da casa */
+  janela(op, casa) {
+    const nuvem = casa !== "local", soCasa = !!op.soCasa;
+    const mot = op.motivo ? tt(op.motivo.pt, op.motivo.en) : tt("Para usar as chaves de IA guardadas.", "To use the saved AI keys.");
+    const BLOQ = tt("O PIN foi digitado errado 10 vezes, então ficou bloqueado neste " + apN() + ". Para liberar, ligue a internet e entre de novo na sua conta (e-mail e senha), ou use o código de recuperação que você anotou no papel.", "The PIN was typed wrong 10 times, so the vault is blocked on this " + apN() + ". To unblock it, turn on the internet and sign in to your account again (e-mail and password), or use the recovery code you wrote on paper.");
+    const body = "<p>" + esc(mot) + "</p>" +
+      '<div data-casa' + (casa === "bloqueada" ? " hidden" : "") + '><p class="small">' + (nuvem ? tt("Use a digital ou o PIN das Senhas da casa. É o mesmo PIN de sempre: não existe outro.", "Use your fingerprint or the home passwords PIN. It's the same PIN as always: there's no other one.") : tt("Use a digital ou a senha principal das Senhas da casa. É a mesma de sempre: não existe outra.", "Use your fingerprint or the home passwords main password. It's the same as always: there's no other one.")) + "</p>" +
+      '<button type="button" class="btn big" data-dig hidden style="width:100%;margin-bottom:10px">👆 ' + tt("Usar a digital", "Use fingerprint") + "</button>" +
+      '<label class="fld"><span>' + (nuvem ? tt("PIN das Senhas da casa", "Home passwords PIN") : tt("Senha principal das Senhas da casa", "Home passwords main password")) + '</span><input type="password" id="omni-pin"' + (nuvem ? ' inputmode="numeric"' : "") + ' autocomplete="current-password"></label>' +
+      (nuvem ? '<button type="button" class="linkbtn tiny" data-esqueci>' + tt("Esqueci o PIN", "Forgot the PIN") + "</button>" : "") + "</div>" +
+      '<div data-antigo hidden><p class="small">' + tt("Só desta vez: as chaves de IA deste navegador foram trancadas antes com outro PIN (criado em outro app). Digite esse PIN antigo; depois fica valendo só o PIN das Senhas da casa.", "Just this once: the AI keys in this browser were locked before with another PIN (created in another app). Type that old PIN; after that only the home passwords PIN counts.") + "</p>" +
+      '<label class="fld"><span>' + tt("PIN antigo das chaves de IA", "Old AI keys PIN") + '</span><input type="password" id="omni-antigo" autocomplete="off"></label><button type="button" class="linkbtn tiny" data-naolembro>' + tt("Não lembro", "I don't remember") + "</button></div>" +
+      '<p class="small" data-msg role="status" aria-live="polite" style="margin-top:8px">' + (casa === "bloqueada" ? "⛔ " + BLOQ : "") + "</p>";
+    const foot = '<button class="btn ghost" data-x>' + (casa === "bloqueada" ? tt("Entendi", "Got it") : tt("Agora não", "Not now")) + "</button>" + (casa === "bloqueada" ? "" : '<button class="btn" data-ok>🔓 ' + tt("Abrir", "Open") + "</button>");
+    this._janela = !soCasa; this._pinCasa = ""; this._espera = 0;
+    return (this._jp = new Promise((res) => {
+      let fim = false, passo = "casa";
+      const acabar = () => {
+        if (fim) return; fim = true;
+        this._janela = false; this._pinCasa = ""; this._espera = 0; this._jp = null;
+        res(soCasa ? !!S.vaultKey : SolverCofre.aberto());
+        if (Cofre.usa()) Cofre.atualizar().then(() => scheduleRender()).catch(() => {});
+      };
+      const m = modal({ title: "🔓 " + tt("Confirme que é você", "Confirm it's you"), body, foot, cls: "omni-chaves", porCima: true, onClose: acabar });
+      const $m = (s) => m.el.querySelector(s), msg = (t) => { $m("[data-msg]").textContent = t || ""; };
+      const feito = () => { m.drop(); acabar(); };
+      const ocupado = (b) => m.el.querySelectorAll("button").forEach((x) => { x.disabled = b; });
+      const bloquear = () => { $m("[data-casa]").hidden = true; const ok = $m("[data-ok]"); if (ok) ok.remove(); msg("⛔ " + BLOQ); };
+      const pausa = () => tt("As chaves de IA estão numa pausa por tentativas erradas (em outro app). Tente de novo em " + this._espera + " s.", "The AI keys are paused after wrong tries (in another app). Try again in " + this._espera + " s.");
+      /* a casa abriu (ou o PIN estava certo): agora as chaves */
+      const depois = async (pin) => {
+        if (soCasa) { if (S.vaultKey) return feito(); return; }   /* só a casa: as chaves alinham depois, sem segurar a pessoa */
+        await this._p;
+        if (!SolverCofre.aberto()) {
+          const p = pin || (Cofre.usa() && Cofre.dukRaw ? await this.lerPin(Cofre.dukRaw, await Cofre.local()) : "");
+          if (p) await this.alinhar(p, { criar: true });
+          else return msg(tt("Só desta vez, digite o PIN; da próxima, a digital abre tudo.", "Just this once, type the PIN; next time the fingerprint opens everything."));
+        }
+        if (SolverCofre.aberto()) return feito();
+        if (this._espera) return msg(pausa());
+        const mk = this.marca();
+        if (this._pinCasa && mk && !mk.ok) {
+          passo = "antigo"; $m("[data-casa]").hidden = true; $m("[data-antigo]").hidden = false; msg("");
+          $m("[data-ok]").textContent = tt("Usar", "Use"); const i = $m("#omni-antigo"); if (window.innerWidth > 700) i.focus();
+          return;
+        }
+        msg(tt("Não deu para abrir as chaves de IA agora. Tente de novo.", "Couldn't open the AI keys now. Try again."));
+      };
+      const comPin = async () => {
+        const i = $m("#omni-pin"), v = i.value; if (!v) return; i.value = ""; this._espera = 0; msg("⏳");
+        if (!nuvem) {
+          if (await Vault.unlock(v)) return depois(v);
+          const w = Vault.espera();
+          return msg(w ? tt("Muitas tentativas. Espere " + w + " segundos.", "Too many tries. Wait " + w + " seconds.") : tt("Senha errada. Tente de novo.", "Wrong password. Try again."));
+        }
+        const r = await Cofre.destrancarPin(v);
+        if (r.ok) return depois(v);
+        if (r.erro === "bloqueado") return bloquear();
+        if (r.erro === "pin" || r.erro === "espera") return msg((r.erro === "pin" ? tt("PIN errado. Tente de novo.", "Wrong PIN. Try again.") : tt("Muitas tentativas.", "Too many tries.")) + (r.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((r.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : ""));
+        /* "aguardando" e "offline": a casa não abriu aqui, mas o PIN estava certo e as chaves podem ter aberto */
+        if (!soCasa) { await this._p; if (SolverCofre.aberto()) return feito(); }
+        msg(r.erro === "offline" ? tt("Na primeira vez neste " + apN() + ", abra com a internet ligada.", "The first time on this " + apN() + ", open it with the internet on.") : tt("Ainda falta outro responsável abrir as Senhas da casa no aparelho dele para liberar para você.", "Another guardian still has to open the vault on their device to release it to you."));
+      };
+      const comAntigo = async () => {
+        const i = $m("#omni-antigo"), v = i.value; if (!v) return; i.value = ""; this._espera = 0; msg("⏳");
+        await this.alinhar(this._pinCasa, { velho: v });
+        if (SolverCofre.aberto()) return feito();
+        msg(this._espera ? pausa() : tt("Esse não é o PIN antigo. Tente de novo.", "That's not the old PIN. Try again."));
+      };
+      const vai = async (fn) => { ocupado(true); try { await fn(); } catch (e) { msg(tt("Não deu certo. Tente de novo.", "It didn't work. Try again.")); } finally { if (!fim) ocupado(false); } };
+      const ok = $m("[data-ok]"); if (ok) ok.onclick = () => vai(passo === "antigo" ? comAntigo : comPin);
+      [["#omni-pin", comPin], ["#omni-antigo", comAntigo]].forEach(([s, fn]) => $m(s).addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); vai(fn); } }));
+      const esq = $m("[data-esqueci]"); if (esq) esq.onclick = () => { m.close(); go("house", "vault"); };
+      $m("[data-naolembro]").onclick = () => vai(async () => {
+        if (!(await confirmBox(tt("Isso apaga só as chaves de IA guardadas neste navegador, em todos os apps SolverONE. As Senhas da casa não mudam. Depois, cole as chaves de novo (⚙ → IA e voz).", "This deletes only the AI keys saved in this browser, in every SolverONE app. The home passwords don't change. Then paste the keys again (⚙ → AI and voice)."), tt("Apagar as chaves de IA", "Delete the AI keys"), true))) return;
+        const pin = this._pinCasa; if (!pin) return;
+        await SolverCofre.apagarCofre(); await SolverCofre.criar(pin); this.marcar(true);
+        toast("✓ " + tt("Pronto: as chaves de IA agora abrem com o PIN das Senhas da casa. Cole de novo, em ⚙ → IA e voz, as que não voltaram sozinhas.", "Done: the AI keys now open with the home passwords PIN. Paste again, in ⚙ → AI and voice, the ones that didn't come back by themselves."), 8000);
+        feito();
+      });
+      /* o botão da digital só aparece se ela estiver ligada nas Senhas da casa; a digital só é chamada depois do toque */
+      const dig = $m("[data-dig]");
+      (async () => { try { const tem = nuvem ? !!((await Cofre.local()) || {}).prf : await Vault.hasBio(); if (tem && casa !== "bloqueada" && !fim) dig.hidden = false; } catch (e) {} })();
+      dig.onclick = () => vai(async () => {
+        this._espera = 0; msg("⏳");
+        if (!nuvem) { if (await Vault.unlockBio()) return depois(""); return msg(tt("A digital não deu certo. Use a senha principal.", "Fingerprint didn't work. Use the main password.")); }
+        const r = await Cofre.destrancarDigital();
+        if (r.ok) return depois("");
+        if (r.erro === "bloqueado") return bloquear();
+        if (!soCasa) { await this._p; if (SolverCofre.aberto()) return feito(); }
+        msg(r.erro === "aguardando" || r.erro === "offline" ? tt("Na primeira vez, abra com o PIN e a internet ligada.", "The first time, open with the PIN and the internet on.") : tt("A digital não deu certo. Use o PIN.", "Fingerprint didn't work. Use the PIN."));
+      });
+    }));
+  }
+};
+window.OmniChaves = { pedir: (op, o) => ChavesPin.pedir(op, o) };
+/* regras do PIN (cofre.js 1.4): o módulo as liga com `cofre: { proteger: true }` (tranca ao abrir, ao recarregar, ao sair, escondido e sem uso).
+   Desde o "um PIN só" (03/Nov/2026) a janela não aparece na entrada: o PIN é pedido pelo ChavesPin só quando uma chave é usada.
    Aqui só se acrescenta que o Modo Vigilante ligado conta como trabalho em andamento (como o `Fundo`): não tranca por falta de uso,
    porque os alertas da vigília (Telegram, WhatsApp) não podem ficar esperando o PIN com a tela escura. */
 if (SolverCofre.proteger) SolverCofre.proteger({
@@ -4028,14 +4272,13 @@ const KeyVault = {
       '<div class="chips" style="margin-bottom:10px">' + [["", tt("Todos", "All")]].concat(Object.keys(C).map((c) => [c, C[c][0] + " " + C[c][1]])).map((x) => '<span class="chip' + (f === x[0] ? " on" : "") + '" data-act="keys.filter" data-v="' + x[0] + '">' + x[1] + "</span>").join("") + "</div>" +
       (() => { const ok = Object.keys(P).filter((id) => !P[id].semChave && Keys.has(id)); return '<div class="aikeys ' + (ok.length ? "on" : "") + '">' + (ok.length ? "✓ " + tt("Com chave salva", "Key saved") + " (" + ok.length + "): <b>" + ok.map((id) => esc(P[id].name)).join(", ") + "</b>" : tt("Nenhuma chave salva ainda — escolha uma IA grátis abaixo.", "No keys saved yet — pick a free AI below.")) + "</div>" + (ok.length ? Keys.status(true) : ""); })() +
       '<div class="list">' + Object.keys(P).filter((id) => !f || P[id].cap.includes(f)).sort((x, y) => (Keys.has(y) && !P[y].semChave ? 1 : 0) - (Keys.has(x) && !P[x].semChave ? 1 : 0)).map((id) => { const p = P[id], has = p.semChave || Keys.has(id); return '<div class="li click" data-act="keys.open" data-id="' + id + '"><div class="main"><div class="t">' + esc(p.name) + " " + (p.free === true ? '<span class="badge ok">' + tt("grátis", "free") + "</span>" : p.free === false ? '<span class="badge warn">' + tt("pago", "paid") + "</span>" : "") + (p.semChave ? "" : has ? ' <span class="badge ok">✓ ' + tt("chave salva", "key saved") + "</span>" : ' <span class="badge faint">' + tt("sem chave", "no key") + "</span>") + '</div><div class="s">' + p.cap.map((c) => C[c][0]).join(" ") + " · " + esc(p.note) + "</div></div>" + ico("chev", "chev") + "</div>"; }).join("") + "</div>" +
-      '<div class="note small" style="margin-top:10px"><b>🔐 ' + tt("Cofre das chaves e digital", "Key vault and fingerprint") + '</b><br>' + tt("Quer abrir o cofre com a digital, sem digitar o PIN? A tela comum do cofre (a mesma de todos os apps SolverONE) liga e desliga a digital.", "Want to open the vault with your fingerprint instead of typing the PIN? The shared vault screen (the same in every SolverONE app) turns the fingerprint on and off.") + '<div class="row" style="margin-top:8px"><button type="button" class="btn ghost sm" data-act="cofre.tela">🔐 ' + tt("Abrir a tela do cofre", "Open the vault screen") + "</button></div></div>" +
+      /* um PIN só: as chaves abrem com o PIN (ou a digital) das Senhas da casa; a tela do cofre do módulo saiu daqui (seria uma 4ª digital) */
+      '<div class="note small" style="margin-top:10px">🔐 ' + (ChavesPin.temCasa() ? (Cofre.usa() ? tt("As chaves ficam trancadas e abrem com o mesmo PIN (ou a digital) das Senhas da casa. Não existe outro PIN.", "The keys stay locked and open with the same PIN (or fingerprint) as the home passwords. There's no other PIN.") : tt("As chaves ficam trancadas e abrem com a mesma senha principal (ou a digital) das Senhas da casa. Não existe outro PIN.", "The keys stay locked and open with the same main password (or fingerprint) as the home passwords. There's no other PIN.")) : tt("As chaves ficam trancadas com um PIN deste navegador (o mesmo em todos os apps SolverONE).", "The keys stay locked with a PIN for this browser (the same in every SolverONE app).")) + "</div>" +
       '<p class="tiny faint" style="margin-top:10px">🔒 ' + tt("As chaves ficam só neste " + apN() + ". Os nomes das crianças viram códigos antes de ir para a IA. A IA pode errar: confira a resposta.", "Keys stay only on this " + apN() + ". Children's names become codes before going to the AI. The AI can be wrong: check its answer.") + "</p></div>";
     return h;
   }
 };
 ACT["keys.open"] = (d) => KeyVault.open(d.id);
-/* a tela de chaves do módulo comum (DGO.ia.guia) é onde mora o painel da digital do cofre (o app não encaixa o painel por conta própria) */
-ACT["cofre.tela"] = () => DGO.ia.guia(null, S.aiFilter || undefined);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(() => { try { KeyVault.resume(); } catch (e) {} }, 300); });
 window.addEventListener("pageshow", (e) => { if (e.persisted) setTimeout(() => { try { KeyVault.resume(); } catch (x) {} }, 300); });
 ACT["keys.filter"] = (d) => { S.aiFilter = d.v; render(); };
@@ -4711,7 +4954,8 @@ ACT["gate.bio"] = async () => {
 ACT["gate.visitor"] = () => startVisitor();
 ACT["gate.advertiser"] = () => { S.mode = "advertiser"; lsSet(LS.mode, "advertiser"); S.role = "membro"; S.meId = null; DB.driver = MemoryDriver; S.route = { tab: "ads" }; location.hash = "#/ads"; startApp(); };
 ACT["gate.pick"] = async (d) => { if (await selectProfile(d.id)) startApp(); };
-ACT["cloud.logout"] = async () => { Sess.end(); Vault.lock(); await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
+/* sair da conta tranca também as chaves de IA (antes ficavam abertas na aba). Vale para todos os caminhos de saída da nuvem. */
+ACT["cloud.logout"] = async () => { Sess.end(); Vault.lock(); SolverCofre.trancar().catch(() => {}); await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
 ACT["join.cancel"] = async (d) => { if (!(await confirmBox(tt("Cancelar o pedido de entrada?", "Cancel the join request?"), tt("Cancelar pedido", "Cancel request"), true))) return; await Cloud.cancelRequest(d.id); setGate("create"); };
 ACT["cloud.retry"] = async () => { if (!Conta.on()) return setGate("welcome"); try { await Cloud.resolve(); } catch (e) { setGate("offline"); } };
 
@@ -5240,7 +5484,7 @@ async function signOut() {
   if (S.mode === "cloud" && CloudDriver.fila.size && !(await confirmBox(CloudDriver.fila.size + tt(" mudança(s) ainda não subiram para a nuvem. Elas ficam guardadas neste aparelho e sobem quando você entrar de novo. Sair mesmo assim?", " change(s) haven't reached the cloud yet. They stay saved on this device and go up when you sign in again. Sign out anyway?"), tt("Sair", "Sign out")))) return;
   Sess.end();
   if (S.mode === "cloud") return ACT["cloud.logout"]();
-  Vault.lock(); S.data = {}; S.meId = null; S.role = null; S.vaultKey = null; S.unlocked = false;
+  Vault.lock(); SolverCofre.trancar().catch(() => {}); S.data = {}; S.meId = null; S.role = null; S.vaultKey = null; S.unlocked = false;
   if (S.mode === "local") lsDel(LS.localMe);
   S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome");
 }
@@ -7363,7 +7607,7 @@ const Cars = {
       { k: "_sec.placa", label: tt("Placa", "License plate"), ph: "ABC1D23" }, { k: "_sec.chassi", label: tt("Chassi (17 letras e números, está no documento do carro)", "VIN (17 characters, on the car's registration)") },
       { k: "_sec.renavam", label: tt("Renavam (11 números, está no documento do carro)", "Registration number") },
       { k: "_sec.number", label: tt("Número da apólice do seguro", "Insurance policy number") }, { k: "_sec.item", label: tt("Item da apólice (se tiver)", "Policy item (if any)") });
-    else f.push({ type: "note", html: "🔒 " + (S.mode === "visitor" ? tt("No modo visitante não dá para guardar placa e chassi.", "Plate and VIN can't be saved in visitor mode.") : modo === "falta" ? tt("Os dados protegidos deste carro (placa, chassi, apólice e custo) não estão neste aparelho agora, então não mudam por aqui.", "This car's protected data (plate, VIN, policy and cost) isn't on this device right now, so it can't be changed here.") : isGuardian() ? tt("Placa, chassi, renavam e o número da apólice ficam trancados nas Senhas da casa. Para ver ou mudar, abra as Senhas da casa antes e volte aqui.", "Plate, VIN and the policy number stay locked in the vault. To see or change them, open the vault first and come back.") : tt("Placa, chassi e o número da apólice só os responsáveis veem.", "Only guardians see the plate, VIN and policy number.")) });
+    else f.push({ type: "note", html: "🔒 " + (S.mode === "visitor" ? tt("No modo visitante não dá para guardar placa e chassi.", "Plate and VIN can't be saved in visitor mode.") : modo === "falta" ? tt("Os dados protegidos deste carro (placa, chassi, apólice e custo) não estão neste aparelho agora, então não mudam por aqui.", "This car's protected data (plate, VIN, policy and cost) isn't on this device right now, so it can't be changed here.") : isGuardian() ? tt("Placa, chassi, renavam e o número da apólice ficam trancados nas Senhas da casa. Para ver ou mudar, abra aqui mesmo (o que você já digitou fica).", "Plate, VIN and the policy number stay locked in the vault. To see or change them, open it right here (what you've typed stays).") + (canVault() ? '<div style="margin-top:6px"><button type="button" class="btn sm" data-casa>🔓 ' + tt("Abrir as Senhas da casa", "Open the vault") + "</button></div>" : "") : tt("Placa, chassi e o número da apólice só os responsáveis veem.", "Only guardians see the plate, VIN and policy number.")) });
     f.push(g("🛡 " + tt("Seguro", "Insurance")),
       { k: "seguro.seguradora", label: tt("Seguradora", "Insurer"), ph: tt("Ex.: Porto Seguro", "e.g. Geico") },
       { k: "seguro.inicio", label: tt("O seguro vale de", "Coverage from"), type: "date" }, { k: "seguro.fim", label: tt("até (vence em)", "until (expires on)"), type: "date" },
@@ -7387,10 +7631,15 @@ const Cars = {
     let modo = isGuardian() && S.vaultKey ? "aberto" : "";
     const vals = Object.assign({}, c);
     if (modo) { const o = (await this.segredo(c)) || {}; if (o._falta) modo = "falta"; else { vals._sec = {}; CAR_SEC.forEach((k) => (vals._sec[k] = o[k] == null ? "" : o[k])); } }
-    const r = await formModal({ title: "🚗 " + (c.id ? esc(c.name) : tt("Novo veículo", "New vehicle")), fields: this.fields(modo), values: vals, wide: true,
+    const fields = this.fields(modo);
+    let rascunho = null;
+    const r = await formModal({ title: "🚗 " + (c.id ? esc(c.name) : tt("Novo veículo", "New vehicle")), fields, values: vals, wide: true,
       /* as Senhas da casa fecharam com a janela aberta: os dados protegidos somem dela na hora */
-      after: modo === "aberto" ? (el) => { const t = setInterval(() => { if (!el.isConnected) return clearInterval(t); if (S.vaultKey) return; clearInterval(t); el.querySelectorAll('[name^="_sec."]').forEach((i) => { i.value = ""; const b = i.closest(".fld"); if (b) b.classList.add("hidden"); }); }, 1000); } : null,
+      after: modo === "aberto" ? (el) => { const t = setInterval(() => { if (!el.isConnected) return clearInterval(t); if (S.vaultKey) return; clearInterval(t); el.querySelectorAll('[name^="_sec."]').forEach((i) => { i.value = ""; const b = i.closest(".fld"); if (b) b.classList.add("hidden"); }); }, 1000); }
+        /* "🔓 Abrir as Senhas da casa" da nota: abre por cima (digital ou PIN) e reabre o formulário com a placa, sem perder o que foi digitado */
+        : (el, m) => { const b = el.querySelector("[data-casa]"); if (b) b.onclick = async () => { if (!(await ChavesPin.abrirCasa({ pt: "Para ver e mudar a placa, o chassi e a apólice do carro.", en: "To see and change the car's plate, VIN and policy." }))) return; rascunho = readForm(el, fields); m.close(); }; },
       onDelete: c.id ? () => this.apagar(c) : null });
+    if (!r && rascunho) return this.edit(deepMerge(c, rascunho));
     if (!r) return null;
     const sec = r._sec || {}; delete r._sec; if (r.seguro) delete r.seguro.custo;
     r.kind = "veiculo"; if (!r.id) r.id = uid();
@@ -7441,7 +7690,7 @@ const Cars = {
       (cob.length ? '<h4 style="margin-top:10px">' + tt("O que cobre", "What it covers") + '</h4><ul class="small carlist">' + cob.map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>" : "") +
       (s.franquias ? '<h4 style="margin-top:10px">' + tt("Outras franquias", "Other deductibles") + '</h4><div class="small" style="white-space:pre-line">' + esc(s.franquias) + "</div>" : "") +
       (co.nome || co.tel || co.email ? '<h4 style="margin-top:10px">' + tt("Corretor", "Broker") + '</h4><div class="li"><div class="ico">🤝</div><div class="main"><div class="t">' + esc(co.nome || "") + '</div><div class="s">' + esc([co.tel, co.email].filter(Boolean).join(" · ")) + '</div></div><div class="row nw">' + (onlyDigits(co.tel).length >= 4 ? '<a class="btn xs" href="' + telHref(co.tel) + '">📞</a><a class="btn xs ghost" target="_blank" rel="noopener" href="' + waHref(co.tel) + '">💬</a>' : "") + (/^[^\s@]+@[^\s@]+$/.test(co.email || "") ? '<a class="btn xs ghost" href="mailto:' + esc(co.email) + '">✉️</a>' : "") + "</div></div>" : "") + "</div>";
-    h += '<div class="card"><h3>🔐 ' + tt("Placa, chassi e apólice", "Plate, VIN and policy") + '</h3><div id="carsec" data-id="' + c.id + '">' + (canVault() ? (S.vaultKey ? '<div class="empty tiny">…</div>' : '<p class="small muted">🔒 ' + tt("Ficam trancados nas Senhas da casa. Abra as Senhas da casa e depois volte aqui em 🚗 Veículos.", "Kept locked in the vault. Open the vault, then come back to 🚗 Vehicles.") + '</p><button class="btn sm" data-act="go" data-tab="house" data-sub="vault">🔓 ' + tt("Abrir as Senhas da casa", "Open the vault") + "</button>") : '<p class="small muted">🔒 ' + (S.mode === "visitor" ? tt("No modo visitante não dá para guardar placa e chassi.", "Plate and VIN can't be saved in visitor mode.") : tt("Só os responsáveis veem.", "Only guardians can see this.")) + "</p>") + "</div></div>";
+    h += '<div class="card"><h3>🔐 ' + tt("Placa, chassi e apólice", "Plate, VIN and policy") + '</h3><div id="carsec" data-id="' + c.id + '">' + (canVault() ? (S.vaultKey ? '<div class="empty tiny">…</div>' : '<p class="small muted">🔒 ' + (Cofre.usa() ? tt("Ficam trancados nas Senhas da casa. Toque abaixo para abrir aqui mesmo, com a digital ou o PIN.", "Kept locked in the vault. Tap below to open it right here, with your fingerprint or PIN.") : tt("Ficam trancados nas Senhas da casa. Toque abaixo para abrir aqui mesmo, com a digital ou a senha principal.", "Kept locked in the vault. Tap below to open it right here, with your fingerprint or main password.")) + '</p><button class="btn sm" data-act="car.abrircasa">🔓 ' + tt("Abrir as Senhas da casa", "Open the vault") + "</button>") : '<p class="small muted">🔒 ' + (S.mode === "visitor" ? tt("No modo visitante não dá para guardar placa e chassi.", "Plate and VIN can't be saved in visitor mode.") : tt("Só os responsáveis veem.", "Only guardians can see this.")) + "</p>") + "</div></div>";
     if (canTab("docs") && Rec.ok("docs")) {
       const ds = DB.all("docs").filter((d) => d.veiculo === c.id);
       h += '<div class="card"><div class="between"><h3>📄 ' + tt("Documentos deste carro", "This car's documents") + "</h3>" + (!isChild() ? '<button class="btn sm" data-act="car.doc" data-id="' + c.id + '" aria-label="' + tt("Novo documento", "New document") + '">＋</button>' : "") + "</div>" + (ds.length ? '<div class="list">' + ds.map((d) => '<div class="li click" data-act="doc.edit" data-id="' + d.id + '"><div class="ico">' + docType(d.type).ic + '</div><div class="main"><div class="t">' + esc(d.title) + '</div><div class="s">' + esc([docType(d.type).t, d.expires ? tt("validade ", "valid ") + fmtDate(d.expires) : ""].filter(Boolean).join(" · ")) + "</div></div>" + ((d.files || []).length ? '<span class="badge">📎 ' + d.files.length + "</span>" : "") + "</div>").join("") + "</div>" : '<div class="empty tiny">' + tt("Nenhum documento ligado a este carro.", "No documents linked to this car.") + "</div>") + (S.mode === "cloud" ? '<p class="tiny faint" style="margin-top:6px">📱 ' + tt("Os documentos e o PDF ficam só no aparelho onde foram guardados.", "Documents and the PDF stay only on the device where they were saved.") + "</p>" : "") + "</div>";
@@ -7549,13 +7798,17 @@ const Cars = {
   },
   async importar() {
     if (!isGuardian()) return toast(tt("Só um responsável pode trazer a ficha.", "Only a guardian can bring the record."));
-    if (!S.vaultKey) { if (await confirmBox(tt("Antes, abra as 🔐 Senhas da casa: é lá que a placa, o chassi e o PDF da apólice ficam trancados. Depois volte aqui em 🚗 Veículos e toque de novo em 📥.", "First open the 🔐 vault: that's where the plate, VIN and policy PDF stay locked. Then come back to 🚗 Vehicles and tap 📥 again."), tt("Abrir as Senhas da casa", "Open the vault"))) go("house", "vault"); return; }
+    /* sem Senhas da casa criadas ainda não há onde trancar a placa: avisa antes de escolher o arquivo */
+    if (!S.vaultKey && !(await ChavesPin.casa())) { if (await confirmBox(tt("Antes, crie as 🔐 Senhas da casa: é lá que a placa, o chassi e o PDF da apólice ficam trancados. Depois volte aqui em 🚗 Veículos e toque de novo em 📥.", "First set up the 🔐 vault: that's where the plate, VIN and policy PDF stay locked. Then come back to 🚗 Vehicles and tap 📥 again."), tt("Ir para as Senhas da casa", "Go to the vault"))) go("house", "vault"); return; }
     const [f] = await Files.pick(".json,application/json", false); if (!f) return;
     let j = null; try { j = JSON.parse(await f.text()); } catch (e) {}
     const erro = this.validar(j); if (erro) return toast(erro, 5000);
     const ja = j.id ? this.list().find((c) => c.ficha === String(j.id).trim().slice(0, 80)) : null;
     if (ja) return toast(tt("Esta ficha já está no app: 🚗 ", "This record is already in the app: 🚗 ") + ja.name + (S.mode === "cloud" ? tt(". O PDF fica só no aparelho onde ela foi trazida.", ". The PDF stays only on the device where it was brought in.") : "."), 6000);
     if (!(await confirmBox("<b>" + tt("Vai trazer:", "This will add:") + "</b><br>" + this.resumo(j), "📥 " + tt("Trazer", "Bring it")))) return;
+    /* a jornada não é cortada: com as Senhas da casa fechadas, abre aqui mesmo (digital ou PIN) e segue; "Agora não" não grava nada */
+    if (!S.vaultKey && !(await ChavesPin.abrirCasa({ pt: "Para trazer a ficha do carro: a placa, o chassi e o PDF da apólice ficam trancados nas Senhas da casa.", en: "To bring in the car record: the plate, VIN and policy PDF stay locked in the vault." })))
+      return toast(tt("Nada foi trazido. Quando quiser, toque de novo em 📥.", "Nothing was added. Whenever you want, tap 📥 again."), 5000);
     const rota = location.hash, executar = () => this.gravar(j);
     try {
       const c = window.DGO && DGO.fundo && DGO.fundo.iniciar ? await DGO.fundo.iniciar({ tipo: "importar", titulo: tt("Trazendo a ficha do carro", "Bringing in the car record"), rota, aindaNaTela: () => location.hash === rota, podeCancelar: false, tentarDeNovo: false, executar }) : await executar();
@@ -7567,6 +7820,8 @@ const Cars = {
 ACT["car.new"] = async () => { const r = await Cars.edit(null); if (r) go("house", "cars", r.id); };
 ACT["car.edit"] = (d) => { const c = DB.get("places", d.id); if (c) Cars.edit(c); };
 ACT["car.import"] = () => Cars.importar();
+/* ficha do carro: abre as Senhas da casa aqui mesmo (digital ou PIN) e redesenha, sem ir para a tela das Senhas da casa */
+ACT["car.abrircasa"] = async () => { if (await ChavesPin.abrirCasa({ pt: "Para ver a placa, o chassi e a apólice do carro.", en: "To see the car's plate, VIN and policy." })) render(); };
 ACT["car.doc"] = (d) => { const c = DB.get("places", d.id); if (c) Docs.edit({ type: "veiculo", vis: isGuardian() ? "restrito" : "familia", files: [], owner: "", veiculo: c.id, secure: true }); };
 /* o item das Senhas da casa do carro foi apagado lá: solta a ligação para poder guardar placa e chassi de novo */
 ACT["car.secnovo"] = async (d) => {
@@ -7728,7 +7983,7 @@ ACT["vault.setup"] = async () => {
     onOk: (o) => { if ((o.p1 || "").length < 8) { toast(tt("A senha precisa ter pelo menos 8 letras ou números.", "The password needs at least 8 letters or digits.")); return false; } if (o.p1 !== o.p2) { toast(tt("As duas senhas ficaram diferentes. Digite de novo.", "The two passwords don't match. Type them again.")); return false; } } });
   if (!r) return; await Vault.setup(r.p1); toast(tt("Pronto ✓ Já pode guardar as senhas.", "Vault created ✓")); render();
 };
-ACT["vault.unlock"] = async () => { const pw = $("#vpw"); if (!pw || !pw.value) return; if (await Vault.unlock(pw.value)) { toast("🔓 " + tt("Senhas da casa abertas.", "Vault open.")); render(); } else toast(tt("Senha errada. Tente de novo.", "Wrong password. Try again.")); };
+ACT["vault.unlock"] = async () => { const pw = $("#vpw"); if (!pw || !pw.value) return; if (await Vault.unlock(pw.value)) { toast("🔓 " + tt("Senhas da casa abertas.", "Vault open.")); render(); } else { const w = Vault.espera(); toast(w ? tt("Muitas tentativas. Espere " + w + " segundos.", "Too many tries. Wait " + w + " seconds.") : tt("Senha errada. Tente de novo.", "Wrong password. Try again.")); } };
 ACT["vault.bio"] = async () => { if (await Vault.unlockBio()) render(); else toast(tt("A digital não deu certo. Use a senha principal.", "Fingerprint didn't work. Use the vault password.")); };
 ACT["vault.rememberbio"] = () => Vault.rememberBio();
 ACT["vault.lock"] = () => { Vault.lock(); render(); };
