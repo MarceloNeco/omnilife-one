@@ -1,5 +1,5 @@
 /* =====================================================================
-   COFRE COMUM DE CHAVES  —  cofre.js  (SolverCofre 1.4.1, 17/Out/2026)
+   COFRE COMUM DE CHAVES  —  cofre.js  (SolverCofre 1.6.0, 03/Nov/2026)
    ---------------------------------------------------------------------
    POR QUE ESTE ARQUIVO EXISTE
    Todos os apps da SolverONE moram no MESMO endereço (solverone.com.br/<app>/).
@@ -8,6 +8,17 @@
    backup ou extensão curiosa lia tudo. Agora existe UM cofre só, igual em todos
    os apps: as chaves ficam embaralhadas aqui no aparelho e só abrem com o PIN.
 
+   1.6.0 (03/Nov/2026, pedido do dono: "é um PIN só"): o app que já tem o PIN de cada pessoa (OmniLifeONE: Senhas da
+   casa) chama SolverCofre.usarPinDaPessoa({...}). Aí quem pede o PIN é o app, e o cofre das chaves abre junto: um pedido
+   só. O PIN do cofre vira o PIN da pessoa (o mesmo em todo app); o cofre de antes junta uma vez. Ver a seção 6a.
+   Novas: usarPinDaPessoa, abrirPelaPessoa, pessoas, esquecerPessoa; trocarPin(novo, { pessoa }); pedir({ confirmar }).
+   1.5.0 (18/Out/2026, pedido do dono): a digital NUNCA dispara sozinha. Com a digital ligada, ao abrir o app protegido
+   e sempre que o cofre for pedido, a janela aparece primeiro, com "👆 Abrir com a digital" (o leitor do aparelho só
+   abre depois desse toque), "Digitar o PIN" (o campo aparece só aí, então o teclado não abre sozinho) e "Agora não"
+   (deixa navegar; o PIN volta quando uma chave for usada ou quando o cofre trancar de novo). Sem a digital ligada, a
+   janela abre direto no formulário do PIN, como na 1.4 (campo focado, "Abrir", "Agora não", "Esqueci o PIN"). Por quê: no
+   Android a caixa da digital só fecha pelo botão Voltar, e no iPhone o WebAuthn exige um toque da pessoa, então a
+   tentativa automática nem abre. Novo: SolverCofre.protegido() diz se as regras do PIN estão ligadas nesta página.
    1.4.1 (17/Out/2026, pedido do dono): painelDigital desenha NA HORA da chamada, mesmo com o bloco ainda fora da
    página (ex.: a tela das chaves do módulo esperando a vez de outra janela), e também quando a resposta "tem
    digital?" chega logo depois com o bloco ainda fora. A regra "fora da página → esquece" vale só nas repinturas.
@@ -76,7 +87,7 @@
   'use strict';
   if (raiz.SolverCofre && raiz.SolverCofre.__carregado) return;
 
-  var VERSAO = '1.4.1';
+  var VERSAO = '1.6.0';
   var NOME = 'dgo:global:cofre';                 /* localStorage: o cofre (embaralhado) */
   var NOME_ERROS = 'dgo:global:cofre:erros';     /* localStorage: PIN errado { n, ate } */
   var NOME_OFERTA = 'dgo:global:cofre:digital-recusada';  /* localStorage: '1' = a pessoa disse "Agora não" à pergunta da digital */
@@ -124,7 +135,7 @@
     apagado: ['Cofre apagado. Crie um PIN novo e cole as chaves de novo.', 'Vault deleted. Create a new PIN and paste the keys again.'],
     mostrar: ['Mostrar o PIN', 'Show the PIN'],
     digitalBotao: ['👆 Abrir com a digital', '👆 Open with fingerprint'],
-    ouPin: ['ou digite o PIN', 'or type the PIN'],
+    digitarPin: ['Digitar o PIN', 'Type the PIN'],
     ofertaTitulo: ['Quer abrir com a digital da próxima vez?', 'Want to open with your fingerprint next time?'],
     ofertaTexto: ['Sem digitar o PIN. O PIN continua valendo como reserva.', 'No need to type the PIN. The PIN still works as the backup.'],
     ofertaSim: ['👆 Sim, usar a digital', '👆 Yes, use my fingerprint'],
@@ -143,8 +154,15 @@
     digitalFalhou: ['Não deu certo com a digital. Tente de novo ou digite o PIN.', 'The fingerprint did not work. Try again or type the PIN.'],
     digitalPerdida: ['A digital deste aparelho não vale mais. Digite o PIN (depois você pode ativar a digital de novo).',
                      'This device’s fingerprint is no longer valid. Type the PIN (you can turn the fingerprint on again afterwards).'],
-    motivoPadrao: ['Um app quer usar uma chave guardada.', 'An app wants to use a saved key.']
+    motivoPadrao: ['Um app quer usar uma chave guardada.', 'An app wants to use a saved key.'],
+    /* 1.6.0: um PIN só */
+    juntarTitulo: ['🔐 Juntar tudo num PIN só', '🔐 Merge everything into one PIN'],
+    juntarTexto: ['Só desta vez: digite o PIN antigo das chaves de IA. Depois disso, o seu PIN de sempre abre tudo.',
+                  'Just this once: type the old AI-keys PIN. After that, your usual PIN opens everything.'],
+    outraPessoa: ['As chaves de IA deste aparelho foram guardadas por outra pessoa da casa. Só abrem com o PIN dela.',
+                  'The AI keys on this device were saved by someone else in the home. They only open with that person’s PIN.']
   };
+  function txo(k) { return { pt: TX[k][0], en: TX[k][1] }; }
   function lingua() {
     try { if (raiz.DGO && typeof raiz.DGO.idioma === 'function') return raiz.DGO.idioma() === 'en' ? 'en' : 'pt'; } catch (e) {}
     var l = (d.documentElement.getAttribute('lang') || '').toLowerCase();
@@ -439,8 +457,6 @@
       '.sc-b2{background:transparent;color:var(--sc-t);border-color:var(--sc-l)}',
       '.sc-b[disabled]{opacity:.5;cursor:not-allowed}',
       '.sc-grande{min-height:56px;font-size:18px;width:100%;margin-top:.6rem}',
-      '.sc-ou{text-align:center;margin:.8rem 0 .2rem}',
-      '.sc-pin-menor{font-size:.92rem}.sc-pin-menor label.sc-campo{margin-top:.2rem;font-weight:500}',
       '.sc-painel p{margin:.3rem 0}.sc-painel .sc-mini{font-size:.9rem;opacity:.85}.sc-painel .sc-botoes{margin-top:.6rem}',
       '.sc-painel .sc-b{flex:0 1 auto;min-height:44px;padding:8px 16px;border-radius:10px;border:1px solid #047857;background:#047857;color:#fff;font:600 16px system-ui,sans-serif;cursor:pointer}',
       '.sc-painel .sc-b2{background:transparent;color:inherit;border-color:currentColor}',
@@ -493,6 +509,7 @@
   function janela(opcoes) {
     estilo();
     var motivo = textoDe(opcoes && opcoes.motivo);
+    var titulo = textoDe(opcoes && opcoes.titulo) || t('tituloAbrir');   /* 1.6.0: "Juntar tudo num PIN só" */
     var antes = d.activeElement;
     return new Promise(function (resolver) {
       var SJ = janelaComum(), J = null, fundo, caixa;
@@ -538,7 +555,8 @@
         if ((opcoes && opcoes.semOferta) || ofertaRecusada() || API.digitalAtiva()) { fim(true); return; }
         API.digitalDisponivel().then(function (disp) { if (disp) pintar('oferta'); else fim(true); }, function () { fim(true); });
       }
-      function pintar(modo, aviso, semAuto) {
+      /* modo: 'criar' | 'oferta' | 'abrir' (comPin = a pessoa tocou em "Digitar o PIN") | 'esqueci' */
+      function pintar(modo, aviso, comPin) {
         if (terminou) return;
         modoAtual = modo;
         caixa.innerHTML = '';
@@ -582,37 +600,40 @@
           caixa.appendChild(el('div', { class: 'sc-botoes' }, [
             el('button', { type: 'button', class: 'sc-b sc-b2', 'data-sc': 'oferta-nao', texto: t('agoraNao'), onclick: function () { recusarOferta(); fim(true); } })]));
           bSim.focus();
-        } else if (modo === 'abrir') {
-          caixa.appendChild(el('h2', { id: 'sc-tit', texto: t('tituloAbrir') }));
+        } else if (modo === 'abrir' && !comPin && API.digitalAtiva()) {
+          /* 1.5.0: com a digital ligada, a janela vem primeiro e NADA dispara sozinho: o botão grande vem focado e o leitor
+             do aparelho só abre depois do toque (no Android a caixa da digital só fecha pelo Voltar; no iPhone ela exige
+             um toque). O campo do PIN só aparece em "Digitar o PIN": o teclado do celular não abre sozinho.
+             Sem a digital ligada, cai no formulário do PIN logo abaixo, como na 1.4. */
+          caixa.appendChild(el('h2', { id: 'sc-tit', texto: titulo }));
           if (motivo) caixa.appendChild(el('p', { texto: motivo }));
-          var temDigital = API.digitalAtiva();
-          var botDigital = null;
-          if (!temDigital) caixa.appendChild(el('p', { class: 'sc-mini', texto: t('explicaAbrir') }));
           if (aviso) caixa.appendChild(el('p', { class: 'sc-erro', role: 'alert', texto: aviso }));
-          /* digital ligada: o botão grande vem primeiro e já tenta a digital; se o navegador não deixar sem toque,
-             o botão fica focado e um toque basta. O PIN fica embaixo, menor, e o teclado nunca abre sozinho. */
-          if (temDigital) {
-            var tentarDigital = function (auto) {
-              botDigital.disabled = true; botDigital.textContent = t('abrindo');
+          var botDigital = el('button', { type: 'button', class: 'sc-b sc-grande', 'data-sc': 'digital', texto: t('digitalBotao'),
+            onclick: function () {
+              erro.textContent = ''; botDigital.disabled = true; botDigital.textContent = t('abrindo');
               API.abrirComDigital().then(function () { fim(true); }, function (e) {
                 if (e && (e.message === 'digital-perdida' || e.message === 'digital-outro-endereco')) { pintar('abrir', t('digitalPerdida'), true); return; }
                 if (terminou) return;
                 botDigital.disabled = false; botDigital.textContent = t('digitalBotao'); botDigital.focus();
-                if (!auto) erro.textContent = t('digitalFalhou');
+                erro.textContent = t('digitalFalhou');
               });
-            };
-            botDigital = el('button', { type: 'button', class: 'sc-b sc-grande', 'data-sc': 'digital', texto: t('digitalBotao'),
-              onclick: function () { erro.textContent = ''; tentarDigital(false); } });
-            caixa.appendChild(botDigital);
-            caixa.appendChild(erro);
-            caixa.appendChild(el('p', { class: 'sc-mini sc-ou', texto: t('ouPin') }));
-          }
+            } });
+          caixa.appendChild(botDigital);
+          caixa.appendChild(erro);
+          caixa.appendChild(el('div', { class: 'sc-botoes' }, [
+            el('button', { type: 'button', class: 'sc-b sc-b2', 'data-sc': 'pin', texto: t('digitarPin'), onclick: function () { pintar('abrir', '', true); } }),
+            el('button', { type: 'button', class: 'sc-b sc-b2', 'data-sc': 'agora-nao', texto: t('agoraNao'), onclick: function () { fim(false); } })]));
+          botDigital.focus();
+        } else if (modo === 'abrir') {   /* sem a digital ligada, ou a pessoa escolheu "Digitar o PIN" */
+          caixa.appendChild(el('h2', { id: 'sc-tit', texto: titulo }));
+          if (motivo) caixa.appendChild(el('p', { texto: motivo }));
+          caixa.appendChild(el('p', { class: 'sc-mini', texto: t('explicaAbrir') }));
+          if (aviso) caixa.appendChild(el('p', { class: 'sc-erro', role: 'alert', texto: aviso }));
           var cp = campoPin(t('pin'));
-          var form2 = el('form', { novalidate: true, autocomplete: 'off', class: temDigital ? 'sc-pin-menor' : '' }, [cp,
-            temDigital ? null : erro,
+          var form2 = el('form', { novalidate: true, autocomplete: 'off' }, [cp, erro,
             el('div', { class: 'sc-botoes' }, [
-              el('button', { type: 'submit', class: temDigital ? 'sc-b sc-b2' : 'sc-b', texto: t('abrir') }),
-              el('button', { type: 'button', class: 'sc-b sc-b2', texto: t('agoraNao'), onclick: function () { fim(false); } })
+              el('button', { type: 'submit', class: 'sc-b', texto: t('abrir') }),
+              el('button', { type: 'button', class: 'sc-b sc-b2', 'data-sc': 'agora-nao', texto: t('agoraNao'), onclick: function () { fim(false); } })
             ]),
             el('button', { type: 'button', class: 'sc-link', texto: t('esqueci'), onclick: function () { pintar('esqueci'); } })
           ]);
@@ -630,8 +651,7 @@
             });
           });
           caixa.appendChild(form2);
-          if (botDigital) { botDigital.focus(); if (!semAuto) tentarDigital(true); }   /* foco no botão: o teclado do celular não abre sozinho */
-          else cp._input.focus();
+          cp._input.focus();   /* sem digital (como na 1.4) ou a pessoa pediu para digitar: aqui o teclado pode abrir */
         } else {   /* esqueci */
           caixa.appendChild(el('h2', { id: 'sc-tit', texto: t('tituloEsqueci') }));
           caixa.appendChild(el('p', { texto: t('esqueciTexto') }));
@@ -660,6 +680,123 @@
      ------------------------------------------------------------------ */
   function erro(cod, extra) { var e = new Error(cod); if (extra) Object.keys(extra).forEach(function (k) { e[k] = extra[k]; }); return e; }
   function semCripto() { return !sub || !raiz.localStorage; }
+  function nada() {}
+
+  /* ------------------------------------------------------------------
+     6a. UM PIN SÓ (1.6.0, pedido do dono, 03/Nov/2026)
+     O app que já tem um PIN da pessoa (OmniLifeONE: o PIN das Senhas da casa, de cada pessoa) avisa o cofre com
+     SolverCofre.usarPinDaPessoa({...}). Daí em diante, quando o cofre precisa abrir, quem pergunta é o app, com o
+     PIN (ou a digital) dele, e o cofre das chaves abre junto. A pessoa vê UM pedido só.
+     Como: além do PIN, a chave de dados do cofre fica embrulhada também por um segredo de cada pessoa que o app
+     entrega (32 bytes que só existem com o PIN dela aberto; HKDF-SHA256 → AES-GCM). Fica em envoltas.pessoas[quem].
+     - quem() = id da pessoa agora ('' = ninguém: vale a janela do próprio cofre, como antes)
+     - segredo() = o segredo, se o PIN da pessoa já está aberto (sem perguntar nada); senão null
+     - pedir(info) = o app mostra a janela dele e devolve { segredo, pin } (pin = o que a pessoa digitou; '' com a digital),
+       false (a pessoa disse "Agora não") ou null (o app não consegue: vale a janela do cofre).
+       info = { motivo, precisaPin } — precisaPin: o cofre ainda não existe e vai nascer com o PIN digitado.
+     - pronto = Promise opcional: o cofre espera o app saber quem é a pessoa antes de decidir.
+     O PIN do cofre (o que vale nos outros apps) é trocado pelo PIN da pessoa na primeira vez que ela o digita:
+     assim é o mesmo PIN em todo app. Cofre de antes (PIN diferente) junta uma vez só: tenta o PIN digitado e, se
+     não for o mesmo, pede o PIN antigo das chaves só desta vez. Chaves guardadas por outra pessoa não abrem com o
+     segredo de quem chegou agora (cada um com as suas).
+     ------------------------------------------------------------------ */
+  var _pessoa = null;
+  function chaveDaPessoa(segredo, sal) {
+    return sub.importKey('raw', segredo, 'HKDF', false, ['deriveKey']).then(function (k) {
+      return sub.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: deB64(sal), info: new TextEncoder().encode('solvercofre-pessoa') },
+        k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    });
+  }
+  function quemAgora() { try { var q = _pessoa && _pessoa.quem(); return typeof q === 'string' ? q : ''; } catch (e) { return ''; } }
+  function segredoAgora() { try { return Promise.resolve(_pessoa && _pessoa.segredo ? _pessoa.segredo() : null).catch(function () { return null; }); } catch (e) { return Promise.resolve(null); } }
+  function pessoasDe(reg) { return (reg && reg.envoltas && reg.envoltas.pessoas) || {}; }
+  function ehSegredo(s) { return !!(s && s.byteLength >= 16); }
+  /* mexer no registro em fila, junto com as gravações das chaves (persistir) */
+  function naFila(fn) { var p = _fila.then(fn); _fila = p.catch(nada); return p; }
+  function vincular(quem, segredo) {
+    if (!E.aberto) return Promise.reject(erro('cofre-trancado'));
+    var sal = b64(aleatorio(16));
+    return chaveDaPessoa(segredo, sal).then(function (k) { return cifrar(k, E.bruta); }).then(function (env) {
+      return naFila(function () {
+        var r = lerRegistro(); if (!r || idDe(r) !== E.id) throw erro('cofre-trocado');
+        r.envoltas.pessoas = pessoasDe(r); r.envoltas.pessoas[quem] = { sal: sal, env: env, em: new Date().toISOString() };
+        gravarRegistro(r); return true;
+      });
+    });
+  }
+  function marcarAlinhado(quem) {
+    return naFila(function () { var r = lerRegistro(); if (r && E.aberto && idDe(r) === E.id) { r.alinhado = quem; gravarRegistro(r); } return true; });
+  }
+  function abrirPorVinculo(reg, quem, segredo) {
+    var x = pessoasDe(reg)[quem];
+    if (!x || !ehSegredo(segredo)) return Promise.resolve(false);
+    return chaveDaPessoa(segredo, x.sal).then(function (k) { return decifrar(k, x.env); }).then(function (bruta) {
+      return importarDEK(bruta).then(function (dek) { return decifrar(dek, reg.dados); }).then(function (b) { return abrirCom(bruta, deBytes(b), reg); });
+    }).then(function () { return depoisDeAbrir('pessoa'); }, function () { return false; });
+  }
+  /* confere um PIN sem contar erro (é o PIN da pessoa, que pode ainda não ser o do cofre) */
+  function pinConfere(reg, pin) {
+    if (!reg || !reg.envoltas || !reg.envoltas.pin || typeof pin !== 'string' || pin.length < MIN_PIN) return Promise.resolve(null);
+    return derivar(pin, reg.sal, reg.iter || ITER).then(function (k) { return decifrar(k, reg.envoltas.pin); }).catch(function () { return null; });
+  }
+  function abrirPinCalado(reg, pin) {
+    return pinConfere(reg, pin).then(function (bruta) {
+      if (!bruta) return false;
+      gravarErros(null);
+      return importarDEK(bruta).then(function (dek) { return decifrar(dek, reg.dados); })
+        .then(function (b) { return abrirCom(bruta, deBytes(b), reg); }).then(function () { return depoisDeAbrir('pin'); });
+    }).catch(function () { return false; });
+  }
+  /* o PIN do cofre passa a ser o PIN da pessoa (uma vez; depois fica marcado) */
+  function alinharPin(pin, quem) {
+    var reg = lerRegistro();
+    if (!E.aberto || !reg || reg.alinhado === quem || typeof pin !== 'string' || pin.length < MIN_PIN) return Promise.resolve(false);
+    return pinConfere(reg, pin).then(function (igual) {
+      if (igual && igual.fill) igual.fill(0);
+      return igual ? true : API.trocarPin(pin);
+    }).then(function () { return marcarAlinhado(quem); }).catch(function () { return false; });
+  }
+  /* decide como abrir com o PIN da pessoa. Promise de: true (abriu) · false (não abriu) ·
+     um objeto = abrir a janela do próprio cofre com essas opções (e, se tiver `depois`, rodar depois de abrir).
+     extra.calado = nunca mostra janela nenhuma (o app só quer abrir junto, se der) · extra.pin/segredo = já em mãos */
+  function comPessoa(opcoes, extra) {
+    opcoes = opcoes || {}; extra = extra || {};
+    var base = { motivo: opcoes.motivo || txo('motivoPadrao'), semOferta: !!opcoes.semOferta };
+    if (!_pessoa) return Promise.resolve(extra.calado ? false : base);
+    return Promise.resolve(_pessoa.pronto).catch(nada).then(function () {
+      var quem = quemAgora();
+      if (!quem) return extra.calado ? false : base;
+      var reg = lerRegistro(), donos = Object.keys(pessoasDe(reg));
+      if (reg && donos.length && donos.indexOf(quem) === -1) return extra.calado ? false : { motivo: txo('outraPessoa'), semOferta: true };
+      var precisaPin = !reg;
+      var temPin = typeof extra.pin === 'string' && extra.pin.length >= MIN_PIN;
+      return (opcoes.confirmar ? Promise.resolve(null) : Promise.resolve(extra.segredo || segredoAgora())).then(function (s0) {
+        if (ehSegredo(s0) && (!precisaPin || temPin)) return { segredo: s0, pin: extra.pin || '' };
+        if (extra.calado) return false;
+        return Promise.resolve(_pessoa.pedir({ motivo: base.motivo, precisaPin: precisaPin })).catch(function () { return null; });
+      }).then(function (r) {
+        if (r === false) return false;
+        if (!r || !ehSegredo(r.segredo)) return extra.calado ? false : base;     /* o app não deu: a janela do cofre */
+        var pin = typeof r.pin === 'string' ? r.pin : '';
+        if (!reg) {
+          if (pin.length < MIN_PIN) return extra.calado ? false : base;
+          return API.criar(pin).then(function () { return vincular(quem, r.segredo); })
+            .then(function () { return marcarAlinhado(quem); }).then(function () { return true; });
+        }
+        return abrirPorVinculo(reg, quem, r.segredo).then(function (ok) {
+          if (ok) { if (pin) alinharPin(pin, quem); return true; }
+          return abrirPinCalado(reg, pin).then(function (ok2) {
+            if (ok2) return vincular(quem, r.segredo).then(function () { return marcarAlinhado(quem); }).then(function () { return true; }, function () { return true; });
+            if (extra.calado) return false;
+            /* cofre de antes, com outro PIN: só desta vez, o PIN antigo; depois junta */
+            return { motivo: txo('juntarTexto'), titulo: txo('juntarTitulo'), semOferta: true, depois: function () {
+              return vincular(quem, r.segredo).then(function () { return pin ? alinharPin(pin, quem) : null; }).catch(nada);
+            } };
+          });
+        });
+      });
+    });
+  }
 
   /* painel da digital (função pública painelDigital): cada elemento indicado pelo app fica na lista e se repinta sozinho
      quando a digital liga/desliga ou o cofre é apagado */
@@ -791,6 +928,8 @@
     versao: VERSAO,
 
     existe: function () { return !!lerRegistro(); },
+    /* 1.5.0: as regras do PIN (proteger) estão ligadas nesta página? */
+    protegido: function () { return !!_prot; },
     aberto: function () { return E.aberto; },
     /* digital (WebAuthn). Disponível = o aparelho tem digital/rosto/tela cadastrada e a página é segura */
     digitalDisponivel: function () {
@@ -966,13 +1105,16 @@
       return idbTirar('aparelho').then(function () { return true; });
     },
 
-    trocarPin: function (novo) {
+    /* opcoes.pessoa (1.6.0): o PIN novo é o PIN dessa pessoa (o app dela trocou): continua "um PIN só" */
+    trocarPin: function (novo, opcoes) {
       if (!E.aberto) return Promise.reject(erro('cofre-trancado'));
       if (typeof novo !== 'string' || novo.length < MIN_PIN) return Promise.reject(erro('pin-curto'));
-      var sal = b64(aleatorio(16));
+      var sal = b64(aleatorio(16)), quem = opcoes && typeof opcoes.pessoa === 'string' ? opcoes.pessoa : '';
       return derivar(novo, sal, ITER).then(function (k) { return cifrar(k, E.bruta); }).then(function (env) {
         var r = lerRegistro(); if (!r) throw erro('sem-cofre');
-        r.sal = sal; r.iter = ITER; r.envoltas.pin = env; gravarRegistro(r); E.id = idDe(r);
+        r.sal = sal; r.iter = ITER; r.envoltas.pin = env;
+        if (quem) r.alinhado = quem; else delete r.alinhado;
+        gravarRegistro(r); E.id = idDe(r);
         return guardarSessao().then(function () { return true; });
       });
     },
@@ -1054,12 +1196,52 @@
       if (E.aberto) return Promise.resolve(true);
       if (_pedindo) return _pedindo;
       opcoes = opcoes || {};
+      /* 1.6.0: com o PIN da pessoa (usarPinDaPessoa), quem pergunta é o app; a janela do cofre fica de reserva */
       _pedindo = API.abrirSemPin().then(function (ok) {
         if (ok) return true;
         if (!d.body) return false;
-        return janela({ motivo: opcoes.motivo || { pt: TX.motivoPadrao[0], en: TX.motivoPadrao[1] }, semOferta: !!opcoes.semOferta });
+        return comPessoa(opcoes).then(function (r) {
+          if (r === true || r === false) return r;
+          return janela(r).then(function (abriu) { return abriu && r.depois ? r.depois().then(function () { return true; }) : abriu; });
+        });
       }).then(function (ok) { _pedindo = null; return ok; }, function () { _pedindo = null; return false; });
       return _pedindo;
+    },
+
+    /* 1.6.0: UM PIN SÓ — ver a seção 6a. O app que tem o PIN de cada pessoa passa a abrir o cofre com ele. */
+    usarPinDaPessoa: function (opcoes) {
+      if (!opcoes || typeof opcoes.quem !== 'function' || typeof opcoes.pedir !== 'function') return false;
+      _pessoa = { quem: opcoes.quem, segredo: typeof opcoes.segredo === 'function' ? opcoes.segredo : null, pedir: opcoes.pedir, pronto: opcoes.pronto || null };
+      return true;
+    },
+    /* o app acabou de abrir o PIN da pessoa (pela tela dele): abre o cofre junto, sem mostrar nada. Também junta o cofre
+       de antes quando o PIN digitado é o mesmo, e passa o PIN do cofre a ser o da pessoa. opcoes: { pin, segredo }.
+       Promise<boolean> = o cofre ficou aberto. */
+    abrirPelaPessoa: function (opcoes) {
+      opcoes = opcoes || {};
+      if (semCripto() || !_pessoa) return Promise.resolve(E.aberto);
+      var quem = quemAgora(), reg = lerRegistro();
+      if (!reg) return Promise.resolve(false);
+      if (E.aberto) {
+        /* já aberto (ex.: pelo PIN antigo): só falta ligar à pessoa, se o cofre não é de outra */
+        var donos = Object.keys(pessoasDe(reg));
+        if (!quem || (donos.length && donos.indexOf(quem) === -1)) return Promise.resolve(true);
+        return Promise.resolve(opcoes.segredo || segredoAgora()).then(function (s) {
+          if (!ehSegredo(s)) return true;
+          return (donos.indexOf(quem) === -1 ? vincular(quem, s) : Promise.resolve(true))
+            .then(function () { return opcoes.pin ? alinharPin(opcoes.pin, quem) : null; }).then(function () { return true; }, function () { return true; });
+        });
+      }
+      return comPessoa({}, { calado: true, pin: opcoes.pin, segredo: opcoes.segredo }).then(function (r) { return r === true; }, function () { return false; });
+    },
+    /* de quem são as chaves deste aparelho (ids que o app deu; nunca segredo) */
+    pessoas: function () { return Object.keys(pessoasDe(lerRegistro())); },
+    /* a pessoa saiu deste aparelho: o segredo dela deixa de abrir o cofre (o PIN continua) */
+    esquecerPessoa: function (quem) {
+      return naFila(function () {
+        var r = lerRegistro(); if (!r || !pessoasDe(r)[quem]) return false;
+        delete r.envoltas.pessoas[quem]; if (r.alinhado === quem) delete r.alinhado; gravarRegistro(r); return true;
+      });
     },
 
     /* onde cada app guardava as chaves antes (ver o cabeçalho da seção 5) */
