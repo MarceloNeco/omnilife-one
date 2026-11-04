@@ -304,8 +304,9 @@ sem framework: HTML, CSS e JavaScript puros.
   escolhida na hora entre `MT_SUB_CARRO()` ("Revisao Periodica" ou "Mecânico / Eletrico / Funilaria", texto exato do MoneyTRIO),
   sugerida por `mtSubCarro(título)`; nunca "Manutenção" (não existe lá). Casa, eletros, jardim e pet seguem `HABITACAO` /
   "Manutenção". `Bridge.antigosCarro()` lista, só para conferir em ⚙ → Integrações, o que já tinha ido com "Manutenção".
-- `Cars` (2.20.0) — **Casa → 🚗 Veículos** (`HouseViews.cars`, rota `house/cars[/id]`, id `casa.veiculos` em `Rec` e no
-  `recursos-do-app.json`). O carro é um **Lugar** do tipo `veiculo` (coleção `places`: não mudou o banco; continua servindo para
+- `Cars` (2.20.0) — a ficha do carro. **Desde a 2.22.0 é a aba própria 🚗 Veículos** (`SCREENS.cars`, rotas `cars`, `cars/lista`,
+  `cars/ficha/<id>` e `cars/vida[/<id>]`; ids `veiculos` e `veiculos.vida` em `Rec` e no `recursos-do-app.json`; o id antigo
+  `casa.veiculos` continua valendo em `Rec.rota`). O endereço antigo `#/house/cars[/id]` é trocado pelo novo em `parseRoute`. O carro é um **Lugar** do tipo `veiculo` (coleção `places`: não mudou o banco; continua servindo para
   "o que está guardado no carro" no Onde está?). No registro ficam só `carro.{marca, modelo, anoFab, anoMod, comb}` e
   `seguro.{seguradora, inicio, fim, bonus, franquia, franquias, coberturas, assist, app, corretor, custo}`. **Placa, chassi,
   renavam, nº/item da apólice e o custo do seguro** (`CAR_SEC`) vão num item das **Senhas da casa** (`vault`, `kind: "seguro"`,
@@ -327,6 +328,19 @@ sem framework: HTML, CSS e JavaScript puros.
   Senhas da casa fechadas (2.21.1): `Cars.abrirCasa(motivo)` destranca ali mesmo, sem trocar de tela (nuvem: `PinUnico.pedir`, PIN
   ou digital; local: senha principal); `null` = não há Senhas da casa para abrir aqui → `Cars.irParaCasa()`. Usado no "📥 Trazer"
   (depois de escolher e conferir o arquivo) e no botão 🔓 da ficha (`car.abrircasa`); contato de emergência vai à tela com o código. Ajuda `HELP().veiculos`. Teste: `teste/veiculos-omni.js`.
+- `Vida` (2.22.0) — **🔧 Vida do carro**: tudo o que foi feito no carro. Cada serviço é um registro de `maint` com `tipo: "servico"`
+  (`veiculo`, `d`, `km`, `oficina`, `itens: [{ n, v }]`, `cost`, `files`, `orc`, `mtEnviado`); `Maint.list()` **não** mostra esses
+  registros (Casa → Manutenção continua só com o que se repete). `Vida.linha(carId)` junta os serviços (sem orçamentos) e o
+  histórico das manutenções ligadas ao carro (a entrada com `servico: <id>` não conta duas vezes). **Foto da nota**
+  (`Vida.lerFoto`, no `DGO.fundo`, resultado em `aoAbrir`): OCR no aparelho (`OCR.read`, PDF por `ShopImport.pdf`) →
+  `Vida.mascarar` (placa, chassi, CPF/renavam, e-mail, telefone, nomes da família, linhas de cliente e endereço; com as Senhas
+  da casa abertas, também os valores exatos do carro) → IA só com texto (`AI.ask0`, JSON; a foto nunca vai) ou `Vida.local` sem IA
+  → `Vida.editar` (a pessoa confere). **Serviço repetido**: `CAR_PECAS` dá uma chave por peça (o mais específico primeiro);
+  `Vida.repetidos` acha a última vez (até 2 anos) e `avisoHtml` mostra ⚠️ até 180 dias e a garantia de 90 dias (CDC). Salvar:
+  km do carro sobe (`km`, `kmEm`), "Esta foi a revisão programada" recalcula a revisão (data e `ultKm`), MoneyTRIO uma vez
+  (`mtEnviado`). **Revisão por km** (#53): `cadaKm`/`ultKm` na manutenção do carro (`Maint.edit`/`done`); `Vida.revisao(c)`.
+  `Vida.saude(c)`: revisão, seguro, km, o que foi feito em 90 dias e gastos de 12 meses (resumo, não diagnóstico). Teste:
+  `teste/vida-carro-omni.js`.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento. Na tela (2.15.3), `LOG_COL` dá o
   nome da parte do app ("Lista de compras", "Pessoas") e `logLegivel()` mostra os valores em vez do JSON; o CSV continua completo.
 - `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Desde a 2.15.0 o código de emergência abre o cofre da nuvem (envelope `_em` com a chave do cofre; ver `Cofre`); quando o acesso é liberado, o `poll` refaz a cópia para o contato receber o cofre cifrado.
