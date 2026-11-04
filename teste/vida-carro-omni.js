@@ -87,7 +87,7 @@ const salvar = async (p) => { await p.click('.modal:has([name="itens"]) [data-ok
     window.__foto = new File([b], 'nota.jpg', { type: 'image/jpeg' });
     Files.pick = async () => [window.__foto];
     const d = addDays(today(), -5); window.__d5 = d;
-    OCR.read = async () => a.texto.replace('DATA', d.split('-').reverse().join('/'));
+    OCR.read = async (f, cb, semTarefa) => { window.__semTarefa = semTarefa; return a.texto.replace('DATA', d.split('-').reverse().join('/')); };
     AI.on = () => true; Net.canAI = () => true;
     AI.ask0 = async (prompt, imgs) => { window.__prompt = prompt; window.__imgs = (imgs || []).length; return { tipo: 'nota', data: d, km: 49500, oficina: 'Auto Center Exemplo', itens: [{ nome: 'Troca de óleo', tipo: 'servico', valor: 250 }, { nome: 'Filtro de óleo', tipo: 'peca', valor: 60 }, { nome: 'Pastilhas de freio', tipo: 'peca', valor: 300 }], total: 610 }; };
   }, { texto: TEXTO });
@@ -97,6 +97,7 @@ const salvar = async (p) => { await p.click('.modal:has([name="itens"]) [data-ok
   const pr = await p.evaluate(() => window.__prompt || '');
   conferir(!!pr && ![PLACA, CHASSI, CPF, '91234-5678', 'Fulano', 'Mentiroso'].some((x) => pr.includes(x)) && /\[placa\]/.test(pr) && /\[chassi\]/.test(pr), 'para a IA vai só o texto, sem placa, chassi, CPF, telefone e nome do cliente');
   conferir(await p.evaluate(() => window.__imgs) === 0, 'a foto em si não vai para a IA');
+  conferir(await p.evaluate(() => window.__semTarefa) === true, 'a leitura da foto roda dentro do trabalho em segundo plano (sem outra tarefa que puxe a pessoa de volta)');
   const lido = await p.evaluate(() => ({ km: document.querySelector('.modal [name="km"]').value, of: document.querySelector('.modal [name="oficina"]').value, it: document.querySelector('.modal [name="itens"]').value, sub: document.querySelector('.modal [name="mtsub"]').value, ia: /Lido com a IA/.test(document.querySelector('.modal').textContent) }));
   conferir(lido.km === '49500' && lido.of === 'Auto Center Exemplo' && /Troca de óleo: 250,00/.test(lido.it) && lido.ia, 'a janela vem preenchida com o que foi lido (km, oficina, itens com valor)');
   conferir(lido.sub === 'Revisao Periodica', 'troca de óleo e filtro: sugere "Revisao Periodica" no MoneyTRIO');
@@ -160,6 +161,65 @@ const salvar = async (p) => { await p.click('.modal:has([name="itens"]) [data-ok
   await foto(p, '02-ficha-com-vida', '.card:has([data-act="vida.foto"])');
   await p.evaluate(() => go('cars')); await p.waitForTimeout(300);
   await foto(p, '01-aba-veiculos');
+
+
+  /* ---------- achados da revisão de código (04/Nov/2026), num segundo carro ---------- */
+  const c2 = await p.evaluate(async () => {
+    const c = await DB.put('places', { kind: 'veiculo', parent: '', name: 'Segundo carro', carro: {}, seguro: {}, km: 61000 });
+    const r = await DB.put('maint', { title: 'Revisão programada', cat: 'carro', interval: 365, last: addDays(today(), -400), next: addDays(today(), -35), nextManual: false, veiculo: c.id, cadaKm: 10000, ultKm: 47700, history: [] });
+    return { car: c.id, rev: r.id };
+  });
+  const novo2 = async () => { await p.evaluate((id) => { ACT['vida.new']({ id }); }, c2.car); await formAberto(p, 'Anotar serviço'); };
+  const descartar = async () => { await p.click('.modal:has([name="itens"]) .mf [data-x]'); if (await p.waitForSelector('.sj-pergunta[open]', { timeout: 2000 }).then(() => true, () => false)) await p.click('[data-sj=descartar]'); await p.waitForTimeout(300); };
+  await novo2();
+  await p.fill('.modal [name="d"]', await p.evaluate(() => addDays(today(), -30)));
+  await p.fill('.modal [name="km"]', '62.300'); await p.fill('.modal [name="itens"]', 'Embreagem: 1890,00\nMão de obra: 300,00');
+  await p.setChecked('.modal [name="mt"]', false); await salvar(p);
+  let e1 = await p.evaluate((id) => { const s = Vida.servicos(id)[0]; return { id: s.id, cost: s.cost, v: s.itens[0].v, km: s.km, car: DB.get('places', id).km }; }, c2.car);
+  conferir(e1.cost === 2190 && e1.v === 1890, 'item de R$ 1.890 (escrito "1890,00") guarda o valor certo e entra no total');
+  conferir(e1.km === 62300 && e1.car === 62300, 'km escrita com ponto ("62.300") vira 62.300 km, não 62');
+  await p.evaluate((id) => { ACT['vida.edit']({ id }); }, e1.id); await formAberto(p, 'Embreagem');
+  conferir(/Embreagem: 1\.890,00/.test(await p.evaluate(() => document.querySelector('.modal [name="itens"]').value)), 'ao abrir de novo, aparece "Embreagem: 1.890,00"');
+  await salvar(p);
+  e1 = await p.evaluate((id) => { const s = DB.get('maint', id); return { cost: s.cost, v: s.itens[0].v }; }, e1.id);
+  conferir(e1.cost === 2190 && e1.v === 1890, 'salvar de novo não estraga o valor de R$ 1.890');
+  await novo2();
+  await p.fill('.modal [name="itens"]', 'Bateria: 500,00\nMão de obra: 80,00'); await p.waitForTimeout(500);
+  conferir(!/Mão de obra/.test(await p.evaluate(() => document.querySelector('#vidarep').textContent)), '"Mão de obra" (que toda nota tem) não acusa serviço repetido');
+  await descartar();
+  /* revisão feita sem km: conta da km do carro e não fica "atrasada" */
+  await novo2();
+  await p.fill('.modal [name="itens"]', 'Revisão completa: 900,00'); await p.waitForTimeout(400); await p.setChecked('.modal [name="mt"]', false);
+  await salvar(p);
+  const sr = await p.evaluate((a) => { const s = Vida.servicos(a.car).find((x) => x.cost === 900); const rv = Vida.revisao(DB.get('places', a.car)); return { id: s.id, ult: DB.get('maint', a.rev).ultKm, passou: rv.kmPassou, dias: rv.dias }; }, c2);
+  conferir(sr.ult === 62300 && !sr.passou && sr.dias > 300, 'revisão feita sem km: a contagem recomeça da km do carro (não aparece "atrasada")');
+  const hist = () => p.evaluate((a) => ({ n: (DB.get('maint', a.rev).history || []).filter((h) => h.servico === a.sid).length, linha: Vida.linha(a.car).filter((x) => x.valor === 900).length }), Object.assign({ sid: sr.id }, c2));
+  await p.evaluate((id) => { ACT['vida.edit']({ id }); }, sr.id); await formAberto(p, 'Revisão'); await salvar(p);
+  let h = await hist();
+  conferir(h.n === 1 && h.linha === 1, 'salvar a revisão de novo não repete a linha no histórico');
+  await p.evaluate((id) => { ACT['vida.edit']({ id }); }, sr.id); await formAberto(p, 'Revisão');
+  await p.selectOption('.modal [name="tipo"]', 'orcamento'); await salvar(p);
+  h = await hist();
+  conferir(h.n === 0 && h.linha === 0, 'virou orçamento: sai do histórico da revisão e dos gastos');
+  await p.evaluate((id) => { ACT['vida.edit']({ id }); }, sr.id); await formAberto(p, 'Revisão');
+  await p.selectOption('.modal [name="tipo"]', 'nota'); await p.setChecked('.modal [name="rev"]', true); await salvar(p);
+  conferir((await hist()).n === 1, 'voltou a "Serviço feito": a linha volta (uma vez)');
+  await p.evaluate((id) => { ACT['vida.edit']({ id }); }, sr.id); await formAberto(p, 'Revisão');
+  await p.click('.modal [data-del]'); await p.waitForSelector('.modal [data-yes]', { timeout: 4000 }); await p.click('.modal [data-yes]'); await p.waitForTimeout(500);
+  h = await hist();
+  conferir(h.n === 0 && h.linha === 0 && !(await p.evaluate((id) => !!DB.get('maint', id), sr.id)), 'apagado: some da Vida do carro e do histórico da revisão');
+  /* nomes das peças */
+  const ch = await p.evaluate(() => ({ al: Vida.chave('Alinhamento dos pneus'), ba: Vida.chave('Balanceamento de pneus'), pn: Vida.chave('Pneu novo'), rf: Vida.chave('Revisão dos freios'), rv: Vida.chave('6ª Revisão'), ca: Vida.chave('Coxim do amortecedor'), cm: Vida.chave('Coxim do motor'), mo: Vida.chave('Mão de obra troca do coxim') }));
+  conferir(ch.al === 'alinhamento' && ch.ba === 'balanceamento' && ch.pn === 'pneu', 'alinhamento e balanceamento "dos pneus" não contam como troca de pneu');
+  conferir(ch.rf !== 'revisao' && ch.rv === 'revisao', '"Revisão dos freios" não é a revisão programada');
+  conferir(ch.ca !== ch.cm && ch.mo === 'coxim', 'coxim do amortecedor ≠ coxim do motor; "Mão de obra troca do coxim" conta como coxim');
+  /* o que sai do texto antes da IA, e o que fica */
+  const T2 = 'AUTO CENTER EXEMPLO LTDA\nEnd.: Rua das Flores, 123  Bairro: Centro\nCliente: ANDRE SOUZA   Data: 05/10/2026   KM: 49.500\nPlaca: ' + PLACA + ' Chassi ' + CHASSI + ' Renavam 01234567890\nAndré e Ângela levaram o carro\nOleo SAE 5W30 sintetico 250,00\nKit embreagem 1250,00\nCOM 1500 km de garantia\nFILTRO DO MOTOR 60,00\nRADIADOR 1.890,00\nSubtotal 3.450,00\nDesconto 50,00\nTotal geral 3.400,00';
+  const mk = await p.evaluate((t) => { const o = People.list; People.list = () => [{ name: 'André Ângela' }]; try { const m = Vida.mascarar(t); return { m, l: Vida.local(m) }; } finally { People.list = o; } }, T2);
+  conferir(!/Rua das Flores|Centro\b/.test(mk.m) && !/ANDRE|SOUZA|André|Ângela/.test(mk.m) && ![PLACA, CHASSI, '01234567890'].some((x) => mk.m.includes(x)), 'saem do texto: endereço ("End.:"), nome do cliente, nomes com acento, placa, chassi e renavam');
+  conferir(/Data: 05\/10\/2026/.test(mk.m) && /KM: 49\.500/.test(mk.m) && /5W30/.test(mk.m) && /1250,00/.test(mk.m) && /1500 km/.test(mk.m), 'ficam: a data e a km da linha do cliente, "SAE 5W30", "1250,00" e "1500 km"');
+  conferir(mk.l.total === 3400 && mk.l.d === '2026-10-05' && mk.l.km === 49500, 'sem IA: o total é o "Total geral" (não o Subtotal), com a data e a km');
+  conferir(mk.l.itens.some((x) => x.n === 'FILTRO DO MOTOR') && mk.l.itens.some((x) => x.n === 'RADIADOR' && x.v === 1890) && mk.l.itens.some((x) => x.n === 'Kit embreagem' && x.v === 1250), 'sem IA: nomes inteiros ("FILTRO DO MOTOR", "RADIADOR") e valores de milhar certos');
 
   /* ---------- EN ---------- */
   await p.evaluate((id) => { S.lang = 'en'; go('cars', 'vida', id); }, ids.car); await p.waitForTimeout(500);
