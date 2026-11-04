@@ -6,7 +6,8 @@
      - com segredo guardado: PIN ao abrir e ao recarregar ("Agora não" deixa trancado); tranca ao sair do app,
        sem uso e escondido; o Modo Vigilante ligado conta como trabalho em andamento (não tranca por falta de uso)
      - a chave guardada nunca vem para o campo: "✓ guardado" e "Mostrar a chave guardada" (pede o PIN, some em 30 s)
-     - o painel da digital aparece na tela de chaves do módulo (o app não encaixa painel próprio)
+     - "Abrir a tela do cofre" tranca e pede o PIN; depois, o painel da digital aparece na tela de chaves do módulo
+       (o app não encaixa painel próprio)
    Uso: node teste/rodar.js */
 const fs = require('fs'), path = require('path');
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
@@ -137,7 +138,10 @@ function encurtar() {
     await p.click('[data-sj=descartar]'); await esperar(450);
 
     /* ---------- 4. o painel da digital está na tela de chaves do módulo ---------- */
-    await p.click('[data-act="cofre.tela"]'); await esperar(700);
+    /* 2.21.2: chaves abertas por outro motivo não ligam a digital nem mostram chave sem PIN — a tela tranca e pede o PIN */
+    await p.click('[data-act="cofre.tela"]');
+    conferir(await esperarPin(), '"Abrir a tela do cofre" tranca as chaves e pede o PIN antes');
+    await digitarPin(); await esperar(700);
     const painel = await ev(() => { const d = document.querySelector('dialog.sj[open] .dgo-cofre-digital'); return d ? d.textContent.trim().length : -1; });
     conferir(painel > 0, 'o painel da digital aparece na tela de chaves do módulo (texto: ' + painel + ' letras)');
     conferir(await ev(() => !!document.querySelector('dialog.sj[open].dgo-modal')), 'a tela do cofre é a janela do módulo comum');
