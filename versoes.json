@@ -1,5 +1,20 @@
 [
  {
+  "v": "2.21.2",
+  "d": "2026-11-03",
+  "hora": "21:42:00",
+  "pt": [
+   "🔐 Mais proteção no PIN único: trocar o PIN, ligar a digital e fazer um código de recuperação novo agora pedem o PIN de agora (ou a digital), mesmo com as Senhas da casa abertas. Assim, quem pegar o celular destravado não consegue trocar o seu PIN.",
+   "🔒 Sair da conta e \"Trancar o cofre agora\" trancam também as chaves de IA. Com o PIN único, a tela antiga do cofre de chaves não aparece mais; quem tinha ligado a digital nela pode desligar em ⚙ → IA.",
+   "🧩 \"Esqueci o PIN\": se você desistir, nada do que estava aberto se perde. Trocar o endereço do serviço \"Personalizado\" com chave guardada pede o PIN."
+  ],
+  "en": [
+   "🔐 More protection for the single PIN: changing the PIN, turning on the fingerprint and making a new recovery code now ask for your current PIN (or fingerprint), even with the home passwords open. So someone holding your unlocked phone can't change your PIN.",
+   "🔒 Signing out and \"Lock the vault now\" also lock the AI keys. With the single PIN, the old key-vault screen no longer shows; anyone who turned on its fingerprint can turn it off in ⚙ → AI.",
+   "🧩 \"Forgot the PIN\": if you give up, nothing that was open is lost. Changing the address of the \"Custom\" service with a saved key asks for the PIN."
+  ]
+ },
+ {
   "v": "2.21.1",
   "d": "2026-11-03",
   "hora": "19:58:33",
