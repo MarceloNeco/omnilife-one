@@ -77,7 +77,10 @@ const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofr
   conferir(await mostrando === CHAVE, '5. PIN certo: mostra');
 
   /* 6. trocar o PIN das Senhas da casa */
-  await p.evaluate(async (novo) => { Cofre.pedirNovoPin = async () => novo; await Cofre.trocarPin(); }, PIN_NOVO);
+  /* desde os reforços, trocar o PIN pede antes o PIN de agora (ver pin-reforcos-omni.js) */
+  const trocando6 = p.evaluate(async (novo) => { Cofre.pedirNovoPin = async () => novo; await Cofre.trocarPin(); }, PIN_NOVO);
+  await p.waitForSelector('.modal #ppin', { timeout: 6000 }); await p.fill('.modal #ppin', PIN); await p.click('.modal:has(#ppin) [data-ok]');
+  await trocando6;
   await p.waitForTimeout(300);
   await tranca(p);
   const r6 = await p.evaluate(async (a) => [await SolverCofre.abrir(a.velho).then(() => 'abriu', (e) => e.message), await SolverCofre.trancar(), await SolverCofre.abrir(a.novo).then(() => 'abriu', (e) => e.message)], { velho: PIN, novo: PIN_NOVO });
