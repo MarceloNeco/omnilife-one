@@ -336,9 +336,15 @@ sem framework: HTML, CSS e JavaScript puros.
   `Vida.mascarar` (placa, chassi, CPF/renavam, e-mail, telefone, nomes da família, linhas de cliente e endereço; com as Senhas
   da casa abertas, também os valores exatos do carro) → IA só com texto (`AI.ask0`, JSON; a foto nunca vai) ou `Vida.local` sem IA
   → `Vida.editar` (a pessoa confere). **Serviço repetido**: `CAR_PECAS` dá uma chave por peça (o mais específico primeiro);
-  `Vida.repetidos` acha a última vez (até 2 anos) e `avisoHtml` mostra ⚠️ até 180 dias e a garantia de 90 dias (CDC). Salvar:
-  km do carro sobe (`km`, `kmEm`), "Esta foi a revisão programada" recalcula a revisão (data e `ultKm`), MoneyTRIO uma vez
-  (`mtEnviado`). **Revisão por km** (#53): `cadaKm`/`ultKm` na manutenção do carro (`Maint.edit`/`done`); `Vida.revisao(c)`.
+  `Vida.repetidos` acha a última vez (até 2 anos; linhas genéricas como "Mão de obra" não contam — `Vida.generico`) e
+  `avisoHtml` mostra ⚠️ até 180 dias e a garantia de 90 dias (CDC). A revisão programada se reconhece por `Vida.ehRevisao`
+  (PT e EN; "revisão dos freios" não). Valores: `Vida.valor` (milhar com ponto ou vírgula), `itensDe` (traço só separa com
+  espaço; desconto negativo), `soma` (sem Subtotal/Total); km: `kmDe`. Salvar: `kmCarro` (sobe a km do carro; se a km veio
+  deste serviço e ele foi corrigido, virou orçamento ou foi apagado, volta para a maior dos outros), "Esta foi a revisão
+  programada" recalcula a revisão e guarda na linha do histórico o que ela mudou (`antes`); `soltarRevisao` tira a linha e
+  devolve a revisão como estava. Total só fica fixo se foi escrito (`totalManual`). Foto da nota: `Files.save` trancada
+  (`vis` restrito, cifrada) e mostrada (📎) na janela do serviço. Data de serviço feito no futuro não salva. Criança só vê.
+  MoneyTRIO uma vez (`mtEnviado`) e só se o registro foi gravado. Cancelar a leitura (✕) para antes da IA. **Revisão por km** (#53): `cadaKm`/`ultKm` na manutenção do carro (`Maint.edit`/`done`); `Vida.revisao(c)`.
   `Vida.saude(c)`: revisão, seguro, km, o que foi feito em 90 dias e gastos de 12 meses (resumo, não diagnóstico). Teste:
   `teste/vida-carro-omni.js`.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento. Na tela (2.15.3), `LOG_COL` dá o

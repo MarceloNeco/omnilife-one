@@ -6640,12 +6640,13 @@ const Load = {
     const ppl = People.list("humans"); const res = {};
     ppl.forEach((p) => (res[p.id] = { plan: 0, exec: 0, cats: {} }));
     const add = (pid, k, cat) => { if (!pid || !res[pid]) return; res[pid][k]++; if (cat) res[pid].cats[cat] = (res[pid].cats[cat] || 0) + 1; };
-    ["tasks", "events", "shop", "maint", "contacts", "docs", "routine", "items", "guides", "things"].forEach((c) => DB.raw(c).forEach((d) => { if (d.createdAt >= from && !d.virtual) add(d.createdBy, "plan", c); }));
+    ["tasks", "events", "shop", "maint", "contacts", "docs", "routine", "items", "guides", "things"].forEach((c) => DB.raw(c).forEach((d) => { if (d.createdAt >= from && !d.virtual && !(c === "maint" && d.tipo === "servico")) add(d.createdBy, "plan", c); }));
     DB.raw("requests").forEach((r) => { if (r.decidedAt && r.decidedAt >= from) add(r.decidedBy, "plan", "requests"); });
     DB.raw("tasks").forEach((t) => { if (t.done && t.doneAt >= from) add(t.doneBy, "exec", t.cat || "outro"); });
     DB.raw("shop").forEach((s) => { if (s.done && s.doneAt >= from) add(s.doneBy, "exec", "compras"); });
     DB.raw("purchases").forEach((p) => { if ((p.createdAt || p.date) >= from) { add(p.by, "exec", "compras"); res[p.by] && (res[p.by].exec += Math.floor((p.items || []).length / 4)); } });
-    DB.raw("maint").forEach((m) => (m.history || []).forEach((h) => { if (h.d >= from.slice(0, 10)) add(h.by, "exec", "casa"); }));
+    /* serviço do carro feito (Vida do carro) conta como execução; a linha da revisão que veio dele não conta de novo */
+    DB.raw("maint").forEach((m) => { if (m.tipo === "servico") { if (!m.orc && (m.d || "") >= from.slice(0, 10)) add(m.createdBy, "exec", "casa"); return; } (m.history || []).forEach((h) => { if (!h.servico && h.d >= from.slice(0, 10)) add(h.by, "exec", "casa"); }); });
     return res;
   }
 };
@@ -7827,14 +7828,15 @@ const CAR_PECAS = () => [
   ["filtro-comb", /filtro\s+(de\s+|do\s+)?combust/, tt("Filtro de combustível", "Fuel filter")],
   ["filtro-ar", /filtro\s+(de\s+|do\s+)?ar\b/, tt("Filtro de ar do motor", "Engine air filter")],
   ["oleo-cambio", /(oleo|fluido)\s+(de\s+|do\s+)?cambio/, tt("Óleo do câmbio", "Transmission fluid")],
+  ["fluido-freio", /(fluido|oleo)\s+(de\s+|do\s+)?freio/, tt("Fluido de freio", "Brake fluid")],
+  ["direcao-hidraulica", /direcao\s+hidraulica|(fluido|oleo)\s+(de\s+|da\s+)?direcao/, tt("Direção hidráulica", "Power steering")],
   ["oleo", /\boleo\b|lubrifica/, tt("Troca de óleo", "Oil change")],
-  ["coxim-amortecedor", /coxi[mn]\s+(do\s+|de\s+|dos\s+)?amortecedor/, tt("Coxim do amortecedor", "Strut mount")],
-  ["coxim-cambio", /coxi[mn]\s+(do\s+|de\s+)?cambio/, tt("Coxim do câmbio", "Transmission mount")],
+  ["coxim-amortecedor", /coxi[mn]\b.*\bamortec|\bamortec.*\bcoxi[mn]|kit\s+(do\s+)?amortecedor/, tt("Coxim do amortecedor", "Strut mount")],
+  ["coxim-cambio", /coxi[mn]\b.*\bcambio|\bcambio.*\bcoxi[mn]/, tt("Coxim do câmbio", "Transmission mount")],
   ["coxim", /coxi[mn]/, tt("Coxim do motor", "Engine mount")],
   ["embreagem", /embreagem/, tt("Embreagem", "Clutch")],
   ["pastilha", /pastilha/, tt("Pastilhas de freio", "Brake pads")],
   ["disco", /disco/, tt("Discos de freio", "Brake discs")],
-  ["fluido-freio", /fluido\s+(de\s+|do\s+)?freio/, tt("Fluido de freio", "Brake fluid")],
   ["correia-dentada", /correia\s+dentada|kit\s+(de\s+)?distribuicao/, tt("Correia dentada", "Timing belt")],
   ["correia", /correia/, tt("Correia", "Belt")],
   ["amortecedor", /amortecedor/, tt("Amortecedores", "Shock absorbers")],
@@ -7842,9 +7844,10 @@ const CAR_PECAS = () => [
   ["alinhamento", /alinhamento/, tt("Alinhamento", "Wheel alignment")],
   ["balanceamento", /balanceamento/, tt("Balanceamento", "Wheel balancing")],
   ["rodizio", /rodizio/, tt("Rodízio dos pneus", "Tyre rotation")],
-  ["pneu", /\bpneus?\b/, tt("Pneus", "Tyres")],
+  /* calibrar ou consertar pneu não é trocar pneu */
+  ["pneu", /^(?!.*\b(calibr|consert|reparo|remendo|furad|valvula|bico))(?=.*\bpneus?\b)/, tt("Pneus", "Tyres")],
   ["vela", /\bvelas?\b/, tt("Velas", "Spark plugs")],
-  ["arrefecimento", /arrefecimento|aditivo|radiador/, tt("Radiador e aditivo", "Radiator and coolant")],
+  ["arrefecimento", /arrefecimento|radiador|aditivo\s+(do\s+|de\s+|para\s+)?(radiador|arrefec)/, tt("Radiador e aditivo", "Radiator and coolant")],
   ["palheta", /palheta/, tt("Palhetas do limpador", "Wiper blades")],
   ["bieleta", /bieleta/, tt("Bieletas", "Stabilizer links")],
   ["bandeja", /bandeja/, tt("Bandeja da suspensão", "Control arm")],
@@ -7853,11 +7856,11 @@ const CAR_PECAS = () => [
   ["homocinetica", /homocinetica/, tt("Junta homocinética", "CV joint")],
   ["rolamento", /rolamento/, tt("Rolamento", "Wheel bearing")],
   ["ar-condicionado", /ar[\s-]?condicionado|higieniza/, tt("Ar-condicionado", "Air conditioning")],
-  /* "revisão dos freios" não é a revisão programada */
-  ["revisao", /^(?!.*\brevisao\s+d[eoa]s?\s+(freio|suspensao|ar\b|eletric|embreagem|direcao|cambio|pneu|bateria))(?=.*\brevisao\b)/, tt("Revisão", "Service")]
+  /* "revisão (geral) dos freios" não é a revisão programada; em inglês, "car service"/"scheduled service" é */
+  ["revisao", /^(?!.*\brevisao\s+(?:\S+\s+){0,3}?(freios?|suspensao|ar\b|ar[\s-]?condicionado|eletric|embreagem|direcao|cambio|pneus?|bateria))(?=.*\b(revisao|car service|scheduled service|servicing)\b)/, tt("Revisão", "Service")]
 ];
-/* km escrita como "49.500" ou "49500" (o ponto é de milhar; o que vier depois de vírgula não conta) */
-const kmDe = (v) => Math.round(+String(v == null ? "" : v).split(",")[0].replace(/\D/g, "")) || "";
+/* km escrita como "49.500", "49500" ou "49,500" (ponto ou vírgula de milhar); só vírgula com 1 ou 2 números no fim é decimal */
+const kmDe = (v) => typeof v === "number" ? Math.round(v) || "" : Math.round(+String(v == null ? "" : v).replace(/,\d{1,2}\s*(km)?\s*$/i, "").replace(/\D/g, "")) || "";
 const kmTxt = (n) => Math.round(+n).toLocaleString(S.lang === "en" ? "en-US" : "pt-BR") + " km";
 const Vida = {
   /* serviços e orçamentos guardados (mais novo primeiro) */
@@ -7875,6 +7878,10 @@ const Vida = {
   },
   /* linhas que toda nota tem e não dizem o que foi trocado ("Mão de obra", "Peças"); "Mão de obra do coxim" diz */
   generico(nome) { const n = norm(nome).replace(/\s+/g, " "); return /^(mao de obra|pecas?|servicos?|materia(l|is)|diversos|outros|insumos|descontos?|frete|taxas?|total|subtotal)\b/.test(n) && !CAR_PECAS().some((x) => x[1].test(n)); },
+  /* a revisão programada se reconhece pelo próprio padrão (não pela 1ª chave: "Revisão + troca de óleo" também é) */
+  ehRevisao(t) { return CAR_PECAS().find((x) => x[0] === "revisao")[1].test(norm(t).replace(/\s+/g, " ")); },
+  ehTotal(n) { return /^(sub)?total\b/.test(norm(n)); },
+  soma(itens) { return Math.round((itens || []).filter((x) => !this.ehTotal(x.n)).reduce((s, x) => s + (+x.v || 0), 0) * 100) / 100; },
   chave(nome) { const n = norm(nome).replace(/\s+/g, " "); const p = CAR_PECAS().find((x) => x[1].test(n)); return p ? p[0] : n; },
   /* a última vez que cada item já foi feito neste carro (até a data do serviço novo) */
   repetidos(carId, itens, d, ignorar) {
@@ -7897,12 +7904,16 @@ const Vida = {
   /* "Nome: 350,00" (uma linha por item) ↔ [{ n, v }] */
   itensDe(txt) {
     return String(txt || "").split(/\n+/).map((l) => l.trim()).filter(Boolean).slice(0, 40).map((l) => {
-      const m = l.match(/^(.*?)\s*[:=–—-]\s*(?:R\$\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*$/);
-      return m && m[1] ? { n: m[1].trim().slice(0, 80), v: this.valor(m[2]) } : { n: l.slice(0, 80), v: 0 };
+      /* traço só separa com espaço ("Óleo 5W-30" é nome); "-50,00" ou "Desconto" = valor negativo */
+      const m = l.match(/^(.*?)(?:\s*[:=]|\s+[–—-]|[–—-]\s+)\s*(?:R\$\s*)?(-\s*)?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*$/);
+      if (!m || !m[1].trim()) return { n: l.slice(0, 80), v: 0 };
+      const n = m[1].trim().replace(/[:=\s]+$/, "").slice(0, 80); let v = this.valor(m[3]);
+      if (m[2] || /desconto|abatimento/i.test(n)) v = -Math.abs(v);
+      return { n, v };
     }).filter((x) => x.n);
   },
-  /* "1.890,00", "1890,00", "1.890" e "18.90" → número (no Brasil o ponto com 3 números depois é de milhar) */
-  valor(t) { t = String(t || "").replace(/R\$\s*/g, "").trim(); if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(t)) t = t.replace(/\./g, ""); return parseNum(t.replace(",", ".")) || 0; },
+  /* "1.890,00", "1890,00", "1.890", "18.90" e "1,890.00" → número (ponto ou vírgula com 3 números depois é de milhar) */
+  valor(t) { if (typeof t === "number") return t; t = String(t || "").replace(/R\$\s*/g, "").trim(); if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(t)) t = t.replace(/\./g, ""); else if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(t)) t = t.replace(/,/g, ""); return parseNum(t.replace(",", ".")) || 0; },
   itensTexto(itens) { return (itens || []).map((x) => x.n + (+x.v ? ": " + (+x.v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "")).join("\n"); },
   titulo(itens) { const n = (itens || []).map((x) => x.n).filter((x) => !this.generico(x)); return (n.slice(0, 3).join(", ") || tt("Serviço no carro", "Car service")).slice(0, 120); },
   /* tira do texto o que é pessoal antes de ir para a IA: os dados deste carro (se as Senhas da casa estiverem abertas),
@@ -7913,7 +7924,11 @@ const Vida = {
     const tira = (re, troca) => { t = t.replace(re, troca); };
     const lit = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     /* a mesma palavra com ou sem acento ("André", "ANDRE"); sem \b, que não funciona com letra acentuada */
-    const solto = (w) => new RegExp("(?<![\\p{L}\\d])" + norm(w).split("").map((ch) => ({ a: "[aáàâãä]", e: "[eéèêë]", i: "[iíìîï]", o: "[oóòôõö]", u: "[uúùûü]", c: "[cç]", n: "[nñ]" })[ch] || lit(ch)).join("") + "(?![\\p{L}\\d])", "giu");
+    const letras = (w) => norm(w).split("").map((ch) => ({ a: "[aáàâãä]", e: "[eéèêë]", i: "[iíìîï]", o: "[oóòôõö]", u: "[uúùûü]", c: "[cç]", n: "[nñ]" })[ch] || lit(ch)).join("");
+    const solto = (ws) => new RegExp("(?<![\\p{L}\\d])" + ws.map(letras).join("\\s+") + "(?![\\p{L}\\d])", "giu");
+    /* valor que é da oficina (fica: a leitura precisa do nome dela) */
+    const negocio = (v) => /ltda|\bme\b|eireli|s\/?a\b|auto\s?(center|pe[cç]as)|mec[aâ]nica|oficina|concession|centro\s+automotivo/i.test(v);
+    const DATA = "\\b\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}\\b";
     if (sec) ["placa", "chassi", "renavam", "number"].forEach((k) => {
       const v = String(sec[k] || "").replace(/[\s.\-]/g, ""); if (v.length < 5) return;
       tira(new RegExp(v.split("").map(lit).join("[\\s.\\-]?"), "gi"), "[" + (k === "number" ? tt("apólice", "policy") : k) + "]");
@@ -7926,30 +7941,57 @@ const Vida = {
     /* placa: só maiúsculas, no formato antigo (ABC-1234, ABC1234) ou Mercosul (ABC1D23) e sem vírgula depois (não pega
        "SAE 5W30", "KIT 1250,00" nem "com 1500 km") */
     tira(/\b[A-Z]{3}(?:-?\d{4}|\d[A-Z]\d{2})\b(?![,.]\d)/g, "[placa]");
-    tira(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b|\b\d{11}\b/g, "[cpf]");
+    /* CPF com ou sem pontos/espaços; o CNPJ só depois de "CPF/CNPJ" (campo do cliente; o CNPJ da oficina fica) */
+    tira(/(\bcpf\s*\/\s*cnpj\s*:?\s*)\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/gi, "$1[cnpj]");
+    tira(/\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-.\s]?\d{2}\b/g, "[cpf]");
     tira(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[e-mail]");
-    tira(/\(\d{2}\)\s?9?\d{4}[\s-]?\d{4}\b|\b\d{2}\s9?\d{4}-\d{4}\b|\b9?\d{4}-\d{4}\b/g, "[telefone]");
-    /* nome do cliente: só até o próximo campo da mesma linha ("Cliente: X   Data: 05/10   KM: 49.500") */
-    tira(/(\b(?:cliente|nome|propriet[aá]rio|respons[aá]vel|motorista|sra?\.)(?:\s+do\s+cliente)?\s*:?\s*)[^\n]*?(?=\s{2,}|\s+[\p{L}.]{2,}\s*:|$)/gimu, "$1[nome]");
-    tira(/((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)\s*:?\s*)[^\n]*?(?=\s{2,}|\s+[\p{L}.]{2,}\s*:|$)/gimu, "$1[endereço]");
-    try { People.list().forEach((p) => String(p.name || "").split(/\s+/).filter((w) => norm(w).length >= 4).forEach((w) => tira(solto(w), "[nome]"))); } catch (e) {}
+    tira(/(\b(?:tel(?:efone)?|fone|cel(?:ular)?|whats\s?app|contato)\b\.?\s*:?\s*)(?:\+?55\s*)?\(?\d{2}\)?[\s.-]?9?\s?\d{4}[\s.-]?\d{4}\b/gi, "$1[telefone]");
+    tira(/\(\d{2}\)\s?9?\d{4}[\s-]?\d{4}\b|\b\d{2}\s9?\s?\d{4}[\s-]\d{4}\b|\b9?\d{4}-\d{4}\b/g, "[telefone]");
+    /* nota fiscal (DANFE/NFS-e): o rótulo numa linha ("NOME / RAZÃO SOCIAL ... CPF ... DATA") e o valor na de baixo */
+    tira(/^([^\n:]*\b(?:raz[aã]o\s+social|destinat[aá]rio|tomador)\b[^\n:]*\n)(?!\[)([^\n]+)$/gimu, (m0, cab, val) => {
+      if (negocio(val)) return m0; const k = val.search(new RegExp("\\[(cpf|cnpj)\\]|" + DATA)); return cab + "[nome]" + (k > 0 ? " " + val.slice(k) : "");
+    });
+    tira(/^([^\n:]*\bendere[cç]o\b[^\n:]*\n)(?!\[)([^\n]+)$/gimu, (m0, cab, val) => { const k = val.search(new RegExp(DATA)); return cab + "[endereço]" + (k > 0 ? " " + val.slice(k) : ""); });
+    /* nome do cliente na mesma linha: só até o próximo campo ("Cliente: X   Data: 05/10   KM: 49.500") */
+    const ROT = "(?<!\\[)(\\b(?:cliente|nome(?:\\s*\\/\\s*raz[aã]o\\s+social)?|raz[aã]o\\s+social|destinat[aá]rio|tomador|consumidor|propriet[aá]rio|respons[aá]vel|motorista|sra?\\.)(?:\\s+do\\s+cliente)?";
+    tira(new RegExp(ROT + "[ \\t]*:?[ \\t]*)(?!\\[)([^\\n]*?)(?=[ \\t]{2,}|[ \\t]+[\\p{L}.]{2,}[ \\t]*:|$)", "gimu"), (m0, rot, val) => (!val.trim() || negocio(val) ? m0 : rot + "[nome]"));
+    /* "Cliente:" no fim da linha e o nome na de baixo (a não ser que a de baixo seja outro campo, data ou item com preço) */
+    tira(new RegExp(ROT + "[ \\t]*:[ \\t]*\\n)(?![^\\n]*(?:[\\p{L}.]{2,}[ \\t]*:|" + DATA + "|\\d,\\d{2}[ \\t]*$))([^\\n]+)", "gimu"), (m0, rot, val) => (negocio(val) ? m0 : rot + "[nome]"));
+    tira(/(?<!\[)((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)[ \t]*:?[ \t]*)(?!\[)([^\n]*?)(?=[ \t]{2,}|[ \t]+[\p{L}.]{2,}[ \t]*:|$)/gimu, (m0, rot, val) => (!val.trim() ? m0 : rot + "[endereço]"));
+    tira(/(?<!\[)((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)[ \t]*:[ \t]*\n)(?![^\n]*(?:[\p{L}.]{2,}[ \t]*:|\d,\d{2}[ \t]*$))([^\n]+)/gimu, "$1[endereço]");
+    /* nomes da família: o nome inteiro primeiro; depois cada palavra, menos as que são peça de carro ("Correia") */
+    try {
+      People.list().forEach((p) => {
+        const ws = String(p.name || "").split(/\s+/).filter((w) => norm(w).length >= 2);
+        if (ws.length > 1) tira(solto(ws), "[nome]");
+        ws.filter((w) => norm(w).length >= 4 && !CAR_PECAS().some((x) => x[1].test(norm(w)))).forEach((w) => tira(solto([w]), "[nome]"));
+      });
+    } catch (e) {}
     return t;
   },
   /* leitura no aparelho, sem IA: data, km, total, oficina e as linhas com preço */
   local(texto) {
     const t = String(texto || ""), linhas = t.split(/\n+/).map((l) => l.trim()).filter(Boolean), PRECO = "(\\d{1,3}(?:\\.\\d{3})+,\\d{2}|\\d+,\\d{2})";
-    const dm = t.match(/\b(0[1-9]|[12]\d|3[01])[\/.-](0[1-9]|1[0-2])[\/.-](20\d{2}|\d{2})\b/);
-    const d = dm ? (dm[3].length === 2 ? "20" + dm[3] : dm[3]) + "-" + dm[2] + "-" + dm[1] : "";
-    const km = (t.match(/(?:\bkm\b|quilometragem|hod[oô]metro)[^\d\n]{0,14}(\d{1,3}(?:[.\s]\d{3})+|\d{3,6})/i) || t.match(/(\d{1,3}(?:\.\d{3})+|\d{4,6})\s*km\b/i) || [])[1];
-    /* total: o "geral"/"a pagar", senão o último (o "Subtotal" e o "Total peças" vêm antes) */
+    const DATA = "(0[1-9]|[12]\\d|3[01])[\\/.-](0[1-9]|1[0-2])[\\/.-](20\\d{2}|\\d{2})\\b";
+    const iso = (m) => { const x = (m[3].length === 2 ? "20" + m[3] : m[3]) + "-" + m[2] + "-" + m[1]; return isNaN(parseISO(x)) ? "" : x; };
+    const orc = /or[cç]amento|proposta/i.test(t);
+    /* data: a de "Data"/"Emissão" (não a de vencimento); serviço feito nunca no futuro */
+    const rot = t.match(new RegExp("(?:\\bdata\\b(?![^\\n]{0,12}venc)|emiss[aã]o)[^\\d\\n]{0,24}\\b" + DATA, "i"));
+    const todas = [...t.matchAll(new RegExp("\\b" + DATA, "g"))].map(iso).filter(Boolean);
+    let d = rot ? iso(rot) : "";
+    if (!d || (!orc && d > today())) d = (orc ? todas[0] : todas.find((x) => x <= today())) || "";
+    /* km: o número depois de "km"/"quilometragem" que não seja um preço; senão "40.000 km" */
+    const km = (t.match(/(?:\bkm\b|quilometragem|hod[oô]metro)[^\d\n]{0,14}(\d{1,3}(?:[. ]\d{3})+|\d{3,6})(?![\d,]|\.\d)/i) || t.match(/(\d{1,3}(?:\.\d{3})+|\d{4,6})\s*km\b/i) || [])[1];
+    /* total: o "geral"/"a pagar", senão o último "total" (o "Subtotal" e o "Total peças" vêm antes); sem total = vazio */
     const tots = [...t.matchAll(new RegExp("\\btotal\\b([^\\d\\n]{0,24})" + PRECO, "gi"))];
-    const totM = tots.find((x) => /geral|pagar|l[ií]quido|nota/i.test(x[1])) || tots[tots.length - 1];
-    const itens = linhas.filter((l) => new RegExp(PRECO + "\\s*$").test(l) && !/total|desconto|troco|pagamento|pago|pix|cart[aã]o|dinheiro|parcela|saldo/i.test(l)).slice(0, 30).map((l) => {
+    const ap = t.match(new RegExp("\\b(a\\s+pagar)\\b[^\\d\\n]{0,24}" + PRECO, "i"));
+    const totM = tots.find((x) => /geral|pagar|l[ií]quido|nota/i.test(x[1])) || ap || tots[tots.length - 1];
+    const itens = linhas.filter((l) => new RegExp(PRECO + "\\s*$").test(l) && !/total|desconto|troco|pagamento|pag[oa]r?\b|pix|cart[aã]o|dinheiro|parcela|saldo/i.test(l)).slice(0, 30).map((l) => {
       const m = l.match(new RegExp("^(.*?)[\\s.:]*(?:R\\$)?\\s*" + PRECO + "\\s*$"));
       return { n: (m ? m[1] : l).replace(/^\d{1,3}\s*[-.)]?\s+/, "").replace(/\s{2,}/g, " ").replace(/[\s.:]+$/, "").trim().slice(0, 80), v: m ? this.valor(m[2]) : 0 };
     }).filter((x) => x.n.length > 2);
     const oficina = (linhas.find((l) => /auto\s?(center|pe[cç]as)|mec[aâ]nica|oficina|centro\s+automotivo|concession|ltda|\bme\b|eireli/i.test(l)) || "").slice(0, 80);
-    return { tipo: /or[cç]amento|proposta/i.test(t) ? "orcamento" : "nota", d: d && !isNaN(parseISO(d)) ? d : "", km: km ? kmDe(km.replace(/\s/g, "")) : "", oficina, itens, total: totM ? this.valor(totM[2]) : itens.reduce((s, x) => s + (x.v || 0), 0), ia: false };
+    return { tipo: orc ? "orcamento" : "nota", d, km: km ? kmDe(km.replace(/\s/g, "")) : "", oficina, itens, total: totM ? this.valor(totM[2]) : "", ia: false };
   },
   prompt(texto, c) {
     const k = (c && c.carro) || {};
@@ -7962,7 +8004,7 @@ const Vida = {
     if (!j || typeof j !== "object" || !Array.isArray(j.itens)) return null;
     const itens = j.itens.filter((x) => x && x.nome).slice(0, 40).map((x) => ({ n: String(x.nome).trim().slice(0, 80), v: typeof x.valor === "number" ? x.valor : this.valor(x.valor) }));
     const d = /^\d{4}-\d{2}-\d{2}$/.test(j.data || "") && !isNaN(parseISO(j.data)) ? j.data : "";
-    return { tipo: j.tipo === "orcamento" ? "orcamento" : "nota", d, km: kmDe(j.km), oficina: String(j.oficina || "").trim().slice(0, 80), itens, total: this.valor(j.total) || itens.reduce((s, x) => s + (x.v || 0), 0), ia: true };
+    return { tipo: j.tipo === "orcamento" ? "orcamento" : "nota", d, km: kmDe(j.km), oficina: String(j.oficina || "").trim().slice(0, 80), itens, total: this.valor(j.total) || "", ia: true };
   },
   /* qual carro: o que veio, o único, ou pergunta */
   async carro(id) {
@@ -7975,21 +8017,27 @@ const Vida = {
   /* foto (ou PDF) da nota/orçamento → lê no Fundo (não morre ao sair da tela) → a pessoa confere e salva */
   async lerFoto(id) {
     if (isChild()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
+    if (!Rec.ok("cars", "vida")) return Rec.avisar();
     const carId = await this.carro(id); if (!carId) return;
     const fs = await Files.pick("image/*,application/pdf", true); if (!fs || !fs.length) return;
     const c = DB.get("places", carId), rota = location.hash;
-    const executar = async (andamento) => {
+    const executar = async (andamento, ctrl) => {
       const fala = (p, x) => { try { if (andamento) andamento(p, x); } catch (e) {} };
+      /* ✕ na pílula: para na hora — nada mais é lido e nada vai para a IA */
+      const parou = () => { if ((ctrl && ctrl.cancelado && ctrl.cancelado()) || (ctrl && ctrl.sinal && ctrl.sinal.aborted)) throw Object.assign(new Error("cancelado"), { cancelado: true }); };
       let texto = "";
       for (let i = 0; i < fs.length; i++) {
+        parou();
         const f = fs[i], diz = (x) => fala(i / fs.length, x);
         diz(tt("Lendo ", "Reading ") + (fs.length > 1 ? (i + 1) + "/" + fs.length : tt("a foto", "the photo")) + "…");
-        if (f.type === "application/pdf") { const o = await ShopImport.pdf(f, diz); texto += o.text + "\n"; for (const im of o.imgs.slice(0, 4)) texto += (await OCR.read(im, null, true)) + "\n"; }
-        else texto += (await OCR.read(f, (x) => fala((i + x) / fs.length), true)) + "\n";
+        if (f.type === "application/pdf") { const o = await ShopImport.pdf(f, diz); parou(); texto += o.text + "\n"; for (const im of o.imgs.slice(0, 4)) { texto += (await OCR.read(im, null, true)) + "\n"; parou(); } }
+        else { texto += (await OCR.read(f, (x) => fala((i + x) / fs.length), true)) + "\n"; parou(); }
       }
       const sec = await Cars.segredo(c), limpo = this.mascarar(texto, sec && !sec._falta ? sec : null);
+      parou();
       if (AI.on() && Rec.on("ia") && Net.canAI()) {
         fala(0.9, tt("A IA está organizando o que foi lido…", "The AI is organising what was read…"));
+        parou();
         try { const r = this.daIA(await AI.ask0(this.prompt(limpo, c), [], true)); if (r && r.itens.length) return r; } catch (e) {}
       }
       return this.local(limpo);
@@ -8002,11 +8050,16 @@ const Vida = {
   },
   /* anotar ou conferir um serviço. base = registro já salvo; lido = o que a foto trouxe; fs = as fotos a guardar */
   async editar(carId, base, lido, fs) {
+    if (isChild()) { toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂")); return null; }
+    if (!Rec.ok("cars", "vida")) return Rec.avisar();
     carId = carId || (base && base.veiculo) || ""; const c = carId ? DB.get("places", carId) : null;
-    const v = base ? { tipo: base.orc ? "orcamento" : "nota", d: base.d, km: base.km, oficina: base.oficina, itens: this.itensTexto(base.itens), total: base.cost || "", note: base.note }
+    /* Total: só vem preenchido quando foi escrito (vazio = a soma dos itens, que acompanha as correções) */
+    const v = base ? { tipo: base.orc ? "orcamento" : "nota", d: base.d, km: base.km, oficina: base.oficina, itens: this.itensTexto(base.itens), total: base.totalManual ? base.cost : "", note: base.note }
       : lido ? { tipo: lido.tipo, d: lido.d || today(), km: lido.km, oficina: lido.oficina, itens: this.itensTexto(lido.itens), total: lido.total || "", note: "" }
       : { tipo: "nota", d: today(), km: "", oficina: "", itens: "", total: "", note: "" };
-    const rev = c ? Maint.list().find((m) => m.veiculo === c.id && this.chave(m.title) === "revisao") : null, ja = base && base.mtEnviado;
+    const rev = c ? Maint.list().find((m) => m.veiculo === c.id && this.ehRevisao(m.title)) : null, ja = base && base.mtEnviado;
+    const ligado = !!(base && rev && (rev.history || []).some((h) => h.servico === base.id));
+    let fotos = ((base && base.files) || []).slice();
     const fields = [
       lido ? { type: "note", tone: "ok", html: (lido.ia ? "✨ " + tt("Lido com a IA", "Read with AI") : "📷 " + tt("Lido no aparelho (sem IA)", "Read on the device (no AI)")) + ": " + tt("confira e corrija antes de salvar.", "check and fix before saving.") + (lido.itens.length ? "" : " " + tt("Não achei os itens: escreva um por linha.", "I couldn't find the items: type one per line.")) } : null,
       { k: "tipo", label: tt("O que é", "What it is"), type: "select", opts: [["nota", "✅ " + tt("Serviço feito (nota ou recibo)", "Work done (invoice or receipt)")], ["orcamento", "📝 " + tt("Orçamento (ainda não feito)", "Quote (not done yet)")]] },
@@ -8019,70 +8072,106 @@ const Vida = {
       rev ? { k: "rev", label: "🛠 " + tt("Esta foi a revisão programada (recalcula a próxima)", "This was the scheduled service (recomputes the next one)"), type: "check" } : null,
       ja ? { type: "note", html: "💰 " + tt("Já enviado ao MoneyTRIO: não vai de novo.", "Already sent to MoneyTRIO: it won't go again.") } : { k: "mt", label: "💰 " + tt("Enviar o custo para o MoneyTrio", "Send cost to MoneyTrio"), type: "check", def: Bridge.cfg().enabled },
       ja ? null : { k: "mtsub", label: tt("Categoria no MoneyTRIO (Veículo)", "MoneyTRIO category (Vehicle)"), type: "select", opts: MT_SUB_CARRO().map((o) => [o[0], o[0] + " — " + o[1]]), hint: tt("Só vale para serviço feito, com \"Enviar o custo\" marcado. Vem sugerida pelo que foi feito; troque se precisar.", "Only for work done, with \"Send cost\" checked. Suggested from what was done; change it if needed.") },
+      fotos.length ? { type: "html", html: '<div class="fld full"><span>📎 ' + tt("Foto da nota", "Invoice photo") + '</span><div class="thumbs" id="vfotos" data-thumbs="' + fotos.join(",") + '" data-del="vida.rmfile"></div></div>' } : null,
       { k: "note", label: tt("Observação", "Note"), type: "textarea", rows: 2 }
     ].filter(Boolean);
     const after = (el) => {
       const ta = el.querySelector('[name="itens"]'), box = el.querySelector("#vidarep"), sub = el.querySelector('[name="mtsub"]'), dEl = el.querySelector('[name="d"]'), rv = el.querySelector('[name="rev"]');
-      let mexeuSub = false, mexeuRev = false;
+      /* reabrir um serviço: a caixa da revisão vem como foi salva (não pelo texto) */
+      let mexeuSub = false, mexeuRev = !!base;
+      if (rv && base) rv.checked = ligado;
       if (sub) sub.addEventListener("change", () => (mexeuSub = true));
       if (rv) rv.addEventListener("change", () => (mexeuRev = true));
       const upd = () => {
-        const its = this.itensDe(ta.value);
+        const its = this.itensDe(ta.value).filter((x) => !this.ehTotal(x.n));
         box.innerHTML = this.avisoHtml(this.repetidos(carId, its, dEl.value || today(), base && base.id));
         if (sub && !mexeuSub) sub.value = mtSubCarro(its.map((x) => x.n).join(" "));
-        if (rv && !mexeuRev) rv.checked = its.some((x) => this.chave(x.n) === "revisao");
+        if (rv && !mexeuRev) rv.checked = its.some((x) => this.ehRevisao(x.n));
       };
       ta.addEventListener("input", debounce(upd, 250)); dEl.addEventListener("change", upd); upd();
+      /* 📎 a foto da nota: abre no toque; o ✕ tira do serviço (com confirmação) */
+      const fb = el.querySelector("#vfotos");
+      if (fb) { fillThumbs(el); fb.addEventListener("click", async (e) => { const x = e.target.closest('[data-act="vida.rmfile"]'); if (!x) return; e.stopPropagation(); e.preventDefault(); if (!(await confirmBox(tt("Tirar esta foto da nota?", "Remove this invoice photo?"), tt("Tirar", "Remove"), true))) return; fotos = fotos.filter((id) => id !== x.dataset.id); fb.dataset.thumbs = fotos.join(","); fillThumbs(el); }, true); }
     };
-    const r = await formModal({ title: "🔧 " + (base ? esc(base.title) : lido ? tt("Confira o que foi lido", "Check what was read") : tt("Anotar serviço no carro", "Log a car service")) + (c ? " · " + esc(c.name) : ""), fields, values: v, wide: true, after, onDelete: base ? () => this.apagar(base) : null });
+    /* serviço feito não tem data no futuro (o vencimento da nota às vezes vem no lugar da data) */
+    const onOk = (o) => { if (o.tipo !== "orcamento" && o.d && o.d > today()) { toast(tt("Serviço feito não pode ter data no futuro. Confira a data (ou marque como orçamento).", "Work done can't be dated in the future. Check the date (or mark it as a quote)."), 6000); return false; } return true; };
+    const r = await formModal({ title: "🔧 " + (base ? esc(base.title) : lido ? tt("Confira o que foi lido", "Check what was read") : tt("Anotar serviço no carro", "Log a car service")) + (c ? " · " + esc(c.name) : ""), fields, values: v, wide: true, after, onOk, onDelete: base ? () => this.apagar(base) : null });
     if (!r) return null;
     const itens = this.itensDe(r.itens), orc = r.tipo === "orcamento", d = /^\d{4}-\d{2}-\d{2}$/.test(r.d || "") ? r.d : today();
-    const cost = Math.round((this.valor(r.total) || itens.reduce((s, x) => s + (+x.v || 0), 0)) * 100) / 100, km = kmDe(r.km);
-    let files = (base && base.files) || [];
-    for (const f of fs || []) { const id = await Files.save(f); if (id) files = files.concat(id); }
+    const totalEscrito = this.valor(r.total);
+    const cost = Math.round((totalEscrito || this.soma(itens)) * 100) / 100, km = kmDe(r.km);
+    for (const id of ((base && base.files) || []).filter((id) => !fotos.includes(id))) { try { await Files.remove(id); } catch (e) {} }
+    for (const f of fs || []) { const id = await Files.save(f, { vis: isGuardian() ? "restrito" : "familia", encrypt: isGuardian() && !!S.vaultKey }); if (id) fotos = fotos.concat(id); }
     const manda = !orc && r.mt && cost > 0 && !ja;
-    const rec = Object.assign({}, base || {}, { tipo: "servico", cat: "carro", veiculo: carId, title: this.titulo(itens), d, km, oficina: String(r.oficina || "").trim().slice(0, 80), itens, cost, note: String(r.note || "").trim().slice(0, 1000), orc, files, interval: 0 });
+    const rec = Object.assign({}, base || {}, { tipo: "servico", cat: "carro", veiculo: carId, title: this.titulo(itens), d, km, oficina: String(r.oficina || "").trim().slice(0, 80), itens, cost, totalManual: !!totalEscrito, note: String(r.note || "").trim().slice(0, 1000), orc, files: fotos, interval: 0 });
     if (manda) rec.mtEnviado = true;
     const salvo = await DB.put("maint", rec);
+    if (!salvo || !DB.get("maint", salvo.id)) return null;   /* não gravou (ex.: sem permissão): nada vai ao MoneyTRIO */
     if (manda) Bridge.post({ tipo: "gasto", dados: { valor: cost, grupo: "VEICULO", sub: MT_SUB_CARRO().some((o) => o[0] === r.mtsub) ? r.mtsub : mtSubCarro(rec.title), desc: rec.title + (rec.oficina ? " — " + rec.oficina : "") + " (OmniLifeONE)", data: d, per: "Pontual", quem: "", forma: "", conta: "", irpf: false, origem: "omnilife-one" } });
     let msg = "✓ " + (orc ? tt("Orçamento guardado (não entra no histórico).", "Quote saved (not part of the history).") : tt("Salvo na Vida do carro.", "Saved in the car's history."));
-    if (!orc && c && km && km > (+c.km || 0)) await DB.patch("places", c.id, { km, kmEm: d });
-    /* a linha deste serviço no histórico da revisão: sai sempre (salvar de novo, virar orçamento, desmarcar) e volta se valer */
-    await this.soltarRevisao(salvo.id, rev && r.rev && !orc ? rev.id : null);
+    await this.kmCarro(c, base, orc ? "" : km, d);
+    /* a linha deste serviço no histórico da revisão: sai sempre (salvar de novo, virar orçamento, desmarcar), devolvendo
+       o que ela tinha mudado na revisão, e volta se ainda valer */
+    await this.soltarRevisao(salvo.id);
     if (!orc && rev && r.rev) {
       const m = DB.get("maint", rev.id);
-      if (m && (!m.last || d >= m.last)) {
-        await DB.put("maint", Object.assign({}, m, { last: d, next: m.interval ? addDays(d, +m.interval) : "", nextManual: false, ultKm: km || (c && +c.km) || m.ultKm || "", history: (m.history || []).concat({ d, cost, note: rec.oficina, by: S.meId, km: km || "", servico: salvo.id }).slice(-30) }));
-        msg += " " + tt("Próxima revisão: ", "Next service: ") + (m.interval ? fmtDate(addDays(d, +m.interval)) : "—") + (m.cadaKm && km ? tt(" ou aos ", " or at ") + kmTxt(km + +m.cadaKm) : "") + ".";
+      if (m) {
+        const atual = !m.last || d >= m.last, antes = { last: m.last || "", next: m.next || "", nextManual: !!m.nextManual, ultKm: m.ultKm || "" };
+        const linha = { d, cost, note: rec.oficina, by: S.meId, km: km || "", servico: salvo.id, antes: atual ? antes : null };
+        const hist = (m.history || []).concat(linha).sort((a, b) => String(a.d || "").localeCompare(String(b.d || ""))).slice(-30);
+        await DB.put("maint", Object.assign({}, m, { history: hist }, atual ? { last: d, next: m.interval ? addDays(d, +m.interval) : "", nextManual: false, ultKm: km || (c && +c.km) || m.ultKm || "" } : {}));
+        if (atual) msg += " " + tt("Próxima revisão: ", "Next service: ") + (m.interval ? fmtDate(addDays(d, +m.interval)) : "—") + (m.cadaKm && (km || (c && +c.km)) ? tt(" ou aos ", " or at ") + kmTxt((km || +c.km) + +m.cadaKm) : "") + ".";
       }
     }
     toast(msg, 5000);
     return salvo;
   },
-  async apagar(s) { await this.soltarRevisao(s.id, null); for (const id of s.files || []) { try { await Files.remove(id); } catch (e) {} } await DB.del("maint", s.id); toast(tt("Apagado da Vida do carro.", "Deleted from the car's history.")); },
-  /* tira do histórico das manutenções as linhas que vieram deste serviço (menos da manutenção `fica`, que ele mesmo regrava) */
-  async soltarRevisao(sid, fica) {
-    for (const m of DB.all("maint").filter((x) => x.tipo !== "servico" && x.id !== fica && (x.history || []).some((h) => h.servico === sid))) await DB.put("maint", Object.assign({}, m, { history: m.history.filter((h) => h.servico !== sid) }));
-    const f = fica ? DB.get("maint", fica) : null;
-    if (f && (f.history || []).some((h) => h.servico === sid)) await DB.put("maint", Object.assign({}, f, { history: f.history.filter((h) => h.servico !== sid) }));
+  /* km do carro: sobe com o serviço; se a km do carro veio deste serviço e ele foi corrigido para menos, virou orçamento
+     ou foi apagado, volta para a maior km dos outros serviços (um erro de digitação não fica preso no carro) */
+  async kmCarro(c, base, km, d) {
+    if (!c) return;
+    const veio = base && !base.orc && +base.km && +c.km === +base.km;
+    if (veio && !(km >= +base.km)) {
+      const outros = this.servicos(c.id).filter((s) => !s.orc && s.id !== base.id && +s.km).map((s) => +s.km);
+      const alt = Math.max(km || 0, ...outros, 0);
+      await DB.patch("places", c.id, { km: alt || "", kmEm: alt ? d : "" });
+      return;
+    }
+    if (km && km > (+c.km || 0)) await DB.patch("places", c.id, { km, kmEm: d });
+  },
+  async apagar(s) {
+    await this.soltarRevisao(s.id);
+    const c = s.veiculo ? DB.get("places", s.veiculo) : null;
+    for (const id of s.files || []) { try { await Files.remove(id); } catch (e) {} }
+    await DB.del("maint", s.id);
+    await this.kmCarro(c, s, "", today());
+    toast(tt("Apagado da Vida do carro.", "Deleted from the car's history."));
+  },
+  /* tira do histórico das manutenções as linhas que vieram deste serviço; se a linha tinha marcado a revisão como feita
+     (e nada depois mudou isso), a revisão volta a como estava antes */
+  async soltarRevisao(sid) {
+    for (const m of DB.all("maint").filter((x) => x.tipo !== "servico" && (x.history || []).some((h) => h.servico === sid))) {
+      const sai = m.history.filter((h) => h.servico === sid), volta = sai.find((h) => h.antes && m.last === h.d);
+      await DB.put("maint", Object.assign({}, m, { history: m.history.filter((h) => h.servico !== sid) }, volta ? volta.antes : {}));
+    }
   },
   /* revisão programada do carro (a manutenção com "revisão" no nome) e quando ela vence: data e/ou km */
   revisao(c) {
-    const m = Maint.list().find((x) => x.veiculo === c.id && this.chave(x.title) === "revisao"); if (!m) return null;
+    const m = Maint.list().find((x) => x.veiculo === c.id && this.ehRevisao(x.title)); if (!m) return null;
     const kmProx = m.cadaKm && m.ultKm ? +m.ultKm + +m.cadaKm : null, kmPassou = !!(kmProx && c.km && +c.km >= kmProx);
     return { m, dias: m._days, data: m.next, kmProx, kmPassou };
   },
   /* "saúde" do carro: o que dá para saber sem mecânico — revisão, seguro, o que foi feito há pouco e quanto custou */
   saude(c) {
-    const pts = [], L = this.linha(c.id), rv = this.revisao(c), s = c.seguro || {}, ns = s.fim ? diffDays(today(), s.fim) : null;
+    const pts = [], L = this.linha(c.id), rv = this.revisao(c), s = c.seguro || {}, ns = s.fim ? diffDays(today(), s.fim) : null, ha = (x) => (x.d ? diffDays(x.d, today()) : -1);
     if (rv) {
       const atr = (rv.dias != null && rv.dias < 0) || rv.kmPassou;
       pts.push([atr ? "bad" : rv.dias != null && rv.dias <= 30 ? "warn" : "ok", "🛠 " + (atr ? tt("Revisão atrasada", "Service overdue") + (rv.kmPassou ? " (" + tt("passou dos ", "past ") + kmTxt(rv.kmProx) + ")" : rv.data ? " " + tt("desde ", "since ") + fmtDate(rv.data) : "") : tt("Próxima revisão: ", "Next service: ") + [rv.data ? fmtDate(rv.data) : "", rv.kmProx ? tt("aos ", "at ") + kmTxt(rv.kmProx) : ""].filter(Boolean).join(tt(" ou ", " or ")) + (rv.data && rv.kmProx ? " (" + tt("o que vier primeiro", "whichever comes first") + ")" : ""))]);
     } else pts.push(["warn", "🛠 " + tt("Sem revisão programada: toque em ＋ em Revisão e manutenção, na ficha do carro.", "No scheduled service: tap ＋ in Service and maintenance, on the car's page.")]);
     if (ns != null) pts.push([ns < 0 ? "bad" : ns <= 30 ? "warn" : "ok", "🛡 " + (ns < 0 ? tt("Seguro vencido desde ", "Insurance expired on ") + fmtDate(s.fim) : tt("Seguro até ", "Insurance until ") + fmtDate(s.fim))]);
     const rec = [], vistos = new Set();
-    L.filter((x) => x.d && diffDays(x.d, today()) <= 90).forEach((x) => x.itens.forEach((y) => { const k = this.chave(y.n); if (vistos.has(k) || this.generico(y.n)) return; vistos.add(k); const n = diffDays(x.d, today()) || 0; rec.push(esc(y.n) + " (" + (n ? tt("há ", "") + n + " " + (n === 1 ? tt("dia", "day ago") : tt("dias", "days ago")) : tt("hoje", "today")) + ")"); }));
-    const ano = L.filter((x) => x.d && diffDays(x.d, today()) <= 365), tot = ano.reduce((a, x) => a + (+x.valor || 0), 0);
+    L.filter((x) => ha(x) >= 0 && ha(x) <= 90).forEach((x) => x.itens.forEach((y) => { const k = this.chave(y.n); if (vistos.has(k) || this.generico(y.n)) return; vistos.add(k); const n = diffDays(x.d, today()) || 0; rec.push(esc(y.n) + " (" + (n ? tt("há ", "") + n + " " + (n === 1 ? tt("dia", "day ago") : tt("dias", "days ago")) : tt("hoje", "today")) + ")"); }));
+    const ano = L.filter((x) => ha(x) >= 0 && ha(x) <= 365), tot = ano.reduce((a, x) => a + (+x.valor || 0), 0);
     const pior = pts.some((p) => p[0] === "bad") ? "bad" : pts.some((p) => p[0] === "warn") ? "warn" : "ok";
     const tit = { ok: "🟢 " + tt("Em dia", "All good"), warn: "🟡 " + tt("Atenção", "Heads up"), bad: "🔴 " + tt("Precisa de cuidado", "Needs attention") }[pior];
     return '<div class="card"><div class="between"><h3>🩺 ' + tt("Saúde do carro", "Car health") + '</h3><span class="badge ' + pior + '">' + tit + "</span></div>" +
@@ -8094,17 +8183,18 @@ const Vida = {
   },
   itemLinha(x, comCarro) {
     const c = comCarro && x.car ? DB.get("places", x.car) : null;
-    return '<div class="li click" data-act="' + (x.id ? "vida.edit" : "mt.edit") + '" data-id="' + (x.id || x.mt) + '"><div class="ico">' + (x.id ? "🔧" : "🛠") + '</div><div class="main"><div class="t">' + esc(x.t) + '</div><div class="s">' + esc([fmtDate(x.d), x.km ? kmTxt(x.km) : "", x.oficina, comCarro ? (c ? "🚗 " + c.name : tt("carro apagado", "deleted car")) : ""].filter(Boolean).join(" · ")) + "</div>" +
+    return '<div class="li' + (isChild() ? "" : ' click" data-act="' + (x.id ? "vida.edit" : "mt.edit") + '" data-id="' + (x.id || x.mt)) + '"><div class="ico">' + (x.id ? "🔧" : "🛠") + '</div><div class="main"><div class="t">' + esc(x.t) + '</div><div class="s">' + esc([fmtDate(x.d), x.km ? kmTxt(x.km) : "", x.oficina, comCarro ? (c ? "🚗 " + c.name : tt("carro apagado", "deleted car")) : ""].filter(Boolean).join(" · ")) + "</div>" +
       (x.id && x.itens.length > 1 ? '<div class="tiny faint">' + esc(x.itens.map((y) => y.n).join(" · ")).slice(0, 220) + "</div>" : "") + "</div>" + (x.valor ? '<span class="small">' + money(x.valor) + "</span>" : "") + "</div>";
   },
   /* aba 🚗 Veículos → 🔧 Vida do carro */
   view(arg) {
-    const cs = Cars.list();
-    if (!cs.length) return '<div class="card"><div class="empty"><div class="e">🔧</div>' + tt("A Vida do carro guarda tudo o que foi feito no carro. Cadastre o carro primeiro.", "The car's history keeps everything done to the car. Add the car first.") + (!isChild() ? '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" data-act="car.new">＋ ' + tt("Cadastrar o carro", "Add the car") + "</button></div>" : "") + "</div></div>";
-    const c = arg ? DB.get("places", arg) : cs.length === 1 ? cs[0] : null, carId = c && c.kind === "veiculo" ? c.id : "";
+    const cs = Cars.list(), orf = this.servicos("").filter((s) => !s.veiculo || !DB.get("places", s.veiculo));
+    if (!cs.length && !orf.length) return '<div class="card"><div class="empty"><div class="e">🔧</div>' + tt("A Vida do carro guarda tudo o que foi feito no carro. Cadastre o carro primeiro.", "The car's history keeps everything done to the car. Add the car first.") + (!isChild() ? '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" data-act="car.new">＋ ' + tt("Cadastrar o carro", "Add the car") + "</button></div>" : "") + "</div></div>";
+    /* serviços de um carro apagado: aparecem em "Todos" (marcados "carro apagado"), nunca somem */
+    const c = arg ? DB.get("places", arg) : cs.length === 1 && !orf.length ? cs[0] : null, carId = c && c.kind === "veiculo" ? c.id : "";
     let h = "";
-    if (cs.length > 1) h += '<div class="chips" style="margin-bottom:10px"><span class="chip' + (!carId ? " on" : "") + '" data-act="go" data-tab="cars" data-sub="vida">' + tt("Todos", "All") + "</span>" + cs.map((x) => '<span class="chip' + (x.id === carId ? " on" : "") + '" data-act="go" data-tab="cars" data-sub="vida" data-arg="' + x.id + '">🚗 ' + esc(x.name) + "</span>").join("") + "</div>";
-    if (!isChild()) h += '<div class="card accent"><h3>📷 ' + tt("Anotar o que foi feito", "Log what was done") + '</h3><p class="small">' + tt("Tire foto da nota (ou do orçamento): o app lê a data, a quilometragem, a oficina, as peças e o valor, e avisa se alguma coisa já foi trocada há pouco tempo. Você confere antes de salvar.", "Take a photo of the invoice (or the quote): the app reads the date, mileage, shop, parts and price, and warns if anything was replaced recently. You check before saving.") + '</p><div class="row"><button class="btn" data-act="vida.foto" data-id="' + carId + '">📷 ' + tt("Foto da nota ou orçamento", "Photo of invoice or quote") + '</button><button class="btn ghost" data-act="vida.new" data-id="' + carId + '">✍️ ' + tt("Anotar à mão", "Type it in") + '</button></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("A foto é lida no aparelho. Se a IA ajudar, vai só o texto, sem placa, chassi, CPF, nomes, telefone e endereço.", "The photo is read on the device. If the AI helps, only the text goes, without plate, VIN, ID numbers, names, phone or address.") + "</p></div>";
+    if (cs.length > 1 || (cs.length && orf.length)) h += '<div class="chips" style="margin-bottom:10px"><span class="chip' + (!carId ? " on" : "") + '" data-act="go" data-tab="cars" data-sub="vida">' + tt("Todos", "All") + "</span>" + cs.map((x) => '<span class="chip' + (x.id === carId ? " on" : "") + '" data-act="go" data-tab="cars" data-sub="vida" data-arg="' + x.id + '">🚗 ' + esc(x.name) + "</span>").join("") + "</div>";
+    if (!isChild() && cs.length) h += '<div class="card accent"><h3>📷 ' + tt("Anotar o que foi feito", "Log what was done") + '</h3><p class="small">' + tt("Tire foto da nota (ou do orçamento): o app lê a data, a quilometragem, a oficina, as peças e o valor, e avisa se alguma coisa já foi trocada há pouco tempo. Você confere antes de salvar.", "Take a photo of the invoice (or the quote): the app reads the date, mileage, shop, parts and price, and warns if anything was replaced recently. You check before saving.") + '</p><div class="row"><button class="btn" data-act="vida.foto" data-id="' + carId + '">📷 ' + tt("Foto da nota ou orçamento", "Photo of invoice or quote") + '</button><button class="btn ghost" data-act="vida.new" data-id="' + carId + '">✍️ ' + tt("Anotar à mão", "Type it in") + '</button></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("A foto é lida no aparelho. Se a IA ajudar, vai só o texto, sem placa, chassi, CPF, nomes, telefone e endereço.", "The photo is read on the device. If the AI helps, only the text goes, without plate, VIN, ID numbers, names, phone or address.") + "</p></div>";
     if (c) h += this.saude(c);
     const L = this.linha(carId);
     h += '<div class="card"><h3>🔧 ' + tt("Tudo o que foi feito", "Everything that was done") + (L.length ? " (" + L.length + ")" : "") + "</h3>" + (L.length ? '<div class="list">' + L.slice(0, 200).map((x) => this.itemLinha(x, !carId)).join("") + "</div>" : '<div class="empty tiny">' + tt("Nada anotado ainda. Comece pela última nota que você tiver guardada.", "Nothing logged yet. Start with the latest invoice you kept.") + "</div>") + "</div>";
@@ -8117,8 +8207,9 @@ const Vida = {
   }
 };
 ACT["vida.foto"] = (d) => Vida.lerFoto(d.id);
-ACT["vida.new"] = async (d) => { const id = await Vida.carro(d.id); if (id) { await Vida.editar(id); render(); } };
-ACT["vida.edit"] = async (d) => { const s = DB.get("maint", d.id); if (s) { await Vida.editar(s.veiculo, s); render(); } };
+ACT["vida.new"] = async (d) => { if (isChild()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂")); if (!Rec.ok("cars", "vida")) return Rec.avisar(); const id = await Vida.carro(d.id); if (id) { await Vida.editar(id); render(); } };
+ACT["vida.edit"] = async (d) => { if (isChild()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂")); const s = DB.get("maint", d.id); if (s) { await Vida.editar(s.veiculo, s); render(); } };
+ACT["vida.rmfile"] = () => {};   /* tratado dentro da janela do serviço (Vida.editar) */
 ACT["car.km"] = async (d) => {
   const c = DB.get("places", d.id); if (!c || isChild()) return;
   const v = await askText("🚗 " + esc(c.name), tt("Quilometragem no painel agora (km)", "Mileage on the dashboard now (km)"), c.km ? String(c.km) : "", "tel"); if (v == null || v === "") return;
@@ -10566,7 +10657,7 @@ const AOne = {
       health: [tt("Saúde da família", "Family health"), tt("Carteira vital com tipo sanguíneo, alergias e remédios de cada pessoa.", "Health wallet with blood type, allergies and meds for each person."), [["❤️ " + tt("Abrir a carteira vital", "Open the health wallet"), G("health"), 1]]],
       security: [tt("Segurança", "Safety"), tt("“Cheguei”, “Estou saindo”, SOS e os avisos para a família.", "Check-in, “I'm leaving”, SOS and family alerts."), [["✅ " + tt("Avisar que cheguei", "Check in"), () => Cheguei.arrive(), 1], ["🚶 " + tt("Estou saindo", "I'm leaving"), () => Cheguei.leave()], ["❓ " + tt("Como funciona", "How it works"), H("cheguei")]]],
       house: [tt("Casa", "Home"), tt("Onde está cada coisa, manutenção e as senhas da casa. O carro agora tem a aba própria: 🚗 Veículos.", "Where things are, maintenance and the house vault. The car now has its own tab: 🚗 Vehicles."), [["🔎 " + tt("Onde está?", "Where is it?"), G("house", "where"), 1], ["🛠 " + tt("Manutenção", "Maintenance"), G("house", "maint")], ["🚗 " + tt("Veículos", "Vehicles"), G("cars")]]],
-      cars: [tt("Veículos", "Vehicles"), tt("O carro, o seguro, a revisão e a Vida do carro: tire foto da nota e eu anoto o que foi feito e aviso se já foi trocado há pouco.", "The car, its insurance, service and the car's history: snap the invoice and I log what was done and warn if it was replaced recently."), [["📷 " + tt("Foto da nota ou orçamento", "Invoice or quote photo"), () => ACT["vida.foto"]({}), 1], ["🔧 " + tt("Vida do carro", "Car history"), G("cars", "vida")], ["❓ " + tt("Como funciona", "How it works"), H("veiculos")]]],
+      cars: [tt("Veículos", "Vehicles"), tt("O carro, o seguro, a revisão e a Vida do carro: tire foto da nota e eu anoto o que foi feito e aviso se já foi trocado há pouco.", "The car, its insurance, service and the car's history: snap the invoice and I log what was done and warn if it was replaced recently."), (Rec.ok("cars", "vida") && !isChild() ? [["📷 " + tt("Foto da nota ou orçamento", "Invoice or quote photo"), () => ACT["vida.foto"]({}), 1], ["🔧 " + tt("Vida do carro", "Car history"), G("cars", "vida")]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("veiculos")]])],
       docs: [tt("Documentos", "Documents"), tt("Mande várias fotos ou PDFs de uma vez; eu aviso se algum estiver repetido.", "Send many photos or PDFs at once; I'll flag duplicates."), [["📚 " + tt("Enviar vários de uma vez", "Upload many at once"), A("doc.batch"), 1], ["➕ " + tt("Novo documento", "New document"), A("doc.new")]]],
       family: [tt("Família", "Family"), tt("Pessoas, logins, convites, papéis dos responsáveis, duas casas e controle parental.", "People, logins, invites, guardian roles, two homes and parental controls."), [["➕ " + tt("Pessoa ou pet", "Person or pet"), A("person.new"), 1], ["🛡 " + tt("Administração segura", "Safe administration"), H("familia-seguranca")], ["❓ " + tt("Como convidar alguém", "How to invite someone"), H("familia")]]],
       settings: [tt("Configurações", "Settings"), tt("Idioma, tema, IA, acessibilidade, avisos, instalar o app para acessar sem internet e versões & novidades.", "Language, theme, AI, accessibility, alerts, installing the app to use offline, and versions & what's new."), [["🤖 " + tt("Configurar a IA", "Set up AI"), G("settings", "ai"), 1], ["♿ " + tt("Acessibilidade", "Accessibility"), G("settings", "a11y")], [(Offline.pc() ? "💻 " : "📲 ") + tt("Instalar app para acessar sem internet", "Install the app to use offline"), G("settings", "offline")]]]
