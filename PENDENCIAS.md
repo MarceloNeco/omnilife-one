@@ -92,6 +92,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **2.21.1 (03/Nov/2026):** a ficha do carro e a placa/chassi destrancam ali mesmo (PIN, digital ou senha principal), sem levar à tela das Senhas da casa (pedido do dono: "a jornada não pode ser cortada"). Uma versão paralela do PIN único (PR #44) foi fechada sem merge porque o #43, pelo caminho oficial do cofre.js 1.6.0, já estava no ar.
 - **2.21.2 (03/Nov/2026):** reforços do PIN único depois de revisão de segurança: trocar o PIN, ligar a digital e código novo pedem o PIN de agora (ou a digital); sair e "Trancar agora" trancam também as chaves de IA; a tela antiga do cofre de chaves sai para quem tem o PIN único (com botão para desligar a digital antiga); "Esqueci o PIN" não perde nada se desistir; endereço do Personalizado pede o PIN. Novo #59 (o que falta nos mestres).
 - **2.22.0 (06/Nov/2026):** 🚗 Veículos saiu da Casa e virou aba própria (pedido do dono); 🔧 Vida do carro com foto da nota ou do orçamento (lida no aparelho; para a IA só o texto, sem dados pessoais), aviso de serviço repetido com a garantia de 90 dias, saúde do carro, gastos por ano e revisão por data ou km. Fecha #53; #55 em parte; novos #60 e #61.
+- **2.22.1 (06/Nov/2026):** anúncio do MoneyTRIO (card do app e `anuncios-MODELO`) com o endereço novo `https://moneytrio.solverone.com.br/` e o ícone de lá. Atenção: subdomínio é outra origem — a ponte antiga por `localStorage` (gastos e preços) não atravessa; ver o aviso na entrega.
 
 ## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
 
