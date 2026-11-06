@@ -156,6 +156,11 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   conferir(t2 && !t2.exif, 'o EXIF (com o GPS) some no redesenho');
   conferir(await p.evaluate((n) => DB.raw('files').length === n + 2, nFiles0), 'a foto que não abre é recusada: nada dela é guardado');
   conferir(await p.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /Não consegui preparar/.test(t.textContent))), 'e a pessoa é avisada ("Não consegui preparar esta foto…")');
+  /* duas fotos que não abrem: o aviso no plural */
+  await p.evaluate(() => { document.querySelectorAll('.toast').forEach((t) => t.remove()); window.__picks.push([1, 2].map((i) => new File([new Uint8Array([i, 2, 3])], 'estragada' + i + '.png', { type: 'image/png' }))); });
+  await p.evaluate((id) => ACT['pet.fotos']({ id }), pid);
+  await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => [...document.querySelectorAll('.toast')].some((t) => /Não consegui preparar 2 fotos, então elas não foram guardadas/.test(t.textContent))), 'duas fotos que não abrem: o aviso fica no plural ("2 fotos, então elas não foram guardadas")');
   /* navegador sem WebP (Safari antigo): JPEG */
   await p.evaluate(async () => {
     const tb = HTMLCanvasElement.prototype.toBlob; window.__tb = tb;
@@ -187,6 +192,34 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   conferir(aberto.n === 3 && aberto.pesos === 1 && aberto.foto && aberto.cor === 'branco e caramelo claro' && aberto.raca === 'Cavachon', 'salvar o ✏️ do pet não apaga a foto e o peso que chegaram com o formulário aberto (' + JSON.stringify(aberto) + ')');
   await p.evaluate((id) => DB.patch('people', id, { 'pet.pesos': undefined }), pid);
   conferir(await p.evaluate(() => { const a = document.querySelector('#screen [data-act="pet.apagarfoto"][data-f="' + DB.get('people', Pets.list()[0].id).pet.foto.id + '"]'); return !!a && !a.closest('.thumb'); }), 'o responsável tem "🗑 Tirar a foto" para a foto de perfil (não só trocar)');
+  /* um lote de fotos de cada vez por pet (o ＋ continua na tela enquanto sobem) */
+  const n0 = await p.evaluate((id) => (DB.get('people', id).pet.fotos || []).length, pid);
+  await p.evaluate(async (id) => {
+    document.querySelectorAll('.toast').forEach((t) => t.remove());
+    window.__l3 = window.__arq(await window.__img(400, 300, 'image/png'), 'l3.png');
+    window.__picks.push([window.__arq(await window.__img(2600, 1800, 'image/png', 30), 'l1.png'), window.__arq(await window.__img(2600, 1800, 'image/png', 30), 'l2.png')]);
+    ACT['pet.fotos']({ id });
+  }, pid);
+  await p.waitForFunction((id) => PetFoto._lote && PetFoto._lote.has(id), pid, { timeout: 3000 }).catch(() => {});
+  await p.evaluate(async (id) => { window.__picks.push([window.__l3]); await ACT['pet.fotos']({ id }); }, pid);
+  await p.waitForFunction((a) => (DB.get('people', a.id).pet.fotos || []).length >= a.n + 2 && !(PetFoto._lote && PetFoto._lote.has(a.id)), { id: pid, n: n0 }, { timeout: 15000 }).catch(() => {});
+  await p.waitForTimeout(600);
+  const lote = await p.evaluate((a) => { window.__picks = []; return { n: (DB.get('people', a.id).pet.fotos || []).length - a.n, toast: [...document.querySelectorAll('.toast')].some((t) => /Ainda estou guardando as fotos/.test(t.textContent)) }; }, { id: pid, n: n0 });
+  conferir(lote.n === 2 && lote.toast, 'outro ＋ com o lote anterior ainda subindo: "Ainda estou guardando as fotos…", e o segundo lote não roda junto (' + lote.n + ' fotos novas)');
+  /* as 12 vagas contam na hora de guardar: a foto que não cabe fica de fora, nunca empurra as mais antigas */
+  const cap = await p.evaluate(async (id) => {
+    const L0 = DB.get('people', id).pet.fotos || [], falsas = [];
+    for (let i = L0.length; i < 11; i++) falsas.push({ id: 'fcheia' + i, w: 10, h: 10 });
+    await DB.patch('people', id, { 'pet.fotos': L0.concat(falsas) });
+    const primeira = DB.get('people', id).pet.fotos[0].id, nf = DB.raw('files').length;
+    const a = window.__arq(await window.__img(300, 200, 'image/png'), 'c1.png'), b = window.__arq(await window.__img(300, 200, 'image/png'), 'c2.png');
+    const r = await Promise.all([PetFoto.guardar(id, a, false), PetFoto.guardar(id, b, false)]);
+    const fs = DB.get('people', id).pet.fotos;
+    const res = { n: fs.length, primeira: fs[0].id === primeira, arquivos: DB.raw('files').length - nf, cheia: r.filter((x) => x && x.cheia).length };
+    await DB.patch('people', id, { 'pet.fotos': fs.filter((f) => !/^fcheia/.test(f.id)) });
+    return res;
+  }, pid);
+  conferir(cap.n === 12 && cap.primeira && cap.arquivos === 1 && cap.cheia === 1, 'galeria com 11 e duas fotos guardadas ao mesmo tempo: uma entra, a outra fica de fora (sem arquivo guardado) e as mais antigas ficam (' + JSON.stringify(cap) + ')');
 
   /* ---------- vacinas e cuidados ---------- */
   const cuidado = async (rot, ultima) => {
@@ -202,6 +235,28 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await p.click('#screen [data-act="pet.cuidado"]'); await p.waitForSelector('.menu', { timeout: 4000 });
   conferir(await p.evaluate(() => { const t = document.querySelector('.menu').textContent; return !/Vacina anual/.test(t) && /Vermífugo/.test(t) && /Banho e tosa/.test(t) && /a cada 45 dias/.test(t) && /Outro cuidado/.test(t); }), 'o ＋ não oferece de novo o que já existe; banho e tosa a cada 45 dias');
   await fecharJanelas(p); await p.waitForTimeout(200);
+  /* segunda vacina (a antirrábica depois da V10): o ＋ oferece "Outra vacina", sem nome, a cada 365 dias; o ✓ dela pede a marca;
+     ela aparece com o nome dela; e 🗑 Excluir no formulário dela (o mesmo da Casa → Manutenção) leva a dose para o Histórico */
+  await p.click('#screen [data-act="pet.cuidado"]'); await p.waitForSelector('.menu', { timeout: 4000 });
+  const temOutra = await p.locator('.menu button', { hasText: 'Outra vacina' }).count() > 0;
+  conferir(temOutra, 'com uma vacina já posta, o ＋ ainda oferece "Outra vacina" (a antirrábica)');
+  if (!temOutra) { await fecharJanelas(p); await p.waitForTimeout(200); }
+  else {
+    await p.locator('.menu button', { hasText: 'Outra vacina' }).first().click(); await modal(p, '[name="interval"]');
+    const ov = await p.evaluate(() => ({ t: document.querySelector('.modal [name="title"]').value, iv: document.querySelector('.modal [name="interval"]').value }));
+    await p.fill('.modal [name="title"]', 'Antirrábica de Teste'); await p.fill('.modal [name="last"]', await p.evaluate(() => addDays(today(), -100)));
+    await salvar(p, '[name="interval"]');
+    const ar = await p.evaluate((id) => { const m = Pets.cuidados(id).find((x) => x.title === 'Antirrábica de Teste'); return m && { id: m.id, tipo: m.petTipo, iv: +m.interval, prox: [...document.querySelectorAll('#screen .card.accent .t')].some((t) => /Antirrábica de Teste/.test(t.textContent)) }; }, pid);
+    conferir(ov.t === '' && ov.iv === '365' && ar && ar.tipo === 'vacina' && ar.iv === 365 && ar.prox, 'a segunda vacina vem sem nome, a cada 365 dias, é vacina e aparece com o nome dela nos próximos cuidados');
+    await p.click('#screen [data-act="pet.feito"][data-m="' + ar.id + '"]');
+    conferir(await modal(p, '[name="produto"]'), 'o ✓ Feito da segunda vacina também pede a marca e quem aplicou');
+    await p.fill('.modal [name="produto"]', 'Antirrábica Exemplo'); await salvar(p, '[name="produto"]');
+    await p.click('#screen [data-act="pet.vercuidado"][data-m="' + ar.id + '"]'); await modal(p, '[name="interval"]');
+    await p.click('.modal [data-del]'); await sim(p); await p.waitForTimeout(300);
+    const exc = await p.evaluate((a) => ({ m: !!DB.get('maint', a.m), h: (DB.get('people', a.p).pet.historico || []).filter((x) => x.tipo === 'vacina') }), { m: ar.id, p: pid });
+    conferir(!exc.m && exc.h.length === 1 && exc.h[0].titulo === '✓ Antirrábica de Teste' && /Antirrábica Exemplo/.test(exc.h[0].nota), '🗑 Excluir no formulário da vacina (o mesmo da Casa → Manutenção): a dose aplicada fica no Histórico do pet (' + JSON.stringify(exc.h) + ')');
+    await p.evaluate((id) => DB.patch('people', id, { 'pet.historico': undefined }), pid);
+  }
   await cuidado('Vermífugo', 30); await cuidado('Antipulgas', 28); await cuidado('Banho e tosa', 50);
   const cs = await p.evaluate((id) => Pets.cuidados(id).map((m) => ({ id: m.id, t: m.title, tipo: m.petTipo, cat: m.cat, pet: m.pet, iv: +m.interval, next: m.next, d: m._days })), pid);
   const C = (t) => cs.find((x) => x.tipo === t) || {};
@@ -249,6 +304,7 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   conferir(/dura ~160 dias/.test(rTxt) && /Acaba em/.test(rTxt) && /vence antes de acabar/.test(rTxt) && /no máximo 2 sacos/.test(rTxt), 'o cartão mostra "dura ~160 dias", quando acaba e ⚠️ "compre no máximo 2 sacos"');
   const lemb = await p.evaluate((id) => { const m = DB.raw('maint').find((x) => x.pet === id && x.petTipo === 'racao'); return m && { id: m.id, t: m.title, next: m.next, cat: m.cat, esp: addDays(today(), 143), lista: Maint.list().some((x) => x.id === m.id) }; }, pid);
   conferir(lemb && lemb.t === 'Comprar ração — Bolinha de Teste' && lemb.cat === 'pet' && lemb.next === lemb.esp && lemb.lista, 'aviso automático "Comprar ração — Bolinha de Teste" uma semana antes de acabar, pelas manutenções');
+  conferir(lemb && lemb.id === 'racao-' + pid, 'o aviso da ração tem id fixo por pet (dois celulares gravam o mesmo registro, não dois avisos)');
   /* calculadora da promoção */
   await p.click('#pracao details.more summary');
   const calc = async (kg, dias) => { await p.fill('#pck', kg); await p.fill('#pcv', await p.evaluate((n) => addDays(today(), n), dias)); await p.waitForTimeout(150); return p.evaluate(() => document.querySelector('#pco').textContent); };
@@ -257,13 +313,19 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await p.click('#screen [data-act="pet.shop"]'); await p.waitForTimeout(300);
   conferir(await p.evaluate(() => Shop.open().some((s) => s.name === 'Ração Marca Exemplo Adulto' && s.cat === 'pet')), '🛒 põe a ração na lista de compras');
   /* ✓ Feito no aviso da ração = anotar a compra nova */
-  await p.evaluate((id) => { Maint.done(id); }, lemb.id);
+  /* o mesmo aviso criado por outro celular antes de sincronizar (outro id): a compra nova junta os dois num só */
+  await p.evaluate((id) => DB.put('maint', { title: 'Comprar ração — Bolinha de Teste', cat: 'pet', pet: id, petTipo: 'racao', interval: '', next: addDays(today(), 60), nextManual: true }), pid);
+  await p.waitForTimeout(300);
+  /* o 🔔 leva à ficha: lá o "Comprar ração" tem o ✓ Comprei, que abre a compra nova */
+  const sel = '#screen .card.accent [data-act="pet.feito"][data-m="' + lemb.id + '"]', comprei = await p.locator(sel).count();
+  conferir(comprei === 1 && /Comprei/.test(await p.evaluate((s) => (document.querySelector(s) || {}).textContent || '', sel)), 'em "Próximos cuidados" (onde o 🔔 leva), o "Comprar ração" tem ✓ Comprei');
+  if (comprei) await p.click(sel); else await p.evaluate((id) => { Maint.done(id); }, lemb.id);
   conferir(await modal(p, '[name="sacoKg"]'), '✓ Feito em "Comprar ração" abre a ração para anotar a compra nova');
   conferir(await p.evaluate(() => document.querySelector('.modal [name="compradoEm"]').value === today() && document.querySelector('.modal [name="validade"]').value === '' && document.querySelector('.modal [name="marca"]').value === 'Marca Exemplo Adulto'), 'já vem com a mesma ração, comprada hoje, e a validade em branco');
   await p.fill('.modal [name="sacos"]', '2'); await p.fill('.modal [name="validade"]', await p.evaluate(() => addDays(today(), 120)));
   await salvar(p, '[name="sacoKg"]');
   const lemb2 = await p.evaluate((id) => { const m = DB.get('maint', id); return { next: m.next, esp: addDays(today(), 73), h: (m.history || []).length, n: DB.raw('maint').filter((x) => x.petTipo === 'racao').length }; }, lemb.id);
-  conferir(lemb2.next === lemb2.esp && lemb2.h === 1 && lemb2.n === 1, 'a compra nova recalcula o aviso (sem criar outro) e fica no histórico dele');
+  conferir(lemb2.next === lemb2.esp && lemb2.h === 1 && lemb2.n === 1, 'a compra nova recalcula o aviso (sem criar outro, e o repetido de outro celular sai) e fica no histórico dele');
 
   /* ---------- peso ---------- */
   /* "8,1" e "7,8" com vírgula, como no celular em português */
@@ -290,9 +352,30 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   }, pid);
   conferir(!xss.xss && !xss.img && xss.txt, 'data estranha no peso e no próximo cuidado aparece como texto, não vira HTML (esc)');
   conferir(await p.evaluate(() => { const g = document.querySelector('svg.petgraf'); return !!g && g.querySelector('polyline').getAttribute('points').split(' ').length === 3 && !!g.querySelector('rect.pfaixa') && /Faixa comum da raça: 6 a 10 kg/.test(document.querySelector('#screen').textContent); }), 'gráfico de linha (SVG, sem biblioteca) com a faixa comum do Cavachon (6 a 10 kg) e "confirme com a veterinária"');
-  await p.click('#screen [data-act="pet.peso"][data-i="0"]'); await modal(p, '[name="kg"]');
+  const w0 = await p.evaluate((id) => Pets.pesoChave(Pets.pesos(DB.get('people', id))[0]), pid);
+  await p.click('#screen [data-act="pet.peso"][data-w="' + w0 + '"]'); await modal(p, '[name="kg"]');
   await p.click('.modal [data-del]'); await sim(p); await p.waitForTimeout(300);
   conferir(await p.evaluate((id) => DB.get('people', id).pet.pesos.length === 2, pid), 'tocar num peso permite apagar');
+  /* peso que não dá para ler: o formulário fica aberto, com o que a pessoa escreveu */
+  await p.click('#screen [data-act="pet.peso"]'); await modal(p, '[name="kg"]');
+  await p.fill('.modal [name="kg"]', 'oito'); await p.click('.modal:has([name="kg"]) [data-ok]'); await p.waitForTimeout(300);
+  conferir(await p.evaluate(() => { const i = document.querySelector('.modal [name="kg"]'); return !!i && i.value === 'oito' && [...document.querySelectorAll('.toast')].some((t) => /Escreva o peso em kg/.test(t.textContent)); }), 'peso que não dá para ler ("oito"): avisa e o formulário fica aberto, com o que foi escrito');
+  /* "3,450" (kg com as gramas, como na balança) e um peso que chega de outro celular com o formulário aberto */
+  if (!(await p.evaluate(() => !!document.querySelector('.modal [name="kg"]')))) { await p.click('#screen [data-act="pet.peso"]'); await modal(p, '[name="kg"]'); }
+  await p.evaluate((id) => { const d = JSON.parse(JSON.stringify(DB.get('people', id))); d.pet.pesos = (d.pet.pesos || []).concat({ id: 'woutro', d: addDays(today(), -5), kg: 6.6 }); DB.col('people').set(id, d); window.__ops = []; }, pid);
+  await p.fill('.modal [name="d"]', await p.evaluate(() => addDays(today(), -2))); await p.fill('.modal [name="kg"]', '3,450');
+  await salvar(p, '[name="kg"]');
+  const pz = await p.evaluate((id) => ({ kgs: DB.get('people', id).pet.pesos.map((x) => x.kg), ops: window.__ops.filter((o) => o.c === 'people' && o.id === id) }), pid);
+  conferir(pz.kgs.includes(3.45), '"3,450" kg (com as gramas, como na balança) é aceito: 3,45 kg (' + JSON.stringify(pz.kgs) + ')');
+  conferir(pz.kgs.includes(6.6) && pz.ops.some((o) => o.op === 'put') && !pz.ops.some((o) => o.op === 'patch' && o.ks.includes('pet.pesos')), 'o peso que chegou de outro celular com o formulário aberto fica (a lista muda pelo registro inteiro, não pela lista solta)');
+  /* bicho pequeno: as gramas aparecem e o gráfico não fica com eixo negativo */
+  const ham = await p.evaluate(() => {
+    const box = document.createElement('div');
+    box.innerHTML = Pets.pesoCard({ id: 'pHam', pet: { especie: 'roedor', pesos: [{ id: 'w1', d: '2026-01-01', kg: 0.12 }, { id: 'w2', d: '2026-02-01', kg: 0.145 }, { id: 'w3', d: '2026-03-01', kg: 0.16 }] } });
+    const cao = document.createElement('div'); cao.innerHTML = Pets.pesoCard({ id: 'pCao', pet: { pesos: [{ id: 'w4', d: '2026-01-01', kg: 7.05 }] } });
+    return { txt: box.textContent, eixo: [...box.querySelectorAll('svg text')].map((t) => t.textContent), cao: cao.textContent };
+  });
+  conferir(/Último: 0,16 kg/.test(ham.txt) && /0,145 kg/.test(ham.txt) && ham.eixo.length === 2 && ham.eixo.every((t) => !/-/.test(t)) && /Último: 7,05 kg/.test(ham.cao), 'peso de hamster com as gramas ("0,145 kg", último 0,16 kg), eixo do gráfico sem negativo (' + ham.eixo.join(' / ') + ') e 7,05 kg sem arredondar');
 
   /* ---------- histórico ---------- */
   await p.click('#screen [data-act="pet.hist"]'); await modal(p, '[name="titulo"]');
@@ -311,6 +394,12 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await p.click('.modal [data-del]'); await sim(p); await p.waitForTimeout(300);
   hs = await p.evaluate((id) => DB.get('people', id).pet.historico, pid);
   conferir(hs.length === 1 && hs[0].tipo === 'episodio', 'e apagar');
+  /* entrada que chega de outro celular com o formulário aberto: salvar não a apaga */
+  await p.click('#screen [data-act="pet.hist"]'); await modal(p, '[name="titulo"]');
+  await p.evaluate((id) => { const d = JSON.parse(JSON.stringify(DB.get('people', id))); d.pet.historico = (d.pet.historico || []).concat({ id: 'houtro', d: today(), tipo: 'episodio', titulo: 'Comeu chocolate (outro celular)', nota: '' }); DB.col('people').set(id, d); window.__ops = []; }, pid);
+  await p.fill('.modal [name="titulo"]', 'Consulta de outro dia'); await salvar(p, '[name="titulo"]');
+  const hx = await p.evaluate((id) => ({ t: DB.get('people', id).pet.historico.map((x) => x.titulo), ops: window.__ops.filter((o) => o.c === 'people' && o.id === id) }), pid);
+  conferir(hx.t.includes('Comeu chocolate (outro celular)') && hx.t.includes('Consulta de outro dia') && hx.ops.some((o) => o.op === 'put') && !hx.ops.some((o) => o.op === 'patch' && o.ks.includes('pet.historico')), 'histórico: a entrada que chegou de outro celular com o formulário aberto fica (pelo registro inteiro, não pela lista solta)');
   /* 🚫 Não se aplica na vacina já aplicada: a dose (data, marca, quem aplicou) continua no histórico do pet */
   await p.click('#screen [data-act="pet.na"][data-m="' + C('vacina').id + '"]');
   await p.waitForSelector('[data-yes]', { timeout: 5000 });
@@ -355,11 +444,12 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   /* ---------- guia para quem cuida ---------- */
   await p.click('#screen [data-act="pet.guia"]');
   conferir(await modal(p, '#gsec'), '📘 monta o guia e abre para conferir');
-  const gd = await p.evaluate((id) => { const g = DB.all('guides').find((x) => x.kind === 'pet' && x.pet === id); if (!g) return null; const S_ = (h) => (g.sections.find((s) => s.h === h) || {}).body || ''; return { id: g.id, for: g.for, contacts: g.contacts, comida: S_('Comida (quanto e quando)'), rem: S_('Remédios'), manias: S_('Manias e cuidados'), vet: S_('Veterinário'), hotel: S_('Hotelzinho e banho e tosa'), heads: g.sections.map((s) => s.h) }; }, pid);
+  const gd = await p.evaluate((id) => { const g = DB.all('guides').find((x) => x.kind === 'pet' && x.pet === id); if (!g) return null; const S_ = (h) => (g.sections.find((s) => s.h === h) || {}).body || ''; return { id: g.id, title: g.title, for: g.for, contacts: g.contacts, comida: S_('Comida (quanto e quando)'), rem: S_('Remédios'), manias: S_('Manias e cuidados'), vet: S_('Veterinário'), hotel: S_('Hotelzinho e banho e tosa'), heads: g.sections.map((s) => s.h) }; }, pid);
   conferir(gd && gd.for.includes(pid) && gd.contacts.includes(cid), 'guia de pet ligado ao pet e ao contato (telefones no texto do guia)');
   conferir(gd && /Marca Exemplo Adulto/.test(gd.comida) && /25 g por refeição, 3 vezes por dia/.test(gd.comida), 'comida: a ração e os horários');
   conferir(gd && /Remédio de Mentira 1 gota \(08:00\)/.test(gd.rem) && /Frango/.test(gd.rem), 'remédios e alergias vêm da Saúde');
   conferir(gd && gd.manias === 'Tem medo de trovão' && /Pet Shop Exemplo: \(11\) 90000-0000/.test(gd.vet) && /🏨 Pet Shop Exemplo/.test(gd.hotel), 'manias, veterinário com telefone e o hotelzinho');
+  conferir(gd && /^Guia para quem cuida do Bolinha/.test(gd.title), 'título do guia com "do" para macho (nada de "do(a)"): ' + (gd && gd.title));
   conferir(gd && gd.heads.includes('Passeios') && gd.heads.includes('Se acontecer algo'), 'e as seções para a pessoa completar (passeios, se acontecer algo)');
   await cancelar(p, '#gsec');
   /* a pessoa escreveu no guia: nada é trocado sem perguntar */
@@ -406,6 +496,15 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   const sg = await p.evaluate((id) => { const r = DB.get('people', id).pet.racao; return { r, c: Pets.racaoCalc(r), txt: document.querySelector('#pracao').textContent, toast: [...document.querySelectorAll('.toast')].map((t) => t.textContent).join(' | ') }; }, pid);
   conferir(sg.r.sacoKg === 15.5 && sg.r.gRefeicao === 37.5, '"15,5" kg e "37,5" g com vírgula ficam 15,5 e 37,5 (não 155 e 375)');
   conferir(sg.c && sg.c.sacoGrande && /Um saco de 15,5 kg dura ~207 dias e vence antes de acabar: prefira um saco menor/.test(sg.txt) && !/no máximo 1 saco/.test(sg.txt) && /prefira um saco menor/.test(sg.toast), 'nem um saco acaba antes da validade: "prefira um saco menor" (não "compre no máximo 1 saco"), no cartão e no aviso');
+  conferir(/75 g por dia \(37,5 g × 2\)/.test(sg.txt) && /37,5 g por refeição/.test(await p.evaluate((id) => Pets.guiaSecoes(Pets.get(id))[0][1], pid)), 'gramas com a vírgula: "75 g por dia (37,5 g × 2)" no cartão e "37,5 g por refeição" no guia (não 38 g)');
+  /* saco que não dá para ler: o formulário fica aberto e o aviso continua; "15 kg" (com a unidade) vale 15 */
+  await p.click('#screen [data-act="pet.racao"]'); await modal(p, '[name="sacoKg"]');
+  await p.fill('.modal [name="sacoKg"]', 'quinze'); await p.click('.modal:has([name="sacoKg"]) [data-ok]'); await p.waitForTimeout(300);
+  const ileg = await p.evaluate((id) => { const i = document.querySelector('.modal [name="sacoKg"]'); return { aberto: !!i && i.value === 'quinze', toast: [...document.querySelectorAll('.toast')].some((t) => /tamanho do saco em kg/.test(t.textContent)), saco: DB.get('people', id).pet.racao.sacoKg }; }, pid);
+  conferir(ileg.aberto && ileg.toast && ileg.saco === 15.5, 'tamanho do saco que não dá para ler ("quinze"): avisa e o formulário fica aberto (nada muda)');
+  if (!(await p.evaluate(() => !!document.querySelector('.modal [name="sacoKg"]')))) { await p.click('#screen [data-act="pet.racao"]'); await modal(p, '[name="sacoKg"]'); }
+  await p.fill('.modal [name="sacoKg"]', '15 kg'); await salvar(p, '[name="sacoKg"]');
+  conferir(await p.evaluate((id) => DB.get('people', id).pet.racao.sacoKg === 15 && DB.raw('maint').some((m) => m.pet === id && m.petTipo === 'racao'), pid), '"15 kg" (com a unidade) fica 15 kg e o aviso "Comprar ração" continua');
   await p.click('#screen [data-act="pet.racao"]'); await modal(p, '[name="sacoKg"]');
   await p.fill('.modal [name="sacoKg"]', ''); await salvar(p, '[name="sacoKg"]');
   conferir(await p.evaluate((id) => !DB.raw('maint').some((m) => m.pet === id && m.petTipo === 'racao') && /Anote a ração/.test(document.querySelector('#pracao').textContent), pid), 'tirar o saco da ração apaga o aviso "Comprar ração" (não fica "atrasado" para sempre)');
@@ -416,6 +515,7 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await p.evaluate(() => go('pets')); await p.waitForTimeout(500);
   const card = await p.evaluate(() => document.querySelector('#screen .petcard').textContent);
   conferir(/Bolinha de Teste/.test(card) && /Cachorro · Cavachon · 1 ano/.test(card) && /castrado/.test(card) && /Vermífugo/.test(card) && /ração para ~/.test(card) && /último banho/.test(card), 'cartão do pet: foto, nome, espécie · raça · idade, castrado, próximos cuidados, dias de ração e último banho');
+  conferir(await p.evaluate((id) => { const x = JSON.parse(JSON.stringify(Pets.get(id))); x.pet.racao = { sacoKg: 0.15, gRefeicao: 75, refeicoesDia: 1, sacos: 1, compradoEm: addDays(today(), -1) }; const h = Pets.cartao(x); return /ração para ~1 dia</.test(h) && !/~1 dias/.test(h); }, pid), 'último dia de ração: "ração para ~1 dia" (não "~1 dias")');
   conferir(await p.evaluate(() => document.querySelector('#screen .petcard .petav.on') !== null), 'o cartão usa a foto de perfil');
   conferir(await semRolagem(p), 'lista dos pets: nada passa da largura da tela (390 px)');
   conferir(await p.evaluate((id) => { const r = Search.find('cavachon'); return r.some((x) => x.t === 'Bolinha de Teste' && /Cavachon/.test(x.s)) && Search.find('Bolinha').filter((x) => x.t === 'Bolinha de Teste').length === 1; }, pid), 'a busca acha o pet pelo nome e pela raça (uma vez só)');
@@ -474,6 +574,16 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await q.click('#screen [data-act="pet.cuidado"]'); await q.waitForSelector('.menu', { timeout: 4000 });
   const menuT = await q.evaluate(() => document.querySelector('.menu').textContent); await fecharJanelas(q); await q.waitForTimeout(200);
   conferir(!/Vermífugo/.test(menuT) && /Vacina anual/.test(menuT), 'e o ＋ não oferece outro vermífugo (nada de aviso em dobro)');
+  /* com dois pets, o nome de um só dentro de uma palavra ("Mi" em "vermífugo") não liga o cuidado antigo a ele */
+  const lig = await q.evaluate(async () => {
+    const mi = await DB.put('people', { name: 'Mimi Teste', nick: 'Mi', role: 'pet', emoji: '🐱', pet: { especie: 'gato' } });
+    const a = await DB.put('maint', { title: 'Vermífugo do pet', cat: 'pet', interval: 90 }), b = await DB.put('maint', { title: 'Banho da Mimi Teste', cat: 'pet', interval: 45 });
+    await Pets.ligarAntigos();
+    const r = { a: DB.get('maint', a.id).pet || null, b: DB.get('maint', b.id).pet || null, mi: mi.id };
+    await DB.del('maint', a.id); await DB.del('maint', b.id); await DB.del('people', mi.id);
+    return r;
+  });
+  conferir(!lig.a && lig.b === lig.mi, 'cuidado antigo: o nome do pet só vale como palavra inteira ("Mi" dentro de "vermífugo" não liga; "Banho da Mimi Teste" liga à Mimi)');
   conferir(await q.evaluate(() => /Guia para quem cuida/.test(document.querySelector('#screen').textContent) && Pets.guiaSecoes(Pets.get('pThor')).find((x) => x[0] === 'Manias e cuidados')[1] === 'Labrador, 32 kg'), 'o guia de quem cuida usa as observações antigas do pet em "Manias e cuidados"');
   await q.evaluate(async () => { window.__picks.push([window.__arq(await window.__img(1800, 1200, 'image/png', 20), 'perfil.png')]); });
   await q.evaluate(() => ACT['pet.foto']({ id: 'pThor' }));
@@ -544,6 +654,89 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
     return { put: ops.some((o) => o.op === 'put'), patchLista: ops.some((o) => o.op === 'patch' && o.ks.includes('pet.fotos')), ids: (m.doc.pet.fotos || []).map((f) => f.id), novo: mine.pet.fotos[mine.pet.fotos.length - 1].id, conflitos: m.conflitos.length };
   }, g0);
   conferir(gal.put && !gal.patchLista && gal.ids.includes(gal.novo) && gal.ids.includes('fb1') && !gal.conflitos, 'galeria muda pelo registro inteiro (não pela lista solta): fotos de dois celulares ao mesmo tempo ficam as duas (' + gal.ids.join(', ') + ')');
+  /* foto pendente de outro aparelho (sem arquivo aqui): "ainda não subiu", sem buscar na nuvem e sem "esperando a internet" aqui */
+  await q.evaluate(async () => { const d = DB.get('people', 'pThor').pet; await DB.patch('people', 'pThor', { 'pet.fotos': (d.fotos || []).concat({ id: 'fpend9', path: 'omnilife-one/fam-mentira/pet-fpend9.webp', w: 64, h: 48, pendente: true }) }); go('pets', 'ficha', 'pThor'); });
+  await q.waitForTimeout(800);
+  const pz9 = await q.evaluate(() => ({ get: window.__st.some((x) => /pet-fpend9/.test(x.u)), lb: (document.querySelector('#screen .thumb[data-pfoto="fpend9"] .lb') || {}).textContent || '', esperando: /esperando a internet/.test(document.querySelector('#screen').textContent) }));
+  conferir(!pz9.get && /ainda não subiu/.test(pz9.lb) && !pz9.esperando, 'foto pendente de outro aparelho: "⏳ ainda não subiu", sem buscar na nuvem a cada minuto e sem "esperando a internet" neste');
+  await q.evaluate(async () => { const d = DB.get('people', 'pThor').pet; await DB.patch('people', 'pThor', { 'pet.fotos': d.fotos.filter((f) => f.id !== 'fpend9') }); });
+  /* registro do pet mexido por outro celular apontando para outro arquivo deste aparelho (a foto restrita, cifrada ou não, de um
+     serviço do carro): não sobe para a nuvem, não aparece e não é apagado daqui */
+  const seg = await q.evaluate(async () => {
+    const snap = JSON.parse(JSON.stringify(DB.get('people', 'pThor')));
+    S.vaultKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    const cif = await Files.save(new File([new Blob(['SEGREDO-DE-MENTIRA'], { type: 'image/jpeg' })], 'nota.jpg', { type: 'image/jpeg' }), { vis: 'restrito', encrypt: true, raw: true });
+    const pla = await Files.save(new File([new Blob(['OUTRO-SEGREDO-DE-MENTIRA'], { type: 'image/jpeg' })], 'n2.jpg', { type: 'image/jpeg' }), { vis: 'restrito', raw: true });
+    const n0 = window.__st.length;
+    await DB.patch('people', 'pThor', { 'pet.foto': { id: cif, pendente: true }, 'pet.fotos': (snap.pet.fotos || []).concat({ id: pla, path: PetFoto.caminho(pla, 'image/jpeg'), pendente: true }) });
+    PetFoto._reenvT = 0; go('pets', 'ficha', 'pThor');
+    await new Promise((r) => setTimeout(r, 1500));
+    const pedidos = window.__st.slice(n0).filter((x) => x.u.includes(cif) || x.u.includes(pla)).map((x) => x.met + ' ' + x.u);
+    const tela = !!document.querySelector('#screen .petav.lg.on') || !!document.querySelector('#screen .thumb[data-pfoto="' + pla + '"].on');
+    /* tirar a foto, trocar a de perfil e apagar o pet passam por aqui */
+    await PetFoto.apagarArquivo({ id: cif }, 'pThor'); await PetFoto.apagarArquivo({ id: pla, path: PetFoto.caminho(pla, 'image/jpeg') }, 'pThor');
+    const ficou = !!Files.meta(cif) && !!Files.meta(pla) && !!(await Files.blob(pla));
+    await DB.put('people', snap); await Files.remove(cif); await Files.remove(pla); S.vaultKey = null;
+    return { pedidos, tela, ficou };
+  });
+  conferir(!seg.pedidos.length, 'id de outro arquivo deste aparelho no registro do pet (restrito, cifrado ou não, marcado pendente): nada sobe para a nuvem (' + seg.pedidos.join(' | ') + ')');
+  conferir(!seg.tela && seg.ficou, 'e ele não aparece como foto do pet nem é apagado daqui (só o arquivo que o PetFoto guardou para este pet)');
+  /* path mexido no registro (outro app, o "restrito", id trocado) e na lista de apagar depois: nada sai de omnilife-one/<família>/pet-<id> */
+  const cam = await q.evaluate(async () => {
+    const snap = JSON.parse(JSON.stringify(DB.get('people', 'pThor'))), n0 = window.__st.length;
+    lsSet(LS.petFotoApagar, [{ g: 'fam-mentira', path: 'moneytrio/fam-mentira/fila.pdf' }]);
+    await DB.patch('people', 'pThor', { 'pet.foto': { id: 'fx1', path: 'moneytrio/fam-mentira/comprovante.pdf' }, 'pet.fotos': (snap.pet.fotos || []).concat({ id: 'fx2', path: 'outroapp/fam-mentira/restrito/doc.pdf' }, { id: 'fx3', path: 'omnilife-one/fam-mentira/pet-OUTRA.webp' }) });
+    PetFoto._reenvT = 0; go('pets', 'ficha', 'pThor');
+    await new Promise((r) => setTimeout(r, 1200));
+    window.__falhaApagar = true;
+    for (const id of ['fx1', 'fx2', 'fx3']) await PetFoto.apagarArquivo(PetFoto.refs(DB.get('people', 'pThor')).find((r) => r.id === id), 'pThor');
+    window.__falhaApagar = false;
+    const fora = window.__st.slice(n0).map((x) => x.met + ' ' + x.u).filter((x) => /moneytrio|outroapp|pet-OUTRA|fila\.pdf/.test(x)), fila = lsGet(LS.petFotoApagar, []);
+    await DB.put('people', snap); lsSet(LS.petFotoApagar, []);
+    return { fora, fila };
+  });
+  conferir(!cam.fora.length && !cam.fila.length, 'path mexido no registro (outro app, "restrito", id trocado): nada é baixado, enviado nem apagado fora de omnilife-one/<família>/pet-<id>, e a lista de apagar depois não guarda nem manda outro caminho (' + cam.fora.concat(cam.fila.map((x) => x.path)).join(' | ') + ')');
+  /* ⚙ → Dados: a foto do pet que já subiu não é "só deste aparelho" */
+  const sa = await q.evaluate(async () => {
+    const gid0 = CloudDriver.gid, fp = DB.get('people', 'pThor').pet.foto.id;
+    const outro = await Files.save(new File([new Blob(['x'], { type: 'text/plain' })], 'nota.txt', { type: 'text/plain' }), { raw: true });
+    CloudDriver.gid = 'g-soaqui'; CloudDriver.recs.set('files|' + fp, { doc: Files.meta(fp) }); CloudDriver.recs.set('files|' + outro, { doc: Files.meta(outro) });
+    try { return { n: Migrar.soAqui().files, txt: Migrar.card() }; }
+    finally { CloudDriver.recs.delete('files|' + fp); CloudDriver.recs.delete('files|' + outro); CloudDriver.gid = gid0; await Files.remove(outro); }
+  });
+  conferir(sa.n === 1 && /fotos dos pets/.test(sa.txt), '⚙ → Dados: a foto do pet que já está na nuvem não conta como "só neste aparelho" (e o texto diz que as fotos dos pets vão para a nuvem)');
+  /* fila da nuvem: tirar a foto depois de pô-la, ainda sem internet, não deixa a foto recriada só com o "pendente" */
+  const fila = await q.evaluate(async () => {
+    const gid0 = CloudDriver.gid, fl = CloudDriver.flush, key = 'people|pFila';
+    CloudDriver.gid = 'g-fila'; CloudDriver.flush = async () => {};
+    try {
+      await CloudDriver.enfileirar(key, { op: 'patch', fields: { 'pet.foto': { id: 'fa', path: 'x', pendente: true }, 'pet.foto.pendente': true } });
+      await CloudDriver.enfileirar(key, { op: 'patch', fields: { 'pet.foto': undefined } });
+      const op = CloudDriver.fila.get(key);
+      return { ks: Object.keys(op.fields), foto: CloudDriver.aninhar(op.fields).pet.foto };
+    } finally { CloudDriver.fila.delete(key); try { await IDB.del('fila', 'g-fila|' + key); } catch (e) {} await new Promise((r) => setTimeout(r, 450)); CloudDriver.gid = gid0; CloudDriver.flush = fl; Sync.badge(); }
+  });
+  conferir(fila.ks.join() === 'pet.foto' && fila.foto === null, 'fila sem internet: pôr e tirar a foto de perfil vira só "tirar" (o "pet.foto.pendente" de antes não recria a foto; ' + JSON.stringify(fila) + ')');
+  /* pet apagado em outro celular enquanto este mandava um peso (o omni_mudar_campos muda até linha apagada): não volta como fantasma */
+  const fant = await q.evaluate(async () => {
+    const salvo = { drv: DB.driver, gid: CloudDriver.gid, rpc: Conta.rpc, rest: Conta.rest };
+    const linha = { id: 'pFantasma', vis: 'publico', dados: { name: 'Rex Fantasma', role: 'pet', pet: {} }, versao: 6, atualizado_em: new Date().toISOString(), apagado_em: new Date().toISOString() };
+    try {
+      Conta.rpc = async (fn, a) => { linha.dados = window.__mesclar(linha.dados, a.p_campos); linha.versao++; return linha.versao; };
+      Conta.rest = async (met, url) => { if (met === 'GET' && /id=eq\.pFantasma/.test(url)) return [JSON.parse(JSON.stringify(linha))]; throw Object.assign(new Error('não esperado'), { status: 500 }); };
+      DB.driver = CloudDriver; CloudDriver.gid = 'g-fantasma';
+      const doc = { id: 'pFantasma', name: 'Rex Fantasma', role: 'pet', vis: 'familia', pet: {} };
+      CloudDriver.recs.set('people|pFantasma', { doc, base: { name: 'Rex Fantasma', role: 'pet', pet: {} }, vis: 'publico', versao: 5 });
+      DB.col('people').set('pFantasma', doc);
+      await CloudDriver.enviar('people', 'pFantasma', { op: 'patch', fields: { 'pet.pesos': [{ id: 'w1', d: today(), kg: 8 }] } });
+      await CloudDriver.receber(Object.assign({ colecao: 'people' }, JSON.parse(JSON.stringify(linha))));
+      return { aqui: !!DB.col('people').get('pFantasma'), rec: CloudDriver.recs.has('people|pFantasma') };
+    } finally {
+      DB.col('people').delete('pFantasma'); CloudDriver.recs.delete('people|pFantasma'); try { await IDB.del('nuvem', 'g-fantasma|people|pFantasma'); } catch (e) {}
+      CloudDriver.gid = salvo.gid; DB.driver = salvo.drv; Conta.rpc = salvo.rpc; Conta.rest = salvo.rest;
+    }
+  });
+  conferir(!fant.aqui && !fant.rec, 'pet apagado em outro celular enquanto este mandava um peso: sai daqui (não volta como fantasma com a versão nova)');
   conferir(await semRolagem(q), 'nada passa da largura da tela');
   conferir(v.lixo.erros.length === 0 && v.lixo.nativos.length === 0, 'nenhum erro de script nem janela nativa' + (v.lixo.erros.length ? ': ' + v.lixo.erros.join(' | ') : ''));
 

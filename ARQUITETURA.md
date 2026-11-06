@@ -66,7 +66,10 @@ sem framework: HTML, CSS e JavaScript puros.
   Receber: `pull` a cada consulta, só o que mudou desde o cursor (`kv cursor|<grupo>`, folga de 2 min). **Conflito**: `merge3(base,
   deste aparelho, do outro)` junta campo a campo, listas somam; só o MESMO campo mudado diferente nos dois vira pergunta
   (`Sync.perguntar`, uma janela por vez; "Depois" pergunta de novo em 2 min). Registro novo recusado pelo banco fica no aparelho
-  marcado `recusado` (aparece em `Sync.view`, "Tentar de novo"). **Só no aparelho** (`NUVEM_LOCAL`): `health`, `docs`, `files`
+  marcado `recusado` (aparece em `Sync.view`, "Tentar de novo"). Dois `DB.patch` na fila viram um, e o campo novo apaga os de
+  dentro dele que já estavam lá (`enfileirar`: "pet.foto" depois de "pet.foto.pendente"). `aceitar` de uma linha com `apagado_em`
+  (o `omni_mudar_campos` muda até linha apagada) tira o registro daqui, como o `receber`, em vez de trazê-lo de volta como
+  fantasma. **Só no aparelho** (`NUVEM_LOCAL`): `health`, `docs`, `files`
   (ficam na store `nuvem`, nunca na fila); `NUVEM_SO_AQUI.people = ["pinHash"]` não sobe. `comsg` vai para
   `omni_combinados` (só inclusão). Arquivos continuam na store `files`.
   **Cofre (v2.15.0)**: `putCofre` cifra com `Cofre.selar` e a linha vai com `dados = null` e `dados_cifrado` (o banco exige isso
@@ -352,19 +355,24 @@ sem framework: HTML, CSS e JavaScript puros.
   `people` com `role: "pet"` (Família, aniversários, Saúde e `SaudeMT` com `especie: "pet"` não mudaram) e ganha `p.pet`:
   `especie` (`PET_ESP`; pet antigo sem `especie` usa o ícone), `raca` (datalist `PET_RACAS()` por espécie, troca no `after` do
   formulário; texto livre vale), `cor` (pelagem; `p.color` é a cor do avatar), `sexo`, `castrado`, `chegada` (nascimento segue em
-  `p.birth`), `microchip`, `pedigree`/`registro`, `descricao`, `foto`/`fotos` (ver `PetFoto`), `racao`, `pesos [{d, kg}]` (até
-  100), `historico [{id, d, tipo, titulo, nota}]` (`PET_HIST`, até 200) e `contatos {vet, hotel, banho}` (ids de `contacts`; o
+  `p.birth`), `microchip`, `pedigree`/`registro`, `descricao`, `foto`/`fotos` (ver `PetFoto`), `racao`, `pesos [{id, d, kg}]` (até
+  100; kg com até 3 casas, `Pets.dec` lê "3,450" e "15 kg"), `historico [{id, d, tipo, titulo, nota}]` (`PET_HIST`, até 200) e `contatos {vet, hotel, banho}` (ids de `contacts`; o
   mesmo contato pode ser os três; "＋ Novo contato" abre o contato com `cat: "pet"` e volta à escolha). Cadastro próprio
   (`Pets.edit`, sem PIN/controle parental; `personFields` não oferece mais "Pet" com a aba ligada; `person.edit` de um pet abre a
   ficha). **Cuidados** = `maint` com `cat: "pet"`, `pet`, `petTipo` (`vacina` 365 d, `vermifugo` 90, `antipulgas` 30, `banho` 45,
   `outro` — `PET_CUIDADOS`, criados pelo `Maint.edit` já preenchido): passam pelo sino (que leva à ficha), avisos, agenda, busca e
-  Casa → Manutenção; na ficha, ✓ Feito (`Maint.done`; vacina guarda `produto` e `vet` na linha do histórico), 📅 Remarcar
-  (`next` + `nextManual`) e 🚫 Não se aplica (apaga). **Ração**: `racao {marca, fase, sacoKg, gRefeicao, refeicoesDia,
+  Casa → Manutenção; na ficha, ✓ Feito (`Maint.done`; vacina guarda `produto` e `vet` na linha do histórico; também em cada linha
+  de "Próximos cuidados", onde o sino leva), 📅 Remarcar (`next` + `nextManual`) e 🚫 Não se aplica (apaga). Apagar um cuidado (🚫
+  ou 🗑 no `Maint.edit`) passa os ✓ Feito para `pet.historico` antes (`Pets.guardarHistorico`). A vacina aparece sempre no ＋ (a
+  segunda vem sem nome, "Outra vacina"). `ligarAntigos` liga cuidado antigo pelo nome do pet como palavra inteira (≥ 3 letras). **Ração**: `racao {marca, fase, sacoKg, gRefeicao, refeicoesDia,
   compradoEm, sacos, validade}`; `Pets.racaoCalc` (diário, dias por saco, `acabaEm`, `vence`, `maxSacos` ≥ 1); um aviso
-  `maint` "Comprar ração — nome" (`petTipo: "racao"`, `next` = acaba − 7 dias, `Pets.racaoLembrete`); o ✓ dele abre
+  `maint` "Comprar ração — nome" (`petTipo: "racao"`, `next` = acaba − 7 dias, `Pets.racaoLembrete`, id fixo `racao-<pid>` para
+  dois celulares não criarem dois; o guia novo também tem id fixo, `guia-<pid>`); o ✓ dele abre
   `Pets.racaoForm(pid, true)` (compra nova, entra no histórico do aviso); calculadora da promoção (`calcPromo`, mesma conta
   comprando hoje); 🛒 `Shop.add`. Peso: gráfico SVG próprio (`Pets.grafico`) com a faixa de `PET_PESO` (poucas raças, "confirme
-  com a veterinária"). Histórico da ficha = `pet.historico` + os ✓ Feito dos cuidados (`Pets.linha`). `Health.edit` de pet esconde
+  com a veterinária"). Histórico da ficha = `pet.historico` + os ✓ Feito dos cuidados (`Pets.linha`). Listas do pet (`historico`,
+  `pesos`, `fotos`) mudam por `Pets.lista` (registro inteiro de agora, `DB.put`: na nuvem o envio com versão junta os itens pelo
+  id; o `DB.patch` da lista trocava a lista toda). `Health.edit` de pet esconde
   tipo sanguíneo, RH e SUS e chama `doctor` de "Veterinário(a) de referência" e o plano de "Plano de saúde pet". **Guia para quem
   cuida** (`Pets.guia`): `guides` `kind: "pet"`, `pet`, `for`, `contacts`, seções de `guiaSecoes` (ração, remédios e alergias da
   Saúde, manias, veterinário e hotel com telefone); `petAuto` guarda o que veio da ficha: texto diferente escrito pela pessoa só é
@@ -374,10 +382,14 @@ sem framework: HTML, CSS e JavaScript puros.
   1080 px na galeria, WebP 0,78; JPEG 0,8 se o navegador não faz WebP; nunca corta; tira EXIF/GPS) — falhou = foto recusada, o
   original nunca é guardado. `Files.save(…, { raw: true })` no aparelho e, com `S.mode === "cloud"`, `POST
   /storage/v1/object/sol-arquivos/omnilife-one/<família>/pet-<fileId>.<webp|jpg>` (apikey + sessão de `Conta.token`, `x-upsert`).
-  No pet só `{ id, path, w, h }` (galeria até 12). Os `files` não sobem (`NUVEM_LOCAL`): outro celular baixa por `GET
-  …/authenticated/…` (`PetFoto.baixar`, uma vez; erro espera 1 min), grava no IndexedDB com `nuvem: <path>` e mostra
-  (`preencher`, atributos `data-pfoto`/`data-ppath`). Envio que falhou: `pendente: true`, e `reenviar()` (ao abrir 🐾 Pets, no
-  máximo a cada 20 s) sobe de novo; apagar (só responsável, pelas regras do bucket) tira daqui e faz `DELETE`; sem internet, o
+  No pet só `{ id, path, w, h }` (galeria até 12, contadas na hora de guardar; um lote de cada vez por pet). Os `files` não sobem
+  (`NUVEM_LOCAL`): outro celular baixa por `GET …/authenticated/…` (`PetFoto.baixar`, uma vez; erro espera 1 min; pendente não
+  baixa), grava no IndexedDB com `nuvem: <path>` e mostra (`preencher`, atributos `data-pfoto`/`data-ppet`). **O registro do pet é
+  editável por qualquer adulto**, então: só sobe, aparece e é apagado o arquivo local com `petFoto: <pid>` (`PetFoto.meu`; posto
+  por `guardar`/`baixar`, sem cifra, `vis: "familia"`, WebP/JPEG), e só vale o caminho `omnilife-one/<S.family.id>/pet-<id>.<ext>`
+  (`pathOk`/`caminhoOk`) em GET, POST, DELETE e na lista de apagar depois. Envio que falhou: `pendente: true`, e `reenviar()` (ao
+  abrir 🐾 Pets, no máximo a cada 20 s) sobe de novo, sempre com o caminho montado aqui; a foto do pet que já subiu não conta em
+  "Apagar o que está só neste aparelho" (`PetFoto.naNuvem`); apagar (só responsável, pelas regras do bucket) tira daqui e faz `DELETE`; sem internet, o
   caminho fica em `LS.petFotoApagar` e é apagado no próximo `reenviar`. Adicionar roda no `DGO.fundo` (tipo `foto`). "Só neste
   aparelho": sem envio. Sem cifra (foto de bicho).
 - `SaudeMT` (2.23.0) — **Saúde → MoneyTRIO**, híbrida e opcional (`DB.setting().mt.saude`, ⚙ → Integrações; só responsável, nuvem e

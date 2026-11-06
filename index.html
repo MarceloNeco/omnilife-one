@@ -2012,7 +2012,12 @@ const CloudDriver = {
   async enfileirar(key, op) {
     if (!this.gid) return;
     const cur = this.fila.get(key); let nova = op;
-    if (cur && op.op === "patch") nova = cur.op === "patch" ? { op: "patch", fields: Object.assign({}, cur.fields, op.fields) } : cur;
+    /* dois patches na fila viram um. Um campo novo vale por cima dos de dentro dele que já estavam na fila ("pet.foto"
+       tirado depois de "pet.foto" + "pet.foto.pendente": sem isso o aninhar recriava a foto só com o pendente) */
+    if (cur && op.op === "patch") {
+      if (cur.op === "patch") { const f = Object.assign({}, cur.fields); for (const k in op.fields) for (const j in f) if (j.startsWith(k + ".")) delete f[j]; nova = { op: "patch", fields: Object.assign(f, op.fields) }; }
+      else nova = cur;
+    }
     nova = Object.assign({}, nova, { t: Date.now() });
     this.fila.set(key, nova); try { await IDB.set("fila", this.gid + "|" + key, nova); } catch (e) {}
     if (!navigator.onLine) Sync.offlineAviso();
@@ -2058,7 +2063,12 @@ const CloudDriver = {
     return d;
   },
   async aceitar(col, id, row, trocarDoc) {
-    const key = col + "|" + id; const rec = this.recs.get(key) || {};
+    const key = col + "|" + id;
+    /* apagado em outro aparelho: o omni_mudar_campos muda até linha apagada (só olha os dados) e o registro voltava aqui como
+       fantasma, com a versão nova (o receber depois não via nada para fazer, e um ✏️ trazia de volta para a família toda).
+       Sai daqui, como no receber */
+    if (row.apagado_em) { this.recs.delete(key); DB.col(col).delete(id); IDB.del("nuvem", this.gid + "|" + key).catch(() => {}); scheduleRender(true); return; }
+    const rec = this.recs.get(key) || {};
     const nrec = Object.assign({}, rec, { base: row.dados, vis: row.vis, versao: row.versao, at: row.atualizado_em });
     if (trocarDoc || !rec.doc) { nrec.doc = this.doServidor(col, row, rec.doc); DB.col(col).set(id, nrec.doc); scheduleRender(); }
     await this.guardar(key, nrec);
@@ -2781,14 +2791,15 @@ const Migrar = {
     toast("✓ " + tt("Cópia antiga apagada.", "Old copy erased.")); render();
   },
   /* #21 (decisão de 08/Out/2026): com a família na nuvem, Saúde, Documentos e os arquivos (fotos, anexos, inclusive os das Senhas
-     da casa) só existem neste aparelho (NUVEM_LOCAL). Daqui dá para apagar só isso, desta família, depois de oferecer a cópia
+     da casa) só existem neste aparelho (NUVEM_LOCAL), menos as fotos dos pets que já subiram (2.24.0, PetFoto.naNuvem).
+     Daqui dá para apagar só isso, desta família, depois de oferecer a cópia
      protegida com os arquivos. Não mexe na conta, na fila, no que está na nuvem, na cópia antiga (store docs) nem nos outros
      apps da SolverONE (mesma origem). Só chefe ou responsável: é quem pode fazer a cópia protegida. */
   /* anexos das senhas antigas (de antes da nuvem): ficam junto com elas, até a pessoa trazê-las (Casa → Senhas da casa) */
   anexosAntigos() { const ids = new Set(); for (const d of Cofre.legado().values()) for (const f of d.files || []) { const id = typeof f === "string" ? f : f && f.id; if (id) ids.add(id); } return ids; },
   soAqui() {
     const n = { health: 0, docs: 0, files: 0 };
-    if (S.mode === "cloud" && CloudDriver.gid) { const ant = this.anexosAntigos(); for (const k of CloudDriver.recs.keys()) { const i = k.indexOf("|"), c = k.slice(0, i); if (c in n && !(c === "files" && ant.has(k.slice(i + 1)))) n[c]++; } }
+    if (S.mode === "cloud" && CloudDriver.gid) { const ant = this.anexosAntigos(); for (const k of CloudDriver.recs.keys()) { const i = k.indexOf("|"), c = k.slice(0, i); if (c in n && !(c === "files" && (ant.has(k.slice(i + 1)) || PetFoto.naNuvem(k.slice(i + 1))))) n[c]++; } }
     return n;
   },
   async apagarSoAqui() {
@@ -2802,7 +2813,7 @@ const Migrar = {
     }
     const gid = CloudDriver.gid, n = this.soAqui();
     if (!n.health && !n.docs && !n.files) return toast(tt("Não há Saúde, Documentos nem fotos e arquivos guardados só neste aparelho.", "There's no Health, Documents, photos or files kept only on this device."), 4000);
-    if (!(await this.copia(tt("Antes de apagar, baixe uma cópia protegida (com as fotos e os arquivos). Saúde, Documentos, fotos e arquivos só existem neste aparelho: depois de apagados, só essa cópia traz de volta.", "Before erasing, download a protected copy (with photos and files). Health, Documents, photos and files exist only on this device: once erased, only that copy brings them back."), undefined, { apagar: true, arquivos: n.files > 0 }))) return;
+    if (!(await this.copia(tt("Antes de apagar, baixe uma cópia protegida (com as fotos e os arquivos). Saúde, Documentos, fotos e arquivos só existem neste aparelho (menos as fotos dos pets que já foram para a nuvem da família, que não entram aqui): depois de apagados, só essa cópia traz de volta.", "Before erasing, download a protected copy (with photos and files). Health, Documents, photos and files exist only on this device (except pets' photos already in the family cloud, which aren't included here): once erased, only that copy brings them back."), undefined, { apagar: true, arquivos: n.files > 0 }))) return;
     const legado = Cofre.temLegado();
     if (!(await confirmBox(tt("Apagar deste aparelho Saúde (" + n.health + "), Documentos (" + n.docs + ") e " + n.files + " foto(s) e arquivo(s), inclusive os anexos das Senhas da casa? Quem mais usa este aparelho também deixa de ver. As listas, a agenda, os recados e as Senhas da casa continuam na internet para a família.", "Erase from this device Health (" + n.health + "), Documents (" + n.docs + ") and " + n.files + " photo(s) and file(s), including attachments in Home passwords? Anyone else using this device stops seeing them too. Lists, calendar, messages and Home passwords stay online for the family.") + (legado ? " " + tt("As senhas antigas (de antes da nuvem) e os anexos delas continuam neste aparelho: traga-as em Casa → Senhas da casa.", "The old passwords (from before the cloud) and their attachments stay on this device: bring them in Home → Home passwords.") : ""), tt("Apagar deste aparelho", "Erase from this device"), true))) return;
     /* a situação pode ter mudado enquanto as janelas estavam abertas (saiu da conta, trocou de família, deixou de ser responsável) */
@@ -2817,7 +2828,8 @@ const Migrar = {
     let mantidos = 0;
     for (const key of [...CloudDriver.recs.keys()]) {
       const i = key.indexOf("|"), col = key.slice(0, i), id = key.slice(i + 1);
-      if (!NUVEM_LOCAL.includes(col) || (col === "files" && ant.has(id))) continue;
+      /* a foto de pet que já está na nuvem da família não é "só deste aparelho" (e voltaria ao abrir 🐾 Pets) */
+      if (!NUVEM_LOCAL.includes(col) || (col === "files" && (ant.has(id) || PetFoto.naNuvem(id)))) continue;
       if (col === "files") {
         if (outros.has(id)) mantidos++; else { try { await IDB.del("files", id); } catch (e) {} }
         const u = Files.urls.get(id); if (u) { try { URL.revokeObjectURL(u); } catch (e) {} Files.urls.delete(id); }
@@ -2831,7 +2843,7 @@ const Migrar = {
   card() {
     if (S.mode !== "cloud" || !CloudDriver.gid || !isGuardian()) return "";
     const n = this.soAqui();
-    return '<div class="card danger"><h3>🗑 ' + tt("Apagar o que está só neste aparelho", "Erase what's only on this device") + '</h3><p class="small">' + tt("Saúde, Documentos, fotos e arquivos ficam só neste aparelho: não vão para a internet. Aqui você apaga isso deste aparelho; antes, o app oferece a cópia protegida. As listas, a agenda, os recados e as Senhas da casa continuam na internet para a família.", "Health, Documents, photos and files stay only on this device: they don't go online. Here you erase them from this device; first, the app offers the protected copy. Lists, calendar, messages and Home passwords stay online for the family.") + '</p><p class="small muted">' + tt("Neste aparelho agora: ", "On this device now: ") + tt("Saúde ", "Health ") + n.health + " · " + tt("Documentos ", "Documents ") + n.docs + " · " + tt("Fotos e arquivos ", "Photos and files ") + n.files + "</p>" +
+    return '<div class="card danger"><h3>🗑 ' + tt("Apagar o que está só neste aparelho", "Erase what's only on this device") + '</h3><p class="small">' + tt("Saúde, Documentos, fotos e arquivos ficam só neste aparelho: não vão para a internet (menos as fotos dos pets, que vão leves para a nuvem da família e não entram aqui). Aqui você apaga isso deste aparelho; antes, o app oferece a cópia protegida. As listas, a agenda, os recados e as Senhas da casa continuam na internet para a família.", "Health, Documents, photos and files stay only on this device: they don't go online (except pets' photos, which go, kept light, to the family cloud and aren't included here). Here you erase them from this device; first, the app offers the protected copy. Lists, calendar, messages and Home passwords stay online for the family.") + '</p><p class="small muted">' + tt("Neste aparelho agora: ", "On this device now: ") + tt("Saúde ", "Health ") + n.health + " · " + tt("Documentos ", "Documents ") + n.docs + " · " + tt("Fotos e arquivos ", "Photos and files ") + n.files + "</p>" +
       (this._temLocal && this.feito() ? '<p class="small">⚠️ ' + tt("Este aparelho ainda tem a cópia antiga “só neste aparelho”: apague-a primeiro em ⚙ → Nuvem.", "This device still has the old “this device only” copy: erase it first in ⚙ → Cloud.") + "</p>" : "") +
       '<p class="tiny faint">' + tt("Não entram aqui “Meus contatos” (Segurança → Alertas) e o registro de alterações (aqui embaixo), que têm o próprio botão de apagar.", "Not included: “My contacts” (Safety → Alerts) and the change log (below), which have their own delete button.") + '</p><button class="btn danger sm" data-act="mig.soaqui">' + tt("Apagar deste aparelho", "Erase from this device") + "</button></div>";
   },
@@ -2841,7 +2853,7 @@ const Migrar = {
     if (!Conta.on()) return h + '<p class="small">' + tt("Entre na conta SolverONE (a mesma de todos os apps) para cada pessoa da família usar o app no próprio celular, com tudo igual em todos.", "Sign in to your SolverONE account (the same for every app) so each family member can use the app on their own phone, with everything the same on all of them.") + '</p><button class="btn" data-act="conta.entrar">✨ ' + tt("Entrar ou criar conta", "Sign in or create account") + "</button></div>";
     if (S.mode === "cloud" && S.family) {
       h += '<p class="small">✅ ' + tt("Família ", "Family ") + "<b>" + esc(S.family.name || "") + "</b>" + tt(" na nuvem, com a conta ", " in the cloud, with the account ") + "<b>" + esc(Conta.email()) + "</b>.</p>" +
-        '<p class="small muted">' + tt("Por enquanto, Saúde, Documentos e as fotos e arquivos ficam só neste " + apN() + "; o resto aparece igual para toda a família. As Senhas da casa vão para a internet embaralhadas: ninguém de fora consegue ler.", "For now, Health, Documents and photos and files stay only on this " + apN() + "; everything else is the same for the whole family. The vault goes online scrambled: nobody outside can read it.") + "</p>" +
+        '<p class="small muted">' + tt("Por enquanto, Saúde, Documentos e as fotos e arquivos ficam só neste " + apN() + " (menos as fotos dos pets, que vão leves para a nuvem da família); o resto aparece igual para toda a família. As Senhas da casa vão para a internet embaralhadas: ninguém de fora consegue ler.", "For now, Health, Documents and photos and files stay only on this " + apN() + " (except pets' photos, which go, kept light, to the family cloud); everything else is the same for the whole family. The vault goes online scrambled: nobody outside can read it.") + "</p>" +
         '<p class="small">' + (CloudDriver.fila.size ? "⏳ " + CloudDriver.fila.size + tt(" mudança(s) ainda não enviada(s) — vão sozinhas quando a internet voltar", " change(s) not sent yet — they go by themselves when the internet is back") : "✓ " + tt("Tudo sincronizado", "All synced")) + '</p><button class="btn ghost sm" data-act="sync.view">' + tt("Ver detalhes", "See details") + "</button>";
       if (this.feito() || this._temLocal) h += '<div class="grouph" style="margin-top:12px">📱 ' + tt("Cópia antiga “só neste aparelho”", "Old “this device only” copy") + '</div><p class="small muted">' + (this.feito() ? tt("Continua guardada aqui. Apague quando tiver certeza de que está tudo na nuvem.", "Still kept here. Erase it once you're sure everything is in the cloud.") : tt("Este aparelho ainda tem uma família que não foi para a nuvem. Leve para esta família ou apague (antes, o app oferece a cópia protegida).", "This device still has a family that didn't go to the cloud. Move it into this family or erase it (first the app offers the protected copy).")) + '</p><div class="row">' + (this.feito() ? "" : '<button class="btn sm" data-act="mig.levar">☁️ ' + tt("Levar para esta família", "Move into this family") + "</button>") + '<button class="btn ghost sm" data-act="mig.apagar">' + tt("Apagar a cópia antiga", "Erase the old copy") + "</button></div>";
       return h + "</div>";
@@ -7510,7 +7522,9 @@ const Maint = {
     /* carro: revisão "a cada X km ou Y dias, o que vier primeiro" (#53) */
     const kmf = m.cat === "carro" || m.veiculo ? [{ k: "cadaKm", label: "🚗 " + tt("Ou a cada (km)", "Or every (km)"), im: "numeric", hint: tt("Ex.: 10000. Vale o que vier primeiro: os dias ou os km.", "e.g. 10000. Whichever comes first: the days or the km.") }, { k: "ultKm", label: "🚗 " + tt("Km na última vez", "Km last time"), im: "numeric" }] : [];
     const f = this.fields().concat(kmf, m.id ? [{ type: "html", html: '<div class="grouph">' + tt("Histórico", "History") + '</div><div class="small muted">' + (hist ? esc(hist).replace(/&lt;br&gt;/g, "<br>") : "—") + "</div>" }] : []);
-    const r = await formModal({ title: "🛠 " + tt("Manutenção", "Maintenance"), fields: f, values: Object.assign({}, m, { next: m.nextManual ? m.next : "" }), onDelete: m.id ? () => DB.del("maint", m.id) : null });
+    /* cuidado de um pet (vacina, banho…): os ✓ Feito passam para o Histórico do pet antes de apagar, como no 🚫 Não se aplica */
+    const apagar = async () => { const moveu = await Pets.guardarHistorico(DB.get("maint", m.id) || m); await DB.del("maint", m.id); if (moveu) toast(tt("O que já foi feito continua no Histórico do pet.", "What was already done stays in the pet's History."), 4000); };
+    const r = await formModal({ title: "🛠 " + tt("Manutenção", "Maintenance"), fields: f, values: Object.assign({}, m, { next: m.nextManual ? m.next : "" }), onDelete: m.id ? apagar : null });
     if (!r) return;
     r.nextManual = !!r.next; if (!r.next && r.last && r.interval) r.next = addDays(r.last, +r.interval);
     if (kmf.length) { r.cadaKm = kmDe(r.cadaKm); r.ultKm = kmDe(r.ultKm); }
@@ -8350,6 +8364,19 @@ const Pets = {
   desc(p) { return [this.esp(p)[2], this.dados(p).raca, p.birth ? ageTxt(p.birth) : ""].filter(Boolean).join(" · "); },
   /* criança vê tudo e não muda nada (o DB.put também recusa) */
   podeEditar() { return !isChild(); },
+  /* listas do pet (histórico, pesos, fotos) mudam pelo registro inteiro de AGORA (DB.put), não por DB.patch da lista: na
+     nuvem o patch troca a lista toda (o omni_jsonb_mesclar só junta objetos) e o item que outro celular pôs ao mesmo tempo,
+     ou que chegou com o formulário aberto, sumia; o envio com versão junta os itens pelo id. fn devolve null = nada muda */
+  async lista(pid, k, fn) {
+    const p = this.get(pid); if (!p) return;
+    const doc = JSON.parse(JSON.stringify(p)); doc.pet = doc.pet || {};
+    const n = fn(doc.pet[k] || []); if (!n) return;
+    doc.pet[k] = n; await DB.put("people", doc);
+  },
+  /* número escrito do jeito do Brasil, com qualquer número de casas ("0,375", "3,450") e sem a unidade ("15 kg", "37,5 g").
+     O parseNum (o do dinheiro) só lê a vírgula com 1 ou 2 casas e devolvia 0. NaN = não deu para ler */
+  dec(v) { const t = String(v == null ? "" : v).trim().replace(/\s+/g, "").replace(/(kg|g)$/i, ""); return t === "" ? NaN : Number(/,/.test(t) && !/\./.test(t) ? t.replace(",", ".") : t); },
+  diasTxt(n) { return tt(n + (n === 1 ? " dia" : " dias"), n + (n === 1 ? " day" : " days")); },
   /* ---------- cadastro (formulário próprio: o de pessoa traz PIN, controle parental e começa como criança) ---------- */
   fields() {
     return [{ k: "name", label: tt("Nome", "Name"), req: true, ph: tt("Ex.: Bolinha", "e.g. Buddy") }, { k: "nick", label: tt("Apelido (como aparece no app)", "Nickname (as shown in the app)") },
@@ -8402,7 +8429,7 @@ const Pets = {
   async apagar(pid) {
     const p = this.get(pid); if (!p) return;
     const d = this.dados(p);
-    for (const ref of [d.foto].concat(d.fotos || []).filter(Boolean)) await PetFoto.apagarArquivo(ref);
+    for (const ref of [d.foto].concat(d.fotos || []).filter(Boolean)) await PetFoto.apagarArquivo(ref, pid);
     for (const m of DB.raw("maint").filter((x) => x.pet === pid)) await DB.del("maint", m.id);
     if (DB.get("health", pid)) await DB.del("health", pid);
     await DB.del("people", pid);
@@ -8416,20 +8443,25 @@ const Pets = {
      não aparecia na ficha e o ＋ oferecia de novo o mesmo cuidado (dois avisos do vermífugo) */
   async ligarAntigos() {
     const ps = this.list(); if (!ps.length || !this.podeEditar()) return;
+    /* o nome como palavra inteira, e só com 3 letras ou mais: "Mi" estava dentro de "vermífugo" e o cuidado ia para o pet errado */
+    const palavra = (t, n) => { n = norm(n); return n.length >= 3 && new RegExp("(^|[^a-z0-9])" + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "([^a-z0-9]|$)").test(t); };
     for (const m of DB.raw("maint").filter((x) => x.cat === "pet" && !x.pet)) {
-      const t = norm(m.title), donos = ps.filter((p) => [p.name, p.nick].some((n) => norm(n) && t.includes(norm(n))));
+      const t = norm(m.title), donos = ps.filter((p) => [p.name, p.nick].some((n) => palavra(t, n)));
       const p = donos.length === 1 ? donos[0] : !donos.length && ps.length === 1 ? ps[0] : null; if (!p) continue;
       const tipo = /vacin|vaccin/.test(t) ? "vacina" : /verm|worm/.test(t) ? "vermifugo" : /pulga|carrapat|\bflea|\btick/.test(t) ? "antipulgas" : /banho|tosa|\bbath|groom/.test(t) ? "banho" : "outro";
       await DB.patch("maint", m.id, { pet: p.id, petTipo: tipo });
     }
   },
-  info(m) { if (m.petTipo === "racao") return ["racao", "🥣", tt("Comprar ração", "Buy food")]; const c = PET_CUIDADOS().find((x) => x[0] === m.petTipo); return c && c[0] !== "outro" ? c : ["outro", "🐾", m.title]; },
+  /* a segunda vacina (a antirrábica depois da V10) aparece com o nome dela, não como "Vacina anual" */
+  info(m) { if (m.petTipo === "racao") return ["racao", "🥣", tt("Comprar ração", "Buy food")]; const c = PET_CUIDADOS().find((x) => x[0] === m.petTipo); if (c && c[0] === "vacina" && !/^(vacina anual|yearly vaccine)/i.test(m.title || "")) return [c[0], c[1], m.title]; return c && c[0] !== "outro" ? c : ["outro", "🐾", m.title]; },
   badge(m) { return m._days == null ? "" : m._days < 0 ? '<span class="badge bad">' + tt("venceu há " + -m._days + " d", "overdue " + -m._days + " d") + "</span>" : m._days <= 15 ? '<span class="badge warn">' + relDay(m.next) + "</span>" : '<span class="badge ok">' + esc(fmtDate(m.next, "short")) + "</span>"; },
   novoCuidado(pid, el) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
     const tem = new Set(this.cuidados(pid).map((m) => m.petTipo));
-    popMenu(el, [{ hd: tt("Acrescentar para ", "Add for ") + this.nome(p) }].concat(PET_CUIDADOS().filter((c) => c[0] === "outro" || !tem.has(c[0])).map((c) => ({ ic: c[1], t: c[2] + (c[0] === "outro" ? "" : " · " + tt("a cada " + c[3] + " dias", "every " + c[3] + " days")),
-      fn: () => Maint.edit({ title: c[0] === "outro" ? "" : c[2] + " — " + this.nome(p), cat: "pet", interval: c[3], pet: pid, petTipo: c[0] }) }))));
+    /* a vacina aparece sempre: cachorro costuma ter duas por ano (a V8/V10 e a antirrábica). A segunda vem sem nome, para a
+       pessoa escrever, e continua sendo vacina (365 dias, marca e quem aplicou no ✓) */
+    popMenu(el, [{ hd: tt("Acrescentar para ", "Add for ") + this.nome(p) }].concat(PET_CUIDADOS().filter((c) => c[0] === "outro" || c[0] === "vacina" || !tem.has(c[0])).map((c) => { const outra = c[0] === "vacina" && tem.has("vacina"); return { ic: c[1], t: (outra ? tt("Outra vacina (ex.: antirrábica)", "Another vaccine (e.g. rabies)") : c[2]) + (c[0] === "outro" ? "" : " · " + tt("a cada " + c[3] + " dias", "every " + c[3] + " days")),
+      fn: () => Maint.edit({ title: c[0] === "outro" || outra ? "" : c[2] + " — " + this.nome(p), cat: "pet", interval: c[3], pet: pid, petTipo: c[0] }) }; })));
   },
   async remarcar(mid) {
     const m = DB.get("maint", mid); if (!m || !this.podeEditar()) return;
@@ -8442,14 +8474,19 @@ const Pets = {
   async naoSeAplica(mid) {
     const m = DB.get("maint", mid); if (!m || !this.podeEditar()) return;
     if (!(await confirmBox(tt("“" + esc(m.title) + "” não se aplica? Ele sai da lista e para de avisar. O que já foi feito continua no Histórico do pet.", "“" + esc(m.title) + "” doesn't apply? It leaves the list and stops reminding. What was already done stays in the pet's History."), tt("Não se aplica", "Doesn't apply"), true))) return;
-    /* os ✓ Feito (datas, marca da vacina, quem aplicou) moram no histórico da manutenção: passam para o histórico do pet
-       antes de apagar, para a carteira de vacinação não sumir junto */
-    const p = this.get(m.pet), hs = (m.history || []).filter((x) => x && x.d);
-    if (p && hs.length) {
-      const novos = hs.map((x) => ({ id: uid("h"), d: x.d, tipo: m.petTipo === "vacina" ? "vacina" : "outro", titulo: ("✓ " + this.info(m)[2]).slice(0, 200), nota: [x.produto, x.vet, x.note].filter(Boolean).join(" · ").slice(0, 2000) }));
-      await DB.patch("people", p.id, { "pet.historico": (this.dados(p).historico || []).concat(novos).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, 200) });
-    }
+    await this.guardarHistorico(m);
     await DB.del("maint", mid);
+  },
+  /* os ✓ Feito (datas, marca da vacina, quem aplicou) moram no histórico da manutenção: passam para o histórico do pet antes
+     de o cuidado ser apagado (🚫 Não se aplica, ou 🗑 Excluir no formulário da manutenção, aqui ou em Casa), para a carteira
+     de vacinação não sumir junto. A compra da ração não entra (não é saúde; a ficha também não a mostra no Histórico).
+     true = passou alguma coisa */
+  async guardarHistorico(m) {
+    const hs = ((m && m.history) || []).filter((x) => x && x.d);
+    if (!m || m.petTipo === "racao" || !this.get(m.pet) || !hs.length) return false;
+    const novos = hs.map((x) => ({ id: uid("h"), d: x.d, tipo: m.petTipo === "vacina" ? "vacina" : "outro", titulo: ("✓ " + this.info(m)[2]).slice(0, 200), nota: [x.produto, x.vet, x.note].filter(Boolean).join(" · ").slice(0, 2000) }));
+    await this.lista(m.pet, "historico", (L) => L.concat(novos).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, 200));
+    return true;
   },
   /* ---------- ração (a lição dos 4 sacos que venceram antes de acabar) ----------
      diário = g por refeição × refeições; cada saco dura sacoKg×1000 / diário; acaba em compradoEm + dias de um saco × sacos.
@@ -8467,7 +8504,7 @@ const Pets = {
   },
   faseTxt(f) { return { filhote: tt("filhote", "puppy/kitten"), adulto: tt("adulto", "adult"), senior: tt("idoso", "senior") }[f] || ""; },
   /* o mesmo texto da calculadora da promoção, quando nem um saco acaba antes da validade */
-  sacoGrandeTxt(r, c) { return tt("Um saco de " + num(+r.sacoKg) + " kg dura ~" + Math.round(c.diasSaco) + " dias e vence antes de acabar: prefira um saco menor.", "A " + num(+r.sacoKg) + " kg bag lasts ~" + Math.round(c.diasSaco) + " days and expires before it's finished: pick a smaller bag."); },
+  sacoGrandeTxt(r, c) { return tt("Um saco de " + num(+r.sacoKg) + " kg dura ~", "A " + num(+r.sacoKg) + " kg bag lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + tt(" e vence antes de acabar: prefira um saco menor.", " and expires before it's finished: pick a smaller bag."); },
   /* compraNova: veio do ✓ Feito do aviso "Comprar ração": a mesma ração, comprada hoje, com a validade nova em branco */
   async racaoForm(pid, compraNova) {
     const p = this.get(pid); if (!p) return;
@@ -8485,24 +8522,32 @@ const Pets = {
       { k: "sacos", label: tt("Quantos sacos comprou", "How many bags"), type: "number" },
       { k: "validade", label: tt("Validade (impressa no saco)", "Expiry date (printed on the bag)"), type: "date" },
       { type: "note", html: tt("As contas são uma estimativa. A quantidade certa, confirme com a veterinária.", "The numbers are an estimate. Confirm the right amount with your vet.") }];
-    const r = await formModal({ title: "🥣 " + (compraNova ? tt("Comprou ração nova? ", "Bought new food? ") : tt("Ração de ", "Food for ")) + esc(this.nome(p)), fields: f, values: vals, okText: compraNova ? tt("Registrar a compra", "Log the purchase") : null });
+    /* saco ou gramas que não dá para ler ("15 kg" virava 0 e o aviso "Comprar ração" sumia sem dizer nada): o formulário
+       fica aberto, com o que a pessoa escreveu */
+    const ilegivel = (o) => [["sacoKg", tt("Escreva o tamanho do saco em kg, ex.: 10,1", "Type the bag size in kg, e.g. 10.1")], ["gRefeicao", tt("Escreva as gramas por refeição, ex.: 37,5", "Type the grams per meal, e.g. 37.5")]].find(([k]) => String(o[k] == null ? "" : o[k]).trim() !== "" && !(this.dec(o[k]) > 0));
+    const r = await formModal({ title: "🥣 " + (compraNova ? tt("Comprou ração nova? ", "Bought new food? ") : tt("Ração de ", "Food for ")) + esc(this.nome(p)), fields: f, values: vals, okText: compraNova ? tt("Registrar a compra", "Log the purchase") : null,
+      onOk: (o) => { const x = ilegivel(o); if (x) { toast(x[1]); return false; } } });
     if (!r) return;
-    const n = (v) => { const x = v === "" || v == null ? -1 : parseNum(v); return x < 0 ? "" : x; };   /* aceita "10,1" e "10.1" */
+    const n = (v) => { const x = this.dec(v); return x >= 0 ? x : ""; };   /* aceita "10,1", "10.1", "0,375" e "15 kg" */
     const rac = { marca: String(r.marca || "").slice(0, 120), fase: r.fase || "", sacoKg: n(r.sacoKg), gRefeicao: n(r.gRefeicao), refeicoesDia: n(r.refeicoesDia) === "" ? "" : Math.round(n(r.refeicoesDia)), compradoEm: r.compradoEm || "", sacos: Math.max(1, Math.round(n(r.sacos) || 1)), validade: r.validade || "" };
     await DB.patch("people", pid, { "pet.racao": rac });
     await this.racaoLembrete(pid, rac, compraNova);
     const c = this.racaoCalc(rac);
     if (c && c.vence && c.sacoGrande) toast("⚠️ " + this.sacoGrandeTxt(rac, c), 6000);
     else if (c && c.vence) toast("⚠️ " + tt("O último saco vence antes de acabar: compre no máximo " + c.maxSacos + (c.maxSacos > 1 ? " sacos." : " saco."), "The last bag expires before it's finished: buy at most " + c.maxSacos + (c.maxSacos > 1 ? " bags." : " bag.")), 6000);
-    else if (c && c.acabaEm) toast("🥣 " + tt("Dura ~" + c.dias + " dias: aviso uma semana antes de acabar.", "Lasts ~" + c.dias + " days: I'll remind you a week before it runs out."), 4000);
+    else if (c && c.acabaEm) toast("🥣 " + tt("Dura ~", "Lasts ~") + this.diasTxt(c.dias) + tt(": aviso uma semana antes de acabar.", ": I'll remind you a week before it runs out."), 4000);
   },
-  /* um aviso só por pet ("Comprar ração — nome"), uma semana antes de acabar, pelos avisos de sempre */
+  /* um aviso só por pet ("Comprar ração — nome"), uma semana antes de acabar, pelos avisos de sempre. O id é fixo por pet:
+     dois celulares que criam o aviso ao mesmo tempo gravam o MESMO registro (a nuvem junta, ou pergunta), em vez de dois
+     avisos com um deles "atrasado" para sempre. Algum de antes, com outro id, passa para este e sai */
   async racaoLembrete(pid, rac, compraNova) {
     const p = this.get(pid), c = this.racaoCalc(rac); if (!p) return;
-    const ex = DB.raw("maint").find((m) => m.cat === "pet" && m.pet === pid && m.petTipo === "racao");
-    /* a ração foi apagada (passou a comida caseira, tirou o saco ou a data): o aviso antigo não fica "atrasado" para sempre */
-    if (!c || !c.acabaEm) { if (ex) await DB.del("maint", ex.id); return; }
-    const doc = Object.assign({}, ex || {}, { title: tt("Comprar ração — ", "Buy pet food — ") + this.nome(p), cat: "pet", pet: pid, petTipo: "racao", interval: "", last: rac.compradoEm, next: addDays(c.acabaEm, -7), nextManual: true });
+    const fixo = "racao-" + pid, todos = DB.raw("maint").filter((m) => m.cat === "pet" && m.pet === pid && m.petTipo === "racao");
+    const ex = todos.find((m) => m.id === fixo) || todos.slice().sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")))[0];
+    /* a ração foi apagada (passou a comida caseira, tirou o saco ou a data): nenhum aviso fica "atrasado" para sempre */
+    for (const m of todos) if (m.id !== fixo || !c || !c.acabaEm) await DB.del("maint", m.id);
+    if (!c || !c.acabaEm) return;
+    const doc = Object.assign({}, ex || {}, { id: fixo, title: tt("Comprar ração — ", "Buy pet food — ") + this.nome(p), cat: "pet", pet: pid, petTipo: "racao", interval: "", last: rac.compradoEm, next: addDays(c.acabaEm, -7), nextManual: true });
     if (compraNova && ex) doc.history = (ex.history || []).concat({ d: rac.compradoEm || today(), cost: 0, note: [rac.sacos + " × " + num(+rac.sacoKg) + " kg", rac.marca].filter(Boolean).join(" · "), by: S.meId }).slice(-30);
     await DB.put("maint", doc);
   },
@@ -8516,8 +8561,9 @@ const Pets = {
     if (!c) h += '<p class="small muted">' + tt("Anote a ração, o tamanho do saco e quanto o pet come: eu calculo quantos dias dura, aviso uma semana antes de acabar e confiro se a validade dá.", "Log the food, the bag size and how much your pet eats: I work out how many days it lasts, remind you a week before it runs out and check the expiry date.") + "</p>";
     else {
       h += (r.marca || r.fase ? '<div class="small">' + esc([r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · ")) + "</div>" : "") +
-        '<div class="carfrv">' + tt("dura ~" + c.dias + " dias", "lasts ~" + c.dias + " days") + "</div>" +
-        '<div class="small muted">' + tt(num(c.diario, 0) + " g por dia (" + num(+r.gRefeicao, 0) + " g × " + r.refeicoesDia + ") · cada saco de " + num(+r.sacoKg) + " kg dura ~" + Math.round(c.diasSaco) + " dias · " + c.sacos + (c.sacos > 1 ? " sacos" : " saco"), num(c.diario, 0) + " g a day (" + num(+r.gRefeicao, 0) + " g × " + r.refeicoesDia + ") · each " + num(+r.sacoKg) + " kg bag lasts ~" + Math.round(c.diasSaco) + " days · " + c.sacos + (c.sacos > 1 ? " bags" : " bag")) + "</div>" +
+        '<div class="carfrv">' + tt("dura ~", "lasts ~") + this.diasTxt(c.dias) + "</div>" +
+        /* gramas com a casa decimal que a pessoa escreveu (37,5 g × 2 = 75 g, não "38 g × 2") */
+        '<div class="small muted">' + tt(num(c.diario) + " g por dia (" + num(+r.gRefeicao) + " g × " + r.refeicoesDia + ") · cada saco de " + num(+r.sacoKg) + " kg dura ~", num(c.diario) + " g a day (" + num(+r.gRefeicao) + " g × " + r.refeicoesDia + ") · each " + num(+r.sacoKg) + " kg bag lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + " · " + tt(c.sacos + (c.sacos > 1 ? " sacos" : " saco"), c.sacos + (c.sacos > 1 ? " bags" : " bag")) + "</div>" +
         (c.acabaEm ? '<div style="margin-top:4px">' + tt("Acaba em ", "Runs out on ") + "<b>" + fmtDate(c.acabaEm) + "</b> (" + relDay(c.acabaEm) + ")</div>" : "") +
         (c.vence ? '<div class="note warn" style="margin-top:8px">⚠️ ' + (c.sacoGrande ? esc(this.sacoGrandeTxt(r, c)) + " (" + tt("validade ", "expiry ") + esc(fmtDate(r.validade)) + ")" : tt("O último saco vence antes de acabar (validade " + esc(fmtDate(r.validade)) + "): compre no máximo " + c.maxSacos + (c.maxSacos > 1 ? " sacos" : " saco") + " de cada vez.", "The last bag expires before it's finished (expiry " + esc(fmtDate(r.validade)) + "): buy at most " + c.maxSacos + (c.maxSacos > 1 ? " bags" : " bag") + " at a time.")) + "</div>" : "");
     }
@@ -8531,12 +8577,12 @@ const Pets = {
   calcPromo(root, pid) {
     const k = $("#pck", root), v = $("#pcv", root), out = $("#pco", root); if (!k || !v || !out) return;
     const conta = () => {
-      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0), kg = parseNum(k.value);
+      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0), kg = this.dec(k.value);
       if (!(diario > 0)) { out.textContent = tt("Anote antes quanto o pet come (✏️ na Ração).", "First log how much your pet eats (✏️ in Food)."); return; }
       if (!(kg > 0) || !v.value) { out.textContent = tt("Escreva o tamanho do saco e a validade.", "Type the bag size and the expiry date."); return; }
       const ds = (kg * 1000) / diario, x = Math.floor(diffDays(today(), v.value) / ds);
-      out.textContent = x < 1 ? tt("Um saco de " + num(kg) + " kg dura ~" + Math.round(ds) + " dias e vence antes de acabar: prefira um saco menor.", "A " + num(kg) + " kg bag lasts ~" + Math.round(ds) + " days and expires before it's finished: pick a smaller bag.")
-        : tt("Cabem até " + x + (x > 1 ? " sacos" : " saco") + " de " + num(kg) + " kg antes de vencer (cada um dura ~" + Math.round(ds) + " dias).", "Up to " + x + (x > 1 ? " bags" : " bag") + " of " + num(kg) + " kg fit before the expiry date (each lasts ~" + Math.round(ds) + " days).");
+      out.textContent = x < 1 ? this.sacoGrandeTxt({ sacoKg: kg }, { diasSaco: ds })
+        : tt("Cabem até " + x + (x > 1 ? " sacos" : " saco") + " de " + num(kg) + " kg antes de vencer (cada um dura ~", "Up to " + x + (x > 1 ? " bags" : " bag") + " of " + num(kg) + " kg fit before the expiry date (each lasts ~") + this.diasTxt(Math.round(ds)) + ").";
     };
     k.addEventListener("input", conta); v.addEventListener("input", conta); v.addEventListener("change", conta);
   },
@@ -8550,17 +8596,16 @@ const Pets = {
   },
   async histEdit(pid, hid) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
-    const hs = this.dados(p).historico || [], x = hid ? hs.find((y) => y.id === hid) : null;
+    const x = hid ? (this.dados(p).historico || []).find((y) => y.id === hid) : null;
     const r = await formModal({ title: "📋 " + tt("Histórico de ", "History of ") + esc(this.nome(p)), values: x || { d: today(), tipo: "consulta" },
       fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "tipo", label: tt("O quê", "What"), type: "select", opts: PET_HIST().map((t) => [t[0], t[1] + " " + t[2]]) },
         { k: "titulo", label: tt("Resumo", "Summary"), req: true, full: true, ph: tt("Ex.: consulta de rotina, exame de sangue, comeu meia barra de chocolate", "e.g. check-up, blood test, ate half a chocolate bar") },
         { k: "nota", label: tt("Detalhes (o que a veterinária disse, remédio, valor…)", "Details (what the vet said, medicine, price…)"), type: "textarea", rows: 3 }],
-      onDelete: x ? () => DB.patch("people", pid, { "pet.historico": hs.filter((y) => y.id !== hid) }) : null });
+      onDelete: x ? () => this.lista(pid, "historico", (L) => L.filter((y) => y && y.id !== hid)) : null });
     if (!r) return;
     const e = { id: (x && x.id) || uid("h"), d: r.d, tipo: r.tipo || "outro", titulo: String(r.titulo || "").slice(0, 200), nota: String(r.nota || "").slice(0, 2000) };
-    /* fica o mais novo (até 200) */
-    const L = hs.filter((y) => y.id !== e.id).concat(e).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, 200);
-    await DB.patch("people", pid, { "pet.historico": L });
+    /* sobre a lista de AGORA (a que chegou com o formulário aberto fica); fica o mais novo (até 200) */
+    await this.lista(pid, "historico", (L) => L.filter((y) => y && y.id !== e.id).concat(e).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, 200));
   },
   histCard(p) {
     const L = this.linha(p.id), ed = this.podeEditar();
@@ -8572,39 +8617,45 @@ const Pets = {
   },
   pesos(p) { return (this.dados(p).pesos || []).filter((x) => x && x.d && +x.kg > 0).sort((a, b) => String(a.d).localeCompare(String(b.d))); },
   faixa(p) { const r = norm(this.dados(p).raca), f = r && PET_PESO.find((x) => x[0].test(r)); return f ? [f[1], f[2]] : null; },
-  async pesoEdit(pid, i) {
+  /* cada peso tem id (editar e apagar acham o certo mesmo com a lista mudando em outro celular); o de antes, sem id, pela data e o peso */
+  pesoChave(x) { return x.id || x.d + "|" + x.kg; },
+  /* com as casas que a balança dá: hamster e passarinho pesam gramas (0,145 kg), cachorro 7,05 kg */
+  kgTxt(v) { return num(v, +v < 1 ? 3 : 2); },
+  async pesoEdit(pid, w) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
-    const L = this.pesos(p), x = i == null || i === "" ? null : L[+i];
+    const x = w ? this.pesos(p).find((y) => this.pesoChave(y) === w) : null;
     const r = await formModal({ title: "⚖️ " + tt("Peso de ", "Weight of ") + esc(this.nome(p)), values: x || { d: today() },
       /* texto com teclado de número (e não type="number"): no celular em português o "8,4" virava 84 kg ou sumia */
       fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "kg", label: tt("Peso (kg)", "Weight (kg)"), im: "decimal", req: true, ph: "8,4" }],
-      onDelete: x ? () => DB.patch("people", pid, { "pet.pesos": L.filter((y) => y !== x) }) : null });
+      /* confere antes de fechar: o que a pessoa escreveu não se perde */
+      onOk: (o) => { if (!(this.dec(o.kg) > 0)) { toast(tt("Escreva o peso em kg, ex.: 8,4 (ou 0,120 para 120 g).", "Type the weight in kg, e.g. 8.4 (or 0.120 for 120 g).")); return false; } },
+      onDelete: x ? () => this.lista(pid, "pesos", (L) => L.filter((y) => y && this.pesoChave(y) !== w)) : null });
     if (!r) return;
-    const kg = parseNum(r.kg);
-    if (!(kg > 0)) return toast(tt("Escreva o peso em kg.", "Type the weight in kg."));
-    const n = L.filter((y) => y !== x).concat({ d: r.d, kg: Math.round(kg * 100) / 100 }).sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(-100);
-    await DB.patch("people", pid, { "pet.pesos": n });
+    const e = { id: (x && x.id) || uid("w"), d: r.d, kg: Math.round(this.dec(r.kg) * 1000) / 1000 };
+    await this.lista(pid, "pesos", (L) => L.filter((y) => y && (!x || this.pesoChave(y) !== w)).concat(e).sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(-100));
   },
   /* gráfico de linha em SVG, sem biblioteca; a faixa comum da raça (se houver) vai de fundo */
   grafico(L, fx) {
     if (!L.length) return "";
     const W = 320, H = 120, px = 8, py = 12, ks = L.map((x) => +x.kg).concat(fx || []);
-    let lo = Math.min(...ks), hi = Math.max(...ks); if (hi - lo < 1) { lo -= 0.5; hi += 0.5; }
+    let lo = Math.min(...ks), hi = Math.max(...ks);
+    /* margem do tamanho dos pesos (um hamster de 0,12 kg não vira uma escala de 1 kg) e nunca abaixo de zero */
+    const pad = Math.max((hi - lo) * 0.15, hi * 0.05, 0.01); lo = Math.max(0, lo - pad); hi += pad;
     const t0 = parseISO(L[0].d).getTime(), t1 = parseISO(L[L.length - 1].d).getTime();
     const X = (d) => (L.length === 1 || t1 === t0 ? W / 2 : px + ((parseISO(d).getTime() - t0) / (t1 - t0)) * (W - 2 * px)), Y = (kg) => H - py - ((kg - lo) / (hi - lo)) * (H - 2 * py);
     const pts = L.map((x) => X(x.d).toFixed(1) + "," + Y(+x.kg).toFixed(1)).join(" ");
-    return '<svg class="petgraf" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(tt("Peso: de " + num(L[0].kg) + " kg a " + num(L[L.length - 1].kg) + " kg", "Weight: from " + num(L[0].kg) + " kg to " + num(L[L.length - 1].kg) + " kg")) + '">' +
+    return '<svg class="petgraf" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(tt("Peso: de " + this.kgTxt(L[0].kg) + " kg a " + this.kgTxt(L[L.length - 1].kg) + " kg", "Weight: from " + this.kgTxt(L[0].kg) + " kg to " + this.kgTxt(L[L.length - 1].kg) + " kg")) + '">' +
       (fx ? '<rect class="pfaixa" x="0" width="' + W + '" y="' + Y(fx[1]).toFixed(1) + '" height="' + (Y(fx[0]) - Y(fx[1])).toFixed(1) + '" fill="var(--ok)" opacity=".12"/>' : "") +
       (L.length > 1 ? '<polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' : "") +
       L.map((x) => '<circle cx="' + X(x.d).toFixed(1) + '" cy="' + Y(+x.kg).toFixed(1) + '" r="3.5" fill="var(--accent)"/>').join("") +
-      '<text x="' + (W - 2) + '" y="10" text-anchor="end" font-size="10" fill="var(--text2)">' + num(hi) + ' kg</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" text-anchor="end" font-size="10" fill="var(--text2)">' + num(lo) + " kg</text></svg>";
+      '<text x="' + (W - 2) + '" y="10" text-anchor="end" font-size="10" fill="var(--text2)">' + this.kgTxt(hi) + ' kg</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" text-anchor="end" font-size="10" fill="var(--text2)">' + this.kgTxt(lo) + " kg</text></svg>";
   },
   pesoCard(p) {
     const L = this.pesos(p), fx = this.faixa(p), ed = this.podeEditar(), u = L[L.length - 1];
     return '<div class="card"><div class="between"><h3>⚖️ ' + tt("Peso", "Weight") + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.peso" data-id="' + p.id + '" aria-label="' + tt("Anotar o peso", "Log the weight") + '">＋</button>' : "") + "</div>" +
-      (u ? '<div class="small">' + tt("Último: ", "Latest: ") + "<b>" + num(u.kg) + " kg</b> · " + esc(fmtDate(u.d)) + "</div>" + this.grafico(L, fx) +
+      (u ? '<div class="small">' + tt("Último: ", "Latest: ") + "<b>" + this.kgTxt(u.kg) + " kg</b> · " + esc(fmtDate(u.d)) + "</div>" + this.grafico(L, fx) +
         (fx ? '<p class="tiny faint">🟩 ' + tt("Faixa comum da raça: " + num(fx[0]) + " a " + num(fx[1]) + " kg. Cada bicho é de um jeito: confirme com a veterinária.", "Common range for the breed: " + num(fx[0]) + " to " + num(fx[1]) + " kg. Every pet is different: confirm with your vet.") + "</p>" : "") +
-        '<div class="list">' + L.slice(-5).reverse().map((x) => '<div class="li' + (ed ? ' click" data-act="pet.peso" data-id="' + p.id + '" data-i="' + L.indexOf(x) + '"' : '"') + '><div class="main"><div class="t">' + num(x.kg) + ' kg</div><div class="s">' + esc(fmtDate(x.d)) + "</div></div></div>").join("") + "</div>"
+        '<div class="list">' + L.slice(-5).reverse().map((x) => '<div class="li' + (ed ? ' click" data-act="pet.peso" data-id="' + p.id + '" data-w="' + esc(this.pesoChave(x)) + '"' : '"') + '><div class="main"><div class="t">' + this.kgTxt(x.kg) + ' kg</div><div class="s">' + esc(fmtDate(x.d)) + "</div></div></div>").join("") + "</div>"
         : '<div class="empty tiny">' + tt("Anote o peso de vez em quando (na consulta ou na balança de casa): vira um gráfico.", "Log the weight now and then (at the vet or on the home scale): it becomes a chart.") + "</div>") + "</div>";
   },
   /* ---------- contatos do pet (o mesmo contato pode ser os três) ---------- */
@@ -8652,7 +8703,7 @@ const Pets = {
     /* [título no idioma de agora, corpo, [pt, en]]: o guia acha a seção pelos dois títulos */
     const sec = (pt, en, body) => [tt(pt, en), body, [pt, en]];
     return [
-      sec("Comida (quanto e quando)", "Food (how much and when)", r.marca || c ? [tt("Ração: ", "Food: ") + [r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · "), r.gRefeicao && r.refeicoesDia ? tt(num(+r.gRefeicao, 0) + " g por refeição, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " vezes" : " vez") + " por dia.", num(+r.gRefeicao, 0) + " g per meal, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " times" : " time") + " a day.") : ""].filter(Boolean).join("\n") : ""),
+      sec("Comida (quanto e quando)", "Food (how much and when)", r.marca || c ? [tt("Ração: ", "Food: ") + [r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · "), r.gRefeicao && r.refeicoesDia ? tt(num(+r.gRefeicao) + " g por refeição, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " vezes" : " vez") + " por dia.", num(+r.gRefeicao) + " g per meal, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " times" : " time") + " a day.") : ""].filter(Boolean).join("\n") : ""),
       sec("Passeios", "Walks", ""),
       sec("Remédios", "Medicines", [(h.meds || []).map((m) => "💊 " + [m.name, m.dose, m.times ? "(" + m.times + ")" : ""].filter(Boolean).join(" ")).join("\n"), al.length ? "⚠️ " + tt("Alergias: ", "Allergies: ") + al.map((x) => x.what).join(", ") : ""].filter(Boolean).join("\n")),
       sec("Manias e cuidados", "Habits and care", d.descricao || p.notes || ""),
@@ -8665,7 +8716,8 @@ const Pets = {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
     const cs = this.dados(p).contatos || {}, auto = this.guiaSecoes(p);
     const ex = DB.all("guides").find((g) => g.kind === "pet" && g.pet === pid);
-    const g = ex ? JSON.parse(JSON.stringify(ex)) : { kind: "pet", pet: pid, for: [pid], vis: "familia", title: tt("Guia para quem cuida do(a) ", "Guide for whoever looks after ") + this.nome(p), sections: auto.map(([h]) => ({ h, body: "" })), petAuto: {} };
+    /* id fixo por pet (como o aviso da ração): dois celulares montando o primeiro guia ao mesmo tempo gravam o mesmo */
+    const g = ex ? JSON.parse(JSON.stringify(ex)) : { id: "guia-" + pid, kind: "pet", pet: pid, for: [pid], vis: "familia", title: tt("Guia para quem cuida " + ({ femea: "da ", macho: "do " }[this.dados(p).sexo] || "de "), "Guide for whoever looks after ") + this.nome(p), sections: auto.map(([h]) => ({ h, body: "" })), petAuto: {} };
     g.petAuto = g.petAuto || {}; g.sections = g.sections || [];
     const trocar = [];
     /* a seção é achada pelo título em português ou em inglês (guia montado num celular em EN e atualizado num em PT não
@@ -8688,7 +8740,7 @@ const Pets = {
   cartao(p) {
     const d = this.dados(p), c = this.racaoCalc(d.racao), ms = this.cuidados(p.id), prox = ms.filter((m) => m._days != null).slice(0, 3), banho = ms.find((m) => m.petTipo === "banho");
     const L = prox.map((m) => '<div class="small">' + this.info(m)[1] + " " + esc(this.info(m)[2]) + " " + this.badge(m) + "</div>");
-    if (c && c.acabaEm) L.push('<div class="small">🥣 ' + (c.restam > 0 ? tt("ração para ~" + c.restam + " dias", "food for ~" + c.restam + " days") : tt("a ração deve ter acabado", "the food has probably run out")) + "</div>");
+    if (c && c.acabaEm) L.push('<div class="small">🥣 ' + (c.restam > 0 ? tt("ração para ~", "food for ~") + this.diasTxt(c.restam) : tt("a ração deve ter acabado", "the food has probably run out")) + "</div>");
     if (banho && banho.last) L.push('<div class="small muted">🛁 ' + tt("último banho: ", "last bath: ") + esc(fmtDate(banho.last)) + "</div>");
     return '<div class="card petcard" data-act="go" data-tab="pets" data-sub="ficha" data-arg="' + p.id + '"><div class="row nw" style="align-items:flex-start">' + PetFoto.avatar(p) + '<div style="min-width:0;flex:1"><div><b>' + esc(this.nome(p)) + "</b> " + (d.castrado ? '<span class="badge ok">✂️ ' + this.castradoTxt(d) + "</span>" : "") + '</div><div class="small muted">' + esc(this.desc(p)) + "</div>" + (L.length ? '<div style="margin-top:6px">' + L.join("") + "</div>" : "") + '</div><span class="faint">›</span></div></div>';
   },
@@ -8711,9 +8763,11 @@ const Pets = {
       (d.descricao || p.notes ? '<p class="small" style="white-space:pre-line;margin-top:8px">' + esc(d.descricao || p.notes) + "</p>" : "") +
       (ed ? '<div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pet.foto" data-id="' + p.id + '">📷 ' + (d.foto ? tt("Trocar a foto de perfil", "Change profile photo") : tt("Pôr foto de perfil", "Add profile photo")) + "</button>" +
         (d.foto && isGuardian() ? '<button class="btn sm ghost" data-act="pet.apagarfoto" data-id="' + p.id + '" data-f="' + esc(d.foto.id) + '">🗑 ' + tt("Tirar a foto", "Remove photo") + "</button>" : "") + "</div>" : "") + "</div>";
-    /* próximos cuidados: o que vence primeiro, de tudo (vacinas, banho, ração) */
+    /* próximos cuidados: o que vence primeiro, de tudo (vacinas, banho, ração), cada um com o ✓ (o 🔔 traz para cá: o
+       "Comprar ração" só tem o ✓ aqui, que abre a ração para anotar a compra nova) */
     const ms = this.cuidados(p.id), prox = ms.filter((m) => m._days != null).slice(0, 4);
-    h += '<div class="card accent"><h3>⏰ ' + tt("Próximos cuidados", "Coming up") + "</h3>" + (prox.length ? '<div class="list">' + prox.map((m) => '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t">' + esc(this.info(m)[2]) + " " + this.badge(m) + '</div><div class="s">' + esc(fmtDate(m.next)) + "</div></div></div>").join("") + "</div>"
+    h += '<div class="card accent"><h3>⏰ ' + tt("Próximos cuidados", "Coming up") + "</h3>" + (prox.length ? '<div class="list">' + prox.map((m) => '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t">' + esc(this.info(m)[2]) + " " + this.badge(m) + '</div><div class="s">' + esc(fmtDate(m.next)) + "</div></div>" +
+      (ed ? '<button class="btn xs ok" data-act="pet.feito" data-m="' + esc(m.id) + '">✓ ' + (m.petTipo === "racao" ? tt("Comprei", "Bought it") : tt("Feito", "Done")) + "</button>" : "") + "</div>").join("") + "</div>"
       : '<div class="empty tiny">' + tt("Nada marcado ainda. Acrescente a vacina, o vermífugo, o antipulgas e o banho em “Vacinas e cuidados”, e a ração logo abaixo.", "Nothing scheduled yet. Add the vaccine, dewormer, flea treatment and bath under “Vaccines and care”, and the food right below.") + "</div>") + "</div>";
     h += this.racaoCard(p);
     if (Rec.ok("health")) {
@@ -8745,7 +8799,7 @@ ACT["pet.edit"] = (d) => { const p = Pets.get(d.id); if (p) Pets.edit(p); };
 ACT["pet.racao"] = (d) => Pets.racaoForm(d.id);
 ACT["pet.shop"] = (d) => Pets.paraCompras(d.id);
 ACT["pet.hist"] = (d) => Pets.histEdit(d.id, d.h);
-ACT["pet.peso"] = (d) => Pets.pesoEdit(d.id, d.i);
+ACT["pet.peso"] = (d) => Pets.pesoEdit(d.id, d.w);
 ACT["pet.cuidado"] = (d, el) => Pets.novoCuidado(d.id, el);
 ACT["pet.feito"] = (d) => { if (Pets.podeEditar()) return Maint.done(d.m); };
 ACT["pet.remarcar"] = (d) => Pets.remarcar(d.m);
@@ -8771,6 +8825,16 @@ const PetFoto = {
   BUCKET: "sol-arquivos", MAX: 12, _baixando: new Map(), _erro: new Map(),
   nuvem() { return S.mode === "cloud" && !!(S.family && S.family.id); },
   caminho(fid, tipo) { return Conta.APP + "/" + S.family.id + "/pet-" + fid + (tipo === "image/webp" ? ".webp" : ".jpg"); },
+  /* id e path vêm do registro do pet, que sobe para a família e qualquer adulto pode mudar: só vale o que este app monta
+     para ESTA família (omnilife-one/<família>/pet-<id>.webp|jpg). Sem isso um registro mexido faria o celular do
+     responsável baixar, sobrescrever ou apagar outro arquivo do bucket (de outro app, o "restrito" dos responsáveis) */
+  idOk(id) { return typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id); },
+  caminhoOk(path) { const m = this.nuvem() && typeof path === "string" && path.match(/^([^/]+)\/([^/]+)\/pet-([A-Za-z0-9_-]{1,64})\.(webp|jpg)$/); return !!m && m[1] === Conta.APP && m[2] === S.family.id; },
+  pathOk(ref) { return !!ref && this.idOk(ref.id) && this.caminhoOk(ref.path) && ref.path === this.caminho(ref.id, /\.webp$/.test(ref.path) ? "image/webp" : "image/jpeg"); },
+  /* arquivo deste aparelho que É foto deste pet (guardado ou baixado pelo PetFoto, com petFoto = id do pet): só esse sobe,
+     aparece e é apagado. Um id do registro apontado para outro arquivo (a foto restrita e cifrada da Vida do carro, por
+     exemplo) seria enviado decifrado para o bucket que toda a família lê, ou apagado deste aparelho */
+  meu(id, pid) { const m = this.idOk(id) && Files.meta(id); return !!m && !!pid && m.petFoto === pid && !m.enc && m.vis === "familia" && /^image\/(webp|jpeg)$/.test(m.type); },
   endereco(path, ler) { return Conta.SB + "/storage/v1/object/" + (ler ? "authenticated/" : "") + this.BUCKET + "/" + String(path).split("/").map(encodeURIComponent).join("/"); },
   async cab(extra) { const t = await Conta.token(); if (!t) throw new Error(tt("Entre na sua conta SolverONE.", "Sign in to your SolverONE account.")); return Object.assign({ apikey: Conta.KEY, Authorization: "Bearer " + t }, extra || {}); },
   /* redesenha: null = não deu (quem chama recusa a foto) */
@@ -8787,28 +8851,33 @@ const PetFoto = {
       return b && /^image\/(webp|jpeg)$/.test(b.type) ? { blob: b, w, h } : null;
     } catch (e) { return null; }
   },
-  async enviar(ref) {
+  async enviar(ref, pid) {
+    if (!this.pathOk(ref) || !this.meu(ref.id, pid)) throw new Error("sem-arquivo");
     const b = await Files.blob(ref.id); if (!b) throw new Error("sem-arquivo");
     const r = await fetch(this.endereco(ref.path), { method: "POST", headers: await this.cab({ "Content-Type": b.type, "x-upsert": "true", "cache-control": "max-age=31536000" }), body: b });
     if (!r.ok) throw new Error("HTTP " + r.status);
   },
   async apagarNuvem(path) {
+    if (!this.caminhoOk(path)) return;   /* nunca outro arquivo do bucket */
     const r = await fetch(this.endereco(path), { method: "DELETE", headers: await this.cab() });
     /* já não estava lá (nunca subiu, ou outro aparelho apagou antes): conta como apagado */
     if (!r.ok && r.status !== 400 && r.status !== 404) throw new Error("HTTP " + r.status);
   },
   /* outro celular da família: baixa pelo path e guarda neste aparelho (uma vez; erro espera 1 min para tentar de novo) */
-  baixar(ref) {
+  baixar(ref, pid) {
+    if (!this.pathOk(ref) || !pid) return Promise.resolve(false);
     if (this._baixando.has(ref.id)) return this._baixando.get(ref.id);
     if (Date.now() - (this._erro.get(ref.id) || 0) < 60000) return Promise.resolve(false);
     const pr = (async () => {
       try {
+        /* já existe um arquivo com este id aqui (que não é esta foto): nunca por cima dele */
+        if (Files.meta(ref.id)) return false;
         const r = await fetch(this.endereco(ref.path, true), { headers: await this.cab() });
         if (!r.ok) throw new Error("HTTP " + r.status);
         let b = await r.blob(); if (!b || !b.size) throw new Error("vazio");
         const tipo = /^image\/(webp|jpeg)$/.test(b.type) ? b.type : /\.webp$/.test(ref.path) ? "image/webp" : "image/jpeg";
         if (b.type !== tipo) b = new Blob([b], { type: tipo });
-        const meta = { id: ref.id, name: String(ref.path).split("/").pop(), type: tipo, size: b.size, vis: "familia", enc: null, chunks: 1, nuvem: ref.path };
+        const meta = { id: ref.id, name: String(ref.path).split("/").pop(), type: tipo, size: b.size, vis: "familia", enc: null, chunks: 1, nuvem: ref.path, petFoto: pid };
         await DB.driver.putFile(ref.id, b, meta); await DB.put("files", meta, true);
         return true;
       } catch (e) { this._erro.set(ref.id, Date.now()); return false; } finally { this._baixando.delete(ref.id); }
@@ -8816,24 +8885,33 @@ const PetFoto = {
     this._baixando.set(ref.id, pr);
     return pr;
   },
-  async url(ref) {
-    if (!ref || !ref.id) return null;
-    if (!Files.meta(ref.id)) { if (!ref.path || !this.nuvem() || !(await this.baixar(ref))) return null; }
+  async url(ref, pid) {
+    if (!ref || !this.idOk(ref.id)) return null;
+    /* um arquivo daqui com este id que não é foto deste pet: some da tela (e nunca é trocado pelo da nuvem) */
+    if (Files.meta(ref.id)) return this.meu(ref.id, pid) ? Files.url(ref.id) : null;
+    /* pendente ainda não subiu (está só no aparelho de quem pôs): buscar a cada minuto não adianta */
+    if (ref.pendente || !(await this.baixar(ref, pid))) return null;
     return Files.url(ref.id);
   },
-  avatar(p, cls) { const f = Pets.dados(p).foto; return '<div class="petav' + (cls ? " " + cls : "") + '"' + (f ? ' data-pfoto="' + esc(f.id) + '" data-ppath="' + esc(f.path || "") + '"' : "") + ' aria-hidden="true"><span class="pe">' + esc(p.emoji || Pets.esp(p)[1]) + "</span></div>"; },
-  /* depois de desenhar a tela: as fotos chegam aos poucos (deste aparelho ou baixadas da nuvem) */
+  avatar(p, cls) { const f = Pets.dados(p).foto; return '<div class="petav' + (cls ? " " + cls : "") + '"' + (f ? ' data-pfoto="' + esc(f.id) + '" data-ppet="' + esc(p.id) + '"' : "") + ' aria-hidden="true"><span class="pe">' + esc(p.emoji || Pets.esp(p)[1]) + "</span></div>"; },
+  /* depois de desenhar a tela: as fotos chegam aos poucos (deste aparelho ou baixadas da nuvem). A referência vem do
+     registro do pet de agora (com o pendente), não do que a tela guardou */
   async preencher(root) {
     for (const el of $$("[data-pfoto]", root)) {
-      const u = await this.url({ id: el.dataset.pfoto, path: el.dataset.ppath });
+      const pid = el.dataset.ppet, ref = this.refs(Pets.get(pid)).find((r) => r.id === el.dataset.pfoto);
+      const u = ref ? await this.url(ref, pid) : null;
       if (u && el.isConnected) { el.style.backgroundImage = "url(" + u + ")"; el.classList.add("on"); }
     }
   },
   refs(p) { const d = Pets.dados(p); return [d.foto].concat(d.fotos || []).filter((r) => r && r.id); },
+  /* foto de pet que já está na nuvem da família (baixada por aqui, ou que subiu): não é "só deste aparelho" (⚙ → Dados) */
+  naNuvem(id) { const m = Files.meta(id); return !!m && !!m.petFoto && (!!m.nuvem || this.refs(Pets.get(m.petFoto)).some((r) => r.id === id && !r.pendente && this.pathOk(r))); },
+  /* a foto pendente que ESTE aparelho vai mandar (a que não tem arquivo aqui está no aparelho de quem pôs, ou se perdeu) */
+  vaiSubir(r, pid) { return !!r.pendente && this.meu(r.id, pid) && !Files.meta(r.id).nuvem; },
   card(p) {
-    const fs = Pets.dados(p).fotos || [], ed = Pets.podeEditar(), pend = this.refs(p).filter((r) => r.pendente).length;
+    const fs = Pets.dados(p).fotos || [], ed = Pets.podeEditar(), pend = this.refs(p).filter((r) => this.vaiSubir(r, p.id)).length;
     return '<div class="card"><div class="between"><h3>📷 ' + tt("Fotos", "Photos") + ' <span class="faint small">' + fs.length + "/" + this.MAX + "</span></h3>" + (ed && fs.length < this.MAX ? '<button class="btn sm" data-act="pet.fotos" data-id="' + p.id + '" aria-label="' + tt("Pôr fotos", "Add photos") + '">＋</button>' : "") + "</div>" +
-      (fs.length ? '<div class="thumbs">' + fs.map((r) => '<div class="thumb" role="button" tabindex="0" aria-label="' + tt("Ver a foto", "See the photo") + '" data-act="pet.verfoto" data-id="' + p.id + '" data-f="' + esc(r.id) + '" data-pfoto="' + esc(r.id) + '" data-ppath="' + esc(r.path || "") + '">' + (r.pendente ? '<span class="lb">⏳ ' + tt("vai subir", "will upload") + "</span>" : "") + (isGuardian() ? '<button class="x" data-act="pet.apagarfoto" data-id="' + p.id + '" data-f="' + esc(r.id) + '" aria-label="' + tt("Apagar a foto", "Delete the photo") + '">×</button>' : "") + "</div>").join("") + "</div>"
+      (fs.length ? '<div class="thumbs">' + fs.map((r) => '<div class="thumb" role="button" tabindex="0" aria-label="' + tt("Ver a foto", "See the photo") + '" data-act="pet.verfoto" data-id="' + p.id + '" data-f="' + esc(r.id) + '" data-pfoto="' + esc(r.id) + '" data-ppet="' + esc(p.id) + '">' + (r.pendente ? '<span class="lb">⏳ ' + (this.vaiSubir(r, p.id) ? tt("vai subir", "will upload") : tt("ainda não subiu", "not uploaded yet")) + "</span>" : "") + (isGuardian() ? '<button class="x" data-act="pet.apagarfoto" data-id="' + p.id + '" data-f="' + esc(r.id) + '" aria-label="' + tt("Apagar a foto", "Delete the photo") + '">×</button>' : "") + "</div>").join("") + "</div>"
         : '<div class="empty tiny">' + tt("Até 12 fotos do pet. Elas ficam leves (sem a localização de onde foram tiradas).", "Up to 12 photos of your pet. They're kept light (without the location where they were taken).") + "</div>") +
       '<p class="tiny faint" style="margin-top:6px">' + (this.nuvem() ? "☁️ " + tt("As fotos vão leves para a nuvem da família: os outros celulares também veem.", "Photos go, kept light, to the family cloud: the other phones see them too.") : "📱 " + tt("As fotos ficam só neste aparelho.", "Photos stay on this device only.")) + (pend ? " ⏳ " + tt(pend + " esperando a internet para subir.", pend + " waiting for the internet to upload.") : "") + "</p></div>";
   },
@@ -8842,58 +8920,72 @@ const PetFoto = {
     const r = await this.redesenhar(file, perfil ? 640 : 1080); if (!r) return null;
     const ext = r.blob.type === "image/webp" ? "webp" : "jpg";
     const fid = await Files.save(new File([r.blob], "pet." + ext, { type: r.blob.type }), { raw: true, vis: "familia" }); if (!fid) return null;
+    /* a marca de que este arquivo é foto deste pet (ver meu()) */
+    await DB.put("files", Object.assign({}, Files.meta(fid), { petFoto: pid }), true);
     const ref = { id: fid, w: r.w, h: r.h };
-    if (this.nuvem()) { ref.path = this.caminho(fid, r.blob.type); try { await this.enviar(ref); } catch (e) { ref.pendente = true; } }
+    if (this.nuvem()) { ref.path = this.caminho(fid, r.blob.type); try { await this.enviar(ref, pid); } catch (e) { ref.pendente = true; } }
     const p = Pets.get(pid); if (!p) { await Files.remove(fid); return null; }
     const d = Pets.dados(p);
     /* "pet.foto.pendente" vai junto (undefined = null na nuvem): o omni_mudar_campos junta a foto nova com a antiga chave a
        chave, e o pendente: true da antiga passaria para a nova */
-    if (perfil) { await DB.patch("people", pid, { "pet.foto": ref, "pet.foto.pendente": ref.pendente || undefined }); if (d.foto) await this.apagarArquivo(d.foto); }
-    else await this.galeria(pid, (L) => L.concat(ref).slice(-this.MAX));
+    if (perfil) { await DB.patch("people", pid, { "pet.foto": ref, "pet.foto.pendente": ref.pendente || undefined }); if (d.foto) await this.apagarArquivo(d.foto, pid); }
+    else {
+      /* as 12 vagas contam na hora de guardar (outro lote ou outro celular pode ter enchido a galeria): a que não cabe fica
+         de fora, nunca empurra para fora as fotos mais antigas */
+      let coube = false;
+      await this.galeria(pid, (L) => { coube = L.length < this.MAX; return coube ? L.concat(ref) : null; });
+      if (!coube) { await Files.remove(fid); if (ref.path && !ref.pendente) { try { await this.apagarNuvem(ref.path); } catch (e) {} } return { cheia: true }; }
+    }
     return ref;
   },
   /* a galeria muda pelo registro inteiro (DB.put), não por DB.patch da lista: na nuvem o patch troca a lista toda e a foto
      que outro celular pôs (ou tirou) ao mesmo tempo some (ou volta quebrada); o envio com versão junta as fotos pelo id */
-  async galeria(pid, fn) {
-    const p = Pets.get(pid); if (!p) return;
-    const doc = JSON.parse(JSON.stringify(p)); doc.pet = doc.pet || {}; doc.pet.fotos = fn(doc.pet.fotos || []);
-    await DB.put("people", doc);
-  },
+  galeria(pid, fn) { return Pets.lista(pid, "fotos", fn); },
+  _lote: new Set(),
   async adicionar(pid, perfil) {
     if (!Pets.podeEditar()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
     const p = Pets.get(pid); if (!p) return;
+    /* um lote de cada vez por pet: o ＋ continua na tela enquanto as fotos sobem, e as vagas de um segundo lote seriam
+       contadas sem as do primeiro */
+    const ocupado = () => toast(tt("Ainda estou guardando as fotos de " + Pets.nome(p) + ". Espere terminar para pôr mais.", "I'm still saving " + Pets.nome(p) + "'s photos. Wait until it's done to add more."), 4000);
+    if (this._lote.has(pid)) return ocupado();
     const vagas = perfil ? 1 : this.MAX - (Pets.dados(p).fotos || []).length;
     if (vagas <= 0) return toast(tt("A galeria já tem 12 fotos. Apague uma para pôr outra.", "The gallery already has 12 photos. Delete one to add another."), 4000);
     let fs = await Files.pick("image/*", !perfil); if (!fs || !fs.length) return;
+    if (this._lote.has(pid)) return ocupado();
     if (fs.length > vagas) { toast(tt("Cabem só mais " + vagas + ": as outras ficaram de fora.", "Only " + vagas + " more fit: the others were left out."), 4000); fs = fs.slice(0, vagas); }
     const rota = location.hash;
-    const executar = async () => { const o = { ok: 0, ruim: 0, pend: 0 }; for (const f of fs) { const r = await this.guardar(pid, f, perfil); if (!r) o.ruim++; else { o.ok++; if (r.pendente) o.pend++; } } return o; };
+    const executar = async () => { const o = { ok: 0, ruim: 0, pend: 0, fora: 0 }; for (const f of fs) { const r = await this.guardar(pid, f, perfil); if (!r) o.ruim++; else if (r.cheia) o.fora++; else { o.ok++; if (r.pendente) o.pend++; } } return o; };
     let o;
+    this._lote.add(pid);
     try { o = window.DGO && DGO.fundo && DGO.fundo.iniciar ? await DGO.fundo.iniciar({ tipo: "foto", titulo: tt("Guardando a foto do pet", "Saving the pet's photo"), rota, aindaNaTela: () => location.hash === rota, podeCancelar: false, tentarDeNovo: false, executar }) : await executar(); }
     catch (e) { return toast(tt("Não consegui guardar a foto: ", "Could not save the photo: ") + (e.message || e), 5000); }
-    if (o.ruim) toast("⚠️ " + tt("Não consegui preparar " + (o.ruim > 1 ? o.ruim + " fotos" : "esta foto") + ", então ela não foi guardada. Tente outra (JPG ou PNG).", "Couldn't prepare " + (o.ruim > 1 ? o.ruim + " photos" : "this photo") + ", so it wasn't saved. Try another one (JPG or PNG)."), 6000);
+    finally { this._lote.delete(pid); }
+    if (o.ruim) toast("⚠️ " + (o.ruim > 1 ? tt("Não consegui preparar " + o.ruim + " fotos, então elas não foram guardadas. Tente outras (JPG ou PNG).", "Couldn't prepare " + o.ruim + " photos, so they weren't saved. Try others (JPG or PNG).") : tt("Não consegui preparar esta foto, então ela não foi guardada. Tente outra (JPG ou PNG).", "Couldn't prepare this photo, so it wasn't saved. Try another one (JPG or PNG).")), 6000);
+    else if (o.fora) toast(tt("A galeria encheu (12 fotos): " + (o.fora > 1 ? o.fora + " fotos ficaram de fora." : "1 foto ficou de fora."), "The gallery is full (12 photos): " + (o.fora > 1 ? o.fora + " photos were left out." : "1 photo was left out.")), 5000);
     else if (o.pend) toast("⏳ " + tt("Foto guardada aqui. Sobe para a nuvem da família quando a internet voltar (ao abrir 🐾 Pets).", "Photo saved here. It goes to the family cloud when the internet is back (when you open 🐾 Pets)."), 5000);
     else if (o.ok) toast("📷 " + (this.nuvem() ? tt("Foto guardada na nuvem da família.", "Photo saved to the family cloud.") : tt("Foto guardada neste aparelho.", "Photo saved on this device.")));
   },
   async abrir(pid, fid) {
     const ref = this.refs(Pets.get(pid)).find((r) => r.id === fid); if (!ref) return;
-    if (!(await this.url(ref))) return toast(tt("A foto ainda não chegou a este aparelho. Tente de novo daqui a pouco.", "The photo hasn't reached this device yet. Try again in a moment."));
+    if (!(await this.url(ref, pid))) return toast(tt("A foto ainda não chegou a este aparelho. Tente de novo daqui a pouco.", "The photo hasn't reached this device yet. Try again in a moment."));
     Files.open(fid);
   },
   async apagar(pid, fid) {
     if (!isGuardian()) return toast(tt("Só um responsável apaga fotos.", "Only a guardian can delete photos."));
     const p = Pets.get(pid), d = Pets.dados(p), ref = this.refs(p).find((r) => r.id === fid); if (!ref) return;
-    if (!(await confirmBox(tt("Apagar esta foto? Ela sai deste aparelho" + (ref.path ? " e da nuvem da família." : "."), "Delete this photo? It leaves this device" + (ref.path ? " and the family cloud." : ".")), tt("Apagar", "Delete"), true))) return;
+    if (!(await confirmBox(tt("Apagar esta foto? Ela sai deste aparelho" + (this.pathOk(ref) ? " e da nuvem da família." : "."), "Delete this photo? It leaves this device" + (this.pathOk(ref) ? " and the family cloud." : ".")), tt("Apagar", "Delete"), true))) return;
     if (d.foto && d.foto.id === fid) await DB.patch("people", pid, { "pet.foto": undefined });
     else await this.galeria(pid, (L) => L.filter((r) => r.id !== fid));
-    await this.apagarArquivo(ref);
+    await this.apagarArquivo(ref, pid);
     toast("🗑 " + tt("Foto apagada.", "Photo deleted."));
   },
   /* tira daqui e da nuvem. Sem internet: o caminho fica numa lista deste aparelho e é apagado na próxima vez (só o responsável
-     pode apagar no bucket; de outro papel a foto antiga fica lá, sem nada que aponte para ela) */
-  async apagarArquivo(ref) {
-    try { await Files.remove(ref.id); } catch (e) {}
-    if (!ref.path || !this.nuvem() || !isGuardian()) return;
+     pode apagar no bucket; de outro papel a foto antiga fica lá, sem nada que aponte para ela). Só o arquivo que é foto
+     deste pet (meu) e só o caminho de foto de pet desta família (pathOk): o resto nunca é apagado nem entra na lista */
+  async apagarArquivo(ref, pid) {
+    if (this.meu(ref.id, pid)) { try { await Files.remove(ref.id); } catch (e) {} }
+    if (!this.pathOk(ref) || !isGuardian()) return;
     try { await this.apagarNuvem(ref.path); } catch (e) { lsSet(LS.petFotoApagar, lsGet(LS.petFotoApagar, []).concat({ g: S.family.id, path: ref.path }).slice(-200)); }
   },
   /* ao abrir 🐾 Pets: sobe o que ficou pendente e apaga o que ficou para depois (no máximo a cada 20 s) */
@@ -8902,12 +8994,15 @@ const PetFoto = {
     this._reenv = true; this._reenvT = Date.now();
     try {
       const g = S.family.id, fila = lsGet(LS.petFotoApagar, []), resta = [];
-      for (const x of fila) { if (!x || x.g !== g || !isGuardian()) { if (x) resta.push(x); continue; } try { await this.apagarNuvem(x.path); } catch (e) { resta.push(x); } }
+      /* da lista sai também o que não é caminho de foto de pet desta família (nunca vai para o DELETE) */
+      for (const x of fila) { if (!x || x.g !== g || !isGuardian()) { if (x) resta.push(x); continue; } if (!this.caminhoOk(x.path)) continue; try { await this.apagarNuvem(x.path); } catch (e) { resta.push(x); } }
       if (resta.length !== fila.length) lsSet(LS.petFotoApagar, resta);
       for (const p of Pets.list()) {
-        for (const r of this.refs(p).filter((x) => (x.pendente || !x.path) && Files.meta(x.id))) {
-          const nr = Object.assign({}, r, { path: r.path || this.caminho(r.id, Files.meta(r.id).type) }); delete nr.pendente;
-          try { await this.enviar(nr); } catch (e) { continue; }
+        /* só a foto deste pet guardada por este aparelho (a baixada já está na nuvem), com o caminho sempre montado aqui:
+           o pendente e o path do registro podem ter sido mexidos por outro celular */
+        for (const r of this.refs(p).filter((x) => (x.pendente || !x.path) && this.meu(x.id, p.id) && !Files.meta(x.id).nuvem)) {
+          const nr = Object.assign({}, r, { path: this.caminho(r.id, Files.meta(r.id).type) }); delete nr.pendente;
+          try { await this.enviar(nr, p.id); } catch (e) { continue; }
           const d = Pets.dados(Pets.get(p.id));
           /* "pet.foto.pendente": undefined vira null na nuvem, que é o único jeito de o omni_mudar_campos tirar a chave
              (sem isso a foto ficava "esperando a internet" para sempre e subia de novo em todo celular) */
@@ -11799,7 +11894,7 @@ const Offline = {
         tt("Busca 🔎, AssistONE, Ajuda e ler a tela em voz alta.", "Search 🔎, AssistONE, Help and reading the screen aloud."),
         resp ? tt("Fazer e restaurar a cópia protegida.", "Making and restoring the protected copy.") : ""]) +
       '<div class="grouph">🌐 ' + tt("Precisa de internet", "Needs the internet") + "</div>" + li([
-        nuvem ? tt("Sincronizar com a família: o que você muda fica guardado aqui e vai sozinho quando a internet voltar, com o app aberto. Saúde, Documentos, fotos e arquivos ficam só neste " + ap + ".", "Syncing with the family: what you change is kept here and goes by itself when the internet is back, with the app open. Health, Documents, photos and files stay only on this " + ap + ".") : "",
+        nuvem ? tt("Sincronizar com a família: o que você muda fica guardado aqui e vai sozinho quando a internet voltar, com o app aberto. Saúde, Documentos, fotos e arquivos ficam só neste " + ap + " (menos as fotos dos pets, que vão leves para a nuvem da família).", "Syncing with the family: what you change is kept here and goes by itself when the internet is back, with the app open. Health, Documents, photos and files stay only on this " + ap + " (except pets' photos, which go, kept light, to the family cloud).") : "",
         tt("Previsão do tempo (fica a última que foi baixada), mapa e busca de endereço ou CEP.", "Weather forecast (the last one downloaded stays), map and address or ZIP search."),
         tt("Ler foto, bilhete ou PDF e reconhecer objetos na foto, com ou sem IA.", "Reading photos, notes or PDFs and recognizing objects in photos, with or without AI."),
         tt("Falar em vez de digitar (🎤) e perguntar à IA.", "Speaking instead of typing (🎤) and asking the AI."),
