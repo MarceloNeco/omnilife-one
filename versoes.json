@@ -1,5 +1,16 @@
 [
  {
+  "v": "2.23.0",
+  "d": "2026-11-06",
+  "hora": "16:37:00",
+  "pt": [
+   "🩺 Saúde → MoneyTRIO (opcional, para quem usa os dois apps): em ⚙ → Integrações, os responsáveis podem mandar ao MoneyTRIO o plano de saúde, a validade e o médico de cada um — e o veterinário dos pets. Vai cifrado com a chave da família; carteirinha, SUS, tipo sanguíneo, alergias, remédios e telefones nunca vão."
+  ],
+  "en": [
+   "🩺 Health → MoneyTRIO (optional, for those who use both apps): in ⚙ → Integrations, guardians can send MoneyTRIO each person's health plan, expiry date and doctor — and the pets' vet. It goes encrypted with the family key; card number, SUS, blood type, allergies, medicines and phones never go."
+  ]
+ },
+ {
   "v": "2.22.2",
   "d": "2026-11-06",
   "hora": "16:25:00",
