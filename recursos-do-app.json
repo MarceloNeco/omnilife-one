@@ -339,6 +339,17 @@
    }
   },
   {
+   "id": "pets",
+   "nome": {
+    "pt": "🐾 Pets (ficha, fotos, vacinas, ração e quem cuida)",
+    "en": "🐾 Pets (record, photos, vaccines, food and carers)"
+   },
+   "onde": {
+    "pt": "Aba própria 🐾 Pets (☰ › Cuidar da família): a ficha de cada pet (espécie, raça, foto de perfil e galeria leves na nuvem da família), vacina, vermífugo, antipulgas e banho com ✓ Feito / Remarcar / Não se aplica, ração (quantos dias dura, aviso de compra e de validade), saúde, histórico, peso, contatos e o guia para quem cuida. Os pets continuam em Família. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\"; em Família o pet volta a abrir no cadastro de pessoa.",
+    "en": "Its own 🐾 Pets tab (☰ › Family care): each pet's record (species, breed, light profile photo and gallery in the family cloud), vaccine, dewormer, flea treatment and bath with ✓ Done / Reschedule / Doesn't apply, food (how many days it lasts, purchase and expiry reminders), health, history, weight, contacts and the guide for the carer. Pets still show in Family. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"; in Family the pet opens in the person form again."
+   }
+  },
+  {
    "id": "documentos",
    "nome": {
     "pt": "🗂️ Documentos da família",

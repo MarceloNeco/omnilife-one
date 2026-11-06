@@ -607,6 +607,12 @@ footer.app{border-top:0;opacity:.8}
 .vtipo:hover,.vtipo:focus-visible{border-color:var(--accent)}
 .carfrv{font-size:1.9rem;font-weight:800;line-height:1.2;margin:2px 0 4px}
 .carlist{margin:4px 0 0;padding-left:18px}
+/* 🐾 Pets: foto redonda (o emoji fica até a foto chegar), cartão inteiro tocável e o gráfico do peso */
+.petav{width:56px;height:56px;border-radius:50%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:1.8rem;background:var(--surface2) center/cover no-repeat;border:1px solid var(--border)}
+.petav.lg{width:88px;height:88px;font-size:2.6rem}
+.petav.on .pe{display:none}
+.petcard{margin:0;cursor:pointer}
+.petgraf{display:block;width:100%;height:auto;margin:6px 0 2px}
 .vtipo .vti{font-size:1.6rem;line-height:1}
 .vtipo b{display:block;font-weight:650}
 .vtipo small{display:block;color:var(--text2);font-size:.85rem;margin-top:2px}
@@ -1152,7 +1158,8 @@ const LS = {
   portalLang: "portal-lang",
   mtData: "investifyme.dados.v1",
   bridge: "ecossistema.ponte.v1",
-  saudeMT: "omnilife.saudeMT.pendente"
+  saudeMT: "omnilife.saudeMT.pendente",
+  petFotoApagar: "omnilife.petFotos.apagar"
 };
 const COLS = ["people","health","items","shop","requests","purchases","prices","events","routine","tasks","contacts","places","spots","school","things","maint","vault","guides","docs","files","settings","msgs","reminders","checkins","expects","coexp","comsg"];
 const LIBS = {
@@ -1168,7 +1175,7 @@ const LIBS = {
 };
 
 /* ---------- ícones de traço (desenhados para o OmniLifeONE; iguais em todo aparelho, ao contrário de emoji) ---------- */
-const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "cars": "<path d=\"M4 16.5v-4l2-5.2A2 2 0 0 1 7.9 6h8.2a2 2 0 0 1 1.9 1.3l2 5.2v4z\"/><path d=\"M6.5 16.5V19M17.5 16.5V19M4 12.5h16\"/><circle cx=\"8\" cy=\"14.5\" r=\"1\"/><circle cx=\"16\" cy=\"14.5\" r=\"1\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "reset": "<path d=\"M4 4v5h5\"/><path d=\"M5.3 14.5A7.5 7.5 0 1 0 6.6 7L4 9\"/>", "grip": "<circle cx=\"9\" cy=\"6\" r=\"1.2\"/><circle cx=\"15\" cy=\"6\" r=\"1.2\"/><circle cx=\"9\" cy=\"12\" r=\"1.2\"/><circle cx=\"15\" cy=\"12\" r=\"1.2\"/><circle cx=\"9\" cy=\"18\" r=\"1.2\"/><circle cx=\"15\" cy=\"18\" r=\"1.2\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
+const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "cars": "<path d=\"M4 16.5v-4l2-5.2A2 2 0 0 1 7.9 6h8.2a2 2 0 0 1 1.9 1.3l2 5.2v4z\"/><path d=\"M6.5 16.5V19M17.5 16.5V19M4 12.5h16\"/><circle cx=\"8\" cy=\"14.5\" r=\"1\"/><circle cx=\"16\" cy=\"14.5\" r=\"1\"/>", "pets": "<path d=\"M12 13.2c-2.7 0-5 2.7-5 5 0 1.5 1.2 2.3 2.5 2.3 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5c1.3 0 2.5-.8 2.5-2.3 0-2.3-2.3-5-5-5z\"/><circle cx=\"5.6\" cy=\"10.6\" r=\"1.9\"/><circle cx=\"9.3\" cy=\"6.4\" r=\"2\"/><circle cx=\"14.7\" cy=\"6.4\" r=\"2\"/><circle cx=\"18.4\" cy=\"10.6\" r=\"1.9\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "reset": "<path d=\"M4 4v5h5\"/><path d=\"M5.3 14.5A7.5 7.5 0 1 0 6.6 7L4 9\"/>", "grip": "<circle cx=\"9\" cy=\"6\" r=\"1.2\"/><circle cx=\"15\" cy=\"6\" r=\"1.2\"/><circle cx=\"9\" cy=\"12\" r=\"1.2\"/><circle cx=\"15\" cy=\"12\" r=\"1.2\"/><circle cx=\"9\" cy=\"18\" r=\"1.2\"/><circle cx=\"15\" cy=\"18\" r=\"1.2\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
 function ico(name, cls) { const p = ICONS[name]; if (!p) return ""; return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>"; }
 /* ---------- estado global ---------- */
 const S = {
@@ -1658,7 +1665,7 @@ function canTab(tab) {
   if (tab === "docs") return c.seeDocs;
   if (tab === "contacts") return c.seeContacts;
   if (tab === "agenda") return c.seeAgenda;
-  if (tab === "house" || tab === "cars") return c.seeHouse;
+  if (tab === "house" || tab === "cars" || tab === "pets") return c.seeHouse;
   return !["family_admin"].includes(tab);
 }
 
@@ -1706,7 +1713,7 @@ const Fb = {
 window.OmniFeedbackTela = () => Fb.tela();
 ACT["fb.open"] = (d) => Fb.abrir(d.erro ? { categoria: "erro", erro: d.erro } : null);
 const Rec = {
-  TAB: { inbox: "inbox", shop: "compras", agenda: "agenda", contacts: "contatos", health: "saude", security: "seguranca", house: "casa", cars: "veiculos", docs: "documentos", family: "familia" },
+  TAB: { inbox: "inbox", shop: "compras", agenda: "agenda", contacts: "contatos", health: "saude", security: "seguranca", house: "casa", cars: "veiculos", pets: "pets", docs: "documentos", family: "familia" },
   /* parte de cada aba ("" = a parte que abre quando a aba abre sem parte) */
   SUB: { "shop/pantry": "compras.despensa", "shop/requests": "compras.pedidos", "shop/scan": "compras.foto", "shop/stores": "compras.onde-comprar",
     "agenda/escola": "agenda.escola", "agenda/tasks": "agenda.tarefas", "agenda/reminders": "agenda.lembretes", "agenda/routine": "agenda.rotina", "agenda/load": "agenda.delegometro", "agenda/handover": "agenda.assume-casa",
@@ -1719,9 +1726,9 @@ const Rec = {
     "scan": "compras compras.foto", "stores": "compras compras.onde-comprar", "ev": "agenda", "cal": "agenda", "school": "agenda agenda.escola", "task": "agenda agenda.tarefas", "rem": "agenda agenda.lembretes",
     "load": "agenda agenda.delegometro", "ho": "agenda agenda.assume-casa", "ct": "contatos", "health": "saude", "chk": "seguranca seguranca.cheguei", "vigia": "seguranca seguranca.vigilante",
     "ah": "seguranca seguranca.alertas", "mc": "seguranca seguranca.alertas", "where": "casa casa.onde-esta", "mt": "casa casa.manutencao", "cofre": "casa casa.senhas", "vault": "casa casa.senhas",
-    "guide": "casa casa.guias", "car": "veiculos casa.veiculos", "vida": "veiculos casa.veiculos veiculos.vida", "doc": "documentos", "fb": "feedback" },
+    "guide": "casa casa.guias", "car": "veiculos casa.veiculos", "vida": "veiculos casa.veiculos veiculos.vida", "pet": "pets", "doc": "documentos", "fb": "feedback" },
   /* ajuda (busca 🔎) de uma função desligada também some */
-  AJUDA: { rotas: ["agenda", "deslocamento"], clima: ["clima"], escola: ["agenda", "agenda.escola"], veiculos: ["veiculos", "casa.veiculos"], assistone: ["assistone"], inbox: ["inbox"], familia: ["familia"], "familia-seguranca": ["familia"],
+  AJUDA: { rotas: ["agenda", "deslocamento"], clima: ["clima"], escola: ["agenda", "agenda.escola"], veiculos: ["veiculos", "casa.veiculos"], pets: ["pets"], assistone: ["assistone"], inbox: ["inbox"], familia: ["familia"], "familia-seguranca": ["familia"],
     cheguei: ["seguranca", "seguranca.cheguei"], vigia: ["seguranca", "seguranca.vigilante"], alertas: ["seguranca", "seguranca.alertas"], "alertas-telegram": ["seguranca", "seguranca.alertas"], "alertas-whatsapp": ["seguranca", "seguranca.alertas"] },
   /* nunca bloqueados: trancar, parar e desconectar sempre funcionam (segurança da família) */
   SEMPRE: ["cofre.desconectar", "cofre.relogar", "vault.lock", "vigia.stop", "vigia.mute", "ho.end"],
@@ -4542,6 +4549,7 @@ const TABS = () => [
   { id: "security", ic: "🛡️", t: tt("Segurança", "Safety") },
   { id: "house", ic: "🏡", t: tt("Casa", "House") },
   { id: "cars", ic: "🚗", t: tt("Veículos", "Vehicles") },
+  { id: "pets", ic: "🐾", t: tt("Pets", "Pets") },
   { id: "docs", ic: "🗂️", t: tt("Documentos", "Documents") },
   { id: "family", ic: "👨‍👩‍👧", t: tt("Família", "Family") },
   { id: "settings", ic: "⚙️", t: tt("Configurações", "Settings") }
@@ -4800,7 +4808,7 @@ const Alerts = {
     if (isGuardian()) Shop.pendingRequests().forEach((r) => out.push({ level: "warn", ic: "🙋", t: tt("Pedido de ", "Request from ") + People.name(r.by) + ": " + r.name, go: ["shop", "requests"] }));
     if (isGuardian() && S.joinRequests) S.joinRequests.forEach((r) => out.push({ level: "warn", ic: "🚪", t: tt("Quer entrar na família: ", "Wants to join: ") + (r.name || r.email), go: ["family"] }));
     Pantry.soon(3).slice(0, 8).forEach((i) => out.push({ level: "warn", ic: "🥫", t: i.name + " — " + (i._days <= 0 ? tt("provavelmente acabou", "probably out") : tt("acaba em ~" + i._days + " dia(s)", "runs out in ~" + i._days + " day(s)")), go: ["shop", "pantry"] }));
-    Maint.list().filter((m) => m._days != null && m._days <= 7).forEach((m) => out.push({ level: m._days < 0 ? "bad" : "warn", ic: "🛠", t: m.title + " — " + (m._days < 0 ? tt("atrasada", "overdue") : relDay(m.next)), go: ["house", "maint"] }));
+    Maint.list().filter((m) => m._days != null && m._days <= 7).forEach((m) => out.push({ level: m._days < 0 ? "bad" : "warn", ic: m.pet ? "🐾" : "🛠", t: m.title + " — " + (m._days < 0 ? tt("atrasada", "overdue") : relDay(m.next)), go: m.pet && Rec.ok("pets") && Pets.get(m.pet) ? ["pets", "ficha", m.pet] : ["house", "maint"] }));
     DB.all("docs").filter((d) => d.expires && diffDays(td, d.expires) <= 60).forEach((d) => { const n = diffDays(td, d.expires); out.push({ level: n < 0 ? "bad" : "warn", ic: "📄", t: d.title + " (" + People.name(d.owner) + ") — " + (n < 0 ? tt("vencido", "expired") : tt("vence ", "expires ") + fmtDate(d.expires)), go: ["docs"] }); });
     if (!isChild()) Contacts.missing().slice(0, 6).forEach((m) => out.push({ level: "info", ic: "📇", t: m.msg, go: ["contacts", "list", m.id] }));
     try { Gov.alerts().concat(Grow.alerts()).forEach((a) => out.push(a)); } catch (e) {}
@@ -7287,23 +7295,24 @@ const Health = {
   allergyList(h) { return (h.allergies || []).filter((a) => a && a.what); },
   async edit(pid) {
     const p = People.get(pid); if (!p) return;
+    const pet = p.role === "pet";   /* bicho: sem tipo sanguíneo, RH e SUS; médico vira veterinário(a) */
     const h = Object.assign({ id: pid, allergies: [], meds: [], plan: {}, vis: "familia" }, DB.get("health", pid) || {});
     const al = (k) => (h.allergies || []).filter((a) => a.type === k).map((a) => a.what + (a.note ? " (" + a.note + ")" : "")).join("\n");
     const medsHtml = '<div class="fld full"><span>💊 ' + tt("Remédios de uso contínuo (horários separados por vírgula)", "Ongoing medicines (times comma-separated)") + '</span><div id="medbox" class="stack">' + (h.meds || []).concat([{}]).map(medRow).join("") + '</div><button type="button" class="btn ghost xs" id="medadd" style="margin-top:6px">＋ ' + tt("remédio", "medicine") + "</button></div>";
     const f = [
       { type: "note", html: "👤 <b>" + esc(p.name) + "</b>" + (p.birth ? " · " + fmtDate(p.birth) + " · " + ageTxt(p.birth) : " · <span class='faint'>" + tt("data de nascimento em Família", "birth date in Family") + "</span>") },
-      { k: "blood", label: tt("Tipo sanguíneo", "Blood type"), type: "select", opts: BLOOD.map((b) => [b, b || "—"]) }, { k: "rh", label: tt("Fator RH", "Rh factor"), type: "select", opts: [["", "—"], ["+", tt("Positivo (+)", "Positive (+)")], ["-", tt("Negativo (−)", "Negative (−)")]] },
+      pet ? null : { k: "blood", label: tt("Tipo sanguíneo", "Blood type"), type: "select", opts: BLOOD.map((b) => [b, b || "—"]) }, pet ? null : { k: "rh", label: tt("Fator RH", "Rh factor"), type: "select", opts: [["", "—"], ["+", tt("Positivo (+)", "Positive (+)")], ["-", tt("Negativo (−)", "Negative (−)")]] },
       { k: "_alMed", label: "⚠️ " + tt("Alergia a remédios (um por linha)", "Drug allergies (one per line)"), type: "textarea", rows: 2, def: al("med") },
       { k: "_alFood", label: "⚠️ " + tt("Alergia/intolerância a alimentos", "Food allergies/intolerances"), type: "textarea", rows: 2, def: al("food") },
       { k: "_alOther", label: "⚠️ " + tt("Picadas e outras alergias", "Insect stings & other allergies"), type: "textarea", rows: 2, def: al("other") },
       { k: "conditions", label: tt("Condições pré-existentes", "Pre-existing conditions"), type: "textarea", rows: 2, ph: tt("Ex.: asma, diabetes tipo 1, epilepsia…", "e.g. asthma, type 1 diabetes…") },
       { type: "html", html: medsHtml },
-      { k: "plan.operator", label: tt("Plano de saúde", "Health plan") }, { k: "plan.number", label: tt("Nº da carteirinha", "Card number") }, { k: "plan.valid", label: tt("Validade", "Valid until"), type: "date" }, { k: "plan.phone", label: tt("Telefone do plano", "Plan phone"), type: "tel" },
-      { k: "sus", label: tt("Cartão SUS (CNS)", "SUS card (CNS)") }, { k: "doctor", label: tt("Médico(a) de referência", "Main doctor") },
+      { k: "plan.operator", label: pet ? tt("Plano de saúde pet", "Pet health plan") : tt("Plano de saúde", "Health plan") }, { k: "plan.number", label: tt("Nº da carteirinha", "Card number") }, { k: "plan.valid", label: tt("Validade", "Valid until"), type: "date" }, { k: "plan.phone", label: tt("Telefone do plano", "Plan phone"), type: "tel" },
+      pet ? null : { k: "sus", label: tt("Cartão SUS (CNS)", "SUS card (CNS)") }, { k: "doctor", label: pet ? tt("Veterinário(a) de referência", "Main vet") : tt("Médico(a) de referência", "Main doctor") },
       { type: "html", html: '<div class="fld full"><span>📷 ' + tt("Foto da carteirinha / exames", "Card photo / exams") + '</span><div class="thumbs" data-thumbs="' + (h.files || []).join(",") + '" data-del="health.rmfile" data-ref="' + pid + '"></div><button type="button" class="btn ghost xs" id="hfadd" style="margin-top:6px">＋ ' + tt("foto ou PDF", "photo or PDF") + "</button></div>" },
       { k: "notes", label: tt("Outras informações importantes", "Other important info"), type: "textarea", rows: 2, ph: tt("Ex.: usa aparelho auditivo; doador de órgãos…", "e.g. uses hearing aid; organ donor…") },
       { k: "vis", label: tt("Quem vê estes dados", "Who sees this"), type: "select", opts: [["familia", tt("Toda a família", "Whole family")], ["restrito", tt("Só responsáveis", "Guardians only")]] }
-    ];
+    ].filter(Boolean);
     let files = (h.files || []).slice();
     const r = await formModal({ title: "❤️ " + tt("Carteira vital", "Health wallet") + " — " + esc(p.nick || p.name), fields: f, values: h, wide: true,
       after: (el) => {
@@ -7403,7 +7412,7 @@ SCREENS.health = {
     if (!ppl.length) return h + '<div class="card"><div class="empty">' + tt("Cadastre as pessoas em Família.", "Add people in Family.") + "</div></div>";
     h += '<div class="grid gauto">' + ppl.map((p) => {
       const hh = DB.get("health", p.id) || {}; const al = Health.allergyList(hh);
-      const miss = [!hh.blood && tt("tipo sanguíneo", "blood type"), !p.birth && tt("nascimento", "birth date"), p.role !== "pet" && !(hh.plan && hh.plan.operator) && !hh.sus && tt("plano/SUS", "plan/SUS")].filter(Boolean);
+      const miss = [p.role !== "pet" && !hh.blood && tt("tipo sanguíneo", "blood type"), !p.birth && tt("nascimento", "birth date"), p.role !== "pet" && !(hh.plan && hh.plan.operator) && !hh.sus && tt("plano/SUS", "plan/SUS")].filter(Boolean);
       return '<div class="card" style="margin:0"><div class="between"><div class="row">' + People.av(p.id, "lg") + '<div><b>' + esc(p.name) + '</b><div class="small muted">' + (p.birth ? ageTxt(p.birth) : "") + (hh.blood ? " · 🩸 " + esc(hh.blood + (hh.rh || "")) : "") + '</div></div></div><button class="btn sm ghost" data-act="health.edit" data-id="' + p.id + '"' + (isChild() ? " disabled" : "") + ">✏️</button></div>" +
         (al.length ? '<div style="margin-top:8px">' + al.map((x) => '<span class="badge bad" style="margin:2px">⚠️ ' + esc(x.what) + "</span>").join("") + "</div>" : "") +
         ((hh.meds || []).length ? '<div class="small" style="margin-top:6px">💊 ' + hh.meds.map((m) => esc(m.name + (m.times ? " (" + m.times + ")" : ""))).join("; ") + "</div>" : "") +
@@ -7509,13 +7518,18 @@ const Maint = {
   },
   async done(id) {
     const m = DB.get("maint", id); if (!m) return;
-    const r = await formModal({ title: "✓ " + esc(m.title), fields: [{ k: "d", label: tt("Quando foi feito", "Done on"), type: "date", def: today() }, { k: "cost", label: tt("Quanto custou (R$)", "Cost (R$)"), type: "number", step: "any" }, { k: "note", label: tt("Observação", "Note") }, { k: "mt", label: "💰 " + tt("Enviar o custo para o MoneyTrio", "Send cost to MoneyTrio"), type: "check", def: Bridge.cfg().enabled }].concat(m.cat === "carro" || m.veiculo ? [{ k: "km", label: tt("Quilometragem no painel (km)", "Mileage on the dashboard (km)"), im: "numeric" }] : []).concat(m.cat === "carro" ? [{ k: "mtsub", label: tt("Categoria no MoneyTRIO (Veículo)", "MoneyTRIO category (Vehicle)"), type: "select", opts: MT_SUB_CARRO().map((o) => [o[0], o[0] + " — " + o[1]]), def: mtSubCarro(m.title), hint: tt("Só vale se marcar \"Enviar o custo\". Já vem sugerida pelo nome; troque se precisar.", "Only used if \"Send cost\" is checked. Suggested from the name; change it if needed.") }] : []), okText: tt("Registrar", "Log it") });
+    /* 🐾 compra da ração: o ✓ abre a ração para anotar a compra nova (o próximo aviso sai dela) */
+    if (m.petTipo === "racao" && Pets.get(m.pet)) return Pets.racaoForm(m.pet, true);
+    /* vacina do pet: a marca e quem aplicou ficam na linha do histórico. Cuidado ligado a um pet não manda gasto ao
+       MoneyTRIO por enquanto (esperando o formato de lá, PENDENCIAS #62) */
+    const vac = m.petTipo === "vacina" && !!m.pet;
+    const r = await formModal({ title: "✓ " + esc(m.title), fields: [{ k: "d", label: tt("Quando foi feito", "Done on"), type: "date", def: today() }, { k: "cost", label: tt("Quanto custou (R$)", "Cost (R$)"), type: "number", step: "any" }, { k: "note", label: tt("Observação", "Note") }].concat(m.pet ? [] : [{ k: "mt", label: "💰 " + tt("Enviar o custo para o MoneyTrio", "Send cost to MoneyTrio"), type: "check", def: Bridge.cfg().enabled }]).concat(vac ? [{ k: "produto", label: "💉 " + tt("Vacina aplicada (nome ou marca)", "Vaccine given (name or brand)") }, { k: "vet", label: "🩺 " + tt("Quem aplicou (veterinário ou clínica)", "Given by (vet or clinic)") }] : []).concat(m.cat === "carro" || m.veiculo ? [{ k: "km", label: tt("Quilometragem no painel (km)", "Mileage on the dashboard (km)"), im: "numeric" }] : []).concat(m.cat === "carro" ? [{ k: "mtsub", label: tt("Categoria no MoneyTRIO (Veículo)", "MoneyTRIO category (Vehicle)"), type: "select", opts: MT_SUB_CARRO().map((o) => [o[0], o[0] + " — " + o[1]]), def: mtSubCarro(m.title), hint: tt("Só vale se marcar \"Enviar o custo\". Já vem sugerida pelo nome; troque se precisar.", "Only used if \"Send cost\" is checked. Suggested from the name; change it if needed.") }] : []), okText: tt("Registrar", "Log it") });
     if (!r) return;
     const d = r.d || today();
     const km = kmDe(r.km), car = m.veiculo ? DB.get("places", m.veiculo) : null;
     /* sem km escrita, a contagem por km recomeça da km do carro (senão a revisão feita continuaria "atrasada") */
     const ult = km || (m.cadaKm && car && +car.km) || "";
-    await DB.put("maint", Object.assign({}, m, { last: d, next: m.interval ? addDays(d, +m.interval) : "", nextManual: false, history: (m.history || []).concat(Object.assign({ d, cost: r.cost || 0, note: r.note || "", by: S.meId }, km ? { km } : {})).slice(-30) }, ult ? { ultKm: ult } : {}));
+    await DB.put("maint", Object.assign({}, m, { last: d, next: m.interval ? addDays(d, +m.interval) : "", nextManual: false, history: (m.history || []).concat(Object.assign({ d, cost: r.cost || 0, note: r.note || "", by: S.meId }, km ? { km } : {}, vac && r.produto ? { produto: r.produto.slice(0, 120) } : {}, vac && r.vet ? { vet: r.vet.slice(0, 120) } : {})).slice(-30) }, ult ? { ultKm: ult } : {}));
     if (km && car && km > (+car.km || 0)) await DB.patch("places", car.id, { km, kmEm: d });
     if (r.mt && r.cost) Bridge.post({ tipo: "gasto", dados: { valor: r.cost, grupo: m.cat === "carro" ? "VEICULO" : "HABITACAO", sub: m.cat === "carro" ? (MT_SUB_CARRO().some((o) => o[0] === r.mtsub) ? r.mtsub : mtSubCarro(m.title)) : "Manutenção", desc: m.title + " (OmniLifeONE)", data: d, per: "Pontual", quem: "", forma: "", conta: "", irpf: false, origem: "omnilife-one" } });
     toast(tt("Registrado ✓ Próxima: ", "Logged ✓ Next: ") + (m.interval ? fmtDate(addDays(d, +m.interval)) : "—"));
@@ -8288,6 +8302,631 @@ SCREENS.cars = {
   after(root, sub) { if (sub === "ficha") Cars.after(root); }
 };
 
+/* ---------- 🐾 Pets: aba própria (pedido do dono, 06/Nov/2026) ----------
+   O pet continua sendo uma pessoa da família (coleção people, role "pet"): assim ele segue em Família, nos aniversários, na
+   Saúde e no resumo Saúde → MoneyTRIO (especie: "pet"), sem mudar o banco. O que é só de bicho mora em p.pet: espécie, raça,
+   cor da pelagem (p.color é a cor do avatar), sexo, castrado, chegada (o nascimento continua em p.birth), microchip,
+   pedigree, jeito e manias, fotos, ração, pesos, histórico e contatos. Vacina, vermífugo, antipulgas, banho e a compra da
+   ração são manutenções (coleção maint, cat "pet", pet = id do pet, petTipo): sobem para a família e já passam pelo sino,
+   avisos do aparelho, agenda e Casa → Manutenção. Alergias, remédios e o veterinário de referência ficam na carteira vital
+   (Health), que fica só neste aparelho (NUVEM_LOCAL). Fotos: PetFoto, mais abaixo.
+   Gastos do pet → MoneyTRIO: ainda não (esperando o formato do MoneyTRIO, PENDENCIAS #62). */
+const PET_ESP = () => [["cachorro", "🐶", tt("Cachorro", "Dog")], ["gato", "🐱", tt("Gato", "Cat")], ["ave", "🐦", tt("Ave", "Bird")], ["peixe", "🐟", tt("Peixe", "Fish")], ["roedor", "🐹", tt("Roedor", "Rodent")], ["coelho", "🐰", tt("Coelho", "Rabbit")], ["reptil", "🦎", tt("Réptil", "Reptile")], ["outro", "🐾", tt("Outro", "Other")]];
+/* raças comuns no Brasil, para a busca do campo (dá para escrever outra). [pt, en] quando o nome muda em inglês */
+const PET_RACAS = () => {
+  const L = (a) => a.map((x) => (Array.isArray(x) ? tt(x[0], x[1]) : x)), srd = tt("SRD (vira-lata)", "Mixed breed (no defined breed)"), outra = tt("Outra", "Other");
+  return {
+    cachorro: [srd].concat(L(["Shih Tzu", "Yorkshire Terrier", ["Spitz Alemão (Lulu da Pomerânia)", "Pomeranian"], "Poodle", "Lhasa Apso", ["Buldogue Francês", "French Bulldog"], ["Maltês", "Maltese"],
+      "Golden Retriever", "Labrador Retriever", "Pinscher", ["Dachshund (salsicha)", "Dachshund"], "Pug", "Border Collie", ["Pastor Alemão", "German Shepherd"], "Rottweiler", "Beagle", "Chihuahua",
+      ["Buldogue Inglês", "English Bulldog"], "Schnauzer", "Cavalier King Charles Spaniel", "Cavachon", ["Bichon Frisé", "Bichon Frise"], "Boxer", "Pit Bull", "American Staffordshire Terrier",
+      ["Husky Siberiano", "Siberian Husky"], "Akita", "Chow Chow", ["Dálmata", "Dalmatian"], "Cocker Spaniel", "Jack Russell Terrier", ["Fox Paulistinha (Terrier Brasileiro)", "Brazilian Terrier"],
+      "Fila Brasileiro", "Weimaraner", "Dobermann", "Basset Hound", ["Boiadeiro Bernês", "Bernese Mountain Dog"], ["Pastor Belga Malinois", "Belgian Malinois"], ["Pastor de Shetland", "Shetland Sheepdog"],
+      "Welsh Corgi", ["Samoieda", "Samoyed"], ["São Bernardo", "Saint Bernard"], ["Dogue Alemão", "Great Dane"], "Shiba Inu", "West Highland White Terrier", "Whippet", "Bull Terrier", "Cane Corso",
+      "Boston Terrier", ["Pequinês", "Pekingese"], "Maltipoo", "Cavapoo", "Poochon", ["Spitz Japonês", "Japanese Spitz"]]), [outra]),
+    gato: [srd].concat(L([["Siamês", "Siamese"], ["Persa", "Persian"], "Maine Coon", ["Angorá", "Turkish Angora"], "Ragdoll", "Sphynx", "British Shorthair", "Bengal", ["Exótico", "Exotic Shorthair"],
+      ["Himalaio", "Himalayan"], "Scottish Fold", ["Azul Russo", "Russian Blue"], ["Siberiano", "Siberian"], ["Sagrado da Birmânia", "Birman"], ["Abissínio", "Abyssinian"], "Munchkin"]), [outra]),
+    ave: L([["Calopsita", "Cockatiel"], ["Periquito-australiano", "Budgerigar"], ["Canário", "Canary"], ["Agapórnis", "Lovebird"], ["Papagaio", "Parrot"], ["Cacatua", "Cockatoo"], "Ring Neck", ["Diamante-mandarim", "Zebra finch"]]).concat([outra]),
+    peixe: L(["Betta", ["Kinguio (peixe-dourado)", "Goldfish"], ["Guppy (lebiste)", "Guppy"], ["Neon", "Neon tetra"], ["Acará-bandeira", "Angelfish"], "Molly", "Platy", ["Cascudo", "Pleco"]]).concat([outra]),
+    roedor: L([["Hamster sírio", "Syrian hamster"], ["Hamster anão", "Dwarf hamster"], ["Porquinho-da-índia", "Guinea pig"], ["Gerbil (esquilo-da-mongólia)", "Gerbil"], ["Chinchila", "Chinchilla"], ["Twister (rato doméstico)", "Fancy rat"]]).concat([outra]),
+    coelho: [srd].concat(L(["Mini Lop", ["Cabeça de leão (Lionhead)", "Lionhead"], ["Holandês anão (Netherland Dwarf)", "Netherland Dwarf"], "Mini Rex", "Fuzzy Lop", ["Angorá", "Angora"]]), [outra]),
+    reptil: L([["Jabuti", "Tortoise"], ["Tigre-d'água (tartaruga)", "Red-eared slider"], "Iguana", ["Gecko-leopardo", "Leopard gecko"], ["Dragão-barbudo (pogona)", "Bearded dragon"], ["Cobra-do-milho", "Corn snake"]]).concat([outra]),
+    outro: [outra]
+  };
+};
+/* faixa de peso comum de umas poucas raças (guias de raça, não estudo veterinário): só uma faixa clarinha no gráfico,
+   sempre com "confirme com a veterinária". Texto sem acento (norm). */
+const PET_PESO = [[/cavachon/, 6, 10], [/shih ?tzu/, 4, 7], [/yorkshire/, 2, 3.5], [/labrador/, 25, 36], [/golden/, 25, 34], [/buldogue frances|french bulldog/, 8, 13], [/\bpug\b/, 6, 8]];
+const PET_HIST = () => [["consulta", "🩺", tt("Consulta", "Vet visit")], ["exame", "🧪", tt("Exame", "Test")], ["cirurgia", "🏥", tt("Cirurgia", "Surgery")], ["castracao", "✂️", tt("Castração", "Neutering")], ["episodio", "⚠️", tt("Algo que aconteceu (comeu algo, se machucou…)", "Something happened (ate something, got hurt…)")], ["vacina", "💉", tt("Vacina", "Vaccine")], ["outro", "📝", tt("Outro", "Other")]];
+/* os mesmos intervalos dos modelos de pet de MT_TEMPLATES (vacina 365, vermífugo 90, antipulgas 30) e o banho e tosa (45) */
+const PET_CUIDADOS = () => [["vacina", "💉", tt("Vacina anual", "Yearly vaccine"), 365], ["vermifugo", "💊", tt("Vermífugo", "Dewormer"), 90], ["antipulgas", "🦟", tt("Antipulgas e carrapatos", "Flea and tick"), 30], ["banho", "🛁", tt("Banho e tosa", "Bath and grooming"), 45], ["outro", "🐾", tt("Outro cuidado", "Other care"), 30]];
+const Pets = {
+  list() { return People.list().filter((p) => p.role === "pet"); },
+  get(id) { const p = id ? People.get(id) : null; return p && p.role === "pet" ? p : null; },
+  dados(p) { return (p && p.pet) || {}; },
+  nome(p) { return p ? p.nick || p.name || "" : ""; },
+  /* pet cadastrado antes da aba: a espécie vem do ícone escolhido em Família */
+  esp(p) { const L = PET_ESP(), e = this.dados(p).especie || { "🐶": "cachorro", "🐱": "gato", "🐦": "ave", "🦜": "ave", "🐟": "peixe", "🐰": "coelho" }[p && p.emoji]; return L.find((x) => x[0] === e) || L[L.length - 1]; },
+  castradoTxt(d) { return d.sexo === "femea" ? tt("castrada", "spayed") : d.sexo === "macho" ? tt("castrado", "neutered") : tt("castrado(a)", "neutered"); },
+  desc(p) { return [this.esp(p)[2], this.dados(p).raca, p.birth ? ageTxt(p.birth) : ""].filter(Boolean).join(" · "); },
+  /* criança vê tudo e não muda nada (o DB.put também recusa) */
+  podeEditar() { return !isChild(); },
+  /* ---------- cadastro (formulário próprio: o de pessoa traz PIN, controle parental e começa como criança) ---------- */
+  fields() {
+    return [{ k: "name", label: tt("Nome", "Name"), req: true, ph: tt("Ex.: Bolinha", "e.g. Buddy") }, { k: "nick", label: tt("Apelido (como aparece no app)", "Nickname (as shown in the app)") },
+      { k: "pet.especie", label: tt("Espécie", "Species"), type: "select", opts: PET_ESP().map((e) => [e[0], e[1] + " " + e[2]]), hint: tt("Roedor: hamster, porquinho-da-índia, chinchila. Réptil: jabuti, tartaruga, lagarto.", "Rodent: hamster, guinea pig, chinchilla. Reptile: tortoise, turtle, lizard.") },
+      { k: "pet.raca", label: tt("Raça", "Breed"), type: "datalist", opts: [], ph: tt("Toque para escolher ou escreva", "Tap to pick or type"), hint: tt("Não sabe? Escolha “SRD (vira-lata)”. Não está na lista? Escreva a raça.", "Not sure? Pick “Mixed breed”. Not on the list? Type the breed.") },
+      { k: "pet.cor", label: tt("Cor da pelagem", "Coat colour"), ph: tt("Ex.: branco com manchas caramelo", "e.g. white with tan patches") },
+      { k: "pet.sexo", label: tt("Sexo", "Sex"), type: "select", opts: [["", "—"], ["macho", tt("Macho", "Male")], ["femea", tt("Fêmea", "Female")]] },
+      { k: "pet.castrado", label: tt("Castrado(a)", "Neutered / spayed"), type: "check" },
+      { k: "birth", label: tt("Nascimento (se souber)", "Birth date (if known)"), type: "date" }, { k: "pet.chegada", label: tt("Chegou em casa em", "Came home on"), type: "date" },
+      { k: "pet.microchip", label: tt("Número do microchip (se tiver)", "Microchip number (if any)"), im: "numeric" },
+      { k: "pet.pedigree", label: tt("Tem pedigree?", "Has a pedigree?"), type: "select", opts: [["", "—"], ["sim", tt("Sim", "Yes")], ["nao", tt("Não", "No")]] },
+      { k: "pet.registro", label: tt("Registro do pedigree (se tiver)", "Pedigree registration (if any)") },
+      { k: "pet.descricao", label: tt("Jeito e manias", "Personality and habits"), type: "textarea", rows: 3, ph: tt("Ex.: tem medo de trovão; adora bolinha; não sobe no sofá", "e.g. scared of thunder; loves balls; not allowed on the sofa") }];
+  },
+  async edit(p) {
+    if (!this.podeEditar()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
+    const novo = !p;
+    p = p ? JSON.parse(JSON.stringify(p)) : { role: "pet", color: COLORS[People.list().length % COLORS.length], pet: { especie: "cachorro" } };
+    if (!this.dados(p).especie) p.pet = Object.assign({}, p.pet, { especie: this.esp(p)[0] });   /* pet antigo: a espécie que o ícone diz */
+    const lista = (esp) => '<option value="' + (PET_RACAS()[esp] || []).map(esc).join('"><option value="') + '">';
+    let r = await formModal({ title: "🐾 " + (novo ? tt("Novo pet", "New pet") : esc(this.nome(p))), fields: this.fields(), values: p, wide: true,
+      onDelete: !novo && isGuardian() ? () => this.apagar(p.id) : null,
+      /* a lista de raças acompanha a espécie escolhida */
+      after: (el) => {
+        const sel = el.querySelector('[name="pet.especie"]'), dl = el.querySelector('[name="pet.raca"]').list || el.querySelector("datalist");
+        const encher = () => { if (dl) dl.innerHTML = lista(sel.value); };
+        encher(); sel.addEventListener("change", encher);
+      } });
+    if (!r) return null;
+    /* pet que já existe: só o que o formulário mostra, por cima do registro de AGORA. A cópia de quando o formulário abriu
+       traria de volta fotos, pesos, histórico, ração e contatos que mudaram com ele aberto (foto que terminou de subir no
+       Fundo, outro celular da família) */
+    const cur = novo ? null : this.get(p.id), antes = cur ? this.nome(cur) : "";
+    if (cur) {
+      const o = JSON.parse(JSON.stringify(cur)); o.pet = o.pet || {};
+      this.fields().forEach((f) => { const pt = f.k.startsWith("pet."), k = pt ? f.k.slice(4) : f.k; (pt ? o.pet : o)[k] = (pt ? r.pet || {} : r)[k]; });
+      r = o;
+    }
+    r.role = "pet"; r.pet = Object.assign({}, cur ? {} : p.pet || {}, r.pet || {}); r.pet.castrado = !!r.pet.castrado;
+    /* o ícone acompanha a espécie, a não ser que a pessoa tenha escolhido outro em Família */
+    if (!r.emoji || PET_ESP().some((e) => e[1] === r.emoji) || r.emoji === "🦜") r.emoji = this.esp(r)[1];
+    await DB.put("people", r);
+    /* trocou o nome: os avisos do pet ("Vacina anual — Bolinha") passam a ter o nome novo (só o final " — nome" exato) */
+    const depois = this.nome(r);
+    if (antes && depois && antes !== depois) for (const m of DB.raw("maint").filter((x) => x.pet === r.id && String(x.title || "").endsWith(" — " + antes))) await DB.patch("maint", m.id, { title: m.title.slice(0, -antes.length) + depois });
+    if (novo) go("pets", "ficha", r.id);
+    return r;
+  },
+  /* apagar o pet: as fotos (aqui e na nuvem), os cuidados e a carteira vital vão junto; contatos e guias ficam */
+  async apagar(pid) {
+    const p = this.get(pid); if (!p) return;
+    const d = this.dados(p);
+    for (const ref of [d.foto].concat(d.fotos || []).filter(Boolean)) await PetFoto.apagarArquivo(ref);
+    for (const m of DB.raw("maint").filter((x) => x.pet === pid)) await DB.del("maint", m.id);
+    if (DB.get("health", pid)) await DB.del("health", pid);
+    await DB.del("people", pid);
+    toast(tt("Pet apagado, com as fotos e os cuidados dele. Os contatos e os guias continuam no app.", "Pet deleted, with its photos and care items. Contacts and guides stay in the app."), 5000);
+    go("pets");
+  },
+  /* ---------- cuidados (manutenções do pet) ---------- */
+  cuidados(pid) { return Maint.list().filter((m) => m.cat === "pet" && m.pet === pid); },
+  /* cuidado de pet criado antes da aba (Casa → Manutenção e o exemplo: cat "pet" sem o pet): ao abrir 🐾 Pets, liga ao pet
+     quando não há dúvida (o nome de um pet só no título, ou um pet só na família) e tira o tipo do título. Sem isso ele
+     não aparecia na ficha e o ＋ oferecia de novo o mesmo cuidado (dois avisos do vermífugo) */
+  async ligarAntigos() {
+    const ps = this.list(); if (!ps.length || !this.podeEditar()) return;
+    for (const m of DB.raw("maint").filter((x) => x.cat === "pet" && !x.pet)) {
+      const t = norm(m.title), donos = ps.filter((p) => [p.name, p.nick].some((n) => norm(n) && t.includes(norm(n))));
+      const p = donos.length === 1 ? donos[0] : !donos.length && ps.length === 1 ? ps[0] : null; if (!p) continue;
+      const tipo = /vacin|vaccin/.test(t) ? "vacina" : /verm|worm/.test(t) ? "vermifugo" : /pulga|carrapat|\bflea|\btick/.test(t) ? "antipulgas" : /banho|tosa|\bbath|groom/.test(t) ? "banho" : "outro";
+      await DB.patch("maint", m.id, { pet: p.id, petTipo: tipo });
+    }
+  },
+  info(m) { if (m.petTipo === "racao") return ["racao", "🥣", tt("Comprar ração", "Buy food")]; const c = PET_CUIDADOS().find((x) => x[0] === m.petTipo); return c && c[0] !== "outro" ? c : ["outro", "🐾", m.title]; },
+  badge(m) { return m._days == null ? "" : m._days < 0 ? '<span class="badge bad">' + tt("venceu há " + -m._days + " d", "overdue " + -m._days + " d") + "</span>" : m._days <= 15 ? '<span class="badge warn">' + relDay(m.next) + "</span>" : '<span class="badge ok">' + esc(fmtDate(m.next, "short")) + "</span>"; },
+  novoCuidado(pid, el) {
+    const p = this.get(pid); if (!p || !this.podeEditar()) return;
+    const tem = new Set(this.cuidados(pid).map((m) => m.petTipo));
+    popMenu(el, [{ hd: tt("Acrescentar para ", "Add for ") + this.nome(p) }].concat(PET_CUIDADOS().filter((c) => c[0] === "outro" || !tem.has(c[0])).map((c) => ({ ic: c[1], t: c[2] + (c[0] === "outro" ? "" : " · " + tt("a cada " + c[3] + " dias", "every " + c[3] + " days")),
+      fn: () => Maint.edit({ title: c[0] === "outro" ? "" : c[2] + " — " + this.nome(p), cat: "pet", interval: c[3], pet: pid, petTipo: c[0] }) }))));
+  },
+  async remarcar(mid) {
+    const m = DB.get("maint", mid); if (!m || !this.podeEditar()) return;
+    const v = await askText("📅 " + tt("Remarcar", "Reschedule"), tt("Nova data", "New date") + " — " + m.title, m.next || today(), "date");
+    if (v == null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return toast(tt("Escolha uma data.", "Pick a date."));
+    await DB.patch("maint", mid, { next: v, nextManual: true });
+    toast("📅 " + tt("Remarcado para ", "Rescheduled to ") + fmtDate(v));
+  },
+  async naoSeAplica(mid) {
+    const m = DB.get("maint", mid); if (!m || !this.podeEditar()) return;
+    if (!(await confirmBox(tt("“" + esc(m.title) + "” não se aplica? Ele sai da lista e para de avisar. O que já foi feito continua no Histórico do pet.", "“" + esc(m.title) + "” doesn't apply? It leaves the list and stops reminding. What was already done stays in the pet's History."), tt("Não se aplica", "Doesn't apply"), true))) return;
+    /* os ✓ Feito (datas, marca da vacina, quem aplicou) moram no histórico da manutenção: passam para o histórico do pet
+       antes de apagar, para a carteira de vacinação não sumir junto */
+    const p = this.get(m.pet), hs = (m.history || []).filter((x) => x && x.d);
+    if (p && hs.length) {
+      const novos = hs.map((x) => ({ id: uid("h"), d: x.d, tipo: m.petTipo === "vacina" ? "vacina" : "outro", titulo: ("✓ " + this.info(m)[2]).slice(0, 200), nota: [x.produto, x.vet, x.note].filter(Boolean).join(" · ").slice(0, 2000) }));
+      await DB.patch("people", p.id, { "pet.historico": (this.dados(p).historico || []).concat(novos).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, 200) });
+    }
+    await DB.del("maint", mid);
+  },
+  /* ---------- ração (a lição dos 4 sacos que venceram antes de acabar) ----------
+     diário = g por refeição × refeições; cada saco dura sacoKg×1000 / diário; acaba em compradoEm + dias de um saco × sacos.
+     Vence antes de acabar → no máximo floor((validade − compradoEm) / dias de um saco) sacos (pelo menos 1). */
+  racaoCalc(r) {
+    r = r || {};
+    const diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0);
+    if (!(diario > 0) || !(+r.sacoKg > 0)) return null;
+    const diasSaco = (+r.sacoKg * 1000) / diario, sacos = Math.max(1, Math.round(+r.sacos || 1));
+    const o = { diario, diasSaco, sacos, dias: Math.round(diasSaco * sacos) };
+    if (r.compradoEm) { o.acabaEm = addDays(r.compradoEm, o.dias); o.restam = diffDays(today(), o.acabaEm); }
+    /* sacoGrande: nem um saco acaba antes de vencer ("no máximo 1 saco" seria o que a pessoa já comprou): saco menor */
+    if (r.compradoEm && r.validade) { const cabe = Math.floor(diffDays(r.compradoEm, r.validade) / diasSaco); o.maxSacos = Math.max(1, cabe); o.sacoGrande = cabe < 1; o.vence = r.validade < o.acabaEm; }
+    return o;
+  },
+  faseTxt(f) { return { filhote: tt("filhote", "puppy/kitten"), adulto: tt("adulto", "adult"), senior: tt("idoso", "senior") }[f] || ""; },
+  /* o mesmo texto da calculadora da promoção, quando nem um saco acaba antes da validade */
+  sacoGrandeTxt(r, c) { return tt("Um saco de " + num(+r.sacoKg) + " kg dura ~" + Math.round(c.diasSaco) + " dias e vence antes de acabar: prefira um saco menor.", "A " + num(+r.sacoKg) + " kg bag lasts ~" + Math.round(c.diasSaco) + " days and expires before it's finished: pick a smaller bag."); },
+  /* compraNova: veio do ✓ Feito do aviso "Comprar ração": a mesma ração, comprada hoje, com a validade nova em branco */
+  async racaoForm(pid, compraNova) {
+    const p = this.get(pid); if (!p) return;
+    if (!this.podeEditar()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
+    const r0 = this.dados(p).racao || {};
+    const fase = ageOf(p.birth) == null ? "adulto" : ageOf(p.birth) < 1 ? "filhote" : ageOf(p.birth) >= 8 ? "senior" : "adulto";
+    const vals = compraNova ? Object.assign({}, r0, { compradoEm: today(), validade: "" }) : Object.assign({ fase, refeicoesDia: 2, sacos: 1, compradoEm: today() }, r0);
+    const f = [{ k: "marca", label: tt("Marca e linha da ração", "Food brand and line"), full: true, ph: tt("Ex.: Marca X Raças Pequenas", "e.g. Brand X Small Breed") },
+      { k: "fase", label: tt("Fase", "Life stage"), type: "select", opts: [["filhote", tt("Filhote", "Puppy / kitten")], ["adulto", tt("Adulto", "Adult")], ["senior", tt("Idoso (sênior)", "Senior")]] },
+      /* texto com teclado de número (e não type="number"): no celular em português o "10,1" virava 101 ou sumia */
+      { k: "sacoKg", label: tt("Tamanho do saco (kg)", "Bag size (kg)"), im: "decimal", ph: "10,1" },
+      { k: "gRefeicao", label: tt("Gramas por refeição", "Grams per meal"), im: "decimal", ph: "37,5" },
+      { k: "refeicoesDia", label: tt("Refeições por dia", "Meals per day"), type: "number" },
+      { k: "compradoEm", label: tt("Comprou em", "Bought on"), type: "date" },
+      { k: "sacos", label: tt("Quantos sacos comprou", "How many bags"), type: "number" },
+      { k: "validade", label: tt("Validade (impressa no saco)", "Expiry date (printed on the bag)"), type: "date" },
+      { type: "note", html: tt("As contas são uma estimativa. A quantidade certa, confirme com a veterinária.", "The numbers are an estimate. Confirm the right amount with your vet.") }];
+    const r = await formModal({ title: "🥣 " + (compraNova ? tt("Comprou ração nova? ", "Bought new food? ") : tt("Ração de ", "Food for ")) + esc(this.nome(p)), fields: f, values: vals, okText: compraNova ? tt("Registrar a compra", "Log the purchase") : null });
+    if (!r) return;
+    const n = (v) => { const x = v === "" || v == null ? -1 : parseNum(v); return x < 0 ? "" : x; };   /* aceita "10,1" e "10.1" */
+    const rac = { marca: String(r.marca || "").slice(0, 120), fase: r.fase || "", sacoKg: n(r.sacoKg), gRefeicao: n(r.gRefeicao), refeicoesDia: n(r.refeicoesDia) === "" ? "" : Math.round(n(r.refeicoesDia)), compradoEm: r.compradoEm || "", sacos: Math.max(1, Math.round(n(r.sacos) || 1)), validade: r.validade || "" };
+    await DB.patch("people", pid, { "pet.racao": rac });
+    await this.racaoLembrete(pid, rac, compraNova);
+    const c = this.racaoCalc(rac);
+    if (c && c.vence && c.sacoGrande) toast("⚠️ " + this.sacoGrandeTxt(rac, c), 6000);
+    else if (c && c.vence) toast("⚠️ " + tt("O último saco vence antes de acabar: compre no máximo " + c.maxSacos + (c.maxSacos > 1 ? " sacos." : " saco."), "The last bag expires before it's finished: buy at most " + c.maxSacos + (c.maxSacos > 1 ? " bags." : " bag.")), 6000);
+    else if (c && c.acabaEm) toast("🥣 " + tt("Dura ~" + c.dias + " dias: aviso uma semana antes de acabar.", "Lasts ~" + c.dias + " days: I'll remind you a week before it runs out."), 4000);
+  },
+  /* um aviso só por pet ("Comprar ração — nome"), uma semana antes de acabar, pelos avisos de sempre */
+  async racaoLembrete(pid, rac, compraNova) {
+    const p = this.get(pid), c = this.racaoCalc(rac); if (!p) return;
+    const ex = DB.raw("maint").find((m) => m.cat === "pet" && m.pet === pid && m.petTipo === "racao");
+    /* a ração foi apagada (passou a comida caseira, tirou o saco ou a data): o aviso antigo não fica "atrasado" para sempre */
+    if (!c || !c.acabaEm) { if (ex) await DB.del("maint", ex.id); return; }
+    const doc = Object.assign({}, ex || {}, { title: tt("Comprar ração — ", "Buy pet food — ") + this.nome(p), cat: "pet", pet: pid, petTipo: "racao", interval: "", last: rac.compradoEm, next: addDays(c.acabaEm, -7), nextManual: true });
+    if (compraNova && ex) doc.history = (ex.history || []).concat({ d: rac.compradoEm || today(), cost: 0, note: [rac.sacos + " × " + num(+rac.sacoKg) + " kg", rac.marca].filter(Boolean).join(" · "), by: S.meId }).slice(-30);
+    await DB.put("maint", doc);
+  },
+  async paraCompras(pid) {
+    const p = this.get(pid), r = this.dados(p).racao || {}; if (!p || !r.marca) return;
+    await Shop.add({ name: (/^(ra[cç][aã]o|pet food)\b/i.test(r.marca) ? "" : tt("Ração ", "Pet food ")) + r.marca, cat: "pet", note: [r.sacoKg ? num(+r.sacoKg) + " kg" : "", this.nome(p)].filter(Boolean).join(" · ") });
+  },
+  racaoCard(p) {
+    const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), ed = this.podeEditar();
+    let h = '<div class="card" id="pracao"><div class="between"><h3>🥣 ' + tt("Ração", "Food") + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="pet.racao" data-id="' + p.id + '" aria-label="' + tt("Anotar a ração", "Log the food") + '">' + (r.marca || c ? "✏️" : "＋") + "</button>" : "") + "</div>";
+    if (!c) h += '<p class="small muted">' + tt("Anote a ração, o tamanho do saco e quanto o pet come: eu calculo quantos dias dura, aviso uma semana antes de acabar e confiro se a validade dá.", "Log the food, the bag size and how much your pet eats: I work out how many days it lasts, remind you a week before it runs out and check the expiry date.") + "</p>";
+    else {
+      h += (r.marca || r.fase ? '<div class="small">' + esc([r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · ")) + "</div>" : "") +
+        '<div class="carfrv">' + tt("dura ~" + c.dias + " dias", "lasts ~" + c.dias + " days") + "</div>" +
+        '<div class="small muted">' + tt(num(c.diario, 0) + " g por dia (" + num(+r.gRefeicao, 0) + " g × " + r.refeicoesDia + ") · cada saco de " + num(+r.sacoKg) + " kg dura ~" + Math.round(c.diasSaco) + " dias · " + c.sacos + (c.sacos > 1 ? " sacos" : " saco"), num(c.diario, 0) + " g a day (" + num(+r.gRefeicao, 0) + " g × " + r.refeicoesDia + ") · each " + num(+r.sacoKg) + " kg bag lasts ~" + Math.round(c.diasSaco) + " days · " + c.sacos + (c.sacos > 1 ? " bags" : " bag")) + "</div>" +
+        (c.acabaEm ? '<div style="margin-top:4px">' + tt("Acaba em ", "Runs out on ") + "<b>" + fmtDate(c.acabaEm) + "</b> (" + relDay(c.acabaEm) + ")</div>" : "") +
+        (c.vence ? '<div class="note warn" style="margin-top:8px">⚠️ ' + (c.sacoGrande ? esc(this.sacoGrandeTxt(r, c)) + " (" + tt("validade ", "expiry ") + esc(fmtDate(r.validade)) + ")" : tt("O último saco vence antes de acabar (validade " + esc(fmtDate(r.validade)) + "): compre no máximo " + c.maxSacos + (c.maxSacos > 1 ? " sacos" : " saco") + " de cada vez.", "The last bag expires before it's finished (expiry " + esc(fmtDate(r.validade)) + "): buy at most " + c.maxSacos + (c.maxSacos > 1 ? " bags" : " bag") + " at a time.")) + "</div>" : "");
+    }
+    h += moreBox("🧮 " + tt("Vai comprar em promoção? Quantos sacos cabem antes da validade?", "Buying on sale? How many bags fit before the expiry date?"),
+      '<div class="fgrid" style="margin-top:6px"><label class="fld"><span>' + tt("Tamanho do saco (kg)", "Bag size (kg)") + '</span><input type="text" inputmode="decimal" id="pck" value="' + esc(r.sacoKg || "") + '"></label><label class="fld"><span>' + tt("Validade", "Expiry date") + '</span><input type="date" id="pcv"></label></div><div id="pco" class="small" style="margin-top:6px" aria-live="polite"></div>');
+    if (ed && r.marca) h += '<div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pet.shop" data-id="' + p.id + '">🛒 ' + tt("Pôr na lista de compras", "Add to the shopping list") + "</button></div>";
+    if (this.esp(p)[0] === "cachorro" && (r.fase === "filhote" || (!r.fase && ageOf(p.birth) != null && ageOf(p.birth) < 1))) h += '<p class="tiny faint" style="margin-top:8px">💡 ' + tt("Cachorro pequeno costuma trocar a ração de filhote pela de adulto entre 8 e 12 meses, aos poucos, misturando as duas por uns 5 dias. Confirme com a veterinária.", "Small dogs usually switch from puppy to adult food between 8 and 12 months, gradually, mixing both for about 5 days. Confirm with your vet.") + "</p>";
+    return h + "</div>";
+  },
+  /* calculadora da promoção: mesma conta, comprando hoje */
+  calcPromo(root, pid) {
+    const k = $("#pck", root), v = $("#pcv", root), out = $("#pco", root); if (!k || !v || !out) return;
+    const conta = () => {
+      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0), kg = parseNum(k.value);
+      if (!(diario > 0)) { out.textContent = tt("Anote antes quanto o pet come (✏️ na Ração).", "First log how much your pet eats (✏️ in Food)."); return; }
+      if (!(kg > 0) || !v.value) { out.textContent = tt("Escreva o tamanho do saco e a validade.", "Type the bag size and the expiry date."); return; }
+      const ds = (kg * 1000) / diario, x = Math.floor(diffDays(today(), v.value) / ds);
+      out.textContent = x < 1 ? tt("Um saco de " + num(kg) + " kg dura ~" + Math.round(ds) + " dias e vence antes de acabar: prefira um saco menor.", "A " + num(kg) + " kg bag lasts ~" + Math.round(ds) + " days and expires before it's finished: pick a smaller bag.")
+        : tt("Cabem até " + x + (x > 1 ? " sacos" : " saco") + " de " + num(kg) + " kg antes de vencer (cada um dura ~" + Math.round(ds) + " dias).", "Up to " + x + (x > 1 ? " bags" : " bag") + " of " + num(kg) + " kg fit before the expiry date (each lasts ~" + Math.round(ds) + " days).");
+    };
+    k.addEventListener("input", conta); v.addEventListener("input", conta); v.addEventListener("change", conta);
+  },
+  /* ---------- histórico e peso ---------- */
+  histTipo(t) { return PET_HIST().find((x) => x[0] === t) || PET_HIST()[PET_HIST().length - 1]; },
+  /* o que foi anotado no pet + os ✓ Feito dos cuidados (só leitura aqui; mudam na manutenção) */
+  linha(pid) {
+    const L = (this.dados(this.get(pid)).historico || []).map((x) => Object.assign({ fonte: "pet" }, x));
+    DB.all("maint").filter((m) => m.cat === "pet" && m.pet === pid && m.petTipo !== "racao").forEach((m) => (m.history || []).forEach((x) => L.push({ fonte: "mt", mt: m.id, d: x.d, ic: this.info(m)[1], titulo: "✓ " + this.info(m)[2], nota: [x.produto, x.vet, x.note].filter(Boolean).join(" · ") })));
+    return L.sort((a, b) => String(b.d || "").localeCompare(String(a.d || "")));
+  },
+  async histEdit(pid, hid) {
+    const p = this.get(pid); if (!p || !this.podeEditar()) return;
+    const hs = this.dados(p).historico || [], x = hid ? hs.find((y) => y.id === hid) : null;
+    const r = await formModal({ title: "📋 " + tt("Histórico de ", "History of ") + esc(this.nome(p)), values: x || { d: today(), tipo: "consulta" },
+      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "tipo", label: tt("O quê", "What"), type: "select", opts: PET_HIST().map((t) => [t[0], t[1] + " " + t[2]]) },
+        { k: "titulo", label: tt("Resumo", "Summary"), req: true, full: true, ph: tt("Ex.: consulta de rotina, exame de sangue, comeu meia barra de chocolate", "e.g. check-up, blood test, ate half a chocolate bar") },
+        { k: "nota", label: tt("Detalhes (o que a veterinária disse, remédio, valor…)", "Details (what the vet said, medicine, price…)"), type: "textarea", rows: 3 }],
+      onDelete: x ? () => DB.patch("people", pid, { "pet.historico": hs.filter((y) => y.id !== hid) }) : null });
+    if (!r) return;
+    const e = { id: (x && x.id) || uid("h"), d: r.d, tipo: r.tipo || "outro", titulo: String(r.titulo || "").slice(0, 200), nota: String(r.nota || "").slice(0, 2000) };
+    /* fica o mais novo (até 200) */
+    const L = hs.filter((y) => y.id !== e.id).concat(e).sort((a, b) => String(b.d).localeCompare(String(a.d))).slice(0, 200);
+    await DB.patch("people", pid, { "pet.historico": L });
+  },
+  histCard(p) {
+    const L = this.linha(p.id), ed = this.podeEditar();
+    return '<div class="card"><div class="between"><h3>📋 ' + tt("Histórico", "History") + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.hist" data-id="' + p.id + '" aria-label="' + tt("Anotar no histórico", "Add to history") + '">＋</button>' : "") + "</div>" +
+      (L.length ? '<div class="list">' + L.slice(0, 30).map((x) => {
+        const ic = x.fonte === "pet" ? this.histTipo(x.tipo)[1] : x.ic, at = !ed ? "" : x.fonte === "pet" ? ' data-act="pet.hist" data-id="' + esc(p.id) + '" data-h="' + esc(x.id) + '"' : ' data-act="pet.vercuidado" data-m="' + esc(x.mt) + '"';
+        return '<div class="li' + (ed ? " click" : "") + '"' + at + '><div class="ico">' + ic + '</div><div class="main"><div class="t">' + esc(x.titulo) + '</div><div class="s">' + esc([fmtDate(x.d), x.nota].filter(Boolean).join(" · ")) + "</div></div></div>"; }).join("") + "</div>"
+        : '<div class="empty tiny">' + tt("Consultas, exames, cirurgias, castração e o que aconteceu (comeu algo, se machucou) ficam aqui, com data.", "Vet visits, tests, surgeries, neutering and what happened (ate something, got hurt) go here, with dates.") + "</div>") + "</div>";
+  },
+  pesos(p) { return (this.dados(p).pesos || []).filter((x) => x && x.d && +x.kg > 0).sort((a, b) => String(a.d).localeCompare(String(b.d))); },
+  faixa(p) { const r = norm(this.dados(p).raca), f = r && PET_PESO.find((x) => x[0].test(r)); return f ? [f[1], f[2]] : null; },
+  async pesoEdit(pid, i) {
+    const p = this.get(pid); if (!p || !this.podeEditar()) return;
+    const L = this.pesos(p), x = i == null || i === "" ? null : L[+i];
+    const r = await formModal({ title: "⚖️ " + tt("Peso de ", "Weight of ") + esc(this.nome(p)), values: x || { d: today() },
+      /* texto com teclado de número (e não type="number"): no celular em português o "8,4" virava 84 kg ou sumia */
+      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "kg", label: tt("Peso (kg)", "Weight (kg)"), im: "decimal", req: true, ph: "8,4" }],
+      onDelete: x ? () => DB.patch("people", pid, { "pet.pesos": L.filter((y) => y !== x) }) : null });
+    if (!r) return;
+    const kg = parseNum(r.kg);
+    if (!(kg > 0)) return toast(tt("Escreva o peso em kg.", "Type the weight in kg."));
+    const n = L.filter((y) => y !== x).concat({ d: r.d, kg: Math.round(kg * 100) / 100 }).sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(-100);
+    await DB.patch("people", pid, { "pet.pesos": n });
+  },
+  /* gráfico de linha em SVG, sem biblioteca; a faixa comum da raça (se houver) vai de fundo */
+  grafico(L, fx) {
+    if (!L.length) return "";
+    const W = 320, H = 120, px = 8, py = 12, ks = L.map((x) => +x.kg).concat(fx || []);
+    let lo = Math.min(...ks), hi = Math.max(...ks); if (hi - lo < 1) { lo -= 0.5; hi += 0.5; }
+    const t0 = parseISO(L[0].d).getTime(), t1 = parseISO(L[L.length - 1].d).getTime();
+    const X = (d) => (L.length === 1 || t1 === t0 ? W / 2 : px + ((parseISO(d).getTime() - t0) / (t1 - t0)) * (W - 2 * px)), Y = (kg) => H - py - ((kg - lo) / (hi - lo)) * (H - 2 * py);
+    const pts = L.map((x) => X(x.d).toFixed(1) + "," + Y(+x.kg).toFixed(1)).join(" ");
+    return '<svg class="petgraf" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(tt("Peso: de " + num(L[0].kg) + " kg a " + num(L[L.length - 1].kg) + " kg", "Weight: from " + num(L[0].kg) + " kg to " + num(L[L.length - 1].kg) + " kg")) + '">' +
+      (fx ? '<rect class="pfaixa" x="0" width="' + W + '" y="' + Y(fx[1]).toFixed(1) + '" height="' + (Y(fx[0]) - Y(fx[1])).toFixed(1) + '" fill="var(--ok)" opacity=".12"/>' : "") +
+      (L.length > 1 ? '<polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' : "") +
+      L.map((x) => '<circle cx="' + X(x.d).toFixed(1) + '" cy="' + Y(+x.kg).toFixed(1) + '" r="3.5" fill="var(--accent)"/>').join("") +
+      '<text x="' + (W - 2) + '" y="10" text-anchor="end" font-size="10" fill="var(--text2)">' + num(hi) + ' kg</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" text-anchor="end" font-size="10" fill="var(--text2)">' + num(lo) + " kg</text></svg>";
+  },
+  pesoCard(p) {
+    const L = this.pesos(p), fx = this.faixa(p), ed = this.podeEditar(), u = L[L.length - 1];
+    return '<div class="card"><div class="between"><h3>⚖️ ' + tt("Peso", "Weight") + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.peso" data-id="' + p.id + '" aria-label="' + tt("Anotar o peso", "Log the weight") + '">＋</button>' : "") + "</div>" +
+      (u ? '<div class="small">' + tt("Último: ", "Latest: ") + "<b>" + num(u.kg) + " kg</b> · " + esc(fmtDate(u.d)) + "</div>" + this.grafico(L, fx) +
+        (fx ? '<p class="tiny faint">🟩 ' + tt("Faixa comum da raça: " + num(fx[0]) + " a " + num(fx[1]) + " kg. Cada bicho é de um jeito: confirme com a veterinária.", "Common range for the breed: " + num(fx[0]) + " to " + num(fx[1]) + " kg. Every pet is different: confirm with your vet.") + "</p>" : "") +
+        '<div class="list">' + L.slice(-5).reverse().map((x) => '<div class="li' + (ed ? ' click" data-act="pet.peso" data-id="' + p.id + '" data-i="' + L.indexOf(x) + '"' : '"') + '><div class="main"><div class="t">' + num(x.kg) + ' kg</div><div class="s">' + esc(fmtDate(x.d)) + "</div></div></div>").join("") + "</div>"
+        : '<div class="empty tiny">' + tt("Anote o peso de vez em quando (na consulta ou na balança de casa): vira um gráfico.", "Log the weight now and then (at the vet or on the home scale): it becomes a chart.") + "</div>") + "</div>";
+  },
+  /* ---------- contatos do pet (o mesmo contato pode ser os três) ---------- */
+  PAPEIS: () => [["vet", "🩺", tt("Veterinário(a)", "Vet")], ["hotel", "🏨", tt("Hotelzinho / creche", "Pet hotel / daycare")], ["banho", "🛁", tt("Banho e tosa", "Bath and grooming")]],
+  fones(c) {
+    const f = ((c && c.phones) || []).find((x) => onlyDigits(x).length >= 4);
+    return f ? '<div class="row nw"><a class="btn xs" href="' + telHref(f) + '" aria-label="' + tt("Ligar para ", "Call ") + esc(c.name) + '">📞</a><a class="btn xs ghost" target="_blank" rel="noopener" href="' + waHref(f) + '" aria-label="WhatsApp ' + esc(c.name) + '">💬</a></div>' : "";
+  },
+  contatosCard(p) {
+    const cs = this.dados(p).contatos || {}, ed = this.podeEditar() && Rec.ok("contacts");
+    return '<div class="card"><div class="between"><h3>📇 ' + tt("Contatos", "Contacts") + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="pet.contatos" data-id="' + p.id + '">' + tt("Escolher", "Choose") + "</button>" : "") + '</div><div class="list">' +
+      this.PAPEIS().map((x) => { const c = cs[x[0]] ? DB.get("contacts", cs[x[0]]) : null; return '<div class="li"><div class="ico">' + x[1] + '</div><div class="main"><div class="s">' + x[2] + '</div><div class="t">' + (c ? esc(c.name) : '<span class="faint">—</span>') + "</div>" + (c && (c.phones || [])[0] ? '<div class="s">' + esc(c.phones[0]) + "</div>" : "") + "</div>" + this.fones(c) + "</div>"; }).join("") + "</div></div>";
+  },
+  /* pend: o que a pessoa já tinha escolhido antes de tocar em "＋ Novo contato" (não se perde ao voltar) */
+  async contatosEscolher(pid, novoId, pend) {
+    const p = this.get(pid); if (!p || !this.podeEditar()) return;
+    const cs = Contacts.list().slice().sort((a, b) => (a.cat === "pet" ? 0 : 1) - (b.cat === "pet" ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
+    const opts = [["", "—"]].concat(cs.map((c) => [c.id, (c.cat === "pet" ? "🐾 " : "") + c.name + (c.org && c.org !== c.name ? " (" + c.org + ")" : "")]));
+    const vals = Object.assign({}, pend || this.dados(p).contatos || {});
+    /* o contato novo vai para o primeiro papel ainda vazio (com os três escolhidos, a pessoa escolhe onde) */
+    if (novoId) { const vago = this.PAPEIS().map((x) => x[0]).find((k) => !vals[k]); if (vago) vals[vago] = novoId; }
+    let novo = null;
+    const r = await formModal({ title: "📇 " + tt("Contatos de ", "Contacts of ") + esc(this.nome(p)), values: vals,
+      fields: this.PAPEIS().map((x) => ({ k: x[0], label: x[1] + " " + x[2], type: "select", opts, full: true })).concat([{ type: "note", html: tt("O mesmo contato pode ser os três (ex.: o pet shop que tem veterinário, hotelzinho e banho e tosa). Os contatos de pet (🐾) vêm primeiro.", "The same contact can be all three (e.g. a pet shop with a vet, boarding and grooming). Pet contacts (🐾) come first.") }]),
+      extraFoot: '<button class="btn ghost sm" type="button" data-novoct>＋ ' + tt("Novo contato", "New contact") + "</button>",
+      after: (el, m) => { el.querySelector("[data-novoct]").onclick = () => { novo = {}; this.PAPEIS().forEach((x) => { novo[x[0]] = el.querySelector('[name="' + x[0] + '"]').value; }); m.close(); }; } });
+    if (novo) {
+      const c = await Contacts.edit({ cat: "pet", vis: "familia", phones: [], members: [pid] });
+      return this.contatosEscolher(pid, c && c.id, novo);
+    }
+    if (!r) return;
+    /* cada papel com o nome dele, e o vazio como undefined: na nuvem o omni_mudar_campos junta objetos chave a chave e só
+       tira a chave que chega null (o aninhar troca undefined por null); sem isso o "—" não pegava e o contato voltava */
+    const ch = {}; this.PAPEIS().forEach((x) => { ch["pet.contatos." + x[0]] = r[x[0]] || undefined; });
+    await DB.patch("people", pid, ch);
+  },
+  /* ---------- guia para quem cuida (kind "pet"), montado da ficha ----------
+     O texto que a pessoa escreveu no guia nunca é trocado sem perguntar: petAuto guarda o que veio da ficha da última vez
+     (o que ainda é igual a ele pode ser atualizado sozinho). */
+  /* as seções do guia de pet (as do GUIDE_TPL.pet, no idioma de agora); corpo vazio = a ficha não tem nada para ela */
+  guiaSecoes(p) {
+    const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), h = DB.get("health", p.id) || {}, cs = d.contatos || {}, ct = (k) => (cs[k] ? DB.get("contacts", cs[k]) : null);
+    const tel = (x) => (x ? x.name + ((x.phones || [])[0] ? ": " + x.phones[0] : "") : "");
+    const al = Health.allergyList(h), vet = ct("vet"), hotel = ct("hotel"), banho = ct("banho");
+    /* [título no idioma de agora, corpo, [pt, en]]: o guia acha a seção pelos dois títulos */
+    const sec = (pt, en, body) => [tt(pt, en), body, [pt, en]];
+    return [
+      sec("Comida (quanto e quando)", "Food (how much and when)", r.marca || c ? [tt("Ração: ", "Food: ") + [r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · "), r.gRefeicao && r.refeicoesDia ? tt(num(+r.gRefeicao, 0) + " g por refeição, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " vezes" : " vez") + " por dia.", num(+r.gRefeicao, 0) + " g per meal, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " times" : " time") + " a day.") : ""].filter(Boolean).join("\n") : ""),
+      sec("Passeios", "Walks", ""),
+      sec("Remédios", "Medicines", [(h.meds || []).map((m) => "💊 " + [m.name, m.dose, m.times ? "(" + m.times + ")" : ""].filter(Boolean).join(" ")).join("\n"), al.length ? "⚠️ " + tt("Alergias: ", "Allergies: ") + al.map((x) => x.what).join(", ") : ""].filter(Boolean).join("\n")),
+      sec("Manias e cuidados", "Habits and care", d.descricao || p.notes || ""),
+      sec("Veterinário", "Vet", [tel(vet) || h.doctor || "", h.plan && h.plan.operator ? tt("Plano: ", "Plan: ") + h.plan.operator + (h.plan.number ? " nº " + h.plan.number : "") : ""].filter(Boolean).join("\n")),
+      sec("Hotelzinho e banho e tosa", "Boarding and grooming", [hotel ? "🏨 " + tel(hotel) : "", banho && banho !== hotel ? "🛁 " + tel(banho) : ""].filter(Boolean).join("\n")),
+      sec("Se acontecer algo", "If something happens", "")
+    ];
+  },
+  async guia(pid) {
+    const p = this.get(pid); if (!p || !this.podeEditar()) return;
+    const cs = this.dados(p).contatos || {}, auto = this.guiaSecoes(p);
+    const ex = DB.all("guides").find((g) => g.kind === "pet" && g.pet === pid);
+    const g = ex ? JSON.parse(JSON.stringify(ex)) : { kind: "pet", pet: pid, for: [pid], vis: "familia", title: tt("Guia para quem cuida do(a) ", "Guide for whoever looks after ") + this.nome(p), sections: auto.map(([h]) => ({ h, body: "" })), petAuto: {} };
+    g.petAuto = g.petAuto || {}; g.sections = g.sections || [];
+    const trocar = [];
+    /* a seção é achada pelo título em português ou em inglês (guia montado num celular em EN e atualizado num em PT não
+       duplica tudo); petAuto fica pela chave em português (a em inglês, de antes, vale uma última vez) */
+    auto.filter((x) => x[1]).forEach(([h, body, nomes]) => {
+      const ks = nomes.map(norm), k = ks[0];
+      let s = g.sections.find((x) => ks.includes(norm(x.h))); if (!s) { s = { h, body: "" }; g.sections.push(s); }
+      const ant = ks.map((x) => g.petAuto[x]).find((x) => x != null);
+      if (!s.body || s.body === ant || s.body === body) s.body = body; else trocar.push([s, body]);
+      ks.forEach((x) => { if (x !== k) delete g.petAuto[x]; }); g.petAuto[k] = body;
+    });
+    if (trocar.length && (await confirmBox(tt("Você já escreveu no guia em: ", "You already wrote in the guide under: ") + trocar.map((x) => "<b>" + esc(x[0].h) + "</b>").join(", ") + ". " + tt("Trocar pelo que está na ficha agora? (Cancelar mantém o que você escreveu.)", "Replace it with what's on the record now? (Cancel keeps what you wrote.)"), tt("Trocar", "Replace")))) trocar.forEach(([s, body]) => (s.body = body));
+    g.contacts = [...new Set((g.contacts || []).concat(Object.values(cs)).filter((id) => id && DB.get("contacts", id)))];
+    g.for = [...new Set((g.for || []).concat(pid))];
+    const salvo = await DB.put("guides", g);
+    toast("📘 " + tt("Guia montado com o que está na ficha. Confira e mande.", "Guide filled in from the record. Check it and send it."), 4000);
+    await Guides.edit(JSON.parse(JSON.stringify(salvo)));
+  },
+  /* ---------- telas ---------- */
+  cartao(p) {
+    const d = this.dados(p), c = this.racaoCalc(d.racao), ms = this.cuidados(p.id), prox = ms.filter((m) => m._days != null).slice(0, 3), banho = ms.find((m) => m.petTipo === "banho");
+    const L = prox.map((m) => '<div class="small">' + this.info(m)[1] + " " + esc(this.info(m)[2]) + " " + this.badge(m) + "</div>");
+    if (c && c.acabaEm) L.push('<div class="small">🥣 ' + (c.restam > 0 ? tt("ração para ~" + c.restam + " dias", "food for ~" + c.restam + " days") : tt("a ração deve ter acabado", "the food has probably run out")) + "</div>");
+    if (banho && banho.last) L.push('<div class="small muted">🛁 ' + tt("último banho: ", "last bath: ") + esc(fmtDate(banho.last)) + "</div>");
+    return '<div class="card petcard" data-act="go" data-tab="pets" data-sub="ficha" data-arg="' + p.id + '"><div class="row nw" style="align-items:flex-start">' + PetFoto.avatar(p) + '<div style="min-width:0;flex:1"><div><b>' + esc(this.nome(p)) + "</b> " + (d.castrado ? '<span class="badge ok">✂️ ' + this.castradoTxt(d) + "</span>" : "") + '</div><div class="small muted">' + esc(this.desc(p)) + "</div>" + (L.length ? '<div style="margin-top:6px">' + L.join("") + "</div>" : "") + '</div><span class="faint">›</span></div></div>';
+  },
+  listView() {
+    const ps = this.list(), ed = this.podeEditar();
+    if (!ps.length) return '<div class="card"><div class="empty"><div class="e">🐾</div><p>' + tt("Nenhum pet ainda. Cadastre o seu: espécie, raça, fotos, vacinas, ração e quem cuida, tudo num lugar só.", "No pets yet. Add yours: species, breed, photos, vaccines, food and who looks after them, all in one place.") + "</p>" + (ed ? '<button class="btn" data-act="pet.new">＋ ' + tt("Cadastrar pet", "Add a pet") + "</button>" : "") + "</div></div>";
+    return '<div class="grid gauto">' + ps.map((p) => this.cartao(p)).join("") + "</div>";
+  },
+  view(id) {
+    const p = this.get(id);
+    if (!p) return '<div class="card">' + tt("Pet não encontrado.", "Pet not found.") + ' <button class="linkbtn" data-act="go" data-tab="pets">' + tt("Ver os pets", "See the pets") + "</button></div>";
+    const d = this.dados(p), ed = this.podeEditar(), e = this.esp(p), info = (r, t) => (t ? '<div class="li"><div class="main"><div class="s">' + r + '</div><div class="t">' + esc(t) + "</div></div></div>" : "");
+    const sexo = d.sexo === "femea" ? tt("fêmea", "female") : d.sexo === "macho" ? tt("macho", "male") : "";
+    let h = '<div class="card"><div class="path" style="margin-bottom:8px">🐾 <button class="linkbtn" data-act="go" data-tab="pets">' + tt("Pets", "Pets") + "</button> › <b>" + esc(this.nome(p)) + "</b></div>" +
+      '<div class="row nw" style="align-items:flex-start">' + PetFoto.avatar(p, "lg") + '<div style="min-width:0;flex:1"><div class="between"><h2>' + esc(this.nome(p)) + "</h2>" + (ed ? '<button class="btn sm ghost" data-act="pet.edit" data-id="' + p.id + '" aria-label="' + tt("Editar", "Edit") + '">✏️</button>' : "") + "</div>" +
+      '<div class="small muted">' + esc([e[1] + " " + e[2], d.raca, sexo, d.cor].filter(Boolean).join(" · ")) + "</div>" +
+      '<div class="chips" style="margin-top:6px">' + (p.birth ? '<span class="badge acc">🎂 ' + ageTxt(p.birth) + "</span>" : "") + (d.castrado ? '<span class="badge ok">✂️ ' + this.castradoTxt(d) + "</span>" : "") + (d.pedigree === "sim" ? '<span class="badge">🏅 ' + tt("pedigree", "pedigree") + "</span>" : "") + "</div></div></div>" +
+      '<div class="list" style="margin-top:6px">' + info(tt("Nascimento", "Birth date"), p.birth ? fmtDate(p.birth) : "") + info(tt("Em casa desde", "At home since"), d.chegada ? fmtDate(d.chegada) + " (" + ageTxt(d.chegada) + ")" : "") +
+      info(tt("Microchip", "Microchip"), d.microchip) + info(tt("Pedigree", "Pedigree"), d.pedigree === "sim" ? tt("sim", "yes") + (d.registro ? " · " + d.registro : "") : d.pedigree === "nao" ? tt("não", "no") : "") + "</div>" +
+      (d.descricao || p.notes ? '<p class="small" style="white-space:pre-line;margin-top:8px">' + esc(d.descricao || p.notes) + "</p>" : "") +
+      (ed ? '<div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pet.foto" data-id="' + p.id + '">📷 ' + (d.foto ? tt("Trocar a foto de perfil", "Change profile photo") : tt("Pôr foto de perfil", "Add profile photo")) + "</button>" +
+        (d.foto && isGuardian() ? '<button class="btn sm ghost" data-act="pet.apagarfoto" data-id="' + p.id + '" data-f="' + esc(d.foto.id) + '">🗑 ' + tt("Tirar a foto", "Remove photo") + "</button>" : "") + "</div>" : "") + "</div>";
+    /* próximos cuidados: o que vence primeiro, de tudo (vacinas, banho, ração) */
+    const ms = this.cuidados(p.id), prox = ms.filter((m) => m._days != null).slice(0, 4);
+    h += '<div class="card accent"><h3>⏰ ' + tt("Próximos cuidados", "Coming up") + "</h3>" + (prox.length ? '<div class="list">' + prox.map((m) => '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t">' + esc(this.info(m)[2]) + " " + this.badge(m) + '</div><div class="s">' + esc(fmtDate(m.next)) + "</div></div></div>").join("") + "</div>"
+      : '<div class="empty tiny">' + tt("Nada marcado ainda. Acrescente a vacina, o vermífugo, o antipulgas e o banho em “Vacinas e cuidados”, e a ração logo abaixo.", "Nothing scheduled yet. Add the vaccine, dewormer, flea treatment and bath under “Vaccines and care”, and the food right below.") + "</div>") + "</div>";
+    h += this.racaoCard(p);
+    if (Rec.ok("health")) {
+      const hh = DB.get("health", p.id) || {}, al = Health.allergyList(hh), pl = hh.plan || {};
+      h += '<div class="card"><div class="between"><h3>❤️ ' + tt("Saúde", "Health") + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="health.edit" data-id="' + p.id + '" aria-label="' + tt("Editar a saúde", "Edit health") + '">✏️</button>' : "") + '</div><div class="list">' +
+        info(tt("Veterinário(a) de referência", "Main vet"), hh.doctor) + info(tt("Plano de saúde pet", "Pet health plan"), pl.operator ? pl.operator + (pl.valid ? " · " + tt("até ", "until ") + fmtDate(pl.valid) : "") : "") +
+        info(tt("Condições", "Conditions"), hh.conditions) + info(tt("Remédios", "Medicines"), (hh.meds || []).map((m) => m.name + (m.dose ? " " + m.dose : "") + (m.times ? " (" + m.times + ")" : "")).join("; ")) + "</div>" +
+        (al.length ? '<div style="margin-top:6px">' + al.map((x) => '<span class="badge bad" style="margin:2px">⚠️ ' + esc(x.what) + "</span>").join("") + "</div>" : "") +
+        (!hh.doctor && !pl.operator && !al.length && !(hh.meds || []).length && !hh.conditions ? '<div class="empty tiny">' + tt("Veterinário, plano, alergias e remédios do pet (os remédios com horário avisam na hora).", "The pet's vet, plan, allergies and medicines (timed medicines remind you on time).") + "</div>" : "") +
+        (S.mode === "cloud" ? '<p class="tiny faint">🔒 ' + tt("A saúde fica só neste aparelho.", "Health stays on this device only.") + "</p>" : "") + "</div>";
+    }
+    h += this.histCard(p) + this.pesoCard(p);
+    /* vacinas e cuidados: cada um com ✓ Feito, 📅 Remarcar e 🚫 Não se aplica (lembrete que não para sozinho) */
+    const cu = ms.filter((m) => m.petTipo !== "racao");
+    h += '<div class="card"><div class="between"><h3>💉 ' + tt("Vacinas e cuidados", "Vaccines and care") + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.cuidado" data-id="' + p.id + '" aria-label="' + tt("Acrescentar cuidado", "Add care item") + '">＋</button>' : "") + "</div>" +
+      (cu.length ? '<div class="list">' + cu.map((m) => { const ult = (m.history || [])[(m.history || []).length - 1] || {}; return '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t' + (ed ? ' click" data-act="pet.vercuidado" data-m="' + m.id : "") + '">' + esc(m.title) + " " + this.badge(m) + '</div><div class="s">' + esc([m.next ? tt("próxima: ", "next: ") + fmtDate(m.next) : tt("sem data", "no date"), m.last ? tt("última: ", "last: ") + fmtDate(m.last) : "", m.interval ? tt("a cada " + m.interval + " dias", "every " + m.interval + " days") : "", ult.produto].filter(Boolean).join(" · ")) + "</div>" +
+        (ed ? '<div class="row" style="margin-top:6px"><button class="btn xs ok" data-act="pet.feito" data-m="' + m.id + '">✓ ' + tt("Feito", "Done") + '</button><button class="btn xs ghost" data-act="pet.remarcar" data-m="' + m.id + '">📅 ' + tt("Remarcar", "Reschedule") + '</button><button class="btn xs ghost" data-act="pet.na" data-m="' + m.id + '">🚫 ' + tt("Não se aplica", "Doesn't apply") + "</button></div>" : "") + "</div></div>"; }).join("") + "</div>"
+        : '<div class="empty tiny">' + tt("Toque em ＋ para pôr a vacina, o vermífugo, o antipulgas e o banho e tosa: eu aviso no 🔔, na agenda e no celular.", "Tap ＋ to add the vaccine, dewormer, flea treatment and bath: I'll remind you in the 🔔, the calendar and on your phone.") + "</div>") + "</div>";
+    h += this.contatosCard(p) + PetFoto.card(p);
+    const gd = DB.all("guides").find((g) => g.kind === "pet" && g.pet === p.id);
+    h += '<div class="card tight"><h3>📘 ' + tt("Guia para quem cuida", "Guide for the carer") + '</h3><p class="small muted">' + tt("Monta as instruções para quem vai ficar com o pet (pet-sitter, hotelzinho, vizinho): ração e horários, remédios, manias, veterinário e telefones. Você confere antes de mandar.", "Builds the instructions for whoever looks after the pet (sitter, boarding, neighbour): food and times, medicines, habits, vet and phones. You check it before sending.") + "</p>" +
+      (ed ? '<div class="row"><button class="btn sm" data-act="pet.guia" data-id="' + p.id + '">📘 ' + (gd ? tt("Atualizar o guia com a ficha", "Update the guide from the record") : tt("Montar o guia", "Build the guide")) + "</button>" + (gd ? '<button class="btn sm ghost" data-act="guide.share" data-id="' + gd.id + '">💬 ' + tt("Mandar", "Send") + "</button>" : "") + "</div>" : "") + "</div>";
+    return h;
+  },
+  after(root, id) { this.calcPromo(root, id); }
+};
+ACT["pet.new"] = () => Pets.edit(null);
+ACT["pet.edit"] = (d) => { const p = Pets.get(d.id); if (p) Pets.edit(p); };
+ACT["pet.racao"] = (d) => Pets.racaoForm(d.id);
+ACT["pet.shop"] = (d) => Pets.paraCompras(d.id);
+ACT["pet.hist"] = (d) => Pets.histEdit(d.id, d.h);
+ACT["pet.peso"] = (d) => Pets.pesoEdit(d.id, d.i);
+ACT["pet.cuidado"] = (d, el) => Pets.novoCuidado(d.id, el);
+ACT["pet.feito"] = (d) => { if (Pets.podeEditar()) return Maint.done(d.m); };
+ACT["pet.remarcar"] = (d) => Pets.remarcar(d.m);
+ACT["pet.na"] = (d) => Pets.naoSeAplica(d.m);
+ACT["pet.vercuidado"] = (d) => { const m = DB.get("maint", d.m); if (m && Pets.podeEditar()) Maint.edit(Object.assign({}, m)); };
+ACT["pet.contatos"] = (d) => Pets.contatosEscolher(d.id);
+ACT["pet.guia"] = (d) => Pets.guia(d.id);
+ACT["pet.foto"] = (d) => PetFoto.adicionar(d.id, true);
+ACT["pet.fotos"] = (d) => PetFoto.adicionar(d.id, false);
+ACT["pet.verfoto"] = (d) => PetFoto.abrir(d.id, d.f);
+ACT["pet.apagarfoto"] = (d) => PetFoto.apagar(d.id, d.f);
+
+/* ---------- 📷 fotos dos pets (decisão do dono, 06/Nov/2026: na nuvem da família, leves) ----------
+   Toda foto é redesenhada num canvas (maior lado 640 px no perfil, 1080 px na galeria; WebP 0,78, ou JPEG 0,8 quando o
+   navegador não faz WebP), nunca cortada. Redesenhar tira o EXIF e o GPS; se não der para redesenhar (HEIC que o navegador
+   não abre, arquivo estragado), a foto é recusada: o original nunca é guardado nem enviado. Fica no aparelho (Files.save,
+   IndexedDB) e, com a família na nuvem, sobe para o Storage privado sol-arquivos em omnilife-one/<família>/pet-<id>.<ext>
+   (as regras do bucket deixam quem é da família ler e enviar e só o responsável apagar). No registro do pet ficam só as
+   referências { id, path, w, h }: o pet sobe para a família, os "files" não (NUVEM_LOCAL), então outro celular baixa pelo
+   path com a sessão da pessoa e guarda no aparelho. Envio que falhou fica com pendente: true e vai de novo quando a aba
+   🐾 Pets abre. "Só neste aparelho": sem envio, a mesma tela. Sem cifra (decisão do dono: foto de bicho, leve). */
+const PetFoto = {
+  BUCKET: "sol-arquivos", MAX: 12, _baixando: new Map(), _erro: new Map(),
+  nuvem() { return S.mode === "cloud" && !!(S.family && S.family.id); },
+  caminho(fid, tipo) { return Conta.APP + "/" + S.family.id + "/pet-" + fid + (tipo === "image/webp" ? ".webp" : ".jpg"); },
+  endereco(path, ler) { return Conta.SB + "/storage/v1/object/" + (ler ? "authenticated/" : "") + this.BUCKET + "/" + String(path).split("/").map(encodeURIComponent).join("/"); },
+  async cab(extra) { const t = await Conta.token(); if (!t) throw new Error(tt("Entre na sua conta SolverONE.", "Sign in to your SolverONE account.")); return Object.assign({ apikey: Conta.KEY, Authorization: "Bearer " + t }, extra || {}); },
+  /* redesenha: null = não deu (quem chama recusa a foto) */
+  async redesenhar(file, max) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const k = Math.min(1, max / Math.max(bmp.width, bmp.height)), w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      /* fundo branco: o JPEG (Safari/iPhone, que não faz WebP) não tem transparência e o recorte do bicho ficava no preto */
+      const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h);
+      g.drawImage(bmp, 0, 0, w, h); if (bmp.close) bmp.close();
+      let b = await new Promise((r) => c.toBlob(r, "image/webp", 0.78));
+      if (!b || b.type !== "image/webp") b = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.8));
+      return b && /^image\/(webp|jpeg)$/.test(b.type) ? { blob: b, w, h } : null;
+    } catch (e) { return null; }
+  },
+  async enviar(ref) {
+    const b = await Files.blob(ref.id); if (!b) throw new Error("sem-arquivo");
+    const r = await fetch(this.endereco(ref.path), { method: "POST", headers: await this.cab({ "Content-Type": b.type, "x-upsert": "true", "cache-control": "max-age=31536000" }), body: b });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+  },
+  async apagarNuvem(path) {
+    const r = await fetch(this.endereco(path), { method: "DELETE", headers: await this.cab() });
+    /* já não estava lá (nunca subiu, ou outro aparelho apagou antes): conta como apagado */
+    if (!r.ok && r.status !== 400 && r.status !== 404) throw new Error("HTTP " + r.status);
+  },
+  /* outro celular da família: baixa pelo path e guarda neste aparelho (uma vez; erro espera 1 min para tentar de novo) */
+  baixar(ref) {
+    if (this._baixando.has(ref.id)) return this._baixando.get(ref.id);
+    if (Date.now() - (this._erro.get(ref.id) || 0) < 60000) return Promise.resolve(false);
+    const pr = (async () => {
+      try {
+        const r = await fetch(this.endereco(ref.path, true), { headers: await this.cab() });
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        let b = await r.blob(); if (!b || !b.size) throw new Error("vazio");
+        const tipo = /^image\/(webp|jpeg)$/.test(b.type) ? b.type : /\.webp$/.test(ref.path) ? "image/webp" : "image/jpeg";
+        if (b.type !== tipo) b = new Blob([b], { type: tipo });
+        const meta = { id: ref.id, name: String(ref.path).split("/").pop(), type: tipo, size: b.size, vis: "familia", enc: null, chunks: 1, nuvem: ref.path };
+        await DB.driver.putFile(ref.id, b, meta); await DB.put("files", meta, true);
+        return true;
+      } catch (e) { this._erro.set(ref.id, Date.now()); return false; } finally { this._baixando.delete(ref.id); }
+    })();
+    this._baixando.set(ref.id, pr);
+    return pr;
+  },
+  async url(ref) {
+    if (!ref || !ref.id) return null;
+    if (!Files.meta(ref.id)) { if (!ref.path || !this.nuvem() || !(await this.baixar(ref))) return null; }
+    return Files.url(ref.id);
+  },
+  avatar(p, cls) { const f = Pets.dados(p).foto; return '<div class="petav' + (cls ? " " + cls : "") + '"' + (f ? ' data-pfoto="' + esc(f.id) + '" data-ppath="' + esc(f.path || "") + '"' : "") + ' aria-hidden="true"><span class="pe">' + esc(p.emoji || Pets.esp(p)[1]) + "</span></div>"; },
+  /* depois de desenhar a tela: as fotos chegam aos poucos (deste aparelho ou baixadas da nuvem) */
+  async preencher(root) {
+    for (const el of $$("[data-pfoto]", root)) {
+      const u = await this.url({ id: el.dataset.pfoto, path: el.dataset.ppath });
+      if (u && el.isConnected) { el.style.backgroundImage = "url(" + u + ")"; el.classList.add("on"); }
+    }
+  },
+  refs(p) { const d = Pets.dados(p); return [d.foto].concat(d.fotos || []).filter((r) => r && r.id); },
+  card(p) {
+    const fs = Pets.dados(p).fotos || [], ed = Pets.podeEditar(), pend = this.refs(p).filter((r) => r.pendente).length;
+    return '<div class="card"><div class="between"><h3>📷 ' + tt("Fotos", "Photos") + ' <span class="faint small">' + fs.length + "/" + this.MAX + "</span></h3>" + (ed && fs.length < this.MAX ? '<button class="btn sm" data-act="pet.fotos" data-id="' + p.id + '" aria-label="' + tt("Pôr fotos", "Add photos") + '">＋</button>' : "") + "</div>" +
+      (fs.length ? '<div class="thumbs">' + fs.map((r) => '<div class="thumb" role="button" tabindex="0" aria-label="' + tt("Ver a foto", "See the photo") + '" data-act="pet.verfoto" data-id="' + p.id + '" data-f="' + esc(r.id) + '" data-pfoto="' + esc(r.id) + '" data-ppath="' + esc(r.path || "") + '">' + (r.pendente ? '<span class="lb">⏳ ' + tt("vai subir", "will upload") + "</span>" : "") + (isGuardian() ? '<button class="x" data-act="pet.apagarfoto" data-id="' + p.id + '" data-f="' + esc(r.id) + '" aria-label="' + tt("Apagar a foto", "Delete the photo") + '">×</button>' : "") + "</div>").join("") + "</div>"
+        : '<div class="empty tiny">' + tt("Até 12 fotos do pet. Elas ficam leves (sem a localização de onde foram tiradas).", "Up to 12 photos of your pet. They're kept light (without the location where they were taken).") + "</div>") +
+      '<p class="tiny faint" style="margin-top:6px">' + (this.nuvem() ? "☁️ " + tt("As fotos vão leves para a nuvem da família: os outros celulares também veem.", "Photos go, kept light, to the family cloud: the other phones see them too.") : "📱 " + tt("As fotos ficam só neste aparelho.", "Photos stay on this device only.")) + (pend ? " ⏳ " + tt(pend + " esperando a internet para subir.", pend + " waiting for the internet to upload.") : "") + "</p></div>";
+  },
+  /* uma foto: redesenha, guarda aqui, sobe (na nuvem) e põe a referência no pet. null = foto recusada */
+  async guardar(pid, file, perfil) {
+    const r = await this.redesenhar(file, perfil ? 640 : 1080); if (!r) return null;
+    const ext = r.blob.type === "image/webp" ? "webp" : "jpg";
+    const fid = await Files.save(new File([r.blob], "pet." + ext, { type: r.blob.type }), { raw: true, vis: "familia" }); if (!fid) return null;
+    const ref = { id: fid, w: r.w, h: r.h };
+    if (this.nuvem()) { ref.path = this.caminho(fid, r.blob.type); try { await this.enviar(ref); } catch (e) { ref.pendente = true; } }
+    const p = Pets.get(pid); if (!p) { await Files.remove(fid); return null; }
+    const d = Pets.dados(p);
+    /* "pet.foto.pendente" vai junto (undefined = null na nuvem): o omni_mudar_campos junta a foto nova com a antiga chave a
+       chave, e o pendente: true da antiga passaria para a nova */
+    if (perfil) { await DB.patch("people", pid, { "pet.foto": ref, "pet.foto.pendente": ref.pendente || undefined }); if (d.foto) await this.apagarArquivo(d.foto); }
+    else await this.galeria(pid, (L) => L.concat(ref).slice(-this.MAX));
+    return ref;
+  },
+  /* a galeria muda pelo registro inteiro (DB.put), não por DB.patch da lista: na nuvem o patch troca a lista toda e a foto
+     que outro celular pôs (ou tirou) ao mesmo tempo some (ou volta quebrada); o envio com versão junta as fotos pelo id */
+  async galeria(pid, fn) {
+    const p = Pets.get(pid); if (!p) return;
+    const doc = JSON.parse(JSON.stringify(p)); doc.pet = doc.pet || {}; doc.pet.fotos = fn(doc.pet.fotos || []);
+    await DB.put("people", doc);
+  },
+  async adicionar(pid, perfil) {
+    if (!Pets.podeEditar()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
+    const p = Pets.get(pid); if (!p) return;
+    const vagas = perfil ? 1 : this.MAX - (Pets.dados(p).fotos || []).length;
+    if (vagas <= 0) return toast(tt("A galeria já tem 12 fotos. Apague uma para pôr outra.", "The gallery already has 12 photos. Delete one to add another."), 4000);
+    let fs = await Files.pick("image/*", !perfil); if (!fs || !fs.length) return;
+    if (fs.length > vagas) { toast(tt("Cabem só mais " + vagas + ": as outras ficaram de fora.", "Only " + vagas + " more fit: the others were left out."), 4000); fs = fs.slice(0, vagas); }
+    const rota = location.hash;
+    const executar = async () => { const o = { ok: 0, ruim: 0, pend: 0 }; for (const f of fs) { const r = await this.guardar(pid, f, perfil); if (!r) o.ruim++; else { o.ok++; if (r.pendente) o.pend++; } } return o; };
+    let o;
+    try { o = window.DGO && DGO.fundo && DGO.fundo.iniciar ? await DGO.fundo.iniciar({ tipo: "foto", titulo: tt("Guardando a foto do pet", "Saving the pet's photo"), rota, aindaNaTela: () => location.hash === rota, podeCancelar: false, tentarDeNovo: false, executar }) : await executar(); }
+    catch (e) { return toast(tt("Não consegui guardar a foto: ", "Could not save the photo: ") + (e.message || e), 5000); }
+    if (o.ruim) toast("⚠️ " + tt("Não consegui preparar " + (o.ruim > 1 ? o.ruim + " fotos" : "esta foto") + ", então ela não foi guardada. Tente outra (JPG ou PNG).", "Couldn't prepare " + (o.ruim > 1 ? o.ruim + " photos" : "this photo") + ", so it wasn't saved. Try another one (JPG or PNG)."), 6000);
+    else if (o.pend) toast("⏳ " + tt("Foto guardada aqui. Sobe para a nuvem da família quando a internet voltar (ao abrir 🐾 Pets).", "Photo saved here. It goes to the family cloud when the internet is back (when you open 🐾 Pets)."), 5000);
+    else if (o.ok) toast("📷 " + (this.nuvem() ? tt("Foto guardada na nuvem da família.", "Photo saved to the family cloud.") : tt("Foto guardada neste aparelho.", "Photo saved on this device.")));
+  },
+  async abrir(pid, fid) {
+    const ref = this.refs(Pets.get(pid)).find((r) => r.id === fid); if (!ref) return;
+    if (!(await this.url(ref))) return toast(tt("A foto ainda não chegou a este aparelho. Tente de novo daqui a pouco.", "The photo hasn't reached this device yet. Try again in a moment."));
+    Files.open(fid);
+  },
+  async apagar(pid, fid) {
+    if (!isGuardian()) return toast(tt("Só um responsável apaga fotos.", "Only a guardian can delete photos."));
+    const p = Pets.get(pid), d = Pets.dados(p), ref = this.refs(p).find((r) => r.id === fid); if (!ref) return;
+    if (!(await confirmBox(tt("Apagar esta foto? Ela sai deste aparelho" + (ref.path ? " e da nuvem da família." : "."), "Delete this photo? It leaves this device" + (ref.path ? " and the family cloud." : ".")), tt("Apagar", "Delete"), true))) return;
+    if (d.foto && d.foto.id === fid) await DB.patch("people", pid, { "pet.foto": undefined });
+    else await this.galeria(pid, (L) => L.filter((r) => r.id !== fid));
+    await this.apagarArquivo(ref);
+    toast("🗑 " + tt("Foto apagada.", "Photo deleted."));
+  },
+  /* tira daqui e da nuvem. Sem internet: o caminho fica numa lista deste aparelho e é apagado na próxima vez (só o responsável
+     pode apagar no bucket; de outro papel a foto antiga fica lá, sem nada que aponte para ela) */
+  async apagarArquivo(ref) {
+    try { await Files.remove(ref.id); } catch (e) {}
+    if (!ref.path || !this.nuvem() || !isGuardian()) return;
+    try { await this.apagarNuvem(ref.path); } catch (e) { lsSet(LS.petFotoApagar, lsGet(LS.petFotoApagar, []).concat({ g: S.family.id, path: ref.path }).slice(-200)); }
+  },
+  /* ao abrir 🐾 Pets: sobe o que ficou pendente e apaga o que ficou para depois (no máximo a cada 20 s) */
+  async reenviar() {
+    if (!this.nuvem() || isChild() || !navigator.onLine || this._reenv || Date.now() - (this._reenvT || 0) < 20000) return;
+    this._reenv = true; this._reenvT = Date.now();
+    try {
+      const g = S.family.id, fila = lsGet(LS.petFotoApagar, []), resta = [];
+      for (const x of fila) { if (!x || x.g !== g || !isGuardian()) { if (x) resta.push(x); continue; } try { await this.apagarNuvem(x.path); } catch (e) { resta.push(x); } }
+      if (resta.length !== fila.length) lsSet(LS.petFotoApagar, resta);
+      for (const p of Pets.list()) {
+        for (const r of this.refs(p).filter((x) => (x.pendente || !x.path) && Files.meta(x.id))) {
+          const nr = Object.assign({}, r, { path: r.path || this.caminho(r.id, Files.meta(r.id).type) }); delete nr.pendente;
+          try { await this.enviar(nr); } catch (e) { continue; }
+          const d = Pets.dados(Pets.get(p.id));
+          /* "pet.foto.pendente": undefined vira null na nuvem, que é o único jeito de o omni_mudar_campos tirar a chave
+             (sem isso a foto ficava "esperando a internet" para sempre e subia de novo em todo celular) */
+          if (d.foto && d.foto.id === r.id) await DB.patch("people", p.id, { "pet.foto": nr, "pet.foto.pendente": undefined });
+          else await this.galeria(p.id, (L) => L.map((x) => (x.id === r.id ? nr : x)));
+        }
+      }
+    } finally { this._reenv = false; }
+  }
+};
+SCREENS.pets = {
+  render(sub, arg) {
+    const ficha = sub === "ficha" && arg;
+    return '<div class="pagehead"><div><h1>🐾 ' + tt("Pets", "Pets") + '</h1><div class="sub">' + tt("A ficha de cada bicho: fotos, vacinas, ração, saúde e quem cuida", "Each pet's record: photos, vaccines, food, health and who looks after them") + "</div></div>" +
+      (!ficha && Pets.podeEditar() && Pets.list().length ? '<div class="row"><button class="btn" data-act="pet.new">＋ ' + tt("Pet", "Pet") + "</button></div>" : "") + "</div>" + (ficha ? Pets.view(arg) : Pets.listView());
+  },
+  after(root, sub, arg) { PetFoto.preencher(root); PetFoto.reenviar(); Pets.ligarAntigos(); if (sub === "ficha") Pets.after(root, arg); }
+};
+
 /* ---------- telas ---------- */
 SCREENS.house = {
   render(sub, arg) {
@@ -8721,7 +9360,7 @@ ACT["doc.rmfile"] = () => {};
 const EMOJIS = ["", "👩", "👨", "🧑", "👧", "👦", "👶", "👵", "👴", "🧑‍🍼", "🐶", "🐱", "🐰", "🐦", "🐟", "🦜", "⭐", "🌸", "⚽", "🎮"];
 function personFields(p) {
   const f = [{ k: "name", label: tt("Nome completo", "Full name"), req: true }, { k: "nick", label: tt("Apelido (como aparece no app)", "Nickname") },
-    { k: "role", label: tt("Papel na família", "Role"), type: "select", opts: Object.entries(ROLES()) }, { k: "birth", label: tt("Nascimento", "Birth date"), type: "date" },
+    { k: "role", label: tt("Papel na família", "Role"), type: "select", opts: Object.entries(ROLES()).filter(([k]) => k !== "pet" || (p && p.role === "pet") || !Rec.ok("pets")) }, { k: "birth", label: tt("Nascimento", "Birth date"), type: "date" },
     { k: "phone", label: tt("Celular", "Mobile"), type: "tel" }, { k: "email", label: "E-mail", type: "email" },
     { k: "emoji", label: tt("Ícone", "Icon"), type: "select", opts: EMOJIS.map((e) => [e, e || tt("(inicial do nome)", "(initial)")]) }, { k: "color", label: tt("Cor", "Color"), type: "select", opts: COLORS.map((c, i) => [c, "● " + [tt("Lilás", "Lilac"), tt("Azul", "Blue"), tt("Verde", "Green"), tt("Laranja", "Orange"), tt("Rosa", "Pink"), tt("Vermelho", "Red"), tt("Céu", "Sky"), tt("Violeta", "Violet"), tt("Lima", "Lime"), tt("Areia", "Sand")][i]]) },
     { k: "titles", label: tt("Títulos na família (um ou mais)", "Family titles (one or more)"), type: "tags", ph: FAM_TITLES().slice(0, 5).join(", "), hint: tt("Ex.: Chefe da família, Mãe, Tutor(a) legal. É só um rótulo; o que a pessoa pode fazer vem do papel.", "e.g. Head of family, Mother, Legal guardian. Just a label; permissions come from the role.") },
@@ -8785,12 +9424,12 @@ SCREENS.family = {
   render() {
     const ppl = People.list();
     const famName = (S.family && S.family.name) || DB.setting().familyName || tt("Minha família", "My family");
-    let h = '<div class="pagehead"><div><h1>👨‍👩‍👧 ' + esc(famName) + '</h1><div class="sub">' + tt("Pessoas, logins, convites, controle parental e pontos", "People, logins, invites, parental controls and points") + '</div></div><div class="row"><button class="btn ghost sm" data-act="help" data-t="familia">❓ ' + tt("Tutorial", "Tutorial") + "</button>" + (isGuardian() ? '<button class="btn" data-act="person.new">＋ ' + tt("Pessoa / pet", "Person / pet") + "</button>" : "") + "</div></div>";
+    let h = '<div class="pagehead"><div><h1>👨‍👩‍👧 ' + esc(famName) + '</h1><div class="sub">' + tt("Pessoas, logins, convites, controle parental e pontos", "People, logins, invites, parental controls and points") + '</div></div><div class="row"><button class="btn ghost sm" data-act="help" data-t="familia">❓ ' + tt("Tutorial", "Tutorial") + "</button>" + (isGuardian() ? (Rec.ok("pets") ? '<button class="btn" data-act="person.new">＋ ' + tt("Pessoa", "Person") + '</button><button class="btn ghost" data-act="pet.new">＋ 🐾 ' + tt("Pet", "Pet") + "</button>" : '<button class="btn" data-act="person.new">＋ ' + tt("Pessoa / pet", "Person / pet") + "</button>") : "") + "</div></div>";
     const bd = FamData.upcoming(60);
     if (bd.length) h += '<div class="card"><h3>🎂 ' + tt("Próximos aniversários", "Upcoming birthdays") + '</h3><div class="chips">' + bd.map((x) => '<span class="chip">' + People.emoji(x.p) + " " + esc(x.p.nick || x.p.name) + " · " + fmtDate(x.n.date, "short") + " · " + x.n.turns + tt(" anos", "y") + " · " + FamData.bdayTxt(x.n) + "</span>").join("") + "</div></div>";
     h += '<div class="grid gauto">' + ppl.map((p) => { const acc = S.family && S.family.members ? Object.entries(S.family.members).find(([u, m]) => m.personId === p.id) : null; return '<div class="card" style="margin:0"><div class="between"><div class="row nw">' + People.av(p.id, "lg") + '<div style="min-width:0"><b>' + esc(p.name) + '</b><div class="small muted">' + esc(ROLES()[p.role] || "") + (p.birth ? " · " + ageTxt(p.birth) : "") + '</div>' + ((p.titles || []).length || (S.mode === "local" && p.isAdmin) ? '<div class="chips" style="margin-top:4px">' + (S.mode === "local" && p.isAdmin ? '<span class="badge warn">👑 ' + tt("chefe", "head") + "</span>" : "") + (p.titles || []).map((t) => '<span class="badge acc">' + esc(t) + "</span>").join("") + "</div>" : "") + '</div></div><button class="btn sm ghost" data-act="person.edit" data-id="' + p.id + '">✏️</button></div>' +
       '<div class="small" style="margin-top:8px">' + [p.phone ? '📱 <a href="' + telHref(p.phone) + '">' + esc(p.phone) + "</a>" : "", p.birth ? (() => { const n = FamData.nextBday(p); return "🎂 " + fmtDate(p.birth) + (n ? " · " + tt("faz ", "turns ") + n.turns + " " + FamData.bdayTxt(n) : ""); })() : "🎂 <span class=\"faint\">" + tt("sem data de nascimento", "no birth date") + "</span>",
-      p.role !== "pet" ? (FamData.ok(p) ? '<span class="small" style="color:var(--ok)">✅ ' + tt("dados conferidos", "details checked") + "</span>" : '<span class="small" style="color:var(--warn)">🧩 ' + tt("dados a conferir", "details to check") + "</span>") + (!isChild() ? ' <button class="linkbtn small" data-act="fam.check" data-id="' + p.id + '">' + tt("Conferir", "Check") + "</button>" : "") : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" + (isGuardian() && p.id !== S.meId ? ' <button class="linkbtn small" data-act="pin.reset" data-id="' + p.id + '">' + tt("esqueceu? limpar PIN", "forgot? clear PIN") + "</button>" : "") : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
+      p.role !== "pet" ? (FamData.ok(p) ? '<span class="small" style="color:var(--ok)">✅ ' + tt("dados conferidos", "details checked") + "</span>" : '<span class="small" style="color:var(--warn)">🧩 ' + tt("dados a conferir", "details to check") + "</span>") + (!isChild() ? ' <button class="linkbtn small" data-act="fam.check" data-id="' + p.id + '">' + tt("Conferir", "Check") + "</button>" : "") : Rec.ok("pets") && canTab("pets") ? '<button class="linkbtn small" data-act="go" data-tab="pets" data-sub="ficha" data-arg="' + p.id + '">🐾 ' + tt("Abrir a ficha do pet", "Open the pet's record") + "</button>" : "", p.role === "crianca" ? "⭐ " + Points.balance(p.id) + " " + tt("pontos", "points") : "", acc ? "🔐 " + esc(acc[1].email || tt("conta ligada", "linked account")) + " · " + esc(roleName(acc[1].role)) : (p.pinHash ? "🔒 PIN" + (isGuardian() && p.id !== S.meId ? ' <button class="linkbtn small" data-act="pin.reset" data-id="' + p.id + '">' + tt("esqueceu? limpar PIN", "forgot? clear PIN") + "</button>" : "") : ""), p.id === S.meId ? '<span class="badge acc">' + tt("você", "you") + "</span>" : ""].filter(Boolean).join("<br>") + "</div></div>"; }).join("") + "</div>";
     h += Grow.view();
     if (S.mode === "cloud") { lsSet("omnilife.govSeen", new Date().toISOString()); h += Gov.view(); }
     h += Duas.view() + Areas.view();
@@ -8844,7 +9483,8 @@ const FamilyViews = {
 };
 const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho desconectado", "📴 Device disconnected"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
 ACT["person.new"] = () => editPerson(null);
-ACT["person.edit"] = (d) => { const p = People.get(d.id); if (p) editPerson(JSON.parse(JSON.stringify(p))); };
+/* pet tem a ficha própria em 🐾 Pets (com a aba desligada, volta ao cadastro de pessoa) */
+ACT["person.edit"] = (d) => { const p = People.get(d.id); if (!p) return; if (p.role === "pet" && Rec.ok("pets") && canTab("pets")) return go("pets", "ficha", p.id); editPerson(JSON.parse(JSON.stringify(p))); };
 /* novo convite */
 ACT["inv.new"] = async () => {
   const admin = S.role === "admin"; const pol = Cloud.policy();
@@ -10303,6 +10943,14 @@ const HELP = () => ({
     tt("Na <b>🔧 Vida do carro</b>, toque em <b>📷 Foto da nota ou orçamento</b>: o app lê a data, a quilometragem, a oficina, as peças e o valor. Você confere e salva. Se a oficina quiser trocar algo que já foi trocado há pouco (ex.: o coxim), aparece ⚠️ com a data e onde foi feito. A foto é lida no aparelho; para a IA vai só o texto, sem placa, chassi, CPF, nomes, telefone e endereço.", "In <b>🔧 Car history</b>, tap <b>📷 Photo of invoice or quote</b>: the app reads the date, mileage, shop, parts and price. You check and save. If the shop wants to replace something replaced recently (e.g. the engine mount), ⚠️ shows the date and where it was done. The photo is read on the device; only the text goes to the AI, without plate, VIN, ID numbers, names, phone or address."),
     tt("Recebeu uma <b>ficha pronta (.json)</b>? Abra as Senhas da casa, volte em 🚗 Veículos e toque em <b>📥 Escolher o arquivo</b>: o app mostra o que vai trazer e só grava depois do seu OK.", "Got a <b>ready-made record (.json)</b>? Open the vault, come back to 🚗 Vehicles and tap <b>📥 Choose the file</b>: the app shows what it will add and only saves after your OK.")
   ], note: tt("O custo do seguro fica só como referência do MoneyTRIO: nada é enviado para lá, para não duplicar o lançamento. Os documentos e o PDF ficam só no aparelho onde foram guardados.", "The insurance cost is only a MoneyTRIO reference: nothing is sent there, so the entry isn't duplicated. Documents and the PDF stay only on the device where they were saved.") },
+  "pets": { t: "🐾 " + tt("Pets: a ficha de cada bicho", "Pets: each pet's record"), steps: [
+    tt("Abra <b>🐾 Pets</b> (no ☰, em Cuidar da família) e toque em <b>＋ Cadastrar pet</b>. Escolha a espécie e a raça na lista (dá para escrever, e tem “SRD (vira-lata)”). Só o nome é obrigatório. Em Família o pet continua aparecendo; tocar nele abre a ficha.", "Open <b>🐾 Pets</b> (in the ☰, under Family care) and tap <b>＋ Add a pet</b>. Pick the species and the breed from the list (you can type, and there's “Mixed breed”). Only the name is required. The pet still shows in Family; tapping it opens the record."),
+    tt("<b>Fotos</b>: uma de perfil e até 12 na galeria. O app diminui cada foto antes de guardar (fica leve e sem a localização de onde foi tirada). Com a família na nuvem, os outros celulares também veem; no modo “só neste aparelho”, ficam só nele.", "<b>Photos</b>: one profile photo and up to 12 in the gallery. The app shrinks each photo before saving it (it stays light and without the location where it was taken). With the family in the cloud, the other phones see them too; in “this device only” mode, they stay on it."),
+    tt("<b>Vacinas e cuidados</b>: toque em ＋ e escolha vacina, vermífugo, antipulgas ou banho e tosa. Eles avisam no 🔔, na agenda e no celular. Em cada um: <b>✓ Feito</b> (na vacina, anote a marca e quem aplicou), <b>📅 Remarcar</b> ou <b>🚫 Não se aplica</b>.", "<b>Vaccines and care</b>: tap ＋ and pick vaccine, dewormer, flea treatment or bath and grooming. They remind you in the 🔔, the calendar and on your phone. On each one: <b>✓ Done</b> (for a vaccine, note the brand and who gave it), <b>📅 Reschedule</b> or <b>🚫 Doesn't apply</b>."),
+    tt("<b>Ração</b>: anote a marca, o tamanho do saco, os gramas por refeição e quantas refeições por dia. O app mostra quantos dias dura e quando acaba, e avisa uma semana antes. Se a validade chegar antes de acabar, ele diz quantos sacos dá para comprar. Vai comprar em promoção? Use a calculadora 🧮 antes.", "<b>Food</b>: note the brand, the bag size, the grams per meal and how many meals a day. The app shows how many days it lasts and when it runs out, and reminds you a week before. If the expiry date comes before it's finished, it tells you how many bags you can buy. Buying on sale? Use the 🧮 calculator first."),
+    tt("<b>Saúde, histórico e peso</b>: veterinário, plano, alergias e remédios ficam na carteira vital (❤️). No histórico vão consultas, exames, cirurgias e o que aconteceu; o peso vira um gráfico.", "<b>Health, history and weight</b>: vet, plan, allergies and medicines live in the health wallet (❤️). The history holds vet visits, tests, surgeries and what happened; the weight becomes a chart."),
+    tt("<b>Contatos e guia</b>: escolha o veterinário, o hotelzinho e o banho e tosa (pode ser o mesmo lugar) e ligue ou mande WhatsApp com um toque. <b>📘 Guia para quem cuida</b> monta as instruções para quem vai ficar com o pet: ração, remédios, manias e telefones. O que você escreveu no guia só é trocado se você deixar.", "<b>Contacts and guide</b>: pick the vet, the boarding place and the groomer (it can be the same place) and call or WhatsApp in one tap. <b>📘 Guide for the carer</b> builds the instructions for whoever looks after the pet: food, medicines, habits and phones. What you wrote in the guide is only replaced if you allow it.")
+  ], note: tt("As contas da ração e a faixa de peso da raça são estimativas: confirme sempre com a veterinária. A carteira vital (alergias, remédios) fica só neste aparelho.", "The food numbers and the breed's weight range are estimates: always confirm with your vet. The health wallet (allergies, medicines) stays on this device only.") },
   "atalho-ios": { t: "📲 " + tt("Ícone na tela inicial — iPhone/iPad", "Home-screen icon — iPhone/iPad"), steps: [
     tt("Abra o OmniLifeONE no <b>Safari</b>.", "Open OmniLifeONE in <b>Safari</b>."),
     tt("Toque em <b>Compartilhar</b> (o quadrado com a seta para cima, embaixo da tela).", "Tap <b>Share</b> (the square with the up arrow)."),
@@ -10593,7 +11241,8 @@ const Search = {
     if (Weather.visible()) add(G("fn"), "🌤", tt("Previsão do tempo na agenda", "Weather in the calendar"), tt("Configurações", "Settings"), () => go("settings", "clima"), "clima tempo previsao chuva frio calor vento weather forecast");
     if (Transit.allowed()) { add(G("fn"), "🧭", tt("Deslocamento e hora de sair", "Travel and time to leave"), tt("carro, táxi, avião, ônibus: rota e “sair às”", "car, taxi, plane, bus: route and “leave at”"), () => Help.open("rotas"), "transporte rota transito waze uber moovit aeroporto voo deslocamento travel"); add(G("ct"), "📍", tt("Lugares da família (só CEP)", "Family places (ZIP only)"), tt("Trabalho, Escola, médico…", "Work, School, the doctor…"), () => go("contacts", "services"), "lugar lugares trabalho escola endereco cep place"); }
     if (Rec.ok("agenda", "escola")) School.list().forEach((sc) => add(G("ag"), "🎒", tt("Grade de ", "Timetable of ") + School.label(sc), [sc.school, sc.turma].filter(Boolean).join(" · "), () => { S.schoolSel = sc.id; go("agenda", "escola"); }, Object.values(sc.days || {}).flat().map((c) => c.s).join(" ")));
-    if (Rec.ok("family")) People.list().forEach((p) => add(G("pp"), People.emoji(p), p.nick || p.name, "", () => go("family"), [p.name, p.phone, p.email].join(" ")));
+    if (Rec.ok("family")) People.list().filter((p) => p.role !== "pet" || !Rec.ok("pets")).forEach((p) => add(G("pp"), People.emoji(p), p.nick || p.name, "", () => go("family"), [p.name, p.phone, p.email].join(" ")));
+    if (Rec.ok("pets") && canTab("pets")) Pets.list().forEach((p) => { const d = Pets.dados(p); add(G("pp"), p.emoji || Pets.esp(p)[1], Pets.nome(p), Pets.desc(p), () => go("pets", "ficha", p.id), [p.name, d.raca, d.cor, Pets.esp(p)[2], tt("pet bicho animal estimação", "pet animal")].join(" ")); });
     if (canTab("contacts") && Rec.ok("contacts")) Contacts.list().forEach((c) => add(G("ct"), "📇", c.name, [c.org, (c.phones || [])[0], c.email].filter(Boolean).join(" · "), () => go("contacts", "list", c.id), c.address));
     if (Rec.ok("security", "alertas")) MyContacts.list().forEach((c) => add(G("ct"), "🙋", c.name, [c.phone, c.email].filter(Boolean).join(" · "), () => go("security", "alertas")));
     if (Rec.ok("shop")) Shop.open().forEach((i) => add(G("sh"), "🛒", i.name, tt("na lista de compras", "on the shopping list"), () => go("shop")));
@@ -10604,7 +11253,7 @@ const Search = {
     if (Rec.ok("inbox")) DB.all("msgs").filter((m) => Msgs.forMe(m) || m.from === S.meId).forEach((m) => add(G("ms"), "📨", m.title || tt("Recado", "Message"), People.name(m.from), () => Msgs.open(m.id), m.body));
     if (canTab("docs") && Rec.ok("docs")) DB.all("docs").filter((d) => canSee(d)).forEach((d) => add(G("dc"), "📄", d.title, People.name(d.owner), () => go("docs", null, d.id), d.number));
     if (Rec.ok("house", "where")) DB.all("things").forEach((t) => add(G("hs"), "🔹", t.name, tt("Onde está?", "Where is it?"), () => ACT["where.open"]({ type: "thing", id: t.id }), (t.tags || []).join(" ")));
-    if (Rec.ok("house", "maint")) Maint.list().forEach((m) => add(G("hs"), "🛠", m.title, tt("manutenção", "maintenance"), () => go("house", "maint")));
+    if (Rec.ok("house", "maint")) Maint.list().forEach((m) => add(G("hs"), m.pet ? "🐾" : "🛠", m.title, tt("manutenção", "maintenance"), () => (m.pet && Rec.ok("pets") && Pets.get(m.pet) ? go("pets", "ficha", m.pet) : go("house", "maint"))));
     if (Rec.ok("cars")) Cars.list().forEach((c) => add(G("hs"), "🚗", c.name, [Cars.desc(c), (c.seguro || {}).seguradora].filter(Boolean).join(" · "), () => go("cars", "ficha", c.id), tt("carro veiculo seguro apolice franquia assistencia guincho revisao", "car vehicle insurance policy deductible assistance towing service")));
     const H = HELP(); Object.keys(H).filter((k) => (Rec.AJUDA[k] || []).every((id) => Rec.on(id))).forEach((k) => add(G("hp"), "❓", H[k].t.replace(/<[^>]+>/g, ""), "", () => Help.open(k), H[k].steps.join(" ").replace(/<[^>]+>/g, "")));
     return out;
@@ -10718,7 +11367,8 @@ const AOne = {
       house: [tt("Casa", "Home"), tt("Onde está cada coisa, manutenção e as senhas da casa. O carro agora tem a aba própria: 🚗 Veículos.", "Where things are, maintenance and the house vault. The car now has its own tab: 🚗 Vehicles."), [["🔎 " + tt("Onde está?", "Where is it?"), G("house", "where"), 1], ["🛠 " + tt("Manutenção", "Maintenance"), G("house", "maint")], ["🚗 " + tt("Veículos", "Vehicles"), G("cars")]]],
       cars: [tt("Veículos", "Vehicles"), tt("O carro, o seguro, a revisão e a Vida do carro: tire foto da nota e eu anoto o que foi feito e aviso se já foi trocado há pouco.", "The car, its insurance, service and the car's history: snap the invoice and I log what was done and warn if it was replaced recently."), (Rec.ok("cars", "vida") && !isChild() ? [["📷 " + tt("Foto da nota ou orçamento", "Invoice or quote photo"), () => ACT["vida.foto"]({}), 1], ["🔧 " + tt("Vida do carro", "Car history"), G("cars", "vida")]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("veiculos")]])],
       docs: [tt("Documentos", "Documents"), tt("Mande várias fotos ou PDFs de uma vez; eu aviso se algum estiver repetido.", "Send many photos or PDFs at once; I'll flag duplicates."), [["📚 " + tt("Enviar vários de uma vez", "Upload many at once"), A("doc.batch"), 1], ["➕ " + tt("Novo documento", "New document"), A("doc.new")]]],
-      family: [tt("Família", "Family"), tt("Pessoas, logins, convites, papéis dos responsáveis, duas casas e controle parental.", "People, logins, invites, guardian roles, two homes and parental controls."), [["➕ " + tt("Pessoa ou pet", "Person or pet"), A("person.new"), 1], ["🛡 " + tt("Administração segura", "Safe administration"), H("familia-seguranca")], ["❓ " + tt("Como convidar alguém", "How to invite someone"), H("familia")]]],
+      pets: [tt("Pets", "Pets"), tt("A ficha de cada bicho: fotos, vacinas com aviso, ração que avisa antes de acabar (e se vence antes), saúde, peso e o guia para quem cuida.", "Each pet's record: photos, vaccines with reminders, food that warns before it runs out (and if it expires first), health, weight and the guide for the carer."), (Pets.podeEditar() ? [["＋ " + tt("Cadastrar pet", "Add a pet"), A("pet.new"), 1]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("pets")]])],
+      family: [tt("Família", "Family"), tt("Pessoas, logins, convites, papéis dos responsáveis, duas casas e controle parental.", "People, logins, invites, guardian roles, two homes and parental controls."), [["➕ " + (Rec.ok("pets") ? tt("Pessoa", "Person") : tt("Pessoa ou pet", "Person or pet")), A("person.new"), 1]].concat(Rec.ok("pets") ? [["🐾 " + tt("Cadastrar pet", "Add a pet"), A("pet.new")]] : []).concat([["🛡 " + tt("Administração segura", "Safe administration"), H("familia-seguranca")], ["❓ " + tt("Como convidar alguém", "How to invite someone"), H("familia")]])],
       settings: [tt("Configurações", "Settings"), tt("Idioma, tema, IA, acessibilidade, avisos, instalar o app para acessar sem internet e versões & novidades.", "Language, theme, AI, accessibility, alerts, installing the app to use offline, and versions & what's new."), [["🤖 " + tt("Configurar a IA", "Set up AI"), G("settings", "ai"), 1], ["♿ " + tt("Acessibilidade", "Accessibility"), G("settings", "a11y")], [(Offline.pc() ? "💻 " : "📲 ") + tt("Instalar app para acessar sem internet", "Install the app to use offline"), G("settings", "offline")]]]
     };
   },
@@ -11317,7 +11967,7 @@ ACT["msg.open"] = (d) => Msgs.open(d.id);
    - o grupo da tela atual já vem aberto; ações rápidas em 4 botões no topo. */
 const DRAWER_GROUPS = () => [
   { id: "dia", t: tt("Dia a dia", "Everyday"), tabs: ["home", "shop", "agenda", "inbox"] },
-  { id: "cuidar", t: tt("Cuidar da família", "Family care"), tabs: ["security", "health", "family", "contacts"] },
+  { id: "cuidar", t: tt("Cuidar da família", "Family care"), tabs: ["security", "health", "family", "pets", "contacts"] },
   { id: "casa", t: tt("Casa, carro e papéis", "Home, car & papers"), tabs: ["house", "cars", "docs"] },
   { id: "app", t: tt("Configurações", "Settings"), tabs: ["settings", "ads"] }
 ];
