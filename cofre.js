@@ -1,5 +1,5 @@
 /* =====================================================================
-   COFRE COMUM DE CHAVES  —  cofre.js  (SolverCofre 1.6.0, 03/Nov/2026)
+   COFRE COMUM DE CHAVES  —  cofre.js  (SolverCofre 1.6.1, 06/Nov/2026)
    ---------------------------------------------------------------------
    POR QUE ESTE ARQUIVO EXISTE
    Todos os apps da SolverONE moram no MESMO endereço (solverone.com.br/<app>/).
@@ -8,6 +8,11 @@
    backup ou extensão curiosa lia tudo. Agora existe UM cofre só, igual em todos
    os apps: as chaves ficam embaralhadas aqui no aparelho e só abrem com o PIN.
 
+   1.6.1 (06/Nov/2026, revisão de segurança do OmniLifeONE): (a) trancar() de propósito faz o próximo pedido perguntar de
+   novo, sem reaproveitar o PIN da pessoa aberto no app; (b) "Ligar a digital" tranca e confirma antes, e um pedido com
+   confirmar nunca aproveita um pedido comum em curso; (c) abrirPelaPessoa com o cofre já aberto só liga a pessoa se o PIN
+   digitado for o PIN atual das chaves; (d) "Juntar" → "Esqueci o PIN" → apagar não pede PIN novo: avisa que o PIN de
+   sempre vale para as chaves novas.
    1.6.0 (03/Nov/2026, pedido do dono: "é um PIN só"): o app que já tem o PIN de cada pessoa (OmniLifeONE: Senhas da
    casa) chama SolverCofre.usarPinDaPessoa({...}). Aí quem pede o PIN é o app, e o cofre das chaves abre junto: um pedido
    só. O PIN do cofre vira o PIN da pessoa (o mesmo em todo app); o cofre de antes junta uma vez. Ver a seção 6a.
@@ -87,7 +92,7 @@
   'use strict';
   if (raiz.SolverCofre && raiz.SolverCofre.__carregado) return;
 
-  var VERSAO = '1.6.0';
+  var VERSAO = '1.6.1';
   var NOME = 'dgo:global:cofre';                 /* localStorage: o cofre (embaralhado) */
   var NOME_ERROS = 'dgo:global:cofre:erros';     /* localStorage: PIN errado { n, ate } */
   var NOME_OFERTA = 'dgo:global:cofre:digital-recusada';  /* localStorage: '1' = a pessoa disse "Agora não" à pergunta da digital */
@@ -159,6 +164,8 @@
     juntarTitulo: ['🔐 Juntar tudo num PIN só', '🔐 Merge everything into one PIN'],
     juntarTexto: ['Só desta vez: digite o PIN antigo das chaves de IA. Depois disso, o seu PIN de sempre abre tudo.',
                   'Just this once: type the old AI-keys PIN. After that, your usual PIN opens everything.'],
+    apagadoJuntar: ['Chaves apagadas: o seu PIN de sempre vale para as novas.', 'Keys deleted: your usual PIN works for the new ones.'],
+    entendi: ['Entendi', 'Got it'],
     outraPessoa: ['As chaves de IA deste aparelho foram guardadas por outra pessoa da casa. Só abrem com o PIN dela.',
                   'The AI keys on this device were saved by someone else in the home. They only open with that person’s PIN.']
   };
@@ -317,6 +324,7 @@
   }
   /* depois de abrir por qualquer caminho: sessão desta aba + mudança das chaves antigas */
   function depoisDeAbrir(como) {
+    _reconfirmar = false;   /* 1.6.1: abriu de verdade (PIN, digital, a janela do app ou o app avisando que a pessoa abriu) */
     return guardarSessao().then(function () {
       avisar('cofre:aberto', { como: como });
       return API.migrar().catch(function () {});
@@ -436,7 +444,19 @@
   /* ------------------------------------------------------------------
      6. JANELA (criar / abrir / esqueci) — só quando precisa; nunca mostra segredo
      ------------------------------------------------------------------ */
-  var _pedindo = null;
+  var _pedindo = null, _pedindoConf = null;
+  /* 1.6.0: com o PIN da pessoa (usarPinDaPessoa), quem pergunta é o app; a janela do cofre fica de reserva.
+     semSessao (1.6.1, confirmar): não abre pela sessão da aba */
+  function pedirAgora(opcoes, semSessao) {
+    return (semSessao ? Promise.resolve(false) : API.abrirSemPin()).then(function (ok) {
+      if (ok) return true;
+      if (!d.body) return false;
+      return comPessoa(opcoes).then(function (r) {
+        if (r === true || r === false) return r;
+        return janela(r).then(function (abriu) { return abriu && r.depois ? r.depois().then(function () { return true; }) : abriu; });
+      });
+    });
+  }
   function estilo() {
     if (d.getElementById('solver-cofre-estilo')) return;
     var s = d.createElement('style'); s.id = 'solver-cofre-estilo';
@@ -652,6 +672,12 @@
           });
           caixa.appendChild(form2);
           cp._input.focus();   /* sem digital (como na 1.4) ou a pessoa pediu para digitar: aqui o teclado pode abrir */
+        } else if (modo === 'apagadoJuntar') {
+          caixa.appendChild(el('h2', { id: 'sc-tit', texto: t('tituloEsqueci') }));
+          caixa.appendChild(el('p', { role: 'status', texto: t('apagadoJuntar') }));
+          var bOk = el('button', { type: 'button', class: 'sc-b', 'data-sc': 'entendi', texto: t('entendi'), onclick: function () { fim(false); } });
+          caixa.appendChild(el('div', { class: 'sc-botoes' }, [bOk]));
+          bOk.focus();
         } else {   /* esqueci */
           caixa.appendChild(el('h2', { id: 'sc-tit', texto: t('tituloEsqueci') }));
           caixa.appendChild(el('p', { texto: t('esqueciTexto') }));
@@ -661,7 +687,8 @@
           conf.addEventListener('input', function () { bApagar.disabled = conf.value.trim().toUpperCase() !== t('palavra'); });
           bApagar.addEventListener('click', function () {
             if (conf.value.trim().toUpperCase() !== t('palavra')) return;
-            API.apagarCofre().then(function () { pintar('criar', t('apagado')); });
+            /* 1.6.1: no "Juntar tudo num PIN só" não se cria outro PIN: as chaves novas nascem com o PIN de sempre da pessoa */
+            API.apagarCofre().then(function () { if (opcoes && opcoes.juntar) pintar('apagadoJuntar'); else pintar('criar', t('apagado')); });
           });
           caixa.appendChild(el('label', { class: 'sc-campo', for: idc, texto: t('digite') }));
           caixa.appendChild(el('div', { class: 'sc-linha-in' }, [conf]));
@@ -701,6 +728,9 @@
      segredo de quem chegou agora (cada um com as suas).
      ------------------------------------------------------------------ */
   var _pessoa = null;
+  /* 1.6.1: trancar() de propósito (ex.: "Mostrar a chave guardada", "Ligar a digital") liga esta marca: até a pessoa abrir
+     de novo, o cofre NÃO reaproveita o PIN da pessoa já aberto no app (as Senhas da casa abertas não bastam) */
+  var _reconfirmar = false;
   function chaveDaPessoa(segredo, sal) {
     return sub.importKey('raw', segredo, 'HKDF', false, ['deriveKey']).then(function (k) {
       return sub.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: deB64(sal), info: new TextEncoder().encode('solvercofre-pessoa') },
@@ -770,7 +800,10 @@
       if (reg && donos.length && donos.indexOf(quem) === -1) return extra.calado ? false : { motivo: txo('outraPessoa'), semOferta: true };
       var precisaPin = !reg;
       var temPin = typeof extra.pin === 'string' && extra.pin.length >= MIN_PIN;
-      return (opcoes.confirmar ? Promise.resolve(null) : Promise.resolve(extra.segredo || segredoAgora())).then(function (s0) {
+      /* confirmar, ou trancado de propósito (1.6.1): pergunta de novo, mesmo com o PIN da pessoa aberto no app.
+         O "calado" (o app avisando que a pessoa acabou de abrir pela tela dele) continua valendo */
+      var deNovo = opcoes.confirmar || (_reconfirmar && !extra.calado);
+      return (deNovo ? Promise.resolve(null) : Promise.resolve(extra.segredo || segredoAgora())).then(function (s0) {
         if (ehSegredo(s0) && (!precisaPin || temPin)) return { segredo: s0, pin: extra.pin || '' };
         if (extra.calado) return false;
         return Promise.resolve(_pessoa.pedir({ motivo: base.motivo, precisaPin: precisaPin })).catch(function () { return null; });
@@ -789,7 +822,7 @@
             if (ok2) return vincular(quem, r.segredo).then(function () { return marcarAlinhado(quem); }).then(function () { return true; }, function () { return true; });
             if (extra.calado) return false;
             /* cofre de antes, com outro PIN: só desta vez, o PIN antigo; depois junta */
-            return { motivo: txo('juntarTexto'), titulo: txo('juntarTitulo'), semOferta: true, depois: function () {
+            return { motivo: txo('juntarTexto'), titulo: txo('juntarTitulo'), semOferta: true, juntar: true, depois: function () {
               return vincular(quem, r.segredo).then(function () { return pin ? alinharPin(pin, quem) : null; }).catch(nada);
             } };
           });
@@ -820,7 +853,9 @@
     b.addEventListener('click', function () {
       b.disabled = true;
       if (ativa) { API.desativarDigital().then(function () { item.msg = t('tirouMsg'); desenharPainel(item); }); return; }
-      API.pedir({ motivo: { pt: TX.motivoLigar[0], en: TX.motivoLigar[1] }, semOferta: true }).then(function (ok) {
+      /* 1.6.1: sempre pede o PIN antes (tranca e confirma): com o cofre aberto, ou com o PIN da pessoa aberto no app,
+         a digital não liga sem a pessoa provar que é ela */
+      API.trancar().then(function () { return API.pedir({ motivo: { pt: TX.motivoLigar[0], en: TX.motivoLigar[1] }, semOferta: true, confirmar: true }); }).then(function (ok) {
         if (!ok) return null;
         return API.ativarDigital().then(function () { item.msg = t('ligouMsg'); });
       }).then(function () { desenharPainel(item); }, function (e) {
@@ -1072,6 +1107,7 @@
     },
 
     trancar: function () {
+      _reconfirmar = true;
       var estava = fecharMemoria();
       return apagarSessao().then(function () { if (estava) avisar('cofre:trancado', { motivo: 'trancar' }); return true; });
     },
@@ -1192,19 +1228,23 @@
     },
 
     /* abre a janela de criar/abrir (só se precisar). Promise<boolean> */
+    /* 1.6.1: opcoes.confirmar = a pessoa prova de novo que é ela: espera o pedido comum que estiver em curso, tranca se
+       ele abriu, e pergunta (sem a sessão da aba e sem o PIN da pessoa já aberto no app). Um pedido comum pode
+       aproveitar um pedido com confirmar em curso (é mais forte); o contrário, nunca. */
     pedir: function (opcoes) {
-      if (E.aberto) return Promise.resolve(true);
-      if (_pedindo) return _pedindo;
       opcoes = opcoes || {};
-      /* 1.6.0: com o PIN da pessoa (usarPinDaPessoa), quem pergunta é o app; a janela do cofre fica de reserva */
-      _pedindo = API.abrirSemPin().then(function (ok) {
-        if (ok) return true;
-        if (!d.body) return false;
-        return comPessoa(opcoes).then(function (r) {
-          if (r === true || r === false) return r;
-          return janela(r).then(function (abriu) { return abriu && r.depois ? r.depois().then(function () { return true; }) : abriu; });
-        });
-      }).then(function (ok) { _pedindo = null; return ok; }, function () { _pedindo = null; return false; });
+      if (opcoes.confirmar) {
+        if (_pedindoConf) return _pedindoConf;
+        _pedindoConf = (_pedindo || Promise.resolve()).catch(nada)
+          .then(function () { return E.aberto ? API.trancar() : null; })
+          .then(function () { return pedirAgora(opcoes, true); })
+          .then(function (ok) { _pedindoConf = null; return ok; }, function () { _pedindoConf = null; return false; });
+        return _pedindoConf;
+      }
+      if (E.aberto) return Promise.resolve(true);
+      if (_pedindoConf) return _pedindoConf;
+      if (_pedindo) return _pedindo;
+      _pedindo = pedirAgora(opcoes, false).then(function (ok) { _pedindo = null; return ok; }, function () { _pedindo = null; return false; });
       return _pedindo;
     },
 
@@ -1226,10 +1266,17 @@
         /* já aberto (ex.: pelo PIN antigo): só falta ligar à pessoa, se o cofre não é de outra */
         var donos = Object.keys(pessoasDe(reg));
         if (!quem || (donos.length && donos.indexOf(quem) === -1)) return Promise.resolve(true);
+        /* 1.6.1: cofre ainda sem esta pessoa: só liga (e alinha) se o PIN digitado for o PIN ATUAL das chaves. Senão não
+           liga, e o próximo pedido cai no "Juntar" (o PIN antigo, uma vez) — o cofre aberto por outro não passa a ser dela */
+        var ligada = donos.indexOf(quem) !== -1;
         return Promise.resolve(opcoes.segredo || segredoAgora()).then(function (s) {
           if (!ehSegredo(s)) return true;
-          return (donos.indexOf(quem) === -1 ? vincular(quem, s) : Promise.resolve(true))
-            .then(function () { return opcoes.pin ? alinharPin(opcoes.pin, quem) : null; }).then(function () { return true; }, function () { return true; });
+          if (ligada) return (opcoes.pin ? alinharPin(opcoes.pin, quem) : Promise.resolve()).then(function () { return true; }, function () { return true; });
+          return pinConfere(reg, opcoes.pin).then(function (igual) {
+            if (!igual) return true;
+            if (igual.fill) igual.fill(0);
+            return vincular(quem, s).then(function () { return marcarAlinhado(quem); }).then(function () { return true; }, function () { return true; });
+          });
         });
       }
       return comPessoa({}, { calado: true, pin: opcoes.pin, segredo: opcoes.segredo }).then(function (r) { return r === true; }, function () { return false; });

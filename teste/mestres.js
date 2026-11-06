@@ -6,8 +6,8 @@ const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const raiz = path.join(__dirname, '..');
 const MESTRES = {
   'janela.js': '7f38e4d94b24c4e771a0bf52add9fa1767ba0329ab0259c5155b5bf096627ef5',   /* SolverJanela 1.0.2 */
-  'cofre.js': 'bb99df4ed87fe554f374ba3894851d1a4e71ab88bca979fbd8f6be1c28f48eea',     /* SolverCofre 1.6.0 */
-  'diretrizes.js': 'c9d3d4fdccf87a5e4934f682cca0ee5322f284d2850d62b04418d96cf0ea2e54' /* módulo 1.12.0 */
+  'cofre.js': '97ec41aee7e0bdb18bd122e4f5621a836d519979f295bceac2ddff85a5a96a2c',     /* SolverCofre 1.6.1 */
+  'diretrizes.js': '20ee5f6b101e2ac833989a2c9308a482e9ef69ecaccd5f60e6508321587ef132' /* módulo 1.13.1 */
 };
 const falhas = [];
 const conferir = (ok, msg) => { if (!ok) { falhas.push(msg); console.log('  ✗ ' + msg); } else console.log('  ✓ ' + msg); };

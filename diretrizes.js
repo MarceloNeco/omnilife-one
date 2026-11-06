@@ -21,7 +21,15 @@
 (function (raiz) {
   'use strict';
 
-  /* 1.12.0 (17/Out/2026): na tela das chaves de IA, a ajuda "como conseguir a chave" (o provedor e o guia passo a
+  /* 1.13.1 (06/Nov/2026, revisão de segurança do OmniLifeONE): "👁 Mostrar a chave guardada" na tela das chaves pede o PIN
+     de novo sempre (SolverCofre.pedir com confirmar: true; cofre.js 1.6.1), mesmo com o PIN da pessoa aberto no app. */
+  /* 1.13.0 (18/Out/2026): as regras do PIN (SolverCofre.proteger) obedecem ao comportamento "cofre.proteger" do
+     RootifyONE (Controle dos apps): o módulo lê DGO.recursos.valor('cofre.proteger', padrão) e só liga a proteção
+     quando ele está ligado. Sem registro no RootifyONE vale o padrão do app (cofre.proteger do diretrizes-config.js:
+     ligado nos apps com dado pessoal, desligado nos públicos). O registro "ligado" que chega da rede depois de a
+     página abrir liga a proteção na hora; desligar vale a partir da próxima abertura (nunca destranca no meio do uso).
+     Pede cofre.js 1.5.0 (a digital só abre depois do toque na janela).
+     1.12.0 (17/Out/2026): na tela das chaves de IA, a ajuda "como conseguir a chave" (o provedor e o guia passo a
      passo) expande NO LUGAR, dentro da própria janela, sem remontar a tela nem voltar ao topo; e o painel da digital
      do cofre (SolverCofre.painelDigital) é desenhado ali mesmo, logo acima do Fechar — um lugar só para todo app.
      Pede cofre.js 1.4.1 (desenha o painel mesmo com a tela esperando a vez) e janela.js 1.0.2 (trava da rolagem só no <html>: o cabeçalho sticky não pula).
@@ -34,7 +42,7 @@
      1.10.0 (16/Out/2026): as chaves de IA moram SÓ no cofre comum (cofre.js, global SolverCofre), trancadas
      por PIN. Sem o cofre.js na página, continua do jeito antigo (texto aberto) e avisa no console.
      Ver ARQUITETURA.md, "Cofre comum de chaves" e "Janela comum". */
-  var VERSAO = '1.12.0';
+  var VERSAO = '1.13.1';
   if (raiz.DGO && raiz.DGO.__carregado) { return; }
 
   /* ------------------------------------------------------------------
@@ -102,7 +110,10 @@
       fontes: [],
       /* 1.11.0: true = as regras do PIN do Contador 1.25 neste app (SolverCofre.proteger, cofre.js 1.4.0): com chave
          guardada, pede o PIN ao abrir e ao recarregar; tranca ao sair do app, com o app escondido por mais de 1 minuto
-         e com 5 minutos sem uso (trabalho rodando no Fundo só adia esse último). Quem não guarda chave nunca vê o PIN. */
+         e com 5 minutos sem uso (trabalho rodando no Fundo só adia esse último). Quem não guarda chave nunca vê o PIN.
+         1.13.0: é só o PADRÃO. Quem decide é o comportamento "cofre.proteger" do RootifyONE (Controle dos apps); sem
+         registro lá, vale este. Ligado nos apps com dado pessoal, desligado nos públicos. O app declara o comportamento
+         no recursos-do-app.json: { "id": "cofre.proteger", "tipo": "sim-nao", "padrao": true, "nome": {…}, "onde": {…} } */
       proteger: false
     },
 
@@ -4540,20 +4551,32 @@
     try { console.warn('[DGO ' + VERSAO + '] cofre.js não está nesta página: as chaves de IA continuam no jeito antigo (texto aberto em dgo:global:chaves-ia). Carregue <script src="cofre.js"></script> antes do diretrizes.js.'); } catch (e) {}
   }
   var _cofreLigado = false;
+  /* 1.13.0: o comportamento "cofre.proteger" do RootifyONE decide; sem registro lá, o padrão do app (cfg.cofre.proteger) */
+  function protegerLigado() {
+    var v = Central.valor('cofre.proteger', !!(cfg.cofre && cfg.cofre.proteger));
+    return v === true || v === 'true' || v === 1;
+  }
+  var _protegeu = false;
+  function protegerSeLigado() {
+    var C = cofreComum();
+    if (_protegeu || !C || typeof C.proteger !== 'function' || !protegerLigado()) return;
+    _protegeu = true;     /* uma vez por página: desligar vale a partir da próxima abertura (nunca destranca no meio do uso) */
+    var nm = cfg.nome, nPt = (nm && typeof nm === 'object') ? (nm.pt || nm.en || 'app') : String(nm || 'app'), nEn = (nm && typeof nm === 'object') ? (nm.en || nm.pt || 'the app') : String(nm || 'the app');
+    C.proteger({
+      motivo: { pt: 'Digite o PIN para usar as chaves guardadas no ' + nPt + '.', en: 'Type the PIN to use the keys saved in ' + nEn + '.' },
+      /* trabalho demorado rodando (foto, OCR, IA, importação) só adia o trancar por falta de uso */
+      ocupado: function () { var a = Fundo.ativas(); return a && a.length ? 'fundo:' + a.length : false; }
+    });
+  }
   function ligarCofreComum() {
     var C = cofreComum();
     if (!C) { avisarSemCofre(); return; }
     if (cfg.cofre && cfg.cofre.fontes && cfg.cofre.fontes.length) C.registrarFontes(cfg.cofre.fontes);
     if (C.aberto()) C.migrar().catch(function () {});     /* abriu antes do app dizer onde guardava as chaves */
     if (_cofreLigado) return; _cofreLigado = true;
-    if (cfg.cofre && cfg.cofre.proteger && typeof C.proteger === 'function') {
-      var nm = cfg.nome, nPt = (nm && typeof nm === 'object') ? (nm.pt || nm.en || 'app') : String(nm || 'app'), nEn = (nm && typeof nm === 'object') ? (nm.en || nm.pt || 'the app') : String(nm || 'the app');
-      C.proteger({
-        motivo: { pt: 'Digite o PIN para usar as chaves guardadas no ' + nPt + '.', en: 'Type the PIN to use the keys saved in ' + nEn + '.' },
-        /* trabalho demorado rodando (foto, OCR, IA, importação) só adia o trancar por falta de uso */
-        ocupado: function () { var a = Fundo.ativas(); return a && a.length ? 'fundo:' + a.length : false; }
-      });
-    }
+    protegerSeLigado();
+    /* o arquivo do RootifyONE pode chegar da rede depois de a página abrir (primeira visita, cópia velha) */
+    d.addEventListener('dgo:central', protegerSeLigado);
     d.addEventListener('cofre:mudou', function (e) {
       var nome = (e.detail && e.detail.nome) || '';
       if (nome === '*' || nome.indexOf('ia:') === 0) d.dispatchEvent(new CustomEvent('dgo:ia-chaves', { detail: { provedor: nome === '*' ? '' : nome.slice(3), tem: !!(e.detail && e.detail.tem) } }));
@@ -5255,7 +5278,7 @@
           var notaMostrar = el('p', { class: 'dgo-mini', role: 'status' });
           corpo.appendChild(el('button', { class: 'dgo-b dgo-b2', type: 'button', texto: '👁 ' + t('mostrarChave'), onclick: function () {
             var b = this, C = cofreComum(); b.disabled = true;
-            var pedir = C ? C.trancar().then(function () { return C.pedir({ motivo: { pt: UI.mostrarChaveMotivo[0], en: UI.mostrarChaveMotivo[1] }, semOferta: true }); }) : Promise.resolve(true);
+            var pedir = C ? C.trancar().then(function () { return C.pedir({ motivo: { pt: UI.mostrarChaveMotivo[0], en: UI.mostrarChaveMotivo[1] }, semOferta: true, confirmar: true }); }) : Promise.resolve(true);
             pedir.then(function (ok) {
               b.disabled = false;
               if (!ok) return;
