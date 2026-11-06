@@ -1,10 +1,10 @@
-/* Teste automático: UM PIN SÓ no OmniLifeONE 2.21.0 (cofre.js 1.6.0, decisão do dono de 03/Nov/2026).
+/* Teste automático: UM PIN SÓ no OmniLifeONE 2.21.0 (cofre.js 1.6.1 desde a 2.22.1, decisão do dono de 03/Nov/2026).
    O app abre em visitante e o teste faz o papel de uma família na nuvem (sem internet de verdade: o banco não é
    chamado), com as Senhas da casa já prontas neste aparelho e um PIN de mentira. Confere:
      1. guardar a primeira chave de IA pede UM PIN, na janela "Digite o seu PIN" (a das Senhas da casa), nunca a do cofre;
         as Senhas da casa e as chaves abrem juntas, e o PIN das chaves é o mesmo (vale nos outros apps)
      2. com tudo trancado, usar uma chave pede o PIN uma vez e abre as duas coisas
-     3. com as Senhas da casa abertas, usar uma chave não pede nada
+     3. trancar as chaves de propósito ("🔒 Trancar agora") faz o próximo uso pedir o PIN de novo, mesmo com as Senhas abertas (1.6.1)
      4. abrir as Senhas da casa pela tela delas abre as chaves junto
      5. "Mostrar a chave guardada" pergunta o PIN de novo (e PIN errado não abre)
      6. trocar o PIN das Senhas da casa troca o das chaves (continua um PIN só)
@@ -40,7 +40,7 @@ const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofr
   /* ---------- 1 a 6 ---------- */
   let { ctx, p, lixo } = await abrirApp(browser, 'celular');
   await familia(p);
-  conferir(await p.evaluate(() => SolverCofre.versao) === '1.6.0', 'cofre.js 1.6.0 no app');
+  conferir(await p.evaluate(() => SolverCofre.versao) === '1.6.1', 'cofre.js 1.6.1 no app');
   const salvando = p.evaluate((c) => Keys.set('groq', c, { pt: 'teste', en: 'test' }).then(() => 'ok', (e) => e.message), CHAVE);
   conferir(await janelaUmPin(p), '1. guardar a primeira chave: aparece a janela "Digite o seu PIN" (a das Senhas da casa)');
   conferir(/mesmo PIN das Senhas da casa/.test(await p.evaluate(() => document.querySelector('.modal').textContent)), '1. a janela explica que é o mesmo PIN das Senhas da casa');
@@ -58,10 +58,13 @@ const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofr
   await digitar(p, PIN);
   conferir(await lendo2 === CHAVE && await p.evaluate(() => Cofre.aberto()) && !(await janelaCofre(p)), '2. um PIN só abre a chave e as Senhas da casa');
 
-  /* 3. Senhas da casa abertas: nada é perguntado */
+  /* 3. (cofre.js 1.6.1) trancar as chaves de propósito ("🔒 Trancar o cofre agora"): mesmo com as Senhas da casa abertas,
+     o próximo uso pergunta o PIN de novo (as Senhas abertas não bastam) */
   await p.evaluate(() => SolverCofre.trancar());
-  conferir(await p.evaluate(() => Keys.need('groq', { pt: 'teste', en: 'test' })) === CHAVE && !(await janelaUmPin(p, 500)) && !(await janelaCofre(p)),
-    '3. com as Senhas da casa abertas, a chave sai sem nenhuma pergunta');
+  const lendo3 = p.evaluate(() => Keys.need('groq', { pt: 'teste', en: 'test' }));
+  conferir(await janelaUmPin(p) && await p.evaluate(() => Cofre.aberto()), '3. chaves trancadas de propósito: pergunta o PIN de novo, mesmo com as Senhas da casa abertas');
+  await digitar(p, PIN);
+  conferir(await lendo3 === CHAVE && !(await janelaCofre(p)), '3. com o PIN, a chave sai (sem a janela do cofre)');
 
   /* 4. abrir as Senhas da casa pela tela delas abre as chaves junto */
   await tranca(p);
