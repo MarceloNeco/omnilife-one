@@ -30,6 +30,8 @@ const CHAVE = 'mentira-groq-reforco-0123456789';
 async function familia(p, uid, pin) {
   await p.evaluate(async (a) => {
     window.__uid = a.uid; window.__pk = window.__pk || {};
+    /* o "Olá" e as dicas do AssistONE abrem sozinhos e cobririam os botões que o teste toca */
+    AOne.save({ hello: 1, tips: Object.assign({}, AOne.cfg().tips, { home: 1, settings: 1, house: 1, cars: 1 }) }); if (AOne.view) AOne.close();
     S.mode = 'cloud'; S.family = { id: 'fam-mentira', name: 'Família de mentira' }; S.role = 'admin';
     Conta.uid = () => window.__uid;
     CloudDriver.abrirCofre = async () => {}; CloudDriver.fecharCofre = () => {}; Cofre.distribuir = () => Promise.resolve();

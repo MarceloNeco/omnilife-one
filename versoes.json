@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.22.0",
+  "d": "2026-11-06",
+  "hora": "12:05:00",
+  "pt": [
+   "🚗 Veículos agora é uma aba própria, fora da Casa: o carro, o seguro, a revisão e a nova 🔧 Vida do carro. Links e lembretes antigos levam para o lugar novo.",
+   "📷 Vida do carro: tire foto da nota ou do orçamento e o app anota a data, a quilometragem, a oficina, as peças e o valor. Você confere antes de salvar. A foto é lida no seu celular; se a IA ajudar, vai só o texto, sem placa, chassi, CPF, nomes, telefone e endereço.",
+   "⚠️ Serviço repetido: se a oficina quiser trocar algo que já foi trocado há pouco (ex.: o coxim), o app mostra quando e onde foi feito e lembra da garantia de 90 dias.",
+   "🩺 Saúde do carro, gastos por ano e revisão por data ou quilometragem (o que vier primeiro). O custo pode ir para o MoneyTRIO, uma vez só; orçamento fica à parte."
+  ],
+  "en": [
+   "🚗 Vehicles is now its own tab, outside House: the car, its insurance, service and the new 🔧 Car history. Old links and reminders lead to the new place.",
+   "📷 Car history: take a photo of the invoice or quote and the app logs the date, mileage, shop, parts and price. You check before saving. The photo is read on your phone; if the AI helps, only the text goes, without plate, VIN, ID numbers, names, phone or address.",
+   "⚠️ Repeated service: if the shop wants to replace something replaced recently (e.g. the engine mount), the app shows when and where it was done and reminds you of the 90-day warranty.",
+   "🩺 Car health, spending per year and service by date or mileage (whichever comes first). The cost can go to MoneyTRIO, only once; quotes stay apart."
+  ]
+ },
+ {
   "v": "2.21.2",
   "d": "2026-11-03",
   "hora": "21:42:00",

@@ -42,8 +42,8 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   await p.waitForFunction(() => S.booted, null, { timeout: 15000 });
   await p.waitForTimeout(600); await fecharJanelas(p);
   await p.evaluate(async () => { await Vault.setup('senha-de-mentira-123'); AOne.save({ tips: { house: 1 } }); });   /* sem a dica do AssistONE por cima dos prints */
-  await p.evaluate(() => go('house', 'cars')); await p.waitForTimeout(400); await fecharJanelas(p);
-  conferir(await p.locator('.seg button', { hasText: 'Veículos' }).count() === 1, 'aba 🚗 Veículos na Casa');
+  await p.evaluate(() => go('cars')); await p.waitForTimeout(400); await fecharJanelas(p);
+  conferir(await p.evaluate(() => S.route.tab === 'cars' && visibleTabs().some((t) => t.id === 'cars') && !document.querySelector('[data-tab="house"][data-sub="cars"]')), 'aba própria 🚗 Veículos (fora da Casa)');
   conferir(await p.locator('text=Nenhum veículo ainda').count() === 1, 'lista vazia explica o que fazer');
   await foto(p, '01-veiculos-vazio');
 
@@ -56,7 +56,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(!resumo.includes(PLACA) && !resumo.includes(CHASSI), 'confirmação não mostra placa nem chassi');
   await foto(p, '02-trazer-ficha');
   await p.locator('dialog[open] button', { hasText: 'Trazer' }).click();
-  await p.waitForFunction(() => S.route && S.route.sub === 'cars' && S.route.arg, null, { timeout: 10000 });
+  await p.waitForFunction(() => S.route && S.route.tab === 'cars' && S.route.sub === 'ficha' && S.route.arg, null, { timeout: 10000 });
   await p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 10000 });
   const carId = await p.evaluate(() => S.route.arg);
   let txt = await p.locator('#main, main, body').first().innerText();
@@ -96,7 +96,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(d.doc && d.doc.type === 'seguro' && d.doc.expires === '2027-09-24' && d.doc.vis === 'restrito' && d.fmEnc && d.pdf.startsWith('%PDF'), 'PDF guardado como documento do carro, trancado, e abre de volta');
 
   /* trazer de novo: não duplica */
-  const [fc2] = await Promise.all([p.waitForEvent('filechooser'), p.evaluate(() => { go('house', 'cars'); setTimeout(() => document.querySelector('[data-act="car.import"]').click(), 300); })]);
+  const [fc2] = await Promise.all([p.waitForEvent('filechooser'), p.evaluate(() => { go('cars'); setTimeout(() => document.querySelector('[data-act="car.import"]').click(), 300); })]);
   await fc2.setFiles({ name: 'ficha-teste.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(FICHA)) });
   await p.waitForTimeout(600);
   conferir(await p.evaluate(() => Cars.list().length) === 1 && (await p.locator('text=Esta ficha já está no app').count()) >= 1, 'a mesma ficha não entra duas vezes');
@@ -111,7 +111,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   conferir(ruins.every(Boolean), 'ficha estragada ou de outro formato é recusada (' + ruins.join(',') + ')');
 
   /* editar: placa vem preenchida (cofre aberto) e a franquia muda */
-  await p.evaluate((id) => go('house', 'cars', id), carId); await p.waitForTimeout(400);
+  await p.evaluate((id) => go('cars', 'ficha', id), carId); await p.waitForTimeout(400);
   await p.click('[data-act="car.edit"]'); await p.waitForSelector('dialog[open] [name="_sec.placa"]');
   conferir(await p.inputValue('dialog[open] [name="_sec.placa"]') === PLACA && await p.inputValue('dialog[open] [name="_sec.custoTotal"]') === '1234.5', 'editar: placa e custo preenchidos, com as Senhas da casa abertas');
   await foto(p, '05-editar-carro');
@@ -146,7 +146,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
 
   /* o que a revisão da 2.20.0 achou */
   await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); });
-  await p.evaluate((id) => go('house', 'cars', id), carId); await p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 5000 });
+  await p.evaluate((id) => go('cars', 'ficha', id), carId); await p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 5000 });
   await p.locator('#carsec [data-olho]').first().click();
   conferir(await p.evaluate(() => { A11y.read(); try { A11y.stop(); } catch (e) {} return !document.querySelector('#carsec').innerText.includes('TST0A00'); }), 'ler a tela em voz alta esconde de novo a placa revelada');
   /* item do cofre que não está neste aparelho: avisa, não cria outro e não apaga nada */
@@ -157,7 +157,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   await p.evaluate(async ([id, v]) => { const c = DB.get('places', id); await DB.put('places', Object.assign({}, c, { vaultId: v })); }, [carId, vidOk]);
   conferir(await p.evaluate(async (id) => { const c = DB.get('places', id), v = DB.col('vault').get(c.vaultId), u = v.updatedAt; const o = await Cars.segredo(c); await new Promise((r) => setTimeout(r, 20)); await Cars.guardarSegredo(c, o); return DB.col('vault').get(c.vaultId).updatedAt === u; }, carId), 'salvar sem mudar a placa não regrava o item do cofre');
   /* cofre fecha com o formulário aberto: placa some da janela */
-  await p.evaluate((id) => go('house', 'cars', id), carId); await p.waitForTimeout(300);
+  await p.evaluate((id) => go('cars', 'ficha', id), carId); await p.waitForTimeout(300);
   await p.click('[data-act="car.edit"]'); await p.waitForSelector('dialog[open] [name="_sec.placa"]');
   await p.evaluate(() => Vault.lock()); await p.waitForTimeout(1500);
   conferir(await p.evaluate(() => { const i = document.querySelector('dialog[open] [name="_sec.placa"]'); return !!i && i.value === '' && i.closest('.fld').classList.contains('hidden'); }), 'Senhas da casa fecham com o formulário aberto: placa some da janela');
@@ -216,7 +216,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
   await foto(p, '08-integracoes-moneytrio', '#main h4');
 
   /* inglês */
-  await p.evaluate(() => { S.lang = 'en'; go('house', 'cars', Cars.list()[0].id); }); await p.waitForTimeout(400);
+  await p.evaluate(() => { S.lang = 'en'; go('cars', 'ficha', Cars.list()[0].id); }); await p.waitForTimeout(400);
   txt = await p.locator('body').innerText();
   conferir(txt.includes('Vehicles') && txt.includes("Above this, it's worth filing a claim.") && txt.includes('24h assistance and phones'), 'textos em inglês');
   await foto(p, '07-ingles');
@@ -234,25 +234,25 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
     await s2.p.waitForSelector('#fn', { timeout: 10000 });
     await s2.p.fill('#fn', 'Família Teste'); await s2.p.fill('#mn', 'Pessoa Teste'); await s2.p.click('#go');
     await s2.p.waitForFunction(() => S.booted, null, { timeout: 15000 }); await s2.p.waitForTimeout(600); await fecharJanelas(s2.p);
-    await s2.p.evaluate(async () => { await Vault.setup('senha-de-mentira-123'); Vault.lock(); AOne.save({ tips: { house: 1 } }); go('house', 'cars'); });
+    await s2.p.evaluate(async () => { await Vault.setup('senha-de-mentira-123'); Vault.lock(); AOne.save({ tips: { house: 1 } }); go('cars'); });
     await s2.p.waitForTimeout(400); await fecharJanelas(s2.p);
     const [fc3] = await Promise.all([s2.p.waitForEvent('filechooser'), s2.p.click('[data-act="car.import"]')]);
     await fc3.setFiles({ name: 'ficha-teste.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(FICHA)) });
     await s2.p.waitForSelector('text=Vai trazer:', { timeout: 5000 });
     await s2.p.locator('dialog[open] button', { hasText: 'Trazer' }).click();
     await s2.p.waitForSelector('dialog[open] #askv[type="password"]', { timeout: 5000 });
-    conferir(await s2.p.evaluate(() => S.route.tab === 'house' && S.route.sub === 'cars'), 'ficha com as Senhas da casa fechadas: pede a senha ali mesmo, sem trocar de tela');
+    conferir(await s2.p.evaluate(() => S.route.tab === 'cars'), 'ficha com as Senhas da casa fechadas: pede a senha ali mesmo, sem trocar de tela');
     await s2.p.fill('dialog[open] #askv', 'senha-de-mentira-123'); await s2.p.locator('dialog[open] [data-ok]').click();
     await s2.p.waitForFunction(() => S.route && S.route.arg && Cars.list().length === 1, null, { timeout: 15000 }).catch(() => {});
-    conferir(await s2.p.evaluate(() => Cars.list().length === 1 && S.route.sub === 'cars' && !!S.route.arg), 'com a senha certa, a ficha entra e o app abre o carro (sem passar pelas Senhas da casa)');
+    conferir(await s2.p.evaluate(() => Cars.list().length === 1 && S.route.sub === 'ficha' && !!S.route.arg), 'com a senha certa, a ficha entra e o app abre o carro (sem passar pelas Senhas da casa)');
     /* placa: trancado → toque no 🔓 → senha ali mesmo → aparece */
     await s2.p.evaluate(() => { Vault.lock(); render(); }); await s2.p.waitForTimeout(400);
     await s2.p.click('[data-act="car.abrircasa"]'); await s2.p.waitForSelector('dialog[open] #askv[type="password"]', { timeout: 5000 });
     await s2.p.fill('dialog[open] #askv', 'senha-de-mentira-123'); await s2.p.locator('dialog[open] [data-ok]').click();
     await s2.p.waitForFunction(() => document.querySelector('#carsec [data-olho]'), null, { timeout: 8000 }).catch(() => {});
-    conferir(await s2.p.evaluate(() => !!document.querySelector('#carsec [data-olho]') && S.route.sub === 'cars'), 'ficha do carro: "Abrir as Senhas da casa" abre ali mesmo e mostra a placa escondida (👁)');
+    conferir(await s2.p.evaluate(() => !!document.querySelector('#carsec [data-olho]') && S.route.tab === 'cars'), 'ficha do carro: "Abrir as Senhas da casa" abre ali mesmo e mostra a placa escondida (👁)');
     /* "Agora não" (Cancelar) não grava nada */
-    await s2.p.evaluate(() => { Vault.lock(); go('house', 'cars'); }); await s2.p.waitForTimeout(400);
+    await s2.p.evaluate(() => { Vault.lock(); go('cars'); }); await s2.p.waitForTimeout(400);
     const g = Object.assign(JSON.parse(JSON.stringify(FICHA)), { id: 'ficha-teste-3' });
     const [fc4] = await Promise.all([s2.p.waitForEvent('filechooser'), s2.p.click('[data-act="car.import"]')]);
     await fc4.setFiles({ name: 'ficha-teste-3.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(g)) });
@@ -266,7 +266,7 @@ const fecharJanelas = (p) => p.evaluate(() => { document.querySelectorAll('dialo
 
   console.log('\n[celular, visitante]');
   const v = await abrirApp(browser, 'celular');
-  await v.p.evaluate(() => go('house', 'cars')); await v.p.waitForTimeout(400); await fecharJanelas(v.p);
+  await v.p.evaluate(() => go('cars')); await v.p.waitForTimeout(400); await fecharJanelas(v.p);
   conferir(await v.p.locator('[data-act="car.import"]').count() === 0, 'visitante: sem "Trazer ficha pronta"');
   await v.p.click('[data-act="car.new"]'); await v.p.waitForSelector('dialog[open]');
   conferir((await v.p.locator('dialog[open]').innerText()).includes('No modo visitante não dá para guardar placa e chassi.'), 'visitante: explica que placa e chassi não ficam');
