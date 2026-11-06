@@ -13,8 +13,8 @@
       "titulo": { "pt": "MoneyTRIO", "en": "MoneyTRIO" },
       "texto": { "pt": "Finanças pessoais: orçamento, investimentos e imposto de renda", "en": "Personal finance: budget, investments and income tax" },
       "provocacao": { "pt": "Você sabe para onde foi o seu dinheiro este mês?", "en": "Do you know where your money went this month?" },
-      "imagem": "https://marceloneco.github.io/investify-me/icone-512.png",
-      "link": "https://marceloneco.github.io/investify-me/",
+      "imagem": "https://moneytrio.solverone.com.br/icone-512.png",
+      "link": "https://moneytrio.solverone.com.br/",
       "onde": ["faixa", "popup"],
       "ativo": true
     },

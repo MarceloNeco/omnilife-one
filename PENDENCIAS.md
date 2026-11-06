@@ -93,6 +93,7 @@ experiência digital) vem **antes** de qualquer recurso novo.
 - **2.21.2 (03/Nov/2026):** reforços do PIN único depois de revisão de segurança: trocar o PIN, ligar a digital e código novo pedem o PIN de agora (ou a digital); sair e "Trancar agora" trancam também as chaves de IA; a tela antiga do cofre de chaves sai para quem tem o PIN único (com botão para desligar a digital antiga); "Esqueci o PIN" não perde nada se desistir; endereço do Personalizado pede o PIN. Novo #59 (o que falta nos mestres).
 - **2.22.0 (06/Nov/2026):** 🚗 Veículos saiu da Casa e virou aba própria (pedido do dono); 🔧 Vida do carro com foto da nota ou do orçamento (lida no aparelho; para a IA só o texto, sem dados pessoais), aviso de serviço repetido com a garantia de 90 dias, saúde do carro, gastos por ano e revisão por data ou km. Fecha #53; #55 em parte; novos #60 e #61.
 - **2.22.1 (06/Nov/2026):** cofre comum 1.6.1 e módulo 1.13.1 copiados do rootify-one: as 4 correções do PIN único (#59) — "Mostrar a chave guardada" e "Ligar a digital" pedem o PIN de novo, chaves abertas por PIN antigo só passam com o PIN atual, e "Juntar" → apagar não pede PIN novo. Fecha o #59.
+- **2.22.2 (06/Nov/2026):** anúncio do MoneyTRIO (card do app e `anuncios-MODELO`) com o endereço novo `https://moneytrio.solverone.com.br/` e o ícone de lá. Atenção: subdomínio é outra origem — a ponte antiga por `localStorage` (gastos e preços) não atravessa; ver o aviso na entrega.
 
 ## Proposta de nomes do Início e das Configurações (#20, 05/Out/2026)
 
