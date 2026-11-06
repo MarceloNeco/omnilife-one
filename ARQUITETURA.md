@@ -347,6 +347,12 @@ sem framework: HTML, CSS e JavaScript puros.
   MoneyTRIO uma vez (`mtEnviado`) e só se o registro foi gravado. Cancelar a leitura (✕) para antes da IA. **Revisão por km** (#53): `cadaKm`/`ultKm` na manutenção do carro (`Maint.edit`/`done`); `Vida.revisao(c)`.
   `Vida.saude(c)`: revisão, seguro, km, o que foi feito em 90 dias e gastos de 12 meses (resumo, não diagnóstico). Teste:
   `teste/vida-carro-omni.js`.
+- `SaudeMT` (2.23.0) — **Saúde → MoneyTRIO**, híbrida e opcional (`DB.setting().mt.saude`, ⚙ → Integrações; só responsável, nuvem e
+  Senhas da casa prontas — `SaudeMT.pode()`). `resumo()` = `{v:1, enviado_em, pessoas:[{perfil_id, apelido, operadora, validade, medico, especie?}]}`
+  de quem tem plano, validade ou médico (pet com `especie: "pet"`); cifrado com a CF (`Cofre.vf`, formato `{c:1, kv, fk, iv, ct}`)
+  e enviado por `Conta.rpc("sol_ponte_enviar", {p_de:'omnilife-one', p_para:'moneytrio', p_tipo:'saude-resumo', p_dados:{v:1, cif}, p_grupo})`.
+  Dispara ao ligar e em `Health.edit` quando muda operadora, validade ou médico (`SaudeMT.chave`); Senhas da casa fechadas →
+  pendente em `LS.saudeMT` (por família) e envio em `Cofre.usarChave`. Teste: `teste/saude-moneytrio-omni.js`.
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento. Na tela (2.15.3), `LOG_COL` dá o
   nome da parte do app ("Lista de compras", "Pessoas") e `logLegivel()` mostra os valores em vez do JSON; o CSV continua completo.
 - `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Desde a 2.15.0 o código de emergência abre o cofre da nuvem (envelope `_em` com a chave do cofre; ver `Cofre`); quando o acesso é liberado, o `poll` refaz a cópia para o contato receber o cofre cifrado.
