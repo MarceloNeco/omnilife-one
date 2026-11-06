@@ -1,13 +1,24 @@
 [
  {
-  "v": "2.22.1",
+  "v": "2.22.2",
   "d": "2026-11-06",
-  "hora": "16:07:00",
+  "hora": "16:25:00",
   "pt": [
    "💰 O anúncio do MoneyTRIO agora leva ao endereço novo dele (moneytrio.solverone.com.br), com o ícone novo."
   ],
   "en": [
    "💰 The MoneyTRIO ad now leads to its new address (moneytrio.solverone.com.br), with the new icon."
+  ]
+ },
+ {
+  "v": "2.22.1",
+  "d": "2026-11-06",
+  "hora": "12:40:00",
+  "pt": [
+   "🔐 PIN único mais seguro (cofre comum 1.6.1): \"Mostrar a chave guardada\" e \"Ligar a digital\" sempre pedem o seu PIN de novo, mesmo com as Senhas da casa abertas. Chaves de IA abertas com um PIN antigo só passam a ser suas com o PIN atual delas; e, no \"Juntar tudo num PIN só\", apagar as chaves antigas não pede outro PIN: as novas usam o seu PIN de sempre."
+  ],
+  "en": [
+   "🔐 Safer single PIN (shared vault 1.6.1): \"Show the saved key\" and \"Turn on the fingerprint\" always ask for your PIN again, even with the home passwords open. AI keys opened with an old PIN only become yours with their current PIN; and in \"Merge everything into one PIN\", deleting the old keys doesn't ask for another PIN: the new ones use your usual PIN."
   ]
  },
  {
