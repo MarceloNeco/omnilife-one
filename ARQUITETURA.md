@@ -66,7 +66,10 @@ sem framework: HTML, CSS e JavaScript puros.
   Receber: `pull` a cada consulta, só o que mudou desde o cursor (`kv cursor|<grupo>`, folga de 2 min). **Conflito**: `merge3(base,
   deste aparelho, do outro)` junta campo a campo, listas somam; só o MESMO campo mudado diferente nos dois vira pergunta
   (`Sync.perguntar`, uma janela por vez; "Depois" pergunta de novo em 2 min). Registro novo recusado pelo banco fica no aparelho
-  marcado `recusado` (aparece em `Sync.view`, "Tentar de novo"). **Só no aparelho** (`NUVEM_LOCAL`): `health`, `docs`, `files`
+  marcado `recusado` (aparece em `Sync.view`, "Tentar de novo"). Dois `DB.patch` na fila viram um, e o campo novo apaga os de
+  dentro dele que já estavam lá (`enfileirar`: "pet.foto" depois de "pet.foto.pendente"). `aceitar` de uma linha com `apagado_em`
+  (o `omni_mudar_campos` muda até linha apagada) tira o registro daqui, como o `receber`, em vez de trazê-lo de volta como
+  fantasma. **Só no aparelho** (`NUVEM_LOCAL`): `health`, `docs`, `files`
   (ficam na store `nuvem`, nunca na fila); `NUVEM_SO_AQUI.people = ["pinHash"]` não sobe. `comsg` vai para
   `omni_combinados` (só inclusão). Arquivos continuam na store `files`.
   **Cofre (v2.15.0)**: `putCofre` cifra com `Cofre.selar` e a linha vai com `dados = null` e `dados_cifrado` (o banco exige isso
@@ -303,7 +306,7 @@ sem framework: HTML, CSS e JavaScript puros.
 - Manutenção → MoneyTRIO (2.20.1) — `Maint.done` manda pela `Bridge` (`ecossistema.ponte.v1`). Carro: grupo `VEICULO` e a subcategoria
   escolhida na hora entre `MT_SUB_CARRO()` ("Revisao Periodica" ou "Mecânico / Eletrico / Funilaria", texto exato do MoneyTRIO),
   sugerida por `mtSubCarro(título)`; nunca "Manutenção" (não existe lá). Casa, eletros, jardim e pet seguem `HABITACAO` /
-  "Manutenção". `Bridge.antigosCarro()` lista, só para conferir em ⚙ → Integrações, o que já tinha ido com "Manutenção".
+  "Manutenção" (o cuidado ligado a um pet da aba 🐾 Pets, `maint.pet`, não oferece o envio: gastos do pet esperam o formato do MoneyTRIO, #62). `Bridge.antigosCarro()` lista, só para conferir em ⚙ → Integrações, o que já tinha ido com "Manutenção".
 - `Cars` (2.20.0) — a ficha do carro. **Desde a 2.22.0 é a aba própria 🚗 Veículos** (`SCREENS.cars`, rotas `cars`, `cars/lista`,
   `cars/ficha/<id>` e `cars/vida[/<id>]`; ids `veiculos` e `veiculos.vida` em `Rec` e no `recursos-do-app.json`; o id antigo
   `casa.veiculos` continua valendo em `Rec.rota`). O endereço antigo `#/house/cars[/id]` é trocado pelo novo em `parseRoute`. O carro é um **Lugar** do tipo `veiculo` (coleção `places`: não mudou o banco; continua servindo para
@@ -347,6 +350,48 @@ sem framework: HTML, CSS e JavaScript puros.
   MoneyTRIO uma vez (`mtEnviado`) e só se o registro foi gravado. Cancelar a leitura (✕) para antes da IA. **Revisão por km** (#53): `cadaKm`/`ultKm` na manutenção do carro (`Maint.edit`/`done`); `Vida.revisao(c)`.
   `Vida.saude(c)`: revisão, seguro, km, o que foi feito em 90 dias e gastos de 12 meses (resumo, não diagnóstico). Teste:
   `teste/vida-carro-omni.js`.
+- `Pets` (2.24.0) — **🐾 Pets, aba própria** (`SCREENS.pets`, rotas `pets` e `pets/ficha/<id>`; id `pets` em `Rec` e no
+  `recursos-do-app.json`; ☰ › Cuidar da família; `canTab` como Casa e Veículos: criança vê e não muda). O pet continua sendo
+  `people` com `role: "pet"` (Família, aniversários, Saúde e `SaudeMT` com `especie: "pet"` não mudaram) e ganha `p.pet`:
+  `especie` (`PET_ESP`; pet antigo sem `especie` usa o ícone), `raca` (datalist `PET_RACAS()` por espécie, troca no `after` do
+  formulário; texto livre vale), `cor` (pelagem; `p.color` é a cor do avatar), `sexo`, `castrado`, `chegada` (nascimento segue em
+  `p.birth`), `microchip`, `pedigree`/`registro`, `descricao`, `foto`/`fotos` (ver `PetFoto`), `racao`, `pesos [{id, d, kg}]` (até
+  100; kg com até 3 casas, `Pets.dec` lê "3,450" e "15 kg"), `historico [{id, d, tipo, titulo, nota}]` (`PET_HIST`, até 200) e `contatos {vet, hotel, banho}` (ids de `contacts`; o
+  mesmo contato pode ser os três; "＋ Novo contato" abre o contato com `cat: "pet"` e volta à escolha). Cadastro próprio
+  (`Pets.edit`, sem PIN/controle parental; `personFields` não oferece mais "Pet" com a aba ligada; `person.edit` de um pet abre a
+  ficha). **Cuidados** = `maint` com `cat: "pet"`, `pet`, `petTipo` (`vacina` 365 d, `vermifugo` 90, `antipulgas` 30, `banho` 45,
+  `outro` — `PET_CUIDADOS`, criados pelo `Maint.edit` já preenchido): passam pelo sino (que leva à ficha), avisos, agenda, busca e
+  Casa → Manutenção; na ficha, ✓ Feito (`Maint.done`; vacina guarda `produto` e `vet` na linha do histórico; também em cada linha
+  de "Próximos cuidados", onde o sino leva), 📅 Remarcar (`next` + `nextManual`) e 🚫 Não se aplica (apaga). Apagar um cuidado (🚫
+  ou 🗑 no `Maint.edit`) passa os ✓ Feito para `pet.historico` antes (`Pets.guardarHistorico`). A vacina aparece sempre no ＋ (a
+  segunda vem sem nome, "Outra vacina"). `ligarAntigos` liga cuidado antigo pelo nome do pet como palavra inteira (≥ 3 letras). **Ração**: `racao {marca, fase, sacoKg, gRefeicao, refeicoesDia,
+  compradoEm, sacos, validade}`; `Pets.racaoCalc` (diário, dias por saco, `acabaEm`, `vence`, `maxSacos` ≥ 1); um aviso
+  `maint` "Comprar ração — nome" (`petTipo: "racao"`, `next` = acaba − 7 dias, `Pets.racaoLembrete`, id fixo `racao-<pid>` para
+  dois celulares não criarem dois; o guia novo também tem id fixo, `guia-<pid>`); o ✓ dele abre
+  `Pets.racaoForm(pid, true)` (compra nova, entra no histórico do aviso); calculadora da promoção (`calcPromo`, mesma conta
+  comprando hoje); 🛒 `Shop.add`. Peso: gráfico SVG próprio (`Pets.grafico`) com a faixa de `PET_PESO` (poucas raças, "confirme
+  com a veterinária"). Histórico da ficha = `pet.historico` + os ✓ Feito dos cuidados (`Pets.linha`). Listas do pet (`historico`,
+  `pesos`, `fotos`) mudam por `Pets.lista` (registro inteiro de agora, `DB.put`: na nuvem o envio com versão junta os itens pelo
+  id; o `DB.patch` da lista trocava a lista toda). `Health.edit` de pet esconde
+  tipo sanguíneo, RH e SUS e chama `doctor` de "Veterinário(a) de referência" e o plano de "Plano de saúde pet". **Guia para quem
+  cuida** (`Pets.guia`): `guides` `kind: "pet"`, `pet`, `for`, `contacts`, seções de `guiaSecoes` (ração, remédios e alergias da
+  Saúde, manias, veterinário e hotel com telefone); `petAuto` guarda o que veio da ficha: texto diferente escrito pela pessoa só é
+  trocado depois de perguntar; depois abre o `Guides.edit` para conferir. Apagar o pet leva fotos, cuidados e carteira vital.
+  Gastos do pet → MoneyTRIO: ainda não (#62). Ajuda `HELP().pets`, AssistONE `HERE().pets`. Teste: `teste/pets-omni.js`.
+- `PetFoto` (2.24.0) — fotos dos pets (decisão do dono: na nuvem da família, leves). `redesenhar` (canvas, maior lado 640 px no perfil e
+  1080 px na galeria, WebP 0,78; JPEG 0,8 se o navegador não faz WebP; nunca corta; tira EXIF/GPS) — falhou = foto recusada, o
+  original nunca é guardado. `Files.save(…, { raw: true })` no aparelho e, com `S.mode === "cloud"`, `POST
+  /storage/v1/object/sol-arquivos/omnilife-one/<família>/pet-<fileId>.<webp|jpg>` (apikey + sessão de `Conta.token`, `x-upsert`).
+  No pet só `{ id, path, w, h }` (galeria até 12, contadas na hora de guardar; um lote de cada vez por pet). Os `files` não sobem
+  (`NUVEM_LOCAL`): outro celular baixa por `GET …/authenticated/…` (`PetFoto.baixar`, uma vez; erro espera 1 min; pendente não
+  baixa), grava no IndexedDB com `nuvem: <path>` e mostra (`preencher`, atributos `data-pfoto`/`data-ppet`). **O registro do pet é
+  editável por qualquer adulto**, então: só sobe, aparece e é apagado o arquivo local com `petFoto: <pid>` (`PetFoto.meu`; posto
+  por `guardar`/`baixar`, sem cifra, `vis: "familia"`, WebP/JPEG), e só vale o caminho `omnilife-one/<S.family.id>/pet-<id>.<ext>`
+  (`pathOk`/`caminhoOk`) em GET, POST, DELETE e na lista de apagar depois. Envio que falhou: `pendente: true`, e `reenviar()` (ao
+  abrir 🐾 Pets, no máximo a cada 20 s) sobe de novo, sempre com o caminho montado aqui; a foto do pet que já subiu não conta em
+  "Apagar o que está só neste aparelho" (`PetFoto.naNuvem`); apagar (só responsável, pelas regras do bucket) tira daqui e faz `DELETE`; sem internet, o
+  caminho fica em `LS.petFotoApagar` e é apagado no próximo `reenviar`. Adicionar roda no `DGO.fundo` (tipo `foto`). "Só neste
+  aparelho": sem envio. Sem cifra (foto de bicho).
 - `SaudeMT` (2.23.0) — **Saúde → MoneyTRIO**, híbrida e opcional (`DB.setting().mt.saude`, ⚙ → Integrações; só responsável, nuvem e
   Senhas da casa prontas — `SaudeMT.pode()`). `resumo()` = `{v:1, enviado_em, pessoas:[{perfil_id, apelido, operadora, validade, medico, especie?}]}`
   de quem tem plano, validade ou médico (pet com `especie: "pet"`); cifrado com a CF (`Cofre.vf`, formato `{c:1, kv, fk, iv, ct}`)

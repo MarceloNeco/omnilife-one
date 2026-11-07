@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.24.0",
+  "d": "2026-11-07",
+  "hora": "11:00:00",
+  "pt": [
+   "🐾 Pets ganhou aba própria (☰ → Cuidar da família): a ficha de cada bicho (espécie, raça, castração, microchip), foto de perfil e galeria de até 12 fotos leves, que vão para a nuvem da família para os outros celulares verem.",
+   "💉 Vacinas (inclusive a segunda do ano, como a antirrábica), vermífugo, antipulgas e banho com aviso antes de vencer, ✓ Feito com a marca da vacina e quem aplicou, 📅 Remarcar e 🚫 Não se aplica, sem perder o histórico.",
+   "🥣 Ração: o app calcula quantos dias o saco dura, avisa uma semana antes de acabar e alerta quando o saco vai vencer antes de acabar (compre no máximo X sacos); calculadora para a promoção e 🛒 para a lista de compras.",
+   "⚖️ Peso com gráfico e a faixa comum da raça, 📋 histórico (consultas, exames, sustos), veterinário, hotelzinho e banho e tosa com 📞 e 💬, e 📘 guia pronto para quem vai cuidar do pet."
+  ],
+  "en": [
+   "🐾 Pets now has its own tab (☰ → Family care): each pet's record (species, breed, neutering, microchip), profile photo and a gallery of up to 12 light photos, which go to the family cloud so the other phones see them.",
+   "💉 Vaccines (including a second yearly one, like rabies), dewormer, flea treatment and bath with reminders before they're due, ✓ Done with the vaccine brand and who gave it, 📅 Reschedule and 🚫 Doesn't apply, without losing the history.",
+   "🥣 Food: the app works out how many days a bag lasts, reminds you a week before it runs out and warns when a bag will expire before it's finished (buy at most X bags); a calculator for deals and 🛒 to the shopping list.",
+   "⚖️ Weight with a chart and the breed's usual range, 📋 history (check-ups, tests, scares), vet, pet hotel and grooming with 📞 and 💬, and a ready 📘 guide for whoever looks after your pet."
+  ]
+ },
+ {
   "v": "2.23.0",
   "d": "2026-11-06",
   "hora": "16:37:00",
