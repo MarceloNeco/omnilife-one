@@ -566,6 +566,8 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   });
   await q.waitForTimeout(500);
   conferir(await q.evaluate(() => /Cachorro/.test(document.querySelector('#screen').textContent) && /Labrador, 32 kg/.test(document.querySelector('#screen').textContent)), 'pet cadastrado antes da aba (Thor): espécie pelo ícone 🐶 e as observações antigas aparecem');
+  /* o exemplo do modo visitante não usa o nome de um pet de verdade: o lembrete é "Reservar hotelzinho" */
+  conferir(await q.evaluate(() => DB.raw('reminders').some((r) => r.title === 'Reservar hotelzinho' && r.ctx === 'pet') && !COLS.some((c) => /picol/i.test(JSON.stringify(DB.raw(c) || [])))), 'exemplo do visitante: "Reservar hotelzinho", sem o nome de um pet de verdade');
   /* cuidado de pet de antes da aba (Casa → Manutenção, sem o pet): fica ligado ao Thor ao abrir 🐾 Pets */
   await q.waitForFunction(() => DB.raw('maint').some((x) => /Vermífugo do Thor/.test(x.title) && x.pet), null, { timeout: 5000 }).catch(() => {});
   await q.waitForTimeout(300);

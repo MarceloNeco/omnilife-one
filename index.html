@@ -9966,7 +9966,7 @@ ACT["duas.msg"] = async () => { const t = await askText(tt("Registrar combinado"
 /* =====================================================================
    LEMBRETES RÁPIDOS — atalho ⚡ com favoritos, frequentes e repetição
    Ex.: "Comprar tablete lava-louças" (Mercado/Limpeza) na próxima ida ao mercado;
-        "Reservar Hotel do Picolé" (Pet/Geral) antes de 10/Out.
+        "Reservar hotelzinho" (Pet/Geral) antes de 10/Out.
    ===================================================================== */
 const REM_CTX = () => [["mercado", "🛒", tt("Mercado", "Grocery store")], ["farmacia", "💊", tt("Farmácia", "Pharmacy")], ["pet", "🐾", "Pet"], ["casa", "🏠", tt("Casa", "Home")], ["escola", "🎒", tt("Escola", "School")], ["saude", "🩺", tt("Saúde", "Health")], ["trabalho", "💼", tt("Trabalho", "Work")], ["geral", "📌", tt("Geral", "General")]];
 const remCtx = (k) => { const c = REM_CTX().find((x) => x[0] === k) || REM_CTX()[7]; return { k: c[0], ic: c[1], t: c[2] }; };
@@ -13260,7 +13260,7 @@ const Demo = {
     MS({ from: "pAna", to: ["pSofia", "pLeo"], title: tt("Hora de guardar os brinquedos", "Time to put toys away"), body: tt("Antes do jantar, combinado?", "Before dinner, deal?"), prio: "importante", createdAt: TS(-1, 17), readBy: { pSofia: { k: D(0), at: TS(0, 7) } } });
     const RM = (o) => add("reminders", Object.assign({ done: false, repeat: "none", sub: "", n: 3, date: "" }, o));
     RM({ title: tt("Comprar tablete lava-louças", "Buy dishwasher tablets"), ctx: "mercado", sub: tt("Limpeza", "Cleaning"), when: "proxima", due: "", fav: true });
-    RM({ title: tt("Reservar Hotel do Picolé", "Book the pet hotel"), ctx: "pet", sub: tt("Geral", "General"), when: "antes", date: D(10), due: D(10), fav: true });
+    RM({ title: tt("Reservar hotelzinho", "Book the pet hotel"), ctx: "pet", sub: tt("Geral", "General"), when: "antes", date: D(10), due: D(10), fav: true });
     RM({ title: tt("Renovar a receita da Vó Cida", "Renew Grandma's prescription"), ctx: "farmacia", when: "hoje", due: td, repeat: "monthly" });
     RM({ title: tt("Comprar tablete lava-louças", "Buy dishwasher tablets"), ctx: "mercado", sub: tt("Limpeza", "Cleaning"), when: "proxima", due: "", done: true, doneBy: "pBruno", doneAt: TS(-20) });
     const hm = (m) => { const d = new Date(Date.now() + m * 60000); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
