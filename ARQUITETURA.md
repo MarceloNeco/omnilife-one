@@ -378,6 +378,24 @@ sem framework: HTML, CSS e JavaScript puros.
   Saúde, manias, veterinário e hotel com telefone); `petAuto` guarda o que veio da ficha: texto diferente escrito pela pessoa só é
   trocado depois de perguntar; depois abre o `Guides.edit` para conferir. Apagar o pet leva fotos, cuidados e carteira vital.
   Gastos do pet → MoneyTRIO: ainda não (#62). Ajuda `HELP().pets`, AssistONE `HERE().pets`. Teste: `teste/pets-omni.js`.
+- `Pets` por tipo de bicho (2.25.0, #64) — **qualquer animal**. `PET_ESP` tem 10 tipos (`papagaio` 🦜 e `quelonio` 🐢 entraram
+  antes de `outro`, que fica por último por ser a reserva de `Pets.esp()` e de `PET_HIST`); nenhuma chave antiga foi renomeada e o
+  banco não mudou. `PET_PERFIL()` é a tabela única por tipo (o que falta usa o valor do cachorro): `cuidados` do ＋ (chaves de
+  `PET_CUIDADOS`, que ganhou consulta, gaiola, potes, poleiros, unhas, escovar, agua, testeagua, filtro, pote, uvb, substrato,
+  terrario, hidratacao e refeicao — nenhuma diária), `rotulos`, `esconde` (campos do formulário com `display:none`; o `readForm`
+  continua lendo, nada salvo se perde), rótulos de raça/cor/chip/registro/descrição, `peso` (`"kg"`, `"g"` ou `null` no aquário),
+  `comida` (`"saco"` ou `"simples"`: só marca e validade, sem conta e sem aviso "Comprar ração"), `refeicoes` (false = gramas por
+  dia), `saco` ("pacote"), `faseAuto`, `histFora`, `secao`/`alerta` do guia, `papeis` (rótulos dos contatos; exóticos com 🧳 e 🛒)
+  e `busca`. Use sempre `Pets.perfil(p)` e `Pets.cuidadosDe(p)`. `Pets.esp()` refina pela raça só pelo nome do bicho
+  (reptil + jabuti/tartaruga/tigre-d'água/cágado → `quelonio`; ave cujo nome começa por papagaio/arara/maritaca → `papagaio`), e o
+  formulário abre com esse tipo (o próximo Salvar grava). Pet novo começa sem espécie: o `onOk` pede "Que bicho é?" (o `req` do
+  `formModal` não acha chave com ponto). `Pets.kg(v, un)` lê "35", "1,2 kg", "500 g" e "1.200" (milhar em gramas); peso em g grava
+  com décimo de grama e recusa menos de 1 g; no pacote, número sem unidade de 50 para cima é grama (o teclado de número do celular
+  não tem letras); `Pets.sacoTxt` mostra o pacote abaixo de 1 kg em gramas. `PET_PESO` tem o tipo na 4ª posição. O guia
+  (`guiaSecoes`/`guia`) troca o texto do tipo quando o tipo muda, sem duplicar seção e sem apagar o que a pessoa escreveu.
+  Textos de lei: sempre "confirme com o órgão ambiental do seu estado"; nunca dose nem nome de remédio (lista "não dizer" do plano
+  do #64). `EMOJIS` da Família ganhou 🐹 🦎 🐢 (o ícone se perdia ao editar). Um celular ainda na 2.24.0 que salve no ✏️ um pet
+  de tipo novo grava cachorro (código antigo); o `sw.js` faz `skipWaiting`, então basta abrir o app de novo.
 - `PetFoto` (2.24.0) — fotos dos pets (decisão do dono: na nuvem da família, leves). `redesenhar` (canvas, maior lado 640 px no perfil e
   1080 px na galeria, WebP 0,78; JPEG 0,8 se o navegador não faz WebP; nunca corta; tira EXIF/GPS) — falhou = foto recusada, o
   original nunca é guardado. `Files.save(…, { raw: true })` no aparelho e, com `S.mode === "cloud"`, `POST
