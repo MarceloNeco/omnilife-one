@@ -1,5 +1,22 @@
 [
  {
+  "v": "2.25.0",
+  "d": "2026-11-07",
+  "hora": "15:39:00",
+  "pt": [
+   "🐾 Pets para qualquer bicho: o cadastro pergunta \"Que bicho é?\" e tem 10 tipos — cachorro, gato, ave, 🦜 papagaio ou arara, peixe (um cadastro por aquário), roedor, coelho, 🐢 jabuti ou tartaruga, lagarto ou cobra e outro.",
+   "🗓 Cada bicho tem os cuidados dele no ＋: gaiola e poleiros da ave, lâmpada UVB e banho morno do jabuti, troca de água e filtro do aquário, unhas do coelho… Quem não usa não ganha antipulgas nem banho e tosa. Os prazos são sugestão: vale o que a veterinária disser.",
+   "🍽️ Ficha, comida, peso e guia do jeito de cada um: plumagem e anilha na ave, peso em gramas nos pequenos, comida simples para peixe e réptil, e o guia já traz os perigos de cada bicho e os documentos de origem (confirme com o órgão ambiental do seu estado).",
+   "🔧 Correção: o ícone 🐹 ou 🦎 de um pet não se perde mais ao editar pela tela Família."
+  ],
+  "en": [
+   "🐾 Pets for any animal: adding a pet asks \"What animal is it?\" and there are 10 types — dog, cat, bird, 🦜 parrot or macaw, fish (one record per aquarium), rodent, rabbit, 🐢 tortoise or turtle, lizard or snake, and other.",
+   "🗓 Each animal has its own care items under ＋: cage and perches for birds, UVB bulb and warm soak for tortoises, water change and filter for aquariums, nails for rabbits… Animals that don't need them no longer get flea treatment or grooming. Intervals are suggestions: your vet has the final say.",
+   "🍽️ Record, food, weight and guide fit each animal: plumage and leg ring for birds, weight in grams for small pets, simple food notes for fish and reptiles, and the guide already lists each animal's dangers and the proof-of-origin papers (check with your state's environmental agency).",
+   "🔧 Fix: a pet's 🐹 or 🦎 icon is no longer lost when editing it from the Family screen."
+  ]
+ },
+ {
   "v": "2.24.0",
   "d": "2026-11-07",
   "hora": "11:00:00",
