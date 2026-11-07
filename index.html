@@ -8353,9 +8353,10 @@ const PET_RACAS = () => {
   };
 };
 /* faixa de peso comum de umas poucas raças (guias de raça, não estudo veterinário) e de 4 roedores (MSD, em kg): só uma
-   faixa clarinha no gráfico, sempre com "confirme com a veterinária". Texto sem acento (norm). */
-const PET_PESO = [[/cavachon/, 6, 10], [/shih ?tzu/, 4, 7], [/yorkshire/, 2, 3.5], [/labrador/, 25, 36], [/golden/, 25, 34], [/buldogue frances|french bulldog/, 8, 13], [/\bpug\b/, 6, 8],
-  [/hamster sirio|syrian hamster/, 0.11, 0.14], [/gerbil|esquilo-da-mongolia/, 0.05, 0.09], [/chinchil/, 0.45, 0.68], [/porquinho|guinea pig|cobaia/, 0.815, 1.0]];
+   faixa clarinha no gráfico, sempre com "confirme com a veterinária". Texto sem acento (norm). A 4ª posição é o tipo: "Mini
+   porquinho" (outro) não pega a do porquinho-da-índia, nem "Hamster sírio golden" a do golden retriever */
+const PET_PESO = [[/cavachon/, 6, 10, "cachorro"], [/shih ?tzu/, 4, 7, "cachorro"], [/yorkshire/, 2, 3.5, "cachorro"], [/labrador/, 25, 36, "cachorro"], [/golden/, 25, 34, "cachorro"], [/buldogue frances|french bulldog/, 8, 13, "cachorro"], [/\bpug\b/, 6, 8, "cachorro"],
+  [/hamster sirio|syrian hamster/, 0.11, 0.14, "roedor"], [/gerbil|esquilo-da-mongolia/, 0.05, 0.09, "roedor"], [/chinchil/, 0.45, 0.68, "roedor"], [/porquinho|guinea pig|cobaia/, 0.815, 1.0, "roedor"]];
 const PET_HIST = () => [["consulta", "🩺", tt("Consulta", "Vet visit")], ["exame", "🧪", tt("Exame", "Test")], ["cirurgia", "🏥", tt("Cirurgia", "Surgery")], ["castracao", "✂️", tt("Castração", "Neutering")], ["episodio", "⚠️", tt("Algo que aconteceu (comeu algo, se machucou…)", "Something happened (ate something, got hurt…)")], ["vacina", "💉", tt("Vacina", "Vaccine")], ["pele", "🐍", tt("Troca de pele", "Shed")], ["outro", "📝", tt("Outro", "Other")]];
 /* os mesmos intervalos dos modelos de pet de MT_TEMPLATES (vacina 365, vermífugo 90, antipulgas 30) e o banho e tosa (45).
    As chaves gravadas (vacina, vermifugo, antipulgas, banho, outro, racao) e o "Vacina anual" (a regra da 2ª vacina do info()
@@ -8398,13 +8399,13 @@ const PET_PERFIL = () => {
     corpoReptil = T("Todo dia: água fresca, tirar fezes e restos, olhar os termômetros. Aquecedor com termostato. Lagarto adulto come a cada 1 a 3 dias, conforme a espécie; cobra adulta, uma presa morta ou descongelada a cada 1 a 2 semanas. Troca de pele: aumente a umidade, não arranque, confira se saíram as capas dos olhos.",
       "Every day: fresh water, remove droppings and leftovers, check the thermometers. Heater on a thermostat. Adult lizards eat every 1 to 3 days, depending on the species; adult snakes, one pre-killed or thawed prey every 1 to 2 weeks. Shedding: raise the humidity, don't pull the skin off, check that the eye caps came off."),
     alertaReptil = T("Réptil saudável também carrega salmonela: lave as mãos depois de mexer; criança com menos de 5 anos não mexe no bicho nem no terrário; não lave o terrário nem descongele comida na pia da cozinha. Nada de pedra aquecida. Nunca use vermífugo, antipulgas ou outro remédio de cachorro: alguns matam jabuti, tigre-d'água e cágado. Parou de comer fora do normal, perdeu peso ou ficou parado no frio: pese e leve à veterinária (jabuti-piranga não hiberna). Cobra: nunca presa viva; tampa sempre trancada. Nunca solte na natureza nem deixe reproduzir.",
-      "Healthy reptiles also carry salmonella: wash your hands after handling; children under 5 don't touch the animal or the enclosure; don't wash the enclosure or thaw food in the kitchen sink. No heat rocks. Never use dewormer, flea treatment or any other dog medicine: some kill tortoises, sliders and side-necked turtles. Stopped eating out of the ordinary, lost weight or stays still in the cold: weigh it and take it to the vet (red-footed tortoises don't hibernate). Snakes: never live prey; lid always locked. Never release it into the wild or let it breed."),
+      "Healthy reptiles also carry salmonella: wash your hands after handling; children under 5 don't touch the animal or the enclosure; don't wash the enclosure or thaw food in the kitchen sink. No heat rocks. Never use dewormer, flea treatment or any other dog medicine: some kill tortoises, sliders and side-necked turtles. Not eating as usual, losing weight or staying still in the cold: weigh it and take it to the vet (red-footed tortoises don't hibernate). Snakes: never live prey; lid always locked. Never release it into the wild or let it breed."),
     corpoRoedor = T("Todo dia: água fresca e bebedouro lavado; tirar a sujeira visível. Porquinho e chinchila: feno à vontade. Porquinho-da-índia: vitamina C todo dia (ração própria e verduras; suplemento, só com a veterinária). Chinchila: banho de pó, uns 10 min, numa vasilha à parte. Hamster mora sozinho; gerbil em par. Nada de cama de cedro ou pinho cru.",
       "Every day: fresh water and a washed water bottle; remove visible dirt. Guinea pigs and chinchillas: unlimited hay. Guinea pigs: vitamin C every day (their own pellets and vegetables; supplements only with the vet). Chinchillas: dust bath, about 10 min, in a separate container. Hamsters live alone; gerbils in pairs. No cedar or raw pine bedding."),
     corpoCoelho = T("Todo dia: feno à vontade, água fresca, tirar a sujeira. Solto pela casa só com alguém olhando. Coelho e porquinho-da-índia não dividem gaiola.",
       "Every day: unlimited hay, fresh water, remove the dirt. Loose in the house only with someone watching. Rabbits and guinea pigs don't share a cage."),
     alertaPequenos = T("Coelho ou porquinho sem comer ou sem fazer cocô: ligue para a veterinária no mesmo dia (mais de 8 horas já não é normal). Acima de 27 °C é perigoso para coelho e chinchila. Chinchila: banho só de pó. Porquinho: banho de água só quando sujo, com shampoo de pequenos animais, secando bem. Coelho e outros roedores: não dê banho; pergunte à veterinária. Nunca use antipulgas ou vermífugo de cão ou gato. Nunca pegue pela cauda; coelho, nunca pelas orelhas: apoie as patas de trás.",
-      "Rabbit or guinea pig not eating or not pooping: call the vet the same day (more than 8 hours is already not normal). Above 27 °C is dangerous for rabbits and chinchillas. Chinchillas: dust baths only. Guinea pigs: a water bath only when dirty, with small-animal shampoo, drying them well. Rabbits and other rodents: don't bathe them; ask your vet. Never use dog or cat flea treatment or dewormer. Never pick one up by the tail; rabbits, never by the ears: support the hind legs.");
+      "Rabbit or guinea pig not eating or not pooping: call the vet the same day (more than 8 hours is not normal). Above 27 °C is dangerous for rabbits and chinchillas. Chinchillas: dust baths only. Guinea pigs: a water bath only when dirty, with small-animal shampoo, drying them well. Rabbits and other rodents: don't bathe them; ask your vet. Never use dog or cat flea treatment or dewormer. Never pick one up by the tail; rabbits, never by the ears: support the hind legs.");
   const exo = { faseAuto: false, viagem: ["Quem cuida nas viagens e onde comprar", "Travel carer and where to shop"],
     papeis: { vet: T("Veterinário(a) de silvestres e exóticos", "Exotic-animal vet"), hotel: T("Quem cuida nas viagens", "Who looks after it when you travel"), banho: T("Loja (comida e acessórios)", "Shop (food and supplies)") } };
   const cao = { cuidados: ["vacina", "vermifugo", "antipulgas", "banho"], faseAuto: true, peso: "kg", comida: "saco", refeicoes: true,
@@ -8493,12 +8494,13 @@ const Pets = {
   dados(p) { return (p && p.pet) || {}; },
   nome(p) { return p ? p.nick || p.name || "" : ""; },
   /* pet cadastrado antes da aba: a espécie vem do ícone escolhido em Família. Jabuti e papagaio da 2.24.0 (reptil + Jabuti,
-     ave + Papagaio) viram o tipo deles pela raça: sem isso, abrir e salvar não trocava o tipo */
+     ave + Papagaio) viram o tipo deles pela raça: sem isso, abrir e salvar não trocava o tipo. Só o nome do bicho: "tigre"
+     sozinho é de cobra ("Caninana (cobra-tigre)"), e "Diamante-papagaio" e "Parrot finch" são diamantes (ficam ave) */
   esp(p) {
     const L = PET_ESP(), r = norm(this.dados(p).raca);
     let e = this.dados(p).especie || { "🐶": "cachorro", "🐱": "gato", "🐦": "ave", "🦜": "ave", "🐟": "peixe", "🐹": "roedor", "🐰": "coelho", "🦎": "reptil", "🐢": "quelonio" }[p && p.emoji];
-    if (e === "reptil" && /jabuti|tartaruga|tigre|cagado|tortoise|turtle|slider|terrapin/.test(r)) e = "quelonio";
-    if (e === "ave" && /papagaio|arara|maritaca|parrot|macaw|conure/.test(r)) e = "papagaio";
+    if (e === "reptil" && /jabuti|tartaruga|tigre.{0,4}agua|cagado|tortoise|turtle|slider|terrapin/.test(r)) e = "quelonio";
+    if (e === "ave" && /^(papagaio|arara|maritaca|parrot|macaw|conure)/.test(r) && !/finch/.test(r)) e = "papagaio";
     return L.find((x) => x[0] === e) || L[L.length - 1];
   },
   /* o que muda por tipo (PET_PERFIL); o que o tipo não diz = o de hoje (o do cachorro) */
@@ -8522,8 +8524,14 @@ const Pets = {
      O parseNum (o do dinheiro) só lê a vírgula com 1 ou 2 casas e devolvia 0. NaN = não deu para ler */
   dec(v) { const t = String(v == null ? "" : v).trim().replace(/\s+/g, "").replace(/(kg|g)$/i, ""); return t === "" ? NaN : Number(/,/.test(t) && !/\./.test(t) ? t.replace(",", ".") : t); },
   /* peso e tamanho do saco em kg: "35 g" é grama (o dec() sozinho lia 35 kg), "1,2 kg" é kg e sem unidade vale a do tipo
-     ("g" no periquito). As gramas por refeição continuam no dec(): ali "37,5 g" é grama mesmo */
-  kg(v, un) { const t = String(v == null ? "" : v).replace(/\s+/g, "").toLowerCase(), x = this.dec(t); return (/kg$/.test(t) ? "kg" : /g$/.test(t) ? "g" : un) === "g" ? x / 1000 : x; },
+     ("g" no periquito). As gramas por refeição continuam no dec(): ali "37,5 g" é grama mesmo. Em gramas, "1.200" é milhar
+     (1200 g, não 1,2 g); em kg, "1.200" continua 1,2 kg */
+  kg(v, un) {
+    let t = String(v == null ? "" : v).replace(/\s+/g, "").toLowerCase();
+    const u = /kg$/.test(t) ? "kg" : /g$/.test(t) ? "g" : un;
+    if (u === "g" && /^[1-9]\d{0,2}(\.\d{3})+g?$/.test(t)) t = t.replace(/\./g, "");
+    const x = this.dec(t); return u === "g" ? x / 1000 : x;
+  },
   diasTxt(n) { return tt(n + (n === 1 ? " dia" : " dias"), n + (n === 1 ? " day" : " days")); },
   /* ---------- cadastro (formulário próprio: o de pessoa traz PIN, controle parental e começa como criança) ---------- */
   /* as chaves não mudam por tipo (o edit() junta o pet que já existe por elas): o after() troca só textos e esconde campos */
@@ -8531,7 +8539,7 @@ const Pets = {
     const pf = PET_PERFIL();
     /* pet novo começa sem espécie ("— escolha —"): quem não mexia ficava com um cachorro (um periquito ganhava antipulgas) */
     return [{ k: "name", label: tt("Nome", "Name"), req: true, ph: tt("Ex.: Bolinha", "e.g. Buddy") }, { k: "nick", label: tt("Apelido (como aparece no app)", "Nickname (as shown in the app)") },
-      { k: "pet.especie", label: tt("Espécie", "Species"), type: "select", opts: [["", tt("— escolha —", "— choose —")]].concat(PET_ESP().map((e) => [e[0], e[1] + " " + e[2] + (pf[e[0]].ex ? " — " + pf[e[0]].ex : "")])), hint: tt("Peixe: cadastre o aquário (um registro para os peixes dele). Não achou? 🐾 Outro.", "Fish: add the aquarium (one record for all its fish). Can't find it? 🐾 Other.") },
+      { k: "pet.especie", label: tt("Tipo de bicho", "Type of animal"), type: "select", opts: [["", tt("— escolha —", "— choose —")]].concat(PET_ESP().map((e) => [e[0], e[1] + " " + e[2] + (pf[e[0]].ex ? " — " + pf[e[0]].ex : "")])), hint: tt("Peixe: cadastre o aquário (um registro para os peixes dele). Não achou? 🐾 Outro.", "Fish: add the aquarium (one record for all its fish). Can't find it? 🐾 Other.") },
       { k: "pet.raca", label: tt("Raça", "Breed"), type: "datalist", opts: [], ph: tt("Toque para escolher ou escreva", "Tap to pick or type"), hint: tt("Não sabe? Escolha “SRD (vira-lata)”. Não está na lista? Escreva a raça.", "Not sure? Pick “Mixed breed”. Not on the list? Type the breed.") },
       { k: "pet.cor", label: tt("Cor da pelagem", "Coat colour"), ph: tt("Ex.: branco com manchas caramelo", "e.g. white with tan patches") },
       { k: "pet.sexo", label: tt("Sexo", "Sex"), type: "select", opts: [["", "—"], ["macho", tt("Macho", "Male")], ["femea", tt("Fêmea", "Female")]] },
@@ -8553,7 +8561,7 @@ const Pets = {
     let r = await formModal({ title: "🐾 " + (novo ? tt("Novo pet", "New pet") : esc(this.nome(p))), fields: this.fields(), values: p, wide: true,
       onDelete: !novo && isGuardian() ? () => this.apagar(p.id) : null,
       /* o req do formModal não acha chave com ponto (pet.especie): a pergunta "que bicho é?" fica aqui, e o formulário não fecha */
-      onOk: (o, el) => { if (!(o.pet || {}).especie) { toast(tt("Que bicho é? Escolha a espécie na lista.", "What animal is it? Pick the species from the list.")); el.querySelector('[name="pet.especie"]').focus(); return false; } },
+      onOk: (o, el) => { if (!(o.pet || {}).especie) { toast(tt("Que bicho é? Escolha o tipo na lista.", "What animal is it? Pick the type from the list.")); el.querySelector('[name="pet.especie"]').focus(); return false; } },
       /* a lista de raças, os rótulos e os exemplos acompanham a espécie escolhida; o campo que não serve para ela some, mas
          continua no formulário (o readForm lê, então nada que já estava salvo se perde) */
       after: (el) => {
@@ -8575,6 +8583,8 @@ const Pets = {
             if (h) { h.textContent = v(2); h.style.display = v(2) ? "" : "none"; }
           });
           el.querySelectorAll('[name^="pet."]').forEach((i) => { const c = i.closest("label"); if (c) c.style.display = (pf.esconde || []).includes(i.name) ? "none" : ""; });
+          /* a anilha tem letras (órgão, UF): teclado de texto na ave; o microchip continua só com números */
+          const chip = el.querySelector('[name="pet.microchip"]'); if (chip) chip.inputMode = pf.chip ? "text" : "numeric";
         };
         ajustar(); sel.addEventListener("change", ajustar);
       } });
@@ -8684,8 +8694,11 @@ const Pets = {
   faseTxt(f) { return { filhote: tt("filhote", "young"), adulto: tt("adulto", "adult"), senior: tt("idoso", "senior") }[f] || ""; },
   /* "saco" ou o "pacote" do tipo ([pt, en]) e o rótulo do tamanho dele (o pacote também aceita gramas: "500 g") */
   saco(pf) { const w = pf.saco || ["saco", "bag"]; return [w, tt("Tamanho do " + w[0] + (pf.saco ? " (kg ou g)" : " (kg)"), w[1].charAt(0).toUpperCase() + w[1].slice(1) + " size" + (pf.saco ? " (kg or g)" : " (kg)"))]; },
+  /* o tamanho do saco: o pacote (ave, roedor, coelho) abaixo de 1 kg em gramas ("250 g", não "0,3 kg"); cão, gato e outro
+     como sempre */
+  sacoTxt(v, pf) { return pf.saco && +v < 1 ? num(Math.round(+v * 1000)) + " g" : (pf.saco ? num(+v, 3) : num(+v)) + " kg"; },
   /* o mesmo texto da calculadora da promoção, quando nem um saco acaba antes da validade (w: a palavra do tipo, [pt, en]) */
-  sacoGrandeTxt(r, c, w) { w = w || ["saco", "bag"]; return tt("Um " + w[0] + " de " + num(+r.sacoKg) + " kg dura ~", "A " + num(+r.sacoKg) + " kg " + w[1] + " lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + tt(" e vence antes de acabar: prefira um " + w[0] + " menor.", " and expires before it's finished: pick a smaller " + w[1] + "."); },
+  sacoGrandeTxt(r, c, w, pf) { w = w || ["saco", "bag"]; const t = this.sacoTxt(r.sacoKg, pf || {}); return tt("Um " + w[0] + " de " + t + " dura ~", "A " + t + " " + w[1] + " lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + tt(" e vence antes de acabar: prefira um " + w[0] + " menor.", " and expires before it's finished: pick a smaller " + w[1] + "."); },
   /* compraNova: veio do ✓ Feito do aviso "Comprar ração": a mesma ração, comprada hoje, com a validade nova em branco */
   async racaoForm(pid, compraNova) {
     const p = this.get(pid); if (!p) return;
@@ -8710,17 +8723,19 @@ const Pets = {
     /* saco ou gramas que não dá para ler ("15 kg" virava 0 e o aviso "Comprar ração" sumia sem dizer nada): o formulário
        fica aberto, com o que a pessoa escreveu. No modo simples esses campos não aparecem: nada a conferir */
     const ilegivel = (o) => simples ? null : [["sacoKg", pf.saco ? tt("Escreva o tamanho do pacote, ex.: 0,5 ou 500 g", "Type the pack size, e.g. 0.5 or 500 g") : tt("Escreva o tamanho do saco em kg, ex.: 10,1", "Type the bag size in kg, e.g. 10.1")], ["gRefeicao", pf.refeicoes ? tt("Escreva as gramas por refeição, ex.: 37,5", "Type the grams per meal, e.g. 37.5") : tt("Escreva as gramas por dia, ex.: 10", "Type the grams per day, e.g. 10")]].find(([k]) => String(o[k] == null ? "" : o[k]).trim() !== "" && !(this.dec(o[k]) > 0));
-    const r = await formModal({ title: "🥣 " + (compraNova ? tt("Comprou ração nova? ", "Bought new food? ") : tt("Ração de ", "Food for ")) + esc(this.nome(p)), fields: f, values: vals, okText: compraNova ? tt("Registrar a compra", "Log the purchase") : null,
+    const r = await formModal({ title: (simples ? "🍽️ " : "🥣 ") + (compraNova ? tt("Comprou ração nova? ", "Bought new food? ") : simples ? tt("Comida de ", "Food for ") : tt("Ração de ", "Food for ")) + esc(this.nome(p)), fields: f, values: vals, okText: compraNova ? tt("Registrar a compra", "Log the purchase") : null,
       onOk: (o) => { const x = ilegivel(o); if (x) { toast(x[1]); return false; } } });
     if (!r) return;
     const n = (v) => { const x = this.dec(v); return x >= 0 ? x : ""; };   /* aceita "10,1", "10.1", "0,375" e "15 kg" */
-    const nKg = (v) => { const x = this.kg(v, "kg"); return x >= 0 ? x : ""; };   /* e o saco também em gramas ("500 g" = 0,5 kg) */
+    /* e o saco também em gramas ("500 g" = 0,5 kg). No pacote (ave, roedor, coelho), número sem unidade de 50 para cima é
+       grama: o teclado de número do celular não tem letras, e "500" virava 500 kg. O saco de cão e gato continua em kg */
+    const nKg = (v) => { const x = this.kg(v, pf.saco && this.dec(v) >= 50 ? "g" : "kg"); return x >= 0 ? x : ""; };
     /* modo simples grava saco, gramas e refeições vazios: o aviso "Comprar ração" de antes sai (racaoLembrete sem conta) */
-    const rac = { marca: String(r.marca || "").slice(0, 120), fase: r.fase || "", sacoKg: simples ? "" : nKg(r.sacoKg), gRefeicao: simples ? "" : n(r.gRefeicao), refeicoesDia: simples || n(r.refeicoesDia) === "" ? "" : Math.round(n(r.refeicoesDia)), compradoEm: r.compradoEm || "", sacos: Math.max(1, Math.round(n(r.sacos) || 1)), validade: r.validade || "" };
+    const rac = { marca: String(r.marca || "").slice(0, 120), fase: r.fase || "", sacoKg: simples ? "" : String(r.sacoKg) === String(r0.sacoKg) ? r0.sacoKg : nKg(r.sacoKg), gRefeicao: simples ? "" : n(r.gRefeicao), refeicoesDia: simples || n(r.refeicoesDia) === "" ? "" : Math.round(n(r.refeicoesDia)), compradoEm: r.compradoEm || "", sacos: Math.max(1, Math.round(n(r.sacos) || 1)), validade: r.validade || "" };
     await DB.patch("people", pid, { "pet.racao": rac });
     await this.racaoLembrete(pid, rac, compraNova);
     const c = this.racaoCalc(rac);
-    if (c && c.vence && c.sacoGrande) toast("⚠️ " + this.sacoGrandeTxt(rac, c, w), 6000);
+    if (c && c.vence && c.sacoGrande) toast("⚠️ " + this.sacoGrandeTxt(rac, c, w, pf), 6000);
     else if (c && c.vence) toast("⚠️ " + tt("O último " + w[0] + " vence antes de acabar: compre no máximo " + c.maxSacos + " " + w[0] + (c.maxSacos > 1 ? "s." : "."), "The last " + w[1] + " expires before it's finished: buy at most " + c.maxSacos + " " + w[1] + (c.maxSacos > 1 ? "s." : ".")), 6000);
     else if (c && c.acabaEm) toast("🥣 " + tt("Dura ~", "Lasts ~") + this.diasTxt(c.dias) + tt(": aviso uma semana antes de acabar.", ": I'll remind you a week before it runs out."), 4000);
   },
@@ -8735,16 +8750,18 @@ const Pets = {
     for (const m of todos) if (m.id !== fixo || !c || !c.acabaEm) await DB.del("maint", m.id);
     if (!c || !c.acabaEm) return;
     const doc = Object.assign({}, ex || {}, { id: fixo, title: tt("Comprar ração — ", "Buy pet food — ") + this.nome(p), cat: "pet", pet: pid, petTipo: "racao", interval: "", last: rac.compradoEm, next: addDays(c.acabaEm, -7), nextManual: true });
-    if (compraNova && ex) doc.history = (ex.history || []).concat({ d: rac.compradoEm || today(), cost: 0, note: [rac.sacos + " × " + num(+rac.sacoKg) + " kg", rac.marca].filter(Boolean).join(" · "), by: S.meId }).slice(-30);
+    if (compraNova && ex) doc.history = (ex.history || []).concat({ d: rac.compradoEm || today(), cost: 0, note: [rac.sacos + " × " + this.sacoTxt(rac.sacoKg, this.perfil(p)), rac.marca].filter(Boolean).join(" · "), by: S.meId }).slice(-30);
     await DB.put("maint", doc);
   },
   async paraCompras(pid) {
     const p = this.get(pid), r = this.dados(p).racao || {}; if (!p || !r.marca) return;
-    await Shop.add({ name: (/^(ra[cç][aã]o|pet food)\b/i.test(r.marca) ? "" : tt("Ração ", "Pet food ")) + r.marca, cat: "pet", note: [r.sacoKg ? num(+r.sacoKg) + " kg" : "", this.nome(p)].filter(Boolean).join(" · ") });
+    /* modo simples (peixe, jabuti, lagarto, cobra): o que a pessoa escreveu ("Folhas verdes"), sem "Ração " na frente */
+    const pf = this.perfil(p);
+    await Shop.add({ name: (pf.comida === "simples" || /^(ra[cç][aã]o|pet food)\b/i.test(r.marca) ? "" : tt("Ração ", "Pet food ")) + r.marca, cat: "pet", note: [r.sacoKg ? this.sacoTxt(r.sacoKg, pf) : "", this.nome(p)].filter(Boolean).join(" · ") });
   },
   racaoCard(p) {
     const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), ed = this.podeEditar(), pf = this.perfil(p), simples = pf.comida === "simples", [w, sacoRot] = this.saco(pf);
-    let h = '<div class="card" id="pracao"><div class="between"><h3>🥣 ' + tt("Ração", "Food") + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="pet.racao" data-id="' + p.id + '" aria-label="' + tt("Anotar a ração", "Log the food") + '">' + (r.marca || c ? "✏️" : "＋") + "</button>" : "") + "</div>";
+    let h = '<div class="card" id="pracao"><div class="between"><h3>' + (simples ? "🍽️ " + tt("Comida", "Food") : "🥣 " + tt("Ração", "Food")) + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="pet.racao" data-id="' + p.id + '" aria-label="' + (simples ? tt("Anotar a comida", "Log the food") : tt("Anotar a ração", "Log the food")) + '">' + (r.marca || c ? "✏️" : "＋") + "</button>" : "") + "</div>";
     /* modo simples (peixe, jabuti, lagarto, cobra): o que come e a validade; sem conta de saco nem calculadora */
     if (simples) h += r.marca || r.validade ? '<div class="small">' + esc([r.marca, r.validade ? tt("validade ", "expiry ") + fmtDate(r.validade) : ""].filter(Boolean).join(" · ")) + "</div>"
       : '<p class="small muted">' + tt("Anote o que ele come e, se tiver, a validade: fica na ficha e no guia para quem cuida.", "Log what it eats and, if any, the expiry date: it goes on the record and in the carer's guide.") + "</p>";
@@ -8755,9 +8772,9 @@ const Pets = {
       h += (r.marca || r.fase ? '<div class="small">' + esc([r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · ")) + "</div>" : "") +
         '<div class="carfrv">' + tt("dura ~", "lasts ~") + this.diasTxt(c.dias) + "</div>" +
         /* gramas com a casa decimal que a pessoa escreveu (37,5 g × 2 = 75 g, não "38 g × 2") */
-        '<div class="small muted">' + tt(num(c.diario) + " g por dia" + gx + " · cada " + w[0] + " de " + num(+r.sacoKg) + " kg dura ~", num(c.diario) + " g a day" + gx + " · each " + num(+r.sacoKg) + " kg " + w[1] + " lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + " · " + tt(c.sacos + " " + w[0] + (c.sacos > 1 ? "s" : ""), c.sacos + " " + w[1] + (c.sacos > 1 ? "s" : "")) + "</div>" +
+        '<div class="small muted">' + tt(num(c.diario) + " g por dia" + gx + " · cada " + w[0] + " de " + this.sacoTxt(r.sacoKg, pf) + " dura ~", num(c.diario) + " g a day" + gx + " · each " + this.sacoTxt(r.sacoKg, pf) + " " + w[1] + " lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + " · " + tt(c.sacos + " " + w[0] + (c.sacos > 1 ? "s" : ""), c.sacos + " " + w[1] + (c.sacos > 1 ? "s" : "")) + "</div>" +
         (c.acabaEm ? '<div style="margin-top:4px">' + tt("Acaba em ", "Runs out on ") + "<b>" + fmtDate(c.acabaEm) + "</b> (" + relDay(c.acabaEm) + ")</div>" : "") +
-        (c.vence ? '<div class="note warn" style="margin-top:8px">⚠️ ' + (c.sacoGrande ? esc(this.sacoGrandeTxt(r, c, w)) + " (" + tt("validade ", "expiry ") + esc(fmtDate(r.validade)) + ")" : tt("O último " + w[0] + " vence antes de acabar (validade " + esc(fmtDate(r.validade)) + "): compre no máximo " + c.maxSacos + " " + w[0] + (c.maxSacos > 1 ? "s" : "") + " de cada vez.", "The last " + w[1] + " expires before it's finished (expiry " + esc(fmtDate(r.validade)) + "): buy at most " + c.maxSacos + " " + w[1] + (c.maxSacos > 1 ? "s" : "") + " at a time.")) + "</div>" : "");
+        (c.vence ? '<div class="note warn" style="margin-top:8px">⚠️ ' + (c.sacoGrande ? esc(this.sacoGrandeTxt(r, c, w, pf)) + " (" + tt("validade ", "expiry ") + esc(fmtDate(r.validade)) + ")" : tt("O último " + w[0] + " vence antes de acabar (validade " + esc(fmtDate(r.validade)) + "): compre no máximo " + c.maxSacos + " " + w[0] + (c.maxSacos > 1 ? "s" : "") + " de cada vez.", "The last " + w[1] + " expires before it's finished (expiry " + esc(fmtDate(r.validade)) + "): buy at most " + c.maxSacos + " " + w[1] + (c.maxSacos > 1 ? "s" : "") + " at a time.")) + "</div>" : "");
     }
     if (!simples) h += moreBox("🧮 " + tt("Vai comprar em promoção? Quantos " + w[0] + "s cabem antes da validade?", "Buying on sale? How many " + w[1] + "s fit before the expiry date?"),
       '<div class="fgrid" style="margin-top:6px"><label class="fld"><span>' + sacoRot + '</span><input type="text" inputmode="decimal" id="pck" value="' + esc(r.sacoKg || "") + '"></label><label class="fld"><span>' + tt("Validade", "Expiry date") + '</span><input type="date" id="pcv"></label></div><div id="pco" class="small" style="margin-top:6px" aria-live="polite"></div>');
@@ -8768,15 +8785,17 @@ const Pets = {
   /* calculadora da promoção: mesma conta, comprando hoje */
   calcPromo(root, pid) {
     const k = $("#pck", root), v = $("#pcv", root), out = $("#pco", root); if (!k || !v || !out) return;
-    const w = this.saco(this.perfil(this.get(pid)))[0];
+    const pf = this.perfil(this.get(pid)), w = this.saco(pf)[0];
     const conta = () => {
-      /* o tamanho também em gramas ("500 g" = 0,5 kg), como no formulário da ração */
-      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0), kg = this.kg(k.value, "kg");
+      /* o tamanho também em gramas ("500 g" = 0,5 kg), com a mesma regra do formulário da ração (pacote sem unidade de 50
+         para cima é grama; o tamanho salvo, sem mexer, vale como está) */
+      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0);
+      const kg = k.value === String(r.sacoKg == null ? "" : r.sacoKg) ? +r.sacoKg : this.kg(k.value, pf.saco && this.dec(k.value) >= 50 ? "g" : "kg");
       if (!(diario > 0)) { out.textContent = tt("Anote antes quanto o pet come (✏️ na Ração).", "First log how much your pet eats (✏️ in Food)."); return; }
       if (!(kg > 0) || !v.value) { out.textContent = tt("Escreva o tamanho do " + w[0] + " e a validade.", "Type the " + w[1] + " size and the expiry date."); return; }
       const ds = (kg * 1000) / diario, x = Math.floor(diffDays(today(), v.value) / ds);
-      out.textContent = x < 1 ? this.sacoGrandeTxt({ sacoKg: kg }, { diasSaco: ds }, w)
-        : tt("Cabem até " + x + " " + w[0] + (x > 1 ? "s" : "") + " de " + num(kg) + " kg antes de vencer (cada um dura ~", "Up to " + x + " " + w[1] + (x > 1 ? "s" : "") + " of " + num(kg) + " kg fit before the expiry date (each lasts ~") + this.diasTxt(Math.round(ds)) + ").";
+      out.textContent = x < 1 ? this.sacoGrandeTxt({ sacoKg: kg }, { diasSaco: ds }, w, pf)
+        : tt("Cabem até " + x + " " + w[0] + (x > 1 ? "s" : "") + " de " + this.sacoTxt(kg, pf) + " antes de vencer (cada um dura ~", "Up to " + x + " " + w[1] + (x > 1 ? "s" : "") + " of " + this.sacoTxt(kg, pf) + " fit before the expiry date (each lasts ~") + this.diasTxt(Math.round(ds)) + ").";
     };
     k.addEventListener("input", conta); v.addEventListener("input", conta); v.addEventListener("change", conta);
   },
@@ -8813,7 +8832,7 @@ const Pets = {
         : '<div class="empty tiny">' + tt("Consultas, exames, cirurgias e o que aconteceu (comeu algo, se machucou) ficam aqui, com data.", "Vet visits, tests, surgeries and what happened (ate something, got hurt) go here, with dates.") + "</div>") + "</div>";
   },
   pesos(p) { return (this.dados(p).pesos || []).filter((x) => x && x.d && +x.kg > 0).sort((a, b) => String(a.d).localeCompare(String(b.d))); },
-  faixa(p) { const r = norm(this.dados(p).raca), f = r && PET_PESO.find((x) => x[0].test(r)); return f ? [f[1], f[2]] : null; },
+  faixa(p) { const r = norm(this.dados(p).raca), e = this.esp(p)[0], f = r && PET_PESO.find((x) => x[3] === e && x[0].test(r)); return f ? [f[1], f[2]] : null; },
   /* cada peso tem id (editar e apagar acham o certo mesmo com a lista mudando em outro celular); o de antes, sem id, pela data e o peso */
   pesoChave(x) { return x.id || x.d + "|" + x.kg; },
   /* com as casas que a balança dá: hamster e passarinho pesam gramas (0,145 kg), cachorro 7,05 kg */
@@ -8823,16 +8842,18 @@ const Pets = {
   async pesoEdit(pid, w) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
     const x = w ? this.pesos(p).find((y) => this.pesoChave(y) === w) : null;
-    /* periquito, hamster, jabuti: em gramas ("35"; "1,2 kg" também vale), e o peso que já existe abre em gramas. Grava em kg */
+    /* periquito, hamster, jabuti: em gramas ("35"; "1,2 kg" também vale, mas o teclado de número do celular não tem letras:
+       a dica ensina "1200"), e o peso que já existe abre em gramas. Grava em kg, com o décimo de grama que o cartão mostra */
     const un = this.perfil(p).peso === "g" ? "g" : "kg";
     const r = await formModal({ title: "⚖️ " + tt("Peso de ", "Weight of ") + esc(this.nome(p)), values: x ? Object.assign({}, x, { kg: un === "g" ? String(Math.round(x.kg * 10000) / 10) : x.kg }) : { d: today() },
       /* texto com teclado de número (e não type="number"): no celular em português o "8,4" virava 84 kg ou sumia */
-      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, un === "g" ? { k: "kg", label: tt("Peso (g)", "Weight (g)"), im: "decimal", req: true, ph: "35", hint: tt("Em gramas, ex.: 35. Mais de 1 kg? Escreva “1,2 kg”.", "In grams, e.g. 35. Over 1 kg? Type “1.2 kg”.") } : { k: "kg", label: tt("Peso (kg)", "Weight (kg)"), im: "decimal", req: true, ph: "8,4" }],
-      /* confere antes de fechar: o que a pessoa escreveu não se perde */
-      onOk: (o) => { if (!(this.kg(o.kg, un) > 0)) { toast(un === "g" ? tt("Escreva o peso em gramas, ex.: 35 (ou “1,2 kg”).", "Type the weight in grams, e.g. 35 (or “1.2 kg”).") : tt("Escreva o peso em kg, ex.: 8,4 (ou 0,120 para 120 g).", "Type the weight in kg, e.g. 8.4 (or 0.120 for 120 g).")); return false; } },
+      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, un === "g" ? { k: "kg", label: tt("Peso (g)", "Weight (g)"), im: "decimal", req: true, ph: "35", hint: tt("Em gramas, ex.: 35. Mais de 1 kg? Escreva em gramas: 1200.", "In grams, e.g. 35. Over 1 kg? Type it in grams: 1200.") } : { k: "kg", label: tt("Peso (kg)", "Weight (kg)"), im: "decimal", req: true, ph: "8,4" }],
+      /* confere antes de fechar: o que a pessoa escreveu não se perde. Em gramas, menos de 1 g é peso em kg escrito do jeito
+         de antes ("0,145" = 145 g): gravava 0 e o peso sumia sem aviso */
+      onOk: (o) => { const v = this.kg(o.kg, un); if (!(v > 0) || (un === "g" && v < 0.001)) { toast(un === "g" ? tt("Escreva o peso em gramas, ex.: 35 (1,2 kg = 1200; 0,145 kg = 145).", "Type the weight in grams, e.g. 35 (1.2 kg = 1200; 0.145 kg = 145).") : tt("Escreva o peso em kg, ex.: 8,4 (ou 0,120 para 120 g).", "Type the weight in kg, e.g. 8.4 (or 0.120 for 120 g).")); return false; } },
       onDelete: x ? () => this.lista(pid, "pesos", (L) => L.filter((y) => y && this.pesoChave(y) !== w)) : null });
     if (!r) return;
-    const e = { id: (x && x.id) || uid("w"), d: r.d, kg: Math.round(this.kg(r.kg, un) * 1000) / 1000 };
+    const q = un === "g" ? 10000 : 1000, e = { id: (x && x.id) || uid("w"), d: r.d, kg: Math.round(this.kg(r.kg, un) * q) / q };
     await this.lista(pid, "pesos", (L) => L.filter((y) => y && (!x || this.pesoChave(y) !== w)).concat(e).sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(-100));
   },
   /* gráfico de linha em SVG, sem biblioteca; a faixa comum da raça (se houver) vai de fundo. p: a unidade do texto (g ou kg) */
@@ -8864,7 +8885,8 @@ const Pets = {
   },
   /* ---------- contatos do pet (o mesmo contato pode ser os três) ---------- */
   /* as chaves vet/hotel/banho ficam (a nuvem junta pet.contatos chave a chave); só o rótulo muda por tipo (ave: vet de aves) */
-  PAPEIS(p) { const n = this.perfil(p).papeis || {}; return [["vet", "🩺", n.vet || tt("Veterinário(a)", "Vet")], ["hotel", "🏨", n.hotel || tt("Hotelzinho / creche", "Pet hotel / daycare")], ["banho", "🛁", n.banho || tt("Banho e tosa", "Bath and grooming")]]; },
+  /* nos exóticos (papéis próprios) quem cuida nas viagens é 🧳 e a loja é 🛒; cão e gato continuam com 🏨 e 🛁 */
+  PAPEIS(p) { const n = this.perfil(p).papeis || {}; return [["vet", "🩺", n.vet || tt("Veterinário(a)", "Vet")], ["hotel", n.hotel ? "🧳" : "🏨", n.hotel || tt("Hotelzinho / creche", "Pet hotel / daycare")], ["banho", n.banho ? "🛒" : "🛁", n.banho || tt("Banho e tosa", "Bath and grooming")]]; },
   fones(c) {
     const f = ((c && c.phones) || []).find((x) => onlyDigits(x).length >= 4);
     return f ? '<div class="row nw"><a class="btn xs" href="' + telHref(f) + '" aria-label="' + tt("Ligar para ", "Call ") + esc(c.name) + '">📞</a><a class="btn xs ghost" target="_blank" rel="noopener" href="' + waHref(f) + '" aria-label="WhatsApp ' + esc(c.name) + '">💬</a></div>' : "";
@@ -8905,9 +8927,10 @@ const Pets = {
   guiaSecoes(p) {
     const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), h = DB.get("health", p.id) || {}, cs = d.contatos || {}, ct = (k) => (cs[k] ? DB.get("contacts", cs[k]) : null);
     const tel = (x) => (x ? x.name + ((x.phones || [])[0] ? ": " + x.phones[0] : "") : "");
-    const al = Health.allergyList(h), vet = ct("vet"), hotel = ct("hotel"), banho = ct("banho"), pf = this.perfil(p), viagem = pf.viagem || ["Hotelzinho e banho e tosa", "Boarding and grooming"];
-    /* [título no idioma de agora, corpo, [pt, en, apelidos…]]: o guia acha a seção por qualquer um dos títulos */
-    const sec = (pt, en, body, ...apelidos) => [tt(pt, en), body, [pt, en].concat(apelidos)];
+    const al = Health.allergyList(h), vet = ct("vet"), hotel = ct("hotel"), banho = ct("banho"), pf = this.perfil(p), viagem = pf.viagem || ["Hotelzinho e banho e tosa", "Boarding and grooming"], pp = this.PAPEIS(p);
+    /* [título no idioma de agora, corpo, [pt, en, apelidos…], do tipo]: o guia acha a seção por qualquer um dos títulos. "do
+       tipo": o texto pronto do tipo de bicho (a seção do tipo e os perigos), que sai quando o tipo muda, mesmo sem texto novo */
+    const sec = (pt, en, body, apelidos, tipo) => [tt(pt, en), body, [pt, en].concat(apelidos || []), !!tipo];
     /* comida: no modo simples só o que come; quem anota gramas por dia (ave, roedor, coelho) não tem "por refeição" */
     const comida = pf.comida === "simples" ? (r.marca ? tt("Comida: ", "Food: ") + r.marca : "")
       : r.marca || c ? [tt("Ração: ", "Food: ") + [r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · "), !pf.refeicoes ? (r.gRefeicao ? tt(num(+r.gRefeicao * (+r.refeicoesDia || 1)) + " g por dia.", num(+r.gRefeicao * (+r.refeicoesDia || 1)) + " g a day.") : "")
@@ -8915,15 +8938,16 @@ const Pets = {
     return [
       sec("Comida (quanto e quando)", "Food (how much and when)", comida),
       /* a seção do tipo no lugar de "Passeios" (o cachorro continua com ela), já com o que é de todo dia (gaiola, aquário…) */
-      sec(pf.secao[0], pf.secao[1], pf.secao[2]),
+      /* os títulos da seção do tipo de todos os tipos são apelidos: trocou o tipo (roedor → coelho), a seção é a mesma */
+      sec(pf.secao[0], pf.secao[1], pf.secao[2], Object.values(PET_PERFIL()).flatMap((x) => x.secao.slice(0, 2)), true),
       sec("Remédios", "Medicines", [(h.meds || []).map((m) => "💊 " + [m.name, m.dose, m.times ? "(" + m.times + ")" : ""].filter(Boolean).join(" ")).join("\n"), al.length ? "⚠️ " + tt("Alergias: ", "Allergies: ") + al.map((x) => x.what).join(", ") : ""].filter(Boolean).join("\n")),
       sec("Manias e cuidados", "Habits and care", d.descricao || p.notes || ""),
       sec("Veterinário", "Vet", [tel(vet) || h.doctor || "", h.plan && h.plan.operator ? tt("Plano: ", "Plan: ") + h.plan.operator + (h.plan.number ? " nº " + h.plan.number : "") : ""].filter(Boolean).join("\n")),
-      /* bicho exótico: "quem cuida nas viagens e onde comprar"; os títulos de antes ficam de apelido, para o guia já montado
-         achar a seção antiga e não ganhar outra */
-      sec(viagem[0], viagem[1], [hotel ? "🏨 " + tel(hotel) : "", banho && banho !== hotel ? "🛁 " + tel(banho) : ""].filter(Boolean).join("\n"), ...(pf.viagem ? ["Hotelzinho e banho e tosa", "Boarding and grooming"] : [])),
+      /* bicho exótico: "quem cuida nas viagens e onde comprar"; os dois títulos (o do cão e o do exótico) ficam de apelido,
+         para o guia já montado achar a seção de antes e não ganhar outra quando o tipo muda */
+      sec(viagem[0], viagem[1], [hotel ? pp[1][1] + " " + tel(hotel) : "", banho && banho !== hotel ? pp[2][1] + " " + tel(banho) : ""].filter(Boolean).join("\n"), ["Hotelzinho e banho e tosa", "Boarding and grooming", "Quem cuida nas viagens e onde comprar", "Travel carer and where to shop"]),
       /* os perigos do tipo (panela antiaderente para a ave, salmonela no réptil…); o cachorro continua sem texto pronto */
-      sec("Se acontecer algo", "If something happens", pf.alerta)
+      sec("Se acontecer algo", "If something happens", pf.alerta, null, true)
     ];
   },
   async guia(pid) {
@@ -8936,11 +8960,24 @@ const Pets = {
     const trocar = [];
     /* a seção é achada pelo título em português ou em inglês (guia montado num celular em EN e atualizado num em PT não
        duplica tudo); petAuto fica pela chave em português (a em inglês, de antes, vale uma última vez) */
-    auto.filter((x) => x[1]).forEach(([h, body, nomes]) => {
+    /* o texto do tipo (tipo) conta mesmo vazio: trocou o tipo (ave → cachorro), o automático de antes sai, sem seção nova, e a
+       seção do tipo ganha o nome do tipo novo. A seção é primeiro a que ainda tem o automático de antes. A seção de outro tipo
+       com o texto da pessoa ("Passeios" escrito à mão num jabuti de antes) fica como está, e o texto do tipo vai numa nova */
+    auto.filter((x) => x[1] || x[3]).forEach(([h, body, nomes, tipo]) => {
       const ks = nomes.map(norm), k = ks[0];
-      let s = g.sections.find((x) => ks.includes(norm(x.h))); if (!s) { s = { h, body: "" }; g.sections.push(s); }
       const ant = ks.map((x) => g.petAuto[x]).find((x) => x != null);
-      if (!s.body || s.body === ant || s.body === body) s.body = body; else trocar.push([s, body]);
+      const de = (x, L) => L.includes(norm(x.h));   /* pelo título: primeiro os do tipo de agora (pt, en), depois os apelidos */
+      let s = g.sections.find((x) => de(x, ks) && ant != null && x.body === ant) || g.sections.find((x) => de(x, ks.slice(0, 2))) || g.sections.find((x) => de(x, ks));
+      if (!body) {
+        /* nunca teve texto do tipo (o cachorro de sempre): nada muda; o que a pessoa escreveu fica */
+        if (ant == null) return;
+        if (s && s.body === ant) { s.body = ""; s.h = h; }
+        ks.forEach((x) => delete g.petAuto[x]); return;
+      }
+      if (!s) { s = { h, body: "" }; g.sections.push(s); }
+      if (!s.body || s.body === ant || s.body === body) { s.body = body; if (tipo) s.h = h; }
+      else if (tipo && !ks.slice(0, 2).includes(norm(s.h))) g.sections.push({ h, body });
+      else trocar.push([s, body]);
       ks.forEach((x) => { if (x !== k) delete g.petAuto[x]; }); g.petAuto[k] = body;
     });
     if (trocar.length && (await confirmBox(tt("Você já escreveu no guia em: ", "You already wrote in the guide under: ") + trocar.map((x) => "<b>" + esc(x[0].h) + "</b>").join(", ") + ". " + tt("Trocar pelo que está na ficha agora? (Cancelar mantém o que você escreveu.)", "Replace it with what's on the record now? (Cancel keeps what you wrote.)"), tt("Trocar", "Replace")))) trocar.forEach(([s, body]) => (s.body = body));
@@ -8991,7 +9028,7 @@ const Pets = {
     const exs = esc(cd.filter((c) => c[0] !== "outro").slice(0, 3).map((c) => { const s = c[2].replace(/\s*\(.*?\)/g, ""); return s.charAt(0).toLowerCase() + s.slice(1); }).join(", "));
     h += '<div class="card accent"><h3>⏰ ' + tt("Próximos cuidados", "Coming up") + "</h3>" + (prox.length ? '<div class="list">' + prox.map((m) => '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t">' + esc(this.info(m)[2]) + " " + this.badge(m) + '</div><div class="s">' + esc(fmtDate(m.next)) + "</div></div>" +
       (ed ? '<button class="btn xs ok" data-act="pet.feito" data-m="' + esc(m.id) + '">✓ ' + (m.petTipo === "racao" ? tt("Comprei", "Bought it") : tt("Feito", "Done")) + "</button>" : "") + "</div>").join("") + "</div>"
-      : '<div class="empty tiny">' + tt("Nada marcado ainda. Acrescente os cuidados (ex.: " + exs + ") em “" + tit + "”, e a ração logo abaixo.", "Nothing scheduled yet. Add care items (e.g. " + exs + ") under “" + tit + "”, and the food right below.") + "</div>") + "</div>";
+      : '<div class="empty tiny">' + tt("Nada marcado ainda. Acrescente os cuidados (ex.: " + exs + ") em “" + tit + "”, e a " + (pf.comida === "simples" ? "comida" : "ração") + " logo abaixo.", "Nothing scheduled yet. Add care items (e.g. " + exs + ") under “" + tit + "”, and the food right below.") + "</div>") + "</div>";
     h += this.racaoCard(p);
     if (Rec.ok("health")) {
       const hh = DB.get("health", p.id) || {}, al = Health.allergyList(hh), pl = hh.plan || {};
@@ -9007,6 +9044,8 @@ const Pets = {
     /* vacinas e cuidados: cada um com ✓ Feito, 📅 Remarcar e 🚫 Não se aplica (lembrete que não para sozinho) */
     const cu = ms.filter((m) => m.petTipo !== "racao");
     h += '<div class="card"><div class="between"><h3>' + (vac ? "💉 " : "🗓 ") + tit + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.cuidado" data-id="' + p.id + '" aria-label="' + tt("Acrescentar cuidado", "Add care item") + '">＋</button>' : "") + "</div>" +
+      /* Outro (furão, galinha, cavalo): o ＋ traz os cuidados de cão e gato; só vale o que a veterinária indicar */
+      (e[0] === "outro" ? '<p class="tiny faint">💡 ' + tt("Use só o que a veterinária indicar.", "Only use what your vet recommends.") + "</p>" : "") +
       (cu.length ? '<div class="list">' + cu.map((m) => { const ult = (m.history || [])[(m.history || []).length - 1] || {}; return '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t' + (ed ? ' click" data-act="pet.vercuidado" data-m="' + m.id : "") + '">' + esc(m.title) + " " + this.badge(m) + '</div><div class="s">' + esc([m.next ? tt("próxima: ", "next: ") + fmtDate(m.next) : tt("sem data", "no date"), m.last ? tt("última: ", "last: ") + fmtDate(m.last) : "", m.interval ? tt("a cada " + m.interval + " dias", "every " + m.interval + " days") : "", ult.produto].filter(Boolean).join(" · ")) + "</div>" +
         (ed ? '<div class="row" style="margin-top:6px"><button class="btn xs ok" data-act="pet.feito" data-m="' + m.id + '">✓ ' + tt("Feito", "Done") + '</button><button class="btn xs ghost" data-act="pet.remarcar" data-m="' + m.id + '">📅 ' + tt("Remarcar", "Reschedule") + '</button><button class="btn xs ghost" data-act="pet.na" data-m="' + m.id + '">🚫 ' + tt("Não se aplica", "Doesn't apply") + "</button></div>" : "") + "</div></div>"; }).join("") + "</div>"
         : '<div class="empty tiny">' + tt("Toque em ＋ para pôr os cuidados (ex.: " + exs + "): eu aviso no 🔔, na agenda e no celular.", "Tap ＋ to add care items (e.g. " + exs + "): I'll remind you in the 🔔, the calendar and on your phone.") + "</div>") + "</div>";
@@ -11268,10 +11307,10 @@ const HELP = () => ({
   ], note: tt("O custo do seguro fica só como referência do MoneyTRIO: nada é enviado para lá, para não duplicar o lançamento. Os documentos e o PDF ficam só no aparelho onde foram guardados.", "The insurance cost is only a MoneyTRIO reference: nothing is sent there, so the entry isn't duplicated. Documents and the PDF stay only on the device where they were saved.") },
   "pets": { t: "🐾 " + tt("Pets: a ficha de cada bicho", "Pets: each pet's record"), steps: [
     tt("Abra <b>🐾 Pets</b> (no ☰, em Cuidar da família) e toque em <b>＋ Cadastrar pet</b>. Escolha que bicho é (cachorro, gato, ave, peixe, jabuti…) e a raça ou a espécie na lista (dá para escrever; cachorro, gato e coelho têm “SRD (vira-lata)”). O nome e o tipo do bicho são obrigatórios. Peixe: um cadastro por aquário. Em Família o pet continua aparecendo; tocar nele abre a ficha.", "Open <b>🐾 Pets</b> (in the ☰, under Family care) and tap <b>＋ Add a pet</b>. Pick what animal it is (dog, cat, bird, fish, tortoise…) and the breed or species from the list (you can type; dogs, cats and rabbits have “Mixed breed”). The name and the type of animal are required. Fish: one record per aquarium. The pet still shows in Family; tapping it opens the record."),
-    tt("<b>Cada tipo de bicho</b> mostra os cuidados, a comida e o peso dele: o periquito pesa em gramas e não ganha antipulgas, o aquário não tem peso, e o guia já traz os perigos de cada um. Os prazos são sugestão: vale o que a veterinária disser. Um lembrete que já existe não some sozinho: para tirar, use <b>🚫 Não se aplica</b>.", "<b>Each type of animal</b> shows its own care items, food and weight: a budgie is weighed in grams and gets no flea treatment, an aquarium has no weight, and the guide already lists the dangers for each one. The intervals are suggestions: what your vet says is what counts. A reminder that already exists doesn't disappear by itself: to remove it, use <b>🚫 Doesn't apply</b>."),
+    tt("<b>Cada tipo de bicho</b> mostra os cuidados, a comida e o peso dele: o periquito pesa em gramas e não ganha antipulgas, o aquário não tem peso, e o guia já traz os perigos da ave, do peixe, do réptil, do roedor e do coelho. Os prazos são sugestão: vale o que a veterinária disser. Um lembrete que já existe não some sozinho: para tirar, use <b>🚫 Não se aplica</b>.", "<b>Each type of animal</b> shows its own care items, food and weight: a budgie is weighed in grams and gets no flea treatment, an aquarium has no weight, and the guide already lists the dangers for birds, fish, reptiles, rodents and rabbits. The intervals are suggestions: what your vet says is what counts. A reminder that already exists doesn't disappear by itself: to remove it, use <b>🚫 Doesn't apply</b>."),
     tt("<b>Fotos</b>: uma de perfil e até 12 na galeria. O app diminui cada foto antes de guardar (fica leve e sem a localização de onde foi tirada). Com a família na nuvem, os outros celulares também veem; no modo “só neste aparelho”, ficam só nele.", "<b>Photos</b>: one profile photo and up to 12 in the gallery. The app shrinks each photo before saving it (it stays light and without the location where it was taken). With the family in the cloud, the other phones see them too; in “this device only” mode, they stay on it."),
     tt("<b>Cuidados</b>: toque em ＋ e escolha o cuidado do seu bicho (no cachorro e no gato, vacina, vermífugo, antipulgas e banho e tosa; nos outros, consulta, gaiola, aquário, lâmpada UVB…). Eles avisam no 🔔, na agenda e no celular. Em cada um: <b>✓ Feito</b> (na vacina, anote a marca e quem aplicou), <b>📅 Remarcar</b> ou <b>🚫 Não se aplica</b>.", "<b>Care</b>: tap ＋ and pick your pet's care item (for dogs and cats, vaccine, dewormer, flea treatment and bath and grooming; for the others, check-up, cage, aquarium, UVB bulb…). They remind you in the 🔔, the calendar and on your phone. On each one: <b>✓ Done</b> (for a vaccine, note the brand and who gave it), <b>📅 Reschedule</b> or <b>🚫 Doesn't apply</b>."),
-    tt("<b>Ração</b>: anote a marca, o tamanho do saco (ou do pacote) e quanto o bicho come (no cachorro e no gato, gramas por refeição e quantas refeições por dia; na ave, no roedor e no coelho, gramas por dia). O app mostra quantos dias dura e quando acaba, e avisa uma semana antes. Se a validade chegar antes de acabar, ele diz quantos sacos dá para comprar. Vai comprar em promoção? Use a calculadora 🧮 antes. Peixe, jabuti, lagarto e cobra: anote só o que come e a validade.", "<b>Food</b>: note the brand, the bag (or pack) size and how much your pet eats (for dogs and cats, grams per meal and meals a day; for birds, rodents and rabbits, grams a day). The app shows how many days it lasts and when it runs out, and reminds you a week before. If the expiry date comes before it's finished, it tells you how many bags you can buy. Buying on sale? Use the 🧮 calculator first. Fish, tortoises, lizards and snakes: just note what it eats and the expiry date."),
+    tt("<b>Ração</b>: anote a marca, o tamanho do saco (ou do pacote) e quanto o bicho come (no cachorro e no gato, gramas por refeição e quantas refeições por dia; na ave, no roedor e no coelho, gramas por dia). O app mostra quantos dias dura e quando acaba, e avisa uma semana antes. Se a validade chegar antes de acabar, ele diz quantos sacos dá para comprar. Vai comprar em promoção? Use a calculadora 🧮 antes. Peixe, jabuti, lagarto e cobra: anote só o que come e a validade.", "<b>Food</b>: note the brand, the bag (or pack) size and how much your pet eats (for dogs and cats, grams per meal and meals a day; for birds, rodents and rabbits, grams a day). The app shows how many days it lasts and when it runs out, and reminds you a week before. If the expiry date comes before it's finished, it tells you how many bags you can buy. Buying on sale? Use the 🧮 calculator first. Fish, tortoises, lizards and snakes: just note what they eat and the expiry date."),
     tt("<b>Saúde, histórico e peso</b>: veterinário, plano, alergias e remédios ficam na carteira vital (❤️). No histórico vão consultas, exames, cirurgias e o que aconteceu; o peso vira um gráfico (em gramas no bicho pequeno).", "<b>Health, history and weight</b>: vet, plan, allergies and medicines live in the health wallet (❤️). The history holds vet visits, tests, surgeries and what happened; the weight becomes a chart (in grams for small animals)."),
     tt("<b>Contatos e guia</b>: escolha o veterinário, o hotelzinho e o banho e tosa (nos bichos exóticos: quem cuida nas viagens e a loja; pode ser o mesmo lugar) e ligue ou mande WhatsApp com um toque. <b>📘 Guia para quem cuida</b> monta as instruções para quem vai ficar com o pet: ração, remédios, manias e telefones. O que você escreveu no guia só é trocado se você deixar.", "<b>Contacts and guide</b>: pick the vet, the boarding place and the groomer (for exotic pets: who looks after it when you travel and the shop; it can be the same place) and call or WhatsApp in one tap. <b>📘 Guide for the carer</b> builds the instructions for whoever looks after the pet: food, medicines, habits and phones. What you wrote in the guide is only replaced if you allow it.")
   ], note: tt("As contas da ração, os prazos dos cuidados e a faixa de peso da raça ou da espécie são estimativas: confirme sempre com a veterinária. A carteira vital (alergias, remédios) fica só neste aparelho.", "The food numbers, the care intervals and the breed's or species' weight range are estimates: always confirm with your vet. The health wallet (allergies, medicines) stays on this device only.") },
