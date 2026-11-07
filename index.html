@@ -5540,7 +5540,7 @@ const CAT_KW = {
   limpeza: "detergente sabao sabão amaciante desinfetante sanitaria sanitária esponja papel toalha saco de lixo multiuso alcool álcool lustra-moveis limpa vidro cloro palha de aco aço",
   higiene: "papel higienico higiênico sabonete shampoo xampu condicionador pasta de dente creme dental escova desodorante absorvente fio dental cotonete lamina lâmina barbear protetor solar hidratante",
   bebe: "fralda lenco umedecido lenço papinha formula fórmula pomada assadura",
-  pet: "racao ração areia petisco sache sachê antipulgas",
+  pet: "racao ração areia petisco sache sachê antipulgas alpiste painco painço niger farinhada feno maravalha serragem anticloro tenebrio tenébrio camundongo gaiola poleiro aquario aquário comedouro coleira periquito calopsita hamster jabuti",
   farmacia: "remedio remédio dipirona paracetamol ibuprofeno band-aid curativo vitamina soro termometro termômetro gaze",
   utilidades: "pilha lampada lâmpada fosforo fósforo vela filtro guardanapo papel aluminio alumínio filme pvc copo descartavel descartável carvão carvao"
 };
@@ -7108,7 +7108,7 @@ function guessCtCat(c) {
   if (/advog|contador|contab|juridic|cartorio/.test(s)) return "juridico";
   if (/banco|seguro|corretor|gerente|itau|bradesco|caixa|santander|nubank|inter\b/.test(s)) return "financeiro";
   if (/vizinh|apto|apartamento/.test(s)) return "vizinhos";
-  if (/vet|petshop|pet shop|banho e tosa/.test(s)) return "pet";
+  if (/vet|petshop|pet shop|banho e tosa|aquar|exotic|silvestre|criadouro|agropecuar/.test(s)) return "pet";
   if (/mae|pai|vo|vó|avo|avó|tia|tio|prim|irma|irmã|cunhad|sogr/.test(s)) return "familia";
   return "outro";
 }
@@ -7312,17 +7312,18 @@ const Health = {
     const al = (k) => (h.allergies || []).filter((a) => a.type === k).map((a) => a.what + (a.note ? " (" + a.note + ")" : "")).join("\n");
     const medsHtml = '<div class="fld full"><span>💊 ' + tt("Remédios de uso contínuo (horários separados por vírgula)", "Ongoing medicines (times comma-separated)") + '</span><div id="medbox" class="stack">' + (h.meds || []).concat([{}]).map(medRow).join("") + '</div><button type="button" class="btn ghost xs" id="medadd" style="margin-top:6px">＋ ' + tt("remédio", "medicine") + "</button></div>";
     const f = [
-      { type: "note", html: "👤 <b>" + esc(p.name) + "</b>" + (p.birth ? " · " + fmtDate(p.birth) + " · " + ageTxt(p.birth) : " · <span class='faint'>" + tt("data de nascimento em Família", "birth date in Family") + "</span>") },
+      /* o nascimento do pet muda na ficha dele, em 🐾 Pets (não em Família) */
+      { type: "note", html: "👤 <b>" + esc(p.name) + "</b>" + (p.birth ? " · " + fmtDate(p.birth) + " · " + ageTxt(p.birth) : " · <span class='faint'>" + (pet ? tt("data de nascimento na ficha, em 🐾 Pets", "birth date on the record, in 🐾 Pets") : tt("data de nascimento em Família", "birth date in Family")) + "</span>") },
       pet ? null : { k: "blood", label: tt("Tipo sanguíneo", "Blood type"), type: "select", opts: BLOOD.map((b) => [b, b || "—"]) }, pet ? null : { k: "rh", label: tt("Fator RH", "Rh factor"), type: "select", opts: [["", "—"], ["+", tt("Positivo (+)", "Positive (+)")], ["-", tt("Negativo (−)", "Negative (−)")]] },
       { k: "_alMed", label: "⚠️ " + tt("Alergia a remédios (um por linha)", "Drug allergies (one per line)"), type: "textarea", rows: 2, def: al("med") },
       { k: "_alFood", label: "⚠️ " + tt("Alergia/intolerância a alimentos", "Food allergies/intolerances"), type: "textarea", rows: 2, def: al("food") },
       { k: "_alOther", label: "⚠️ " + tt("Picadas e outras alergias", "Insect stings & other allergies"), type: "textarea", rows: 2, def: al("other") },
-      { k: "conditions", label: tt("Condições pré-existentes", "Pre-existing conditions"), type: "textarea", rows: 2, ph: tt("Ex.: asma, diabetes tipo 1, epilepsia…", "e.g. asthma, type 1 diabetes…") },
+      { k: "conditions", label: tt("Condições pré-existentes", "Pre-existing conditions"), type: "textarea", rows: 2, ph: pet ? tt("Ex.: doença renal, dente crescido, arranca as penas", "e.g. kidney disease, overgrown teeth, feather plucking") : tt("Ex.: asma, diabetes tipo 1, epilepsia…", "e.g. asthma, type 1 diabetes…") },
       { type: "html", html: medsHtml },
       { k: "plan.operator", label: pet ? tt("Plano de saúde pet", "Pet health plan") : tt("Plano de saúde", "Health plan") }, { k: "plan.number", label: tt("Nº da carteirinha", "Card number") }, { k: "plan.valid", label: tt("Validade", "Valid until"), type: "date" }, { k: "plan.phone", label: tt("Telefone do plano", "Plan phone"), type: "tel" },
       pet ? null : { k: "sus", label: tt("Cartão SUS (CNS)", "SUS card (CNS)") }, { k: "doctor", label: pet ? tt("Veterinário(a) de referência", "Main vet") : tt("Médico(a) de referência", "Main doctor") },
       { type: "html", html: '<div class="fld full"><span>📷 ' + tt("Foto da carteirinha / exames", "Card photo / exams") + '</span><div class="thumbs" data-thumbs="' + (h.files || []).join(",") + '" data-del="health.rmfile" data-ref="' + pid + '"></div><button type="button" class="btn ghost xs" id="hfadd" style="margin-top:6px">＋ ' + tt("foto ou PDF", "photo or PDF") + "</button></div>" },
-      { k: "notes", label: tt("Outras informações importantes", "Other important info"), type: "textarea", rows: 2, ph: tt("Ex.: usa aparelho auditivo; doador de órgãos…", "e.g. uses hearing aid; organ donor…") },
+      { k: "notes", label: tt("Outras informações importantes", "Other important info"), type: "textarea", rows: 2, ph: pet ? tt("Ex.: só aceita remédio na fruta", "e.g. only takes medicine hidden in fruit") : tt("Ex.: usa aparelho auditivo; doador de órgãos…", "e.g. uses hearing aid; organ donor…") },
       { k: "vis", label: tt("Quem vê estes dados", "Who sees this"), type: "select", opts: [["familia", tt("Toda a família", "Whole family")], ["restrito", tt("Só responsáveis", "Guardians only")]] }
     ].filter(Boolean);
     let files = (h.files || []).slice();
@@ -8325,7 +8326,9 @@ SCREENS.cars = {
    avisos do aparelho, agenda e Casa → Manutenção. Alergias, remédios e o veterinário de referência ficam na carteira vital
    (Health), que fica só neste aparelho (NUVEM_LOCAL). Fotos: PetFoto, mais abaixo.
    Gastos do pet → MoneyTRIO: ainda não (esperando o formato do MoneyTRIO, PENDENCIAS #62). */
-const PET_ESP = () => [["cachorro", "🐶", tt("Cachorro", "Dog")], ["gato", "🐱", tt("Gato", "Cat")], ["ave", "🐦", tt("Ave", "Bird")], ["peixe", "🐟", tt("Peixe", "Fish")], ["roedor", "🐹", tt("Roedor", "Rodent")], ["coelho", "🐰", tt("Coelho", "Rabbit")], ["reptil", "🦎", tt("Réptil", "Reptile")], ["outro", "🐾", tt("Outro", "Other")]];
+/* as chaves gravadas nunca mudam de nome (um jabuti antigo é reptil + raça Jabuti: o esp() refina). Tipo novo entra antes
+   de "outro", que fica por último: é a reserva do esp() */
+const PET_ESP = () => [["cachorro", "🐶", tt("Cachorro", "Dog")], ["gato", "🐱", tt("Gato", "Cat")], ["ave", "🐦", tt("Ave", "Bird")], ["papagaio", "🦜", tt("Papagaio ou arara", "Parrot or macaw")], ["peixe", "🐟", tt("Peixe", "Fish")], ["roedor", "🐹", tt("Roedor", "Rodent")], ["coelho", "🐰", tt("Coelho", "Rabbit")], ["quelonio", "🐢", tt("Jabuti ou tartaruga", "Tortoise or turtle")], ["reptil", "🦎", tt("Lagarto ou cobra", "Lizard or snake")], ["outro", "🐾", tt("Outro", "Other")]];
 /* raças comuns no Brasil, para a busca do campo (dá para escrever outra). [pt, en] quando o nome muda em inglês */
 const PET_RACAS = () => {
   const L = (a) => a.map((x) => (Array.isArray(x) ? tt(x[0], x[1]) : x)), srd = tt("SRD (vira-lata)", "Mixed breed (no defined breed)"), outra = tt("Outra", "Other");
@@ -8339,27 +8342,169 @@ const PET_RACAS = () => {
       "Boston Terrier", ["Pequinês", "Pekingese"], "Maltipoo", "Cavapoo", "Poochon", ["Spitz Japonês", "Japanese Spitz"]]), [outra]),
     gato: [srd].concat(L([["Siamês", "Siamese"], ["Persa", "Persian"], "Maine Coon", ["Angorá", "Turkish Angora"], "Ragdoll", "Sphynx", "British Shorthair", "Bengal", ["Exótico", "Exotic Shorthair"],
       ["Himalaio", "Himalayan"], "Scottish Fold", ["Azul Russo", "Russian Blue"], ["Siberiano", "Siberian"], ["Sagrado da Birmânia", "Birman"], ["Abissínio", "Abyssinian"], "Munchkin"]), [outra]),
-    ave: L([["Calopsita", "Cockatiel"], ["Periquito-australiano", "Budgerigar"], ["Canário", "Canary"], ["Agapórnis", "Lovebird"], ["Papagaio", "Parrot"], ["Cacatua", "Cockatoo"], "Ring Neck", ["Diamante-mandarim", "Zebra finch"]]).concat([outra]),
+    ave: L([["Calopsita", "Cockatiel"], ["Periquito-australiano", "Budgerigar"], ["Canário", "Canary"], ["Agapórnis", "Lovebird"], ["Cacatua", "Cockatoo"], "Ring Neck", ["Diamante-mandarim", "Zebra finch"], ["Diamante-de-gould", "Gouldian finch"], ["Manon", "Society finch"]]).concat([outra]),
+    papagaio: L([["Papagaio-verdadeiro", "Blue-fronted parrot"], ["Papagaio-do-mangue", "Orange-winged parrot"], ["Arara-canindé", "Blue-and-yellow macaw"], ["Arara-vermelha", "Red-and-green macaw"], ["Maritaca", "Scaly-headed parrot"]]).concat([outra]),
     peixe: L(["Betta", ["Kinguio (peixe-dourado)", "Goldfish"], ["Guppy (lebiste)", "Guppy"], ["Neon", "Neon tetra"], ["Acará-bandeira", "Angelfish"], "Molly", "Platy", ["Cascudo", "Pleco"]]).concat([outra]),
     roedor: L([["Hamster sírio", "Syrian hamster"], ["Hamster anão", "Dwarf hamster"], ["Porquinho-da-índia", "Guinea pig"], ["Gerbil (esquilo-da-mongólia)", "Gerbil"], ["Chinchila", "Chinchilla"], ["Twister (rato doméstico)", "Fancy rat"]]).concat([outra]),
     coelho: [srd].concat(L(["Mini Lop", ["Cabeça de leão (Lionhead)", "Lionhead"], ["Holandês anão (Netherland Dwarf)", "Netherland Dwarf"], "Mini Rex", "Fuzzy Lop", ["Angorá", "Angora"]]), [outra]),
-    reptil: L([["Jabuti", "Tortoise"], ["Tigre-d'água (tartaruga)", "Red-eared slider"], "Iguana", ["Gecko-leopardo", "Leopard gecko"], ["Dragão-barbudo (pogona)", "Bearded dragon"], ["Cobra-do-milho", "Corn snake"]]).concat([outra]),
-    outro: [outra]
+    quelonio: L([["Jabuti-piranga", "Red-footed tortoise"], ["Jabuti-tinga", "Yellow-footed tortoise"], ["Jabuti", "Tortoise"], ["Tigre-d'água (tartaruga)", "Red-eared slider"], ["Cágado", "Side-necked turtle"]]).concat([outra]),
+    reptil: L(["Iguana", ["Gecko-leopardo", "Leopard gecko"], ["Dragão-barbudo (pogona)", "Bearded dragon"], ["Cobra-do-milho", "Corn snake"]]).concat([outra]),
+    outro: L([["Furão", "Ferret"], ["Galinha", "Chicken"], ["Cavalo", "Horse"], ["Mini porco", "Mini pig"]]).concat([outra])
   };
 };
-/* faixa de peso comum de umas poucas raças (guias de raça, não estudo veterinário): só uma faixa clarinha no gráfico,
-   sempre com "confirme com a veterinária". Texto sem acento (norm). */
-const PET_PESO = [[/cavachon/, 6, 10], [/shih ?tzu/, 4, 7], [/yorkshire/, 2, 3.5], [/labrador/, 25, 36], [/golden/, 25, 34], [/buldogue frances|french bulldog/, 8, 13], [/\bpug\b/, 6, 8]];
-const PET_HIST = () => [["consulta", "🩺", tt("Consulta", "Vet visit")], ["exame", "🧪", tt("Exame", "Test")], ["cirurgia", "🏥", tt("Cirurgia", "Surgery")], ["castracao", "✂️", tt("Castração", "Neutering")], ["episodio", "⚠️", tt("Algo que aconteceu (comeu algo, se machucou…)", "Something happened (ate something, got hurt…)")], ["vacina", "💉", tt("Vacina", "Vaccine")], ["outro", "📝", tt("Outro", "Other")]];
-/* os mesmos intervalos dos modelos de pet de MT_TEMPLATES (vacina 365, vermífugo 90, antipulgas 30) e o banho e tosa (45) */
-const PET_CUIDADOS = () => [["vacina", "💉", tt("Vacina anual", "Yearly vaccine"), 365], ["vermifugo", "💊", tt("Vermífugo", "Dewormer"), 90], ["antipulgas", "🦟", tt("Antipulgas e carrapatos", "Flea and tick"), 30], ["banho", "🛁", tt("Banho e tosa", "Bath and grooming"), 45], ["outro", "🐾", tt("Outro cuidado", "Other care"), 30]];
+/* faixa de peso comum de umas poucas raças (guias de raça, não estudo veterinário) e de 4 roedores (MSD, em kg): só uma
+   faixa clarinha no gráfico, sempre com "confirme com a veterinária". Texto sem acento (norm). */
+const PET_PESO = [[/cavachon/, 6, 10], [/shih ?tzu/, 4, 7], [/yorkshire/, 2, 3.5], [/labrador/, 25, 36], [/golden/, 25, 34], [/buldogue frances|french bulldog/, 8, 13], [/\bpug\b/, 6, 8],
+  [/hamster sirio|syrian hamster/, 0.11, 0.14], [/gerbil|esquilo-da-mongolia/, 0.05, 0.09], [/chinchil/, 0.45, 0.68], [/porquinho|guinea pig|cobaia/, 0.815, 1.0]];
+const PET_HIST = () => [["consulta", "🩺", tt("Consulta", "Vet visit")], ["exame", "🧪", tt("Exame", "Test")], ["cirurgia", "🏥", tt("Cirurgia", "Surgery")], ["castracao", "✂️", tt("Castração", "Neutering")], ["episodio", "⚠️", tt("Algo que aconteceu (comeu algo, se machucou…)", "Something happened (ate something, got hurt…)")], ["vacina", "💉", tt("Vacina", "Vaccine")], ["pele", "🐍", tt("Troca de pele", "Shed")], ["outro", "📝", tt("Outro", "Other")]];
+/* os mesmos intervalos dos modelos de pet de MT_TEMPLATES (vacina 365, vermífugo 90, antipulgas 30) e o banho e tosa (45).
+   As chaves gravadas (vacina, vermifugo, antipulgas, banho, outro, racao) e o "Vacina anual" (a regra da 2ª vacina do info()
+   depende dele) não mudam. As outras são dos tipos que não são cão nem gato (fontes no plano 2.25.0); nenhuma é diária: o
+   que é de todo dia fica no texto do guia. Cada tipo escolhe as suas em PET_PERFIL */
+const PET_CUIDADOS = () => [["vacina", "💉", tt("Vacina anual", "Yearly vaccine"), 365], ["vermifugo", "💊", tt("Vermífugo", "Dewormer"), 90], ["antipulgas", "🦟", tt("Antipulgas e carrapatos", "Flea and tick"), 30], ["banho", "🛁", tt("Banho e tosa", "Bath and grooming"), 45],
+  ["consulta", "🩺", tt("Consulta de rotina", "Routine check-up"), 365], ["gaiola", "🧹", tt("Limpeza completa da gaiola", "Full cage clean"), 7], ["potes", "🧽", tt("Desinfetar os potes de comida e água", "Disinfect food and water dishes"), 7],
+  ["poleiros", "🪵", tt("Lavar os poleiros (só voltam secos)", "Wash the perches (back only when dry)"), 15], ["unhas", "💅", tt("Conferir as unhas", "Check the nails"), 30], ["escovar", "🖌️", tt("Escovar o pelo", "Brush the coat"), 3],
+  ["agua", "💧", tt("Troca parcial da água (10 a 25%)", "Partial water change (10–25%)"), 7], ["testeagua", "🧪", tt("Testar a água", "Test the water"), 7], ["filtro", "⚙️", tt("Lavar o filtro na água do aquário", "Rinse the filter in tank water"), 30],
+  ["pote", "🥫", tt("Trocar o pote de ração aberto (sugestão)", "Replace the opened food tub (suggested)"), 90], ["uvb", "💡", tt("Trocar a lâmpada UVB", "Replace the UVB bulb"), 180], ["substrato", "🪨", tt("Trocar o substrato do terrário", "Replace the enclosure substrate"), 30],
+  ["terrario", "🧼", tt("Desmontar e desinfetar o terrário", "Strip and disinfect the enclosure"), 90], ["hidratacao", "💦", tt("Banho morno de hidratação", "Warm hydration soak"), 3], ["refeicao", "🐁", tt("Refeição da cobra (presa morta ou descongelada)", "Snake feeding (pre-killed or thawed prey)"), 7],
+  ["outro", "🐾", tt("Outro cuidado", "Other care"), 30]];
+/* o que muda por tipo de bicho (cuidados do ＋, campos da ficha, peso, comida, histórico, guia, contatos, busca). Campo que
+   falta = o de hoje, que é o do cachorro (os padrões ficam no Pets.perfil). Prazos são sugestão (vale o que a veterinária
+   disser); nada de dose, nome de remédio ou marca; lei de bicho silvestre sempre com "confirme com o órgão ambiental" */
+const PET_PERFIL = () => {
+  const T = tt;
+  const docAve = T("Periquito, calopsita, canário-belga, diamantes e manon são domésticos: não precisam de autorização; guarde a nota fiscal. Agapórnis, cacatua e ring-neck: compre de criadouro ou loja autorizada e guarde a nota fiscal e o certificado de origem. Passarinho nativo (canário-da-terra, curió): licença do SISPASS ou nota de criadouro comercial. As regras mudam por estado: confirme com o órgão ambiental do seu estado.",
+      "Budgies, cockatiels, Belgian canaries, finches and society finches are domestic: no permit needed; keep the invoice. Lovebirds, cockatoos and ring-necks: buy from an authorised breeder or shop and keep the invoice and the certificate of origin. Native Brazilian songbirds (saffron finch, chestnut-bellied seed finch): a SISPASS licence or an invoice from a commercial breeder. Rules vary by state: check with your state's environmental agency."),
+    docPapagaio = T("Papagaio, arara e maritaca são aves silvestres brasileiras: só de criadouro autorizado, com nota fiscal, certificado de origem (SisFauna ou o sistema do estado; em SP, o GEFAU) e anilha fechada, com o mesmo número da nota. Papagaio-verdadeiro de criadouro comercial também tem foto de identificação. Ave marcada antes de 2018 pode ter só microchip. Veio de outra pessoa: Termo de Transferência e a nota original. Viagem para outro estado: nota fiscal e GTA (confirme no órgão de defesa agropecuária). Ter ave silvestre sem origem legal é crime. Na dúvida, confirme com o órgão ambiental do seu estado.",
+      "Parrots, macaws and maritacas are wild Brazilian birds: only from an authorised breeder, with an invoice, a certificate of origin (SisFauna or your state's system; in São Paulo, GEFAU) and a closed leg ring with the same number as the invoice. A blue-fronted parrot from a commercial breeder also has an ID photo. A bird marked before 2018 may have only a microchip. Came from another person: the Transfer Form (Termo de Transferência) and the original invoice. Travelling to another state: invoice and GTA animal transit permit (check with the state agricultural-health agency). Keeping a wild bird without legal origin is a crime. If in doubt, check with your state's environmental agency."),
+    docQuelonio = T("Jabuti e cágado são silvestres brasileiros: nota fiscal com a espécie e o número do microchip, certificado de origem (SisFauna ou o sistema do estado; em SP, o GEFAU) e, se veio de outra pessoa, Termo de Transferência com a nota original. Tigre-d'água-americano é invasor: em SC é proibido ter, comprar ou vender (quem já tinha legalizado precisa de microchip); no RS a venda é proibida; nos outros estados, confirme com o órgão ambiental do seu estado.",
+      "Tortoises (jabutis) and side-necked turtles (cágados) are wild Brazilian animals: an invoice with the species and the microchip number, a certificate of origin (SisFauna or your state's system; in São Paulo, GEFAU) and, if it came from another person, the Transfer Form (Termo de Transferência) with the original invoice. The red-eared slider is invasive: in Santa Catarina it is forbidden to keep, buy or sell one (animals already legalised need a microchip); in Rio Grande do Sul selling is forbidden; in other states, check with your state's environmental agency."),
+    docReptil = T("Gecko, pogona e cobra-do-milho: compre só de criadouro ou loja com autorização do órgão ambiental e guarde a nota fiscal; a regra muda por estado (em SP, novos criadouros de répteis estão suspensos). Iguana e jiboia são silvestres brasileiras: antes de comprar, confirme no órgão ambiental se a venda é permitida no seu estado.",
+      "Leopard geckos, bearded dragons and corn snakes: buy only from a breeder or shop authorised by the environmental agency and keep the invoice; rules vary by state (in São Paulo, new reptile breeders are suspended). Iguanas and boas are wild Brazilian animals: before buying, check with your state's environmental agency whether selling them is allowed there."),
+    docRoedor = T("Não precisa de autorização. A chinchila só conta como doméstica se nasceu em cativeiro: guarde a nota ou a declaração do criador.",
+      "No permit needed. A chinchilla only counts as domestic if it was born in captivity: keep the receipt or the breeder's statement."),
+    docOutro = T("Bicho silvestre ou exótico: guarde a nota fiscal e o certificado de origem. As regras mudam por estado: confirme com o órgão ambiental do seu estado.",
+      "Wild or exotic animal: keep the invoice and the certificate of origin. Rules vary by state: check with your state's environmental agency."),
+    corpoAve = T("Todo dia: água e comida frescas e potes lavados com água e sabão; fruta e verdura saem em até 2 horas; trocar o papel do fundo. Banho de sol de manhã, sem vento e com sombra (o vidro barra o sol que faz bem). Nos dias quentes, de manhã, uma vasilha rasa com água, sem xampu. Unha, bico e asa: nunca cortar em casa. Pergunte à veterinária se a ave deve fazer exame de clamídia (é comum na chegada de ave nova).",
+      "Every day: fresh water and food, and dishes washed with soap and water; fruit and vegetables come out within 2 hours; change the paper at the bottom. Morning sunbath, out of the wind and with some shade (window glass blocks the sunlight that does it good). On hot days, in the morning, a shallow dish of water, no shampoo. Nails, beak and wings: never trim them at home. Ask your vet whether the bird should be tested for chlamydia (common when a new bird arrives)."),
+    alertaAve = T("Panela antiaderente superaquecida solta um gás sem cheiro que pode matar a ave de repente, mesmo em outro cômodo: ave longe da cozinha. Ave solta: janelas e portas fechadas, ventilador de teto desligado, nada de balde ou pia com água, nunca sozinha com gato ou cachorro, longe de fumaça. Nunca dar abacate, chocolate, café, álcool, cebola, alho, salgadinho, semente de maçã ou caroço; se comeu, ligue para a veterinária na hora, sem fazer vomitar. Nunca dar remédio, vermífugo, antipulgas ou inseticida de cão, gato ou gente. Molhe a gaiola antes de limpar (sem varrer a seco); se alguém da casa tiver febre ou tosse, conte ao médico que convive com ave. Nunca solte a ave nem tire a anilha.",
+      "An overheated non-stick pan gives off an odourless gas that can kill a bird suddenly, even in another room: keep the bird away from the kitchen. Bird out of the cage: windows and doors closed, ceiling fan off, no buckets or sinks with water, never alone with a cat or dog, away from smoke. Never give avocado, chocolate, coffee, alcohol, onion, garlic, salty snacks, apple seeds or fruit pits; if it ate any, call the vet right away, without making it vomit. Never give medicine, dewormer, flea treatment or insecticide meant for dogs, cats or people. Wet the cage before cleaning it (no dry sweeping); if someone at home has a fever or a cough, tell the doctor you live with a bird. Never release the bird or remove its leg ring."),
+    corpoPeixe = T("Todo dia: olhar o termômetro e os peixes. Luz de 8 a 10 horas (timer), longe do sol direto. Comida: só o que comem em 1 a 2 minutos; tire a sobra. Toda semana: trocar 10 a 25% da água com sifão, com condicionador que neutraliza cloro e cloramina, na mesma temperatura; nunca a água toda. Filtro: lavar só na água tirada do aquário. Peixe novo: algumas semanas (2 a 4) separado antes de juntar.",
+      "Every day: check the thermometer and the fish. Light for 8 to 10 hours (timer), away from direct sun. Food: only what they eat in 1 to 2 minutes; remove leftovers. Every week: change 10 to 25% of the water with a siphon, using a conditioner that neutralises chlorine and chloramine, at the same temperature; never all the water. Filter: rinse it only in water taken from the tank. New fish: keep it apart for a few weeks (2 to 4) before adding it to the others."),
+    alertaPeixe = T("Deixar a água descansar não tira a cloramina: use sempre o condicionador. Antes de pôr a mão na água, tire o aquecedor e os aparelhos da tomada (siga o manual). Peixe boquejando na superfície: teste a água, troque uma parte e fale com a veterinária; não dê remédio por conta própria. Nunca solte peixe em rio ou lago: se não puder cuidar, doe ou devolva à loja.",
+      "Letting water stand does not remove chloramine: always use the conditioner. Before putting your hand in the water, unplug the heater and the other devices (follow the manual). Fish gasping at the surface: test the water, change part of it and talk to the vet; don't give medicine on your own. Never release fish into a river or lake: if you can't look after them, rehome them or take them back to the shop."),
+    corpoQuelonio = T("Todo dia: água fresca, tirar fezes e restos e olhar o termômetro do lado quente e do lado frio. Luz UVB sem vidro ou plástico na frente; aquecedor sempre com termostato. Jabuti adulto come em dias alternados; filhote, todo dia (confirme com a veterinária). Banho morno e raso, até o queixo, 15 a 20 min, 2 a 3 vezes por semana, sem sabonete. Tigre-d'água e cágado: água a 24–29 °C e área seca para tomar sol.",
+      "Every day: fresh water, remove droppings and leftovers, and check the thermometer on the warm side and on the cool side. UVB light with no glass or plastic in front of it; heater always on a thermostat. Adult tortoises eat every other day; hatchlings, every day (confirm with your vet). Warm, shallow soak, up to the chin, 15 to 20 min, 2 to 3 times a week, no soap. Sliders and side-necked turtles: water at 24–29 °C and a dry area to bask."),
+    corpoReptil = T("Todo dia: água fresca, tirar fezes e restos, olhar os termômetros. Aquecedor com termostato. Lagarto adulto come a cada 1 a 3 dias, conforme a espécie; cobra adulta, uma presa morta ou descongelada a cada 1 a 2 semanas. Troca de pele: aumente a umidade, não arranque, confira se saíram as capas dos olhos.",
+      "Every day: fresh water, remove droppings and leftovers, check the thermometers. Heater on a thermostat. Adult lizards eat every 1 to 3 days, depending on the species; adult snakes, one pre-killed or thawed prey every 1 to 2 weeks. Shedding: raise the humidity, don't pull the skin off, check that the eye caps came off."),
+    alertaReptil = T("Réptil saudável também carrega salmonela: lave as mãos depois de mexer; criança com menos de 5 anos não mexe no bicho nem no terrário; não lave o terrário nem descongele comida na pia da cozinha. Nada de pedra aquecida. Nunca use vermífugo, antipulgas ou outro remédio de cachorro: alguns matam jabuti, tigre-d'água e cágado. Parou de comer fora do normal, perdeu peso ou ficou parado no frio: pese e leve à veterinária (jabuti-piranga não hiberna). Cobra: nunca presa viva; tampa sempre trancada. Nunca solte na natureza nem deixe reproduzir.",
+      "Healthy reptiles also carry salmonella: wash your hands after handling; children under 5 don't touch the animal or the enclosure; don't wash the enclosure or thaw food in the kitchen sink. No heat rocks. Never use dewormer, flea treatment or any other dog medicine: some kill tortoises, sliders and side-necked turtles. Stopped eating out of the ordinary, lost weight or stays still in the cold: weigh it and take it to the vet (red-footed tortoises don't hibernate). Snakes: never live prey; lid always locked. Never release it into the wild or let it breed."),
+    corpoRoedor = T("Todo dia: água fresca e bebedouro lavado; tirar a sujeira visível. Porquinho e chinchila: feno à vontade. Porquinho-da-índia: vitamina C todo dia (ração própria e verduras; suplemento, só com a veterinária). Chinchila: banho de pó, uns 10 min, numa vasilha à parte. Hamster mora sozinho; gerbil em par. Nada de cama de cedro ou pinho cru.",
+      "Every day: fresh water and a washed water bottle; remove visible dirt. Guinea pigs and chinchillas: unlimited hay. Guinea pigs: vitamin C every day (their own pellets and vegetables; supplements only with the vet). Chinchillas: dust bath, about 10 min, in a separate container. Hamsters live alone; gerbils in pairs. No cedar or raw pine bedding."),
+    corpoCoelho = T("Todo dia: feno à vontade, água fresca, tirar a sujeira. Solto pela casa só com alguém olhando. Coelho e porquinho-da-índia não dividem gaiola.",
+      "Every day: unlimited hay, fresh water, remove the dirt. Loose in the house only with someone watching. Rabbits and guinea pigs don't share a cage."),
+    alertaPequenos = T("Coelho ou porquinho sem comer ou sem fazer cocô: ligue para a veterinária no mesmo dia (mais de 8 horas já não é normal). Acima de 27 °C é perigoso para coelho e chinchila. Chinchila: banho só de pó. Porquinho: banho de água só quando sujo, com shampoo de pequenos animais, secando bem. Coelho e outros roedores: não dê banho; pergunte à veterinária. Nunca use antipulgas ou vermífugo de cão ou gato. Nunca pegue pela cauda; coelho, nunca pelas orelhas: apoie as patas de trás.",
+      "Rabbit or guinea pig not eating or not pooping: call the vet the same day (more than 8 hours is already not normal). Above 27 °C is dangerous for rabbits and chinchillas. Chinchillas: dust baths only. Guinea pigs: a water bath only when dirty, with small-animal shampoo, drying them well. Rabbits and other rodents: don't bathe them; ask your vet. Never use dog or cat flea treatment or dewormer. Never pick one up by the tail; rabbits, never by the ears: support the hind legs.");
+  const exo = { faseAuto: false, viagem: ["Quem cuida nas viagens e onde comprar", "Travel carer and where to shop"],
+    papeis: { vet: T("Veterinário(a) de silvestres e exóticos", "Exotic-animal vet"), hotel: T("Quem cuida nas viagens", "Who looks after it when you travel"), banho: T("Loja (comida e acessórios)", "Shop (food and supplies)") } };
+  const cao = { cuidados: ["vacina", "vermifugo", "antipulgas", "banho"], faseAuto: true, peso: "kg", comida: "saco", refeicoes: true,
+    secao: ["Passeios", "Walks", ""], alerta: "", histFora: ["pele"], busca: "cachorro cao cadela cachorra dog puppy" };
+  const ave = { ...exo, ex: T("periquito, calopsita, canário", "budgie, cockatiel, canary"),
+    cuidados: ["consulta", "gaiola", "potes", "poleiros", "unhas"],
+    rotulos: { consulta: T("Consulta anual com veterinária de aves (com exame de fezes)", "Yearly avian vet check-up (with fecal test)"),
+               unhas: T("Olhar unhas, bico e penas (sugestão)", "Check nails, beak and feathers (suggested)") },
+    esconde: ["pet.castrado", "pet.pedigree"],
+    raca: [T("Espécie", "Species"), T("Ex.: calopsita. Não está na lista? Escreva.", "e.g. cockatiel. Not listed? Type it.")],
+    cor: [T("Plumagem / mutação de cor", "Plumage / colour mutation"), T("Ex.: cinza com bochecha laranja; lutino", "e.g. grey with orange cheeks; lutino")],
+    chip: T("Número da anilha ou do microchip (se tiver)", "Leg ring or microchip number (if any)"),
+    registro: [T("Documento de origem (nota fiscal, certificado)", "Proof of origin (invoice, certificate)"), docAve],
+    descricao: T("Ex.: fala “bom dia”; nunca solto perto do gato", "e.g. says “good morning”; never loose near the cat"),
+    peso: "g", comida: "saco", refeicoes: false, marca: T("Ração ou mistura de sementes", "Pellets or seed mix"), saco: ["pacote", "pack"],
+    histFora: ["castracao", "pele"], secao: ["Gaiola, água e banho de sol", "Cage, water and sunbath", corpoAve], alerta: alertaAve,
+    papeis: { ...exo.papeis, vet: T("Veterinário(a) de aves (silvestres e exóticos)", "Avian (exotic) vet") },
+    busca: "ave passaro passarinho periquito calopsita canario bird budgie cockatiel canary" };
+  const roedor = { ...exo, ex: T("hamster, porquinho-da-índia, chinchila", "hamster, guinea pig, chinchilla"),
+    cuidados: ["consulta", "gaiola", "unhas"],
+    rotulos: { gaiola: T("Limpeza completa da gaiola e troca da cama", "Full cage clean and bedding change"),
+               unhas: T("Conferir e cortar as unhas (se não souber, peça à veterinária)", "Check and trim the nails (ask your vet if unsure)") },
+    esconde: ["pet.pedigree", "pet.microchip"],
+    raca: [T("Espécie", "Species"), T("Ex.: hamster sírio. Não está na lista? Escreva.", "e.g. Syrian hamster. Not listed? Type it.")],
+    registro: [T("Nota fiscal ou origem (se tiver)", "Receipt or origin (if any)"), docRoedor],
+    descricao: T("Ex.: mora sozinho; adora o túnel de papelão", "e.g. lives alone; loves the cardboard tunnel"),
+    peso: "g", comida: "saco", refeicoes: false, marca: T("Ração (o feno, se tiver, é à vontade, à parte)", "Pellets (hay, if any, is unlimited and separate)"), saco: ["pacote", "pack"],
+    histFora: ["pele"], secao: ["Gaiola, comida e água", "Cage, food and water", corpoRoedor], alerta: alertaPequenos,
+    busca: "roedor hamster porquinho cobaia chinchila gerbil rato twister rodent guinea pig chinchilla" };
+  const quelonio = { ...exo, ex: T("jabuti, tigre-d'água, cágado", "tortoise, slider, side-necked turtle"),
+    cuidados: ["consulta", "uvb", "hidratacao", "agua", "substrato", "terrario"],
+    rotulos: { consulta: T("Consulta anual com veterinária de répteis (com exame de fezes)", "Yearly reptile vet check-up (with fecal test)"),
+               agua: T("Trocar a água do aquário (tigre-d'água, cágado)", "Change the tank water (sliders, turtles)") },
+    esconde: ["pet.castrado", "pet.pedigree"],
+    raca: [T("Espécie", "Species"), T("Ex.: jabuti-piranga. Não está na lista? Escreva.", "e.g. red-footed tortoise. Not listed? Type it.")],
+    cor: [T("Cor e desenho do casco", "Shell colour and pattern"), T("Ex.: casco escuro com manchas amarelas", "e.g. dark shell with yellow patches")],
+    registro: [T("Documento de origem (nota fiscal, certificado)", "Proof of origin (invoice, certificate)"), docQuelonio],
+    descricao: T("Ex.: fica no quintal de dia; gosta de folha de couve", "e.g. stays in the garden by day; likes kale"),
+    peso: "g", comida: "simples", marca: T("O que come (ex.: folhas verdes, legumes, um pouco de fruta)", "What it eats (e.g. leafy greens, vegetables, a little fruit)"),
+    histFora: ["castracao", "pele"], secao: ["Terrário ou aquário: luz, calor e água", "Enclosure or tank: light, heat and water", corpoQuelonio], alerta: alertaReptil,
+    papeis: { ...exo.papeis, vet: T("Veterinário(a) de répteis (silvestres e exóticos)", "Reptile (exotic) vet") },
+    busca: "jabuti tartaruga cagado tigre quelonio reptil tortoise turtle slider terrapin reptile" };
+  return {
+    cachorro: cao,
+    gato: { ...cao, secao: ["Caixa de areia e brincadeiras", "Litter box and play", ""], busca: "gato gata felino cat kitten" },
+    ave,
+    papagaio: { ...ave, ex: T("papagaio, arara, maritaca", "parrot, macaw, conure"), registro: [ave.registro[0], docPapagaio],
+      busca: "papagaio louro arara maritaca ave parrot macaw conure bird" },
+    peixe: { ...exo, ex: T("um registro por aquário", "one record per aquarium"), cuidados: ["agua", "testeagua", "filtro", "pote"],
+      esconde: ["pet.castrado", "pet.pedigree", "pet.microchip", "pet.registro"],
+      raca: [T("Quem mora aqui (espécies)", "Who lives here (species)"), T("Ex.: 1 betta; ou 6 neons e 2 cascudos", "e.g. 1 betta; or 6 neons and 2 plecos")],
+      cor: [T("Cor e padrão (escamas e nadadeiras)", "Colour and pattern (scales and fins)"), T("Ex.: azul com nadadeira vermelha", "e.g. blue with red fins")],
+      descricao: T("Ex.: aquário de 60 litros, tropical (26 °C)", "e.g. 60-litre tropical tank (26 °C)"),   // sem "dois bettas machos nunca juntos": a checagem tirou
+      peso: null, comida: "simples", marca: T("Ração (flocos, grânulos, pastilhas)", "Food (flakes, granules, wafers)"),
+      histFora: ["castracao", "pele"], secao: ["Aquário: água, filtro e temperatura", "Aquarium: water, filter and temperature", corpoPeixe], alerta: alertaPeixe,
+      papeis: { ...exo.papeis, vet: T("Veterinário(a) de peixes (exóticos)", "Fish (exotic) vet"), banho: T("Loja de aquarismo", "Aquarium shop") },
+      busca: "peixe peixes aquario betta kinguio guppy neon fish aquarium tank goldfish" },
+    roedor,
+    coelho: { ...roedor, ex: "", cuidados: ["consulta", "gaiola", "escovar", "unhas"],
+      rotulos: { ...roedor.rotulos, escovar: T("Escovar o pelo (pelo longo: todo dia)", "Brush the coat (long hair: daily)") },
+      esconde: [], raca: null, registro: null, peso: "kg",                       // Raça com SRD, pedigree e kg: os de hoje
+      descricao: T("Ex.: fica solto na sala à tarde; adora folha de cenoura", "e.g. free in the living room in the afternoon; loves carrot tops"),
+      secao: ["Gaiola, feno e hora de soltar", "Cage, hay and free-roam time", corpoCoelho], busca: "coelho coelha rabbit bunny" },
+    quelonio,
+    reptil: { ...quelonio, ex: T("lagarto, cobra", "lizard, snake"), cuidados: ["consulta", "uvb", "substrato", "terrario", "potes", "refeicao"],
+      rotulos: { consulta: quelonio.rotulos.consulta,
+                 uvb: T("Trocar a lâmpada UVB (lagartos; para cobra, pergunte à veterinária)", "Replace the UVB bulb (lizards; for snakes, ask your vet)"),
+                 potes: T("Desinfetar o pote de água (a água é trocada todo dia)", "Disinfect the water bowl (water is changed daily)") },
+      raca: [T("Espécie", "Species"), T("Ex.: gecko-leopardo. Não está na lista? Escreva.", "e.g. leopard gecko. Not listed? Type it.")],
+      cor: [T("Cor e desenho (escamas)", "Colour and pattern (scales)"), T("Ex.: laranja com manchas vermelhas", "e.g. orange with red blotches")],
+      registro: [quelonio.registro[0], docReptil],
+      descricao: T("Ex.: troca de pele a cada 2 meses; não gosta de ser pego", "e.g. sheds every 2 months; dislikes handling"),
+      marca: T("O que come (insetos, verduras, roedor congelado…)", "What it eats (insects, greens, frozen rodent…)"),
+      histFora: ["castracao"], secao: ["Terrário: luz, calor e umidade", "Enclosure: light, heat and humidity", corpoReptil],
+      busca: "reptil lagarto cobra serpente gecko pogona iguana reptile lizard snake" },
+    outro: { ex: T("furão, galinha, cavalo…", "ferret, chicken, horse…"), cuidados: ["consulta", "vacina", "vermifugo", "antipulgas", "banho"],
+      faseAuto: false, peso: "kg", comida: "saco", refeicoes: true,
+      raca: [T("Que bicho é (espécie ou raça)", "What animal (species or breed)"), T("Ex.: furão. Escreva se não estiver na lista.", "e.g. ferret. Type it if not listed.")],
+      cor: [T("Cor", "Colour"), ""], registro: [T("Registro ou documento de origem (se tiver)", "Registration or proof of origin (if any)"), docOutro],
+      histFora: ["pele"], secao: ["Rotina do dia", "Daily routine", ""], busca: "outro animal bicho other animal" }
+  };
+};
 const Pets = {
   list() { return People.list().filter((p) => p.role === "pet"); },
   get(id) { const p = id ? People.get(id) : null; return p && p.role === "pet" ? p : null; },
   dados(p) { return (p && p.pet) || {}; },
   nome(p) { return p ? p.nick || p.name || "" : ""; },
-  /* pet cadastrado antes da aba: a espécie vem do ícone escolhido em Família */
-  esp(p) { const L = PET_ESP(), e = this.dados(p).especie || { "🐶": "cachorro", "🐱": "gato", "🐦": "ave", "🦜": "ave", "🐟": "peixe", "🐰": "coelho" }[p && p.emoji]; return L.find((x) => x[0] === e) || L[L.length - 1]; },
+  /* pet cadastrado antes da aba: a espécie vem do ícone escolhido em Família. Jabuti e papagaio da 2.24.0 (reptil + Jabuti,
+     ave + Papagaio) viram o tipo deles pela raça: sem isso, abrir e salvar não trocava o tipo */
+  esp(p) {
+    const L = PET_ESP(), r = norm(this.dados(p).raca);
+    let e = this.dados(p).especie || { "🐶": "cachorro", "🐱": "gato", "🐦": "ave", "🦜": "ave", "🐟": "peixe", "🐹": "roedor", "🐰": "coelho", "🦎": "reptil", "🐢": "quelonio" }[p && p.emoji];
+    if (e === "reptil" && /jabuti|tartaruga|tigre|cagado|tortoise|turtle|slider|terrapin/.test(r)) e = "quelonio";
+    if (e === "ave" && /papagaio|arara|maritaca|parrot|macaw|conure/.test(r)) e = "papagaio";
+    return L.find((x) => x[0] === e) || L[L.length - 1];
+  },
+  /* o que muda por tipo (PET_PERFIL); o que o tipo não diz = o de hoje (o do cachorro) */
+  perfil(p) { return Object.assign({ rotulos: {}, esconde: [], peso: "kg", comida: "saco", refeicoes: true, faseAuto: true, histFora: ["pele"], secao: ["Passeios", "Walks", ""], alerta: "" }, PET_PERFIL()[this.esp(p)[0]]); },
+  /* os cuidados do ＋ deste tipo ([chave, emoji, rótulo, dias], "outro" por último), com o rótulo do tipo quando ele tem um */
+  cuidadosDe(p) { const pf = this.perfil(p), cat = PET_CUIDADOS(); return pf.cuidados.concat("outro").map((k) => { const c = cat.find((x) => x[0] === k); return pf.rotulos[k] ? [c[0], c[1], pf.rotulos[k], c[3]] : c; }); },
   castradoTxt(d) { return d.sexo === "femea" ? tt("castrada", "spayed") : d.sexo === "macho" ? tt("castrado", "neutered") : tt("castrado(a)", "neutered"); },
   desc(p) { return [this.esp(p)[2], this.dados(p).raca, p.birth ? ageTxt(p.birth) : ""].filter(Boolean).join(" · "); },
   /* criança vê tudo e não muda nada (o DB.put também recusa) */
@@ -8376,11 +8521,17 @@ const Pets = {
   /* número escrito do jeito do Brasil, com qualquer número de casas ("0,375", "3,450") e sem a unidade ("15 kg", "37,5 g").
      O parseNum (o do dinheiro) só lê a vírgula com 1 ou 2 casas e devolvia 0. NaN = não deu para ler */
   dec(v) { const t = String(v == null ? "" : v).trim().replace(/\s+/g, "").replace(/(kg|g)$/i, ""); return t === "" ? NaN : Number(/,/.test(t) && !/\./.test(t) ? t.replace(",", ".") : t); },
+  /* peso e tamanho do saco em kg: "35 g" é grama (o dec() sozinho lia 35 kg), "1,2 kg" é kg e sem unidade vale a do tipo
+     ("g" no periquito). As gramas por refeição continuam no dec(): ali "37,5 g" é grama mesmo */
+  kg(v, un) { const t = String(v == null ? "" : v).replace(/\s+/g, "").toLowerCase(), x = this.dec(t); return (/kg$/.test(t) ? "kg" : /g$/.test(t) ? "g" : un) === "g" ? x / 1000 : x; },
   diasTxt(n) { return tt(n + (n === 1 ? " dia" : " dias"), n + (n === 1 ? " day" : " days")); },
   /* ---------- cadastro (formulário próprio: o de pessoa traz PIN, controle parental e começa como criança) ---------- */
+  /* as chaves não mudam por tipo (o edit() junta o pet que já existe por elas): o after() troca só textos e esconde campos */
   fields() {
+    const pf = PET_PERFIL();
+    /* pet novo começa sem espécie ("— escolha —"): quem não mexia ficava com um cachorro (um periquito ganhava antipulgas) */
     return [{ k: "name", label: tt("Nome", "Name"), req: true, ph: tt("Ex.: Bolinha", "e.g. Buddy") }, { k: "nick", label: tt("Apelido (como aparece no app)", "Nickname (as shown in the app)") },
-      { k: "pet.especie", label: tt("Espécie", "Species"), type: "select", opts: PET_ESP().map((e) => [e[0], e[1] + " " + e[2]]), hint: tt("Roedor: hamster, porquinho-da-índia, chinchila. Réptil: jabuti, tartaruga, lagarto.", "Rodent: hamster, guinea pig, chinchilla. Reptile: tortoise, turtle, lizard.") },
+      { k: "pet.especie", label: tt("Espécie", "Species"), type: "select", opts: [["", tt("— escolha —", "— choose —")]].concat(PET_ESP().map((e) => [e[0], e[1] + " " + e[2] + (pf[e[0]].ex ? " — " + pf[e[0]].ex : "")])), hint: tt("Peixe: cadastre o aquário (um registro para os peixes dele). Não achou? 🐾 Outro.", "Fish: add the aquarium (one record for all its fish). Can't find it? 🐾 Other.") },
       { k: "pet.raca", label: tt("Raça", "Breed"), type: "datalist", opts: [], ph: tt("Toque para escolher ou escreva", "Tap to pick or type"), hint: tt("Não sabe? Escolha “SRD (vira-lata)”. Não está na lista? Escreva a raça.", "Not sure? Pick “Mixed breed”. Not on the list? Type the breed.") },
       { k: "pet.cor", label: tt("Cor da pelagem", "Coat colour"), ph: tt("Ex.: branco com manchas caramelo", "e.g. white with tan patches") },
       { k: "pet.sexo", label: tt("Sexo", "Sex"), type: "select", opts: [["", "—"], ["macho", tt("Macho", "Male")], ["femea", tt("Fêmea", "Female")]] },
@@ -8394,16 +8545,38 @@ const Pets = {
   async edit(p) {
     if (!this.podeEditar()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
     const novo = !p;
-    p = p ? JSON.parse(JSON.stringify(p)) : { role: "pet", color: COLORS[People.list().length % COLORS.length], pet: { especie: "cachorro" } };
-    if (!this.dados(p).especie) p.pet = Object.assign({}, p.pet, { especie: this.esp(p)[0] });   /* pet antigo: a espécie que o ícone diz */
+    p = p ? JSON.parse(JSON.stringify(p)) : { role: "pet", color: COLORS[People.list().length % COLORS.length], pet: { especie: "" } };
+    /* pet que já existe: a espécie que o esp() diz (pet antigo: a do ícone; reptil + Jabuti: quelonio), para o select mostrar o
+       tipo certo e o Salvar gravar ele */
+    if (!novo) p.pet = Object.assign({}, p.pet, { especie: this.esp(p)[0] });
     const lista = (esp) => '<option value="' + (PET_RACAS()[esp] || []).map(esc).join('"><option value="') + '">';
     let r = await formModal({ title: "🐾 " + (novo ? tt("Novo pet", "New pet") : esc(this.nome(p))), fields: this.fields(), values: p, wide: true,
       onDelete: !novo && isGuardian() ? () => this.apagar(p.id) : null,
-      /* a lista de raças acompanha a espécie escolhida */
+      /* o req do formModal não acha chave com ponto (pet.especie): a pergunta "que bicho é?" fica aqui, e o formulário não fecha */
+      onOk: (o, el) => { if (!(o.pet || {}).especie) { toast(tt("Que bicho é? Escolha a espécie na lista.", "What animal is it? Pick the species from the list.")); el.querySelector('[name="pet.especie"]').focus(); return false; } },
+      /* a lista de raças, os rótulos e os exemplos acompanham a espécie escolhida; o campo que não serve para ela some, mas
+         continua no formulário (o readForm lê, então nada que já estava salvo se perde) */
       after: (el) => {
         const sel = el.querySelector('[name="pet.especie"]'), dl = el.querySelector('[name="pet.raca"]').list || el.querySelector("datalist");
-        const encher = () => { if (dl) dl.innerHTML = lista(sel.value); };
-        encher(); sel.addEventListener("change", encher);
+        const caixa = (k) => el.querySelector('[name="' + k + '"]').closest("label");
+        /* os textos de hoje (os do cachorro): o tipo que não tem o seu volta para eles */
+        const orig = {};
+        ["pet.raca", "pet.cor", "pet.microchip", "pet.registro", "pet.descricao"].forEach((k) => { const c = caixa(k), h = c.querySelector(".hint"); orig[k] = [c.querySelector("span").textContent, c.querySelector("input,textarea").placeholder, h ? h.textContent : ""]; });
+        const ajustar = () => {
+          if (dl) dl.innerHTML = lista(sel.value);
+          const pf = sel.value ? this.perfil({ pet: { especie: sel.value } }) : {};
+          /* [rótulo, exemplo, dica]; null = o de hoje */
+          const novoTxt = { "pet.raca": pf.raca && [pf.raca[0], null, pf.raca[1]], "pet.cor": pf.cor, "pet.microchip": pf.chip && [pf.chip], "pet.registro": pf.registro && [pf.registro[0], null, pf.registro[1]], "pet.descricao": pf.descricao && [null, pf.descricao] };
+          Object.keys(orig).forEach((k) => {
+            const c = caixa(k), t = novoTxt[k] || [], v = (i) => (t[i] == null ? orig[k][i] : t[i]);
+            c.querySelector("span").textContent = v(0); c.querySelector("input,textarea").placeholder = v(1);
+            let h = c.querySelector(".hint");
+            if (!h && v(2)) { h = document.createElement("small"); h.className = "hint"; c.appendChild(h); }
+            if (h) { h.textContent = v(2); h.style.display = v(2) ? "" : "none"; }
+          });
+          el.querySelectorAll('[name^="pet."]').forEach((i) => { const c = i.closest("label"); if (c) c.style.display = (pf.esconde || []).includes(i.name) ? "none" : ""; });
+        };
+        ajustar(); sel.addEventListener("change", ajustar);
       } });
     if (!r) return null;
     /* pet que já existe: só o que o formulário mostra, por cima do registro de AGORA. A cópia de quando o formulário abriu
@@ -8416,8 +8589,9 @@ const Pets = {
       r = o;
     }
     r.role = "pet"; r.pet = Object.assign({}, cur ? {} : p.pet || {}, r.pet || {}); r.pet.castrado = !!r.pet.castrado;
-    /* o ícone acompanha a espécie, a não ser que a pessoa tenha escolhido outro em Família */
-    if (!r.emoji || PET_ESP().some((e) => e[1] === r.emoji) || r.emoji === "🦜") r.emoji = this.esp(r)[1];
+    /* o ícone acompanha a espécie, a não ser que a pessoa tenha escolhido outro em Família (o 🦜 agora é de PET_ESP; o 🦎 de
+       um jabuti antigo conta como automático e vira 🐢) */
+    if (!r.emoji || PET_ESP().some((e) => e[1] === r.emoji)) r.emoji = this.esp(r)[1];
     await DB.put("people", r);
     /* trocou o nome: os avisos do pet ("Vacina anual — Bolinha") passam a ter o nome novo (só o final " — nome" exato) */
     const depois = this.nome(r);
@@ -8448,19 +8622,24 @@ const Pets = {
     for (const m of DB.raw("maint").filter((x) => x.cat === "pet" && !x.pet)) {
       const t = norm(m.title), donos = ps.filter((p) => [p.name, p.nick].some((n) => palavra(t, n)));
       const p = donos.length === 1 ? donos[0] : !donos.length && ps.length === 1 ? ps[0] : null; if (!p) continue;
-      const tipo = /vacin|vaccin/.test(t) ? "vacina" : /verm|worm/.test(t) ? "vermifugo" : /pulga|carrapat|\bflea|\btick/.test(t) ? "antipulgas" : /banho|tosa|\bbath|groom/.test(t) ? "banho" : "outro";
+      let tipo = /vacin|vaccin/.test(t) ? "vacina" : /verm|worm/.test(t) ? "vermifugo" : /pulga|carrapat|\bflea|\btick/.test(t) ? "antipulgas" : /banho|tosa|\bbath|groom/.test(t) ? "banho" : "outro";
+      /* tipo que este bicho não tem vira "outro" (fica o título): o "Banho de pó" da chinchila não vira "Banho e tosa" */
+      if (!this.cuidadosDe(p).some((c) => c[0] === tipo)) tipo = "outro";
       await DB.patch("maint", m.id, { pet: p.id, petTipo: tipo });
     }
   },
-  /* a segunda vacina (a antirrábica depois da V10) aparece com o nome dela, não como "Vacina anual" */
-  info(m) { if (m.petTipo === "racao") return ["racao", "🥣", tt("Comprar ração", "Buy food")]; const c = PET_CUIDADOS().find((x) => x[0] === m.petTipo); if (c && c[0] === "vacina" && !/^(vacina anual|yearly vaccine)/i.test(m.title || "")) return [c[0], c[1], m.title]; return c && c[0] !== "outro" ? c : ["outro", "🐾", m.title]; },
+  /* a segunda vacina (a antirrábica depois da V10) aparece com o nome dela, não como "Vacina anual". O rótulo é o do tipo do
+     pet (a consulta da ave diz "veterinária de aves"); cuidado que o tipo não tem (o antipulgas antigo de um coelho) continua
+     aparecendo e avisando, com o rótulo do catálogo */
+  info(m) { if (m.petTipo === "racao") return ["racao", "🥣", tt("Comprar ração", "Buy food")]; const c = this.cuidadosDe(this.get(m.pet)).find((x) => x[0] === m.petTipo) || PET_CUIDADOS().find((x) => x[0] === m.petTipo); if (c && c[0] === "vacina" && !/^(vacina anual|yearly vaccine)/i.test(m.title || "")) return [c[0], c[1], m.title]; return c && c[0] !== "outro" ? c : ["outro", "🐾", m.title]; },
   badge(m) { return m._days == null ? "" : m._days < 0 ? '<span class="badge bad">' + tt("venceu há " + -m._days + " d", "overdue " + -m._days + " d") + "</span>" : m._days <= 15 ? '<span class="badge warn">' + relDay(m.next) + "</span>" : '<span class="badge ok">' + esc(fmtDate(m.next, "short")) + "</span>"; },
   novoCuidado(pid, el) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
     const tem = new Set(this.cuidados(pid).map((m) => m.petTipo));
-    /* a vacina aparece sempre: cachorro costuma ter duas por ano (a V8/V10 e a antirrábica). A segunda vem sem nome, para a
-       pessoa escrever, e continua sendo vacina (365 dias, marca e quem aplicou no ✓) */
-    popMenu(el, [{ hd: tt("Acrescentar para ", "Add for ") + this.nome(p) }].concat(PET_CUIDADOS().filter((c) => c[0] === "outro" || c[0] === "vacina" || !tem.has(c[0])).map((c) => { const outra = c[0] === "vacina" && tem.has("vacina"); return { ic: c[1], t: (outra ? tt("Outra vacina (ex.: antirrábica)", "Another vaccine (e.g. rabies)") : c[2]) + (c[0] === "outro" ? "" : " · " + tt("a cada " + c[3] + " dias", "every " + c[3] + " days")),
+    /* só os cuidados do tipo do bicho (periquito não ganha antipulgas). Nos tipos que têm vacina, ela aparece sempre: cachorro
+       costuma ter duas por ano (a V8/V10 e a antirrábica). A segunda vem sem nome, para a pessoa escrever, e continua sendo
+       vacina (365 dias, marca e quem aplicou no ✓) */
+    popMenu(el, [{ hd: tt("Acrescentar para ", "Add for ") + this.nome(p) }].concat(this.cuidadosDe(p).filter((c) => c[0] === "outro" || c[0] === "vacina" || !tem.has(c[0])).map((c) => { const outra = c[0] === "vacina" && tem.has("vacina"); return { ic: c[1], t: (outra ? tt("Outra vacina (ex.: antirrábica)", "Another vaccine (e.g. rabies)") : c[2]) + (c[0] === "outro" ? "" : " · " + tt("a cada " + c[3] + " dias", "every " + c[3] + " days")),
       fn: () => Maint.edit({ title: c[0] === "outro" || outra ? "" : c[2] + " — " + this.nome(p), cat: "pet", interval: c[3], pet: pid, petTipo: c[0] }) }; })));
   },
   async remarcar(mid) {
@@ -8502,39 +8681,47 @@ const Pets = {
     if (r.compradoEm && r.validade) { const cabe = Math.floor(diffDays(r.compradoEm, r.validade) / diasSaco); o.maxSacos = Math.max(1, cabe); o.sacoGrande = cabe < 1; o.vence = r.validade < o.acabaEm; }
     return o;
   },
-  faseTxt(f) { return { filhote: tt("filhote", "puppy/kitten"), adulto: tt("adulto", "adult"), senior: tt("idoso", "senior") }[f] || ""; },
-  /* o mesmo texto da calculadora da promoção, quando nem um saco acaba antes da validade */
-  sacoGrandeTxt(r, c) { return tt("Um saco de " + num(+r.sacoKg) + " kg dura ~", "A " + num(+r.sacoKg) + " kg bag lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + tt(" e vence antes de acabar: prefira um saco menor.", " and expires before it's finished: pick a smaller bag."); },
+  faseTxt(f) { return { filhote: tt("filhote", "young"), adulto: tt("adulto", "adult"), senior: tt("idoso", "senior") }[f] || ""; },
+  /* "saco" ou o "pacote" do tipo ([pt, en]) e o rótulo do tamanho dele (o pacote também aceita gramas: "500 g") */
+  saco(pf) { const w = pf.saco || ["saco", "bag"]; return [w, tt("Tamanho do " + w[0] + (pf.saco ? " (kg ou g)" : " (kg)"), w[1].charAt(0).toUpperCase() + w[1].slice(1) + " size" + (pf.saco ? " (kg or g)" : " (kg)"))]; },
+  /* o mesmo texto da calculadora da promoção, quando nem um saco acaba antes da validade (w: a palavra do tipo, [pt, en]) */
+  sacoGrandeTxt(r, c, w) { w = w || ["saco", "bag"]; return tt("Um " + w[0] + " de " + num(+r.sacoKg) + " kg dura ~", "A " + num(+r.sacoKg) + " kg " + w[1] + " lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + tt(" e vence antes de acabar: prefira um " + w[0] + " menor.", " and expires before it's finished: pick a smaller " + w[1] + "."); },
   /* compraNova: veio do ✓ Feito do aviso "Comprar ração": a mesma ração, comprada hoje, com a validade nova em branco */
   async racaoForm(pid, compraNova) {
     const p = this.get(pid); if (!p) return;
     if (!this.podeEditar()) return toast(tt("Peça para um responsável 🙂", "Ask a guardian 🙂"));
-    const r0 = this.dados(p).racao || {};
-    const fase = ageOf(p.birth) == null ? "adulto" : ageOf(p.birth) < 1 ? "filhote" : ageOf(p.birth) >= 8 ? "senior" : "adulto";
+    /* simples (peixe, jabuti, lagarto e cobra): só o que come e a validade, sem a conta do saco. w: "saco" ou "pacote" */
+    const r0 = this.dados(p).racao || {}, pf = this.perfil(p), simples = pf.comida === "simples", [w, sacoRot] = this.saco(pf);
+    /* a fase pela idade é conta de cachorro e gato (um jabuti de 8 anos ainda é jovem): os outros começam em adulto */
+    const fase = !pf.faseAuto || ageOf(p.birth) == null ? "adulto" : ageOf(p.birth) < 1 ? "filhote" : ageOf(p.birth) >= 8 ? "senior" : "adulto";
     const vals = compraNova ? Object.assign({}, r0, { compradoEm: today(), validade: "" }) : Object.assign({ fase, refeicoesDia: 2, sacos: 1, compradoEm: today() }, r0);
-    const f = [{ k: "marca", label: tt("Marca e linha da ração", "Food brand and line"), full: true, ph: tt("Ex.: Marca X Raças Pequenas", "e.g. Brand X Small Breed") },
-      { k: "fase", label: tt("Fase", "Life stage"), type: "select", opts: [["filhote", tt("Filhote", "Puppy / kitten")], ["adulto", tt("Adulto", "Adult")], ["senior", tt("Idoso (sênior)", "Senior")]] },
+    /* ave, roedor e coelho: gramas por dia (refeição não se conta). O que estava em g × refeições abre já somado e grava 1 */
+    if (!pf.refeicoes) { if (+vals.gRefeicao > 0 && +vals.refeicoesDia > 1) vals.gRefeicao = Math.round(vals.gRefeicao * vals.refeicoesDia * 1000) / 1000; vals.refeicoesDia = 1; }
+    const f = [{ k: "marca", label: pf.marca || tt("Marca e linha da ração", "Food brand and line"), full: true, ph: pf.marca ? "" : tt("Ex.: Marca X Raças Pequenas", "e.g. Brand X Small Breed") },
+      simples ? null : { k: "fase", label: tt("Fase", "Life stage"), type: "select", opts: [["filhote", tt("Filhote", "Young (puppy, kitten…)")], ["adulto", tt("Adulto", "Adult")], ["senior", tt("Idoso (sênior)", "Senior")]] },
       /* texto com teclado de número (e não type="number"): no celular em português o "10,1" virava 101 ou sumia */
-      { k: "sacoKg", label: tt("Tamanho do saco (kg)", "Bag size (kg)"), im: "decimal", ph: "10,1" },
-      { k: "gRefeicao", label: tt("Gramas por refeição", "Grams per meal"), im: "decimal", ph: "37,5" },
-      { k: "refeicoesDia", label: tt("Refeições por dia", "Meals per day"), type: "number" },
+      simples ? null : { k: "sacoKg", label: sacoRot, im: "decimal", ph: pf.saco ? "500 g" : "10,1" },
+      simples ? null : { k: "gRefeicao", label: pf.refeicoes ? tt("Gramas por refeição", "Grams per meal") : tt("Gramas por dia", "Grams per day"), im: "decimal", ph: pf.refeicoes ? "37,5" : "10" },
+      simples || !pf.refeicoes ? null : { k: "refeicoesDia", label: tt("Refeições por dia", "Meals per day"), type: "number" },
       { k: "compradoEm", label: tt("Comprou em", "Bought on"), type: "date" },
-      { k: "sacos", label: tt("Quantos sacos comprou", "How many bags"), type: "number" },
-      { k: "validade", label: tt("Validade (impressa no saco)", "Expiry date (printed on the bag)"), type: "date" },
-      { type: "note", html: tt("As contas são uma estimativa. A quantidade certa, confirme com a veterinária.", "The numbers are an estimate. Confirm the right amount with your vet.") }];
+      simples ? null : { k: "sacos", label: tt("Quantos " + w[0] + "s comprou", "How many " + w[1] + "s"), type: "number" },
+      { k: "validade", label: simples ? tt("Validade (se tiver)", "Expiry date (if any)") : tt("Validade (impressa no " + w[0] + ")", "Expiry date (printed on the " + w[1] + ")"), type: "date" },
+      simples ? null : { type: "note", html: tt("As contas são uma estimativa. A quantidade certa, confirme com a veterinária.", "The numbers are an estimate. Confirm the right amount with your vet.") }].filter(Boolean);
     /* saco ou gramas que não dá para ler ("15 kg" virava 0 e o aviso "Comprar ração" sumia sem dizer nada): o formulário
-       fica aberto, com o que a pessoa escreveu */
-    const ilegivel = (o) => [["sacoKg", tt("Escreva o tamanho do saco em kg, ex.: 10,1", "Type the bag size in kg, e.g. 10.1")], ["gRefeicao", tt("Escreva as gramas por refeição, ex.: 37,5", "Type the grams per meal, e.g. 37.5")]].find(([k]) => String(o[k] == null ? "" : o[k]).trim() !== "" && !(this.dec(o[k]) > 0));
+       fica aberto, com o que a pessoa escreveu. No modo simples esses campos não aparecem: nada a conferir */
+    const ilegivel = (o) => simples ? null : [["sacoKg", pf.saco ? tt("Escreva o tamanho do pacote, ex.: 0,5 ou 500 g", "Type the pack size, e.g. 0.5 or 500 g") : tt("Escreva o tamanho do saco em kg, ex.: 10,1", "Type the bag size in kg, e.g. 10.1")], ["gRefeicao", pf.refeicoes ? tt("Escreva as gramas por refeição, ex.: 37,5", "Type the grams per meal, e.g. 37.5") : tt("Escreva as gramas por dia, ex.: 10", "Type the grams per day, e.g. 10")]].find(([k]) => String(o[k] == null ? "" : o[k]).trim() !== "" && !(this.dec(o[k]) > 0));
     const r = await formModal({ title: "🥣 " + (compraNova ? tt("Comprou ração nova? ", "Bought new food? ") : tt("Ração de ", "Food for ")) + esc(this.nome(p)), fields: f, values: vals, okText: compraNova ? tt("Registrar a compra", "Log the purchase") : null,
       onOk: (o) => { const x = ilegivel(o); if (x) { toast(x[1]); return false; } } });
     if (!r) return;
     const n = (v) => { const x = this.dec(v); return x >= 0 ? x : ""; };   /* aceita "10,1", "10.1", "0,375" e "15 kg" */
-    const rac = { marca: String(r.marca || "").slice(0, 120), fase: r.fase || "", sacoKg: n(r.sacoKg), gRefeicao: n(r.gRefeicao), refeicoesDia: n(r.refeicoesDia) === "" ? "" : Math.round(n(r.refeicoesDia)), compradoEm: r.compradoEm || "", sacos: Math.max(1, Math.round(n(r.sacos) || 1)), validade: r.validade || "" };
+    const nKg = (v) => { const x = this.kg(v, "kg"); return x >= 0 ? x : ""; };   /* e o saco também em gramas ("500 g" = 0,5 kg) */
+    /* modo simples grava saco, gramas e refeições vazios: o aviso "Comprar ração" de antes sai (racaoLembrete sem conta) */
+    const rac = { marca: String(r.marca || "").slice(0, 120), fase: r.fase || "", sacoKg: simples ? "" : nKg(r.sacoKg), gRefeicao: simples ? "" : n(r.gRefeicao), refeicoesDia: simples || n(r.refeicoesDia) === "" ? "" : Math.round(n(r.refeicoesDia)), compradoEm: r.compradoEm || "", sacos: Math.max(1, Math.round(n(r.sacos) || 1)), validade: r.validade || "" };
     await DB.patch("people", pid, { "pet.racao": rac });
     await this.racaoLembrete(pid, rac, compraNova);
     const c = this.racaoCalc(rac);
-    if (c && c.vence && c.sacoGrande) toast("⚠️ " + this.sacoGrandeTxt(rac, c), 6000);
-    else if (c && c.vence) toast("⚠️ " + tt("O último saco vence antes de acabar: compre no máximo " + c.maxSacos + (c.maxSacos > 1 ? " sacos." : " saco."), "The last bag expires before it's finished: buy at most " + c.maxSacos + (c.maxSacos > 1 ? " bags." : " bag.")), 6000);
+    if (c && c.vence && c.sacoGrande) toast("⚠️ " + this.sacoGrandeTxt(rac, c, w), 6000);
+    else if (c && c.vence) toast("⚠️ " + tt("O último " + w[0] + " vence antes de acabar: compre no máximo " + c.maxSacos + " " + w[0] + (c.maxSacos > 1 ? "s." : "."), "The last " + w[1] + " expires before it's finished: buy at most " + c.maxSacos + " " + w[1] + (c.maxSacos > 1 ? "s." : ".")), 6000);
     else if (c && c.acabaEm) toast("🥣 " + tt("Dura ~", "Lasts ~") + this.diasTxt(c.dias) + tt(": aviso uma semana antes de acabar.", ": I'll remind you a week before it runs out."), 4000);
   },
   /* um aviso só por pet ("Comprar ração — nome"), uma semana antes de acabar, pelos avisos de sempre. O id é fixo por pet:
@@ -8556,19 +8743,24 @@ const Pets = {
     await Shop.add({ name: (/^(ra[cç][aã]o|pet food)\b/i.test(r.marca) ? "" : tt("Ração ", "Pet food ")) + r.marca, cat: "pet", note: [r.sacoKg ? num(+r.sacoKg) + " kg" : "", this.nome(p)].filter(Boolean).join(" · ") });
   },
   racaoCard(p) {
-    const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), ed = this.podeEditar();
+    const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), ed = this.podeEditar(), pf = this.perfil(p), simples = pf.comida === "simples", [w, sacoRot] = this.saco(pf);
     let h = '<div class="card" id="pracao"><div class="between"><h3>🥣 ' + tt("Ração", "Food") + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="pet.racao" data-id="' + p.id + '" aria-label="' + tt("Anotar a ração", "Log the food") + '">' + (r.marca || c ? "✏️" : "＋") + "</button>" : "") + "</div>";
-    if (!c) h += '<p class="small muted">' + tt("Anote a ração, o tamanho do saco e quanto o pet come: eu calculo quantos dias dura, aviso uma semana antes de acabar e confiro se a validade dá.", "Log the food, the bag size and how much your pet eats: I work out how many days it lasts, remind you a week before it runs out and check the expiry date.") + "</p>";
+    /* modo simples (peixe, jabuti, lagarto, cobra): o que come e a validade; sem conta de saco nem calculadora */
+    if (simples) h += r.marca || r.validade ? '<div class="small">' + esc([r.marca, r.validade ? tt("validade ", "expiry ") + fmtDate(r.validade) : ""].filter(Boolean).join(" · ")) + "</div>"
+      : '<p class="small muted">' + tt("Anote o que ele come e, se tiver, a validade: fica na ficha e no guia para quem cuida.", "Log what it eats and, if any, the expiry date: it goes on the record and in the carer's guide.") + "</p>";
+    else if (!c) h += '<p class="small muted">' + tt("Anote a ração, o tamanho do " + w[0] + " e quanto o pet come: eu calculo quantos dias dura, aviso uma semana antes de acabar e confiro se a validade dá.", "Log the food, the " + w[1] + " size and how much your pet eats: I work out how many days it lasts, remind you a week before it runs out and check the expiry date.") + "</p>";
     else {
+      /* ave, roedor e coelho anotam gramas por dia: sem o "× 1" */
+      const gx = pf.refeicoes ? " (" + num(+r.gRefeicao) + " g × " + r.refeicoesDia + ")" : "";
       h += (r.marca || r.fase ? '<div class="small">' + esc([r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · ")) + "</div>" : "") +
         '<div class="carfrv">' + tt("dura ~", "lasts ~") + this.diasTxt(c.dias) + "</div>" +
         /* gramas com a casa decimal que a pessoa escreveu (37,5 g × 2 = 75 g, não "38 g × 2") */
-        '<div class="small muted">' + tt(num(c.diario) + " g por dia (" + num(+r.gRefeicao) + " g × " + r.refeicoesDia + ") · cada saco de " + num(+r.sacoKg) + " kg dura ~", num(c.diario) + " g a day (" + num(+r.gRefeicao) + " g × " + r.refeicoesDia + ") · each " + num(+r.sacoKg) + " kg bag lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + " · " + tt(c.sacos + (c.sacos > 1 ? " sacos" : " saco"), c.sacos + (c.sacos > 1 ? " bags" : " bag")) + "</div>" +
+        '<div class="small muted">' + tt(num(c.diario) + " g por dia" + gx + " · cada " + w[0] + " de " + num(+r.sacoKg) + " kg dura ~", num(c.diario) + " g a day" + gx + " · each " + num(+r.sacoKg) + " kg " + w[1] + " lasts ~") + this.diasTxt(Math.round(c.diasSaco)) + " · " + tt(c.sacos + " " + w[0] + (c.sacos > 1 ? "s" : ""), c.sacos + " " + w[1] + (c.sacos > 1 ? "s" : "")) + "</div>" +
         (c.acabaEm ? '<div style="margin-top:4px">' + tt("Acaba em ", "Runs out on ") + "<b>" + fmtDate(c.acabaEm) + "</b> (" + relDay(c.acabaEm) + ")</div>" : "") +
-        (c.vence ? '<div class="note warn" style="margin-top:8px">⚠️ ' + (c.sacoGrande ? esc(this.sacoGrandeTxt(r, c)) + " (" + tt("validade ", "expiry ") + esc(fmtDate(r.validade)) + ")" : tt("O último saco vence antes de acabar (validade " + esc(fmtDate(r.validade)) + "): compre no máximo " + c.maxSacos + (c.maxSacos > 1 ? " sacos" : " saco") + " de cada vez.", "The last bag expires before it's finished (expiry " + esc(fmtDate(r.validade)) + "): buy at most " + c.maxSacos + (c.maxSacos > 1 ? " bags" : " bag") + " at a time.")) + "</div>" : "");
+        (c.vence ? '<div class="note warn" style="margin-top:8px">⚠️ ' + (c.sacoGrande ? esc(this.sacoGrandeTxt(r, c, w)) + " (" + tt("validade ", "expiry ") + esc(fmtDate(r.validade)) + ")" : tt("O último " + w[0] + " vence antes de acabar (validade " + esc(fmtDate(r.validade)) + "): compre no máximo " + c.maxSacos + " " + w[0] + (c.maxSacos > 1 ? "s" : "") + " de cada vez.", "The last " + w[1] + " expires before it's finished (expiry " + esc(fmtDate(r.validade)) + "): buy at most " + c.maxSacos + " " + w[1] + (c.maxSacos > 1 ? "s" : "") + " at a time.")) + "</div>" : "");
     }
-    h += moreBox("🧮 " + tt("Vai comprar em promoção? Quantos sacos cabem antes da validade?", "Buying on sale? How many bags fit before the expiry date?"),
-      '<div class="fgrid" style="margin-top:6px"><label class="fld"><span>' + tt("Tamanho do saco (kg)", "Bag size (kg)") + '</span><input type="text" inputmode="decimal" id="pck" value="' + esc(r.sacoKg || "") + '"></label><label class="fld"><span>' + tt("Validade", "Expiry date") + '</span><input type="date" id="pcv"></label></div><div id="pco" class="small" style="margin-top:6px" aria-live="polite"></div>');
+    if (!simples) h += moreBox("🧮 " + tt("Vai comprar em promoção? Quantos " + w[0] + "s cabem antes da validade?", "Buying on sale? How many " + w[1] + "s fit before the expiry date?"),
+      '<div class="fgrid" style="margin-top:6px"><label class="fld"><span>' + sacoRot + '</span><input type="text" inputmode="decimal" id="pck" value="' + esc(r.sacoKg || "") + '"></label><label class="fld"><span>' + tt("Validade", "Expiry date") + '</span><input type="date" id="pcv"></label></div><div id="pco" class="small" style="margin-top:6px" aria-live="polite"></div>');
     if (ed && r.marca) h += '<div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pet.shop" data-id="' + p.id + '">🛒 ' + tt("Pôr na lista de compras", "Add to the shopping list") + "</button></div>";
     if (this.esp(p)[0] === "cachorro" && (r.fase === "filhote" || (!r.fase && ageOf(p.birth) != null && ageOf(p.birth) < 1))) h += '<p class="tiny faint" style="margin-top:8px">💡 ' + tt("Cachorro pequeno costuma trocar a ração de filhote pela de adulto entre 8 e 12 meses, aos poucos, misturando as duas por uns 5 dias. Confirme com a veterinária.", "Small dogs usually switch from puppy to adult food between 8 and 12 months, gradually, mixing both for about 5 days. Confirm with your vet.") + "</p>";
     return h + "</div>";
@@ -8576,13 +8768,15 @@ const Pets = {
   /* calculadora da promoção: mesma conta, comprando hoje */
   calcPromo(root, pid) {
     const k = $("#pck", root), v = $("#pcv", root), out = $("#pco", root); if (!k || !v || !out) return;
+    const w = this.saco(this.perfil(this.get(pid)))[0];
     const conta = () => {
-      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0), kg = this.dec(k.value);
+      /* o tamanho também em gramas ("500 g" = 0,5 kg), como no formulário da ração */
+      const r = this.dados(this.get(pid)).racao || {}, diario = (+r.gRefeicao || 0) * (+r.refeicoesDia || 0), kg = this.kg(k.value, "kg");
       if (!(diario > 0)) { out.textContent = tt("Anote antes quanto o pet come (✏️ na Ração).", "First log how much your pet eats (✏️ in Food)."); return; }
-      if (!(kg > 0) || !v.value) { out.textContent = tt("Escreva o tamanho do saco e a validade.", "Type the bag size and the expiry date."); return; }
+      if (!(kg > 0) || !v.value) { out.textContent = tt("Escreva o tamanho do " + w[0] + " e a validade.", "Type the " + w[1] + " size and the expiry date."); return; }
       const ds = (kg * 1000) / diario, x = Math.floor(diffDays(today(), v.value) / ds);
-      out.textContent = x < 1 ? this.sacoGrandeTxt({ sacoKg: kg }, { diasSaco: ds })
-        : tt("Cabem até " + x + (x > 1 ? " sacos" : " saco") + " de " + num(kg) + " kg antes de vencer (cada um dura ~", "Up to " + x + (x > 1 ? " bags" : " bag") + " of " + num(kg) + " kg fit before the expiry date (each lasts ~") + this.diasTxt(Math.round(ds)) + ").";
+      out.textContent = x < 1 ? this.sacoGrandeTxt({ sacoKg: kg }, { diasSaco: ds }, w)
+        : tt("Cabem até " + x + " " + w[0] + (x > 1 ? "s" : "") + " de " + num(kg) + " kg antes de vencer (cada um dura ~", "Up to " + x + " " + w[1] + (x > 1 ? "s" : "") + " of " + num(kg) + " kg fit before the expiry date (each lasts ~") + this.diasTxt(Math.round(ds)) + ").";
     };
     k.addEventListener("input", conta); v.addEventListener("input", conta); v.addEventListener("change", conta);
   },
@@ -8597,8 +8791,11 @@ const Pets = {
   async histEdit(pid, hid) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
     const x = hid ? (this.dados(p).historico || []).find((y) => y.id === hid) : null;
+    /* só o que serve para o tipo (jabuti não tem castração; troca de pele só em lagarto e cobra), mas a entrada que está sendo
+       editada mantém o tipo dela (senão o select mudava sozinho para o primeiro) */
+    const fora = this.perfil(p).histFora.filter((k) => !x || x.tipo !== k);
     const r = await formModal({ title: "📋 " + tt("Histórico de ", "History of ") + esc(this.nome(p)), values: x || { d: today(), tipo: "consulta" },
-      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "tipo", label: tt("O quê", "What"), type: "select", opts: PET_HIST().map((t) => [t[0], t[1] + " " + t[2]]) },
+      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "tipo", label: tt("O quê", "What"), type: "select", opts: PET_HIST().filter((t) => !fora.includes(t[0])).map((t) => [t[0], t[1] + " " + t[2]]) },
         { k: "titulo", label: tt("Resumo", "Summary"), req: true, full: true, ph: tt("Ex.: consulta de rotina, exame de sangue, comeu meia barra de chocolate", "e.g. check-up, blood test, ate half a chocolate bar") },
         { k: "nota", label: tt("Detalhes (o que a veterinária disse, remédio, valor…)", "Details (what the vet said, medicine, price…)"), type: "textarea", rows: 3 }],
       onDelete: x ? () => this.lista(pid, "historico", (L) => L.filter((y) => y && y.id !== hid)) : null });
@@ -8613,7 +8810,7 @@ const Pets = {
       (L.length ? '<div class="list">' + L.slice(0, 30).map((x) => {
         const ic = x.fonte === "pet" ? this.histTipo(x.tipo)[1] : x.ic, at = !ed ? "" : x.fonte === "pet" ? ' data-act="pet.hist" data-id="' + esc(p.id) + '" data-h="' + esc(x.id) + '"' : ' data-act="pet.vercuidado" data-m="' + esc(x.mt) + '"';
         return '<div class="li' + (ed ? " click" : "") + '"' + at + '><div class="ico">' + ic + '</div><div class="main"><div class="t">' + esc(x.titulo) + '</div><div class="s">' + esc([fmtDate(x.d), x.nota].filter(Boolean).join(" · ")) + "</div></div></div>"; }).join("") + "</div>"
-        : '<div class="empty tiny">' + tt("Consultas, exames, cirurgias, castração e o que aconteceu (comeu algo, se machucou) ficam aqui, com data.", "Vet visits, tests, surgeries, neutering and what happened (ate something, got hurt) go here, with dates.") + "</div>") + "</div>";
+        : '<div class="empty tiny">' + tt("Consultas, exames, cirurgias e o que aconteceu (comeu algo, se machucou) ficam aqui, com data.", "Vet visits, tests, surgeries and what happened (ate something, got hurt) go here, with dates.") + "</div>") + "</div>";
   },
   pesos(p) { return (this.dados(p).pesos || []).filter((x) => x && x.d && +x.kg > 0).sort((a, b) => String(a.d).localeCompare(String(b.d))); },
   faixa(p) { const r = norm(this.dados(p).raca), f = r && PET_PESO.find((x) => x[0].test(r)); return f ? [f[1], f[2]] : null; },
@@ -8621,22 +8818,27 @@ const Pets = {
   pesoChave(x) { return x.id || x.d + "|" + x.kg; },
   /* com as casas que a balança dá: hamster e passarinho pesam gramas (0,145 kg), cachorro 7,05 kg */
   kgTxt(v) { return num(v, +v < 1 ? 3 : 2); },
+  /* com a unidade: bicho que se pesa em gramas mostra "35 g" (abaixo de 1 kg); os outros, como sempre ("7,05 kg") */
+  pesoTxt(kg, p) { return this.perfil(p).peso === "g" && +kg < 1 ? num(Math.round(+kg * 10000) / 10) + " g" : this.kgTxt(kg) + " kg"; },
   async pesoEdit(pid, w) {
     const p = this.get(pid); if (!p || !this.podeEditar()) return;
     const x = w ? this.pesos(p).find((y) => this.pesoChave(y) === w) : null;
-    const r = await formModal({ title: "⚖️ " + tt("Peso de ", "Weight of ") + esc(this.nome(p)), values: x || { d: today() },
+    /* periquito, hamster, jabuti: em gramas ("35"; "1,2 kg" também vale), e o peso que já existe abre em gramas. Grava em kg */
+    const un = this.perfil(p).peso === "g" ? "g" : "kg";
+    const r = await formModal({ title: "⚖️ " + tt("Peso de ", "Weight of ") + esc(this.nome(p)), values: x ? Object.assign({}, x, { kg: un === "g" ? String(Math.round(x.kg * 10000) / 10) : x.kg }) : { d: today() },
       /* texto com teclado de número (e não type="number"): no celular em português o "8,4" virava 84 kg ou sumia */
-      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, { k: "kg", label: tt("Peso (kg)", "Weight (kg)"), im: "decimal", req: true, ph: "8,4" }],
+      fields: [{ k: "d", label: tt("Quando", "When"), type: "date", req: true }, un === "g" ? { k: "kg", label: tt("Peso (g)", "Weight (g)"), im: "decimal", req: true, ph: "35", hint: tt("Em gramas, ex.: 35. Mais de 1 kg? Escreva “1,2 kg”.", "In grams, e.g. 35. Over 1 kg? Type “1.2 kg”.") } : { k: "kg", label: tt("Peso (kg)", "Weight (kg)"), im: "decimal", req: true, ph: "8,4" }],
       /* confere antes de fechar: o que a pessoa escreveu não se perde */
-      onOk: (o) => { if (!(this.dec(o.kg) > 0)) { toast(tt("Escreva o peso em kg, ex.: 8,4 (ou 0,120 para 120 g).", "Type the weight in kg, e.g. 8.4 (or 0.120 for 120 g).")); return false; } },
+      onOk: (o) => { if (!(this.kg(o.kg, un) > 0)) { toast(un === "g" ? tt("Escreva o peso em gramas, ex.: 35 (ou “1,2 kg”).", "Type the weight in grams, e.g. 35 (or “1.2 kg”).") : tt("Escreva o peso em kg, ex.: 8,4 (ou 0,120 para 120 g).", "Type the weight in kg, e.g. 8.4 (or 0.120 for 120 g).")); return false; } },
       onDelete: x ? () => this.lista(pid, "pesos", (L) => L.filter((y) => y && this.pesoChave(y) !== w)) : null });
     if (!r) return;
-    const e = { id: (x && x.id) || uid("w"), d: r.d, kg: Math.round(this.dec(r.kg) * 1000) / 1000 };
+    const e = { id: (x && x.id) || uid("w"), d: r.d, kg: Math.round(this.kg(r.kg, un) * 1000) / 1000 };
     await this.lista(pid, "pesos", (L) => L.filter((y) => y && (!x || this.pesoChave(y) !== w)).concat(e).sort((a, b) => String(a.d).localeCompare(String(b.d))).slice(-100));
   },
-  /* gráfico de linha em SVG, sem biblioteca; a faixa comum da raça (se houver) vai de fundo */
-  grafico(L, fx) {
+  /* gráfico de linha em SVG, sem biblioteca; a faixa comum da raça (se houver) vai de fundo. p: a unidade do texto (g ou kg) */
+  grafico(L, fx, p) {
     if (!L.length) return "";
+    const T = (v) => this.pesoTxt(v, p);
     const W = 320, H = 120, px = 8, py = 12, ks = L.map((x) => +x.kg).concat(fx || []);
     let lo = Math.min(...ks), hi = Math.max(...ks);
     /* margem do tamanho dos pesos (um hamster de 0,12 kg não vira uma escala de 1 kg) e nunca abaixo de zero */
@@ -8644,22 +8846,25 @@ const Pets = {
     const t0 = parseISO(L[0].d).getTime(), t1 = parseISO(L[L.length - 1].d).getTime();
     const X = (d) => (L.length === 1 || t1 === t0 ? W / 2 : px + ((parseISO(d).getTime() - t0) / (t1 - t0)) * (W - 2 * px)), Y = (kg) => H - py - ((kg - lo) / (hi - lo)) * (H - 2 * py);
     const pts = L.map((x) => X(x.d).toFixed(1) + "," + Y(+x.kg).toFixed(1)).join(" ");
-    return '<svg class="petgraf" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(tt("Peso: de " + this.kgTxt(L[0].kg) + " kg a " + this.kgTxt(L[L.length - 1].kg) + " kg", "Weight: from " + this.kgTxt(L[0].kg) + " kg to " + this.kgTxt(L[L.length - 1].kg) + " kg")) + '">' +
+    return '<svg class="petgraf" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(tt("Peso: de " + T(L[0].kg) + " a " + T(L[L.length - 1].kg), "Weight: from " + T(L[0].kg) + " to " + T(L[L.length - 1].kg))) + '">' +
       (fx ? '<rect class="pfaixa" x="0" width="' + W + '" y="' + Y(fx[1]).toFixed(1) + '" height="' + (Y(fx[0]) - Y(fx[1])).toFixed(1) + '" fill="var(--ok)" opacity=".12"/>' : "") +
       (L.length > 1 ? '<polyline points="' + pts + '" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>' : "") +
       L.map((x) => '<circle cx="' + X(x.d).toFixed(1) + '" cy="' + Y(+x.kg).toFixed(1) + '" r="3.5" fill="var(--accent)"/>').join("") +
-      '<text x="' + (W - 2) + '" y="10" text-anchor="end" font-size="10" fill="var(--text2)">' + this.kgTxt(hi) + ' kg</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" text-anchor="end" font-size="10" fill="var(--text2)">' + this.kgTxt(lo) + " kg</text></svg>";
+      '<text x="' + (W - 2) + '" y="10" text-anchor="end" font-size="10" fill="var(--text2)">' + T(hi) + '</text><text x="' + (W - 2) + '" y="' + (H - 2) + '" text-anchor="end" font-size="10" fill="var(--text2)">' + T(lo) + "</text></svg>";
   },
   pesoCard(p) {
-    const L = this.pesos(p), fx = this.faixa(p), ed = this.podeEditar(), u = L[L.length - 1];
+    const L = this.pesos(p), fx = this.faixa(p), ed = this.podeEditar(), u = L[L.length - 1], pf = this.perfil(p), T = (v) => this.pesoTxt(v, p);
+    /* a faixa é "da raça" onde o campo se chama Raça (cão, gato, coelho) e "da espécie" nos outros; em gramas no que se pesa em g */
+    const fa = (de) => (pf.peso === "g" ? num(fx[0] * 1000) + de + num(fx[1] * 1000) + " g" : num(fx[0]) + de + num(fx[1]) + " kg");
     return '<div class="card"><div class="between"><h3>⚖️ ' + tt("Peso", "Weight") + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.peso" data-id="' + p.id + '" aria-label="' + tt("Anotar o peso", "Log the weight") + '">＋</button>' : "") + "</div>" +
-      (u ? '<div class="small">' + tt("Último: ", "Latest: ") + "<b>" + this.kgTxt(u.kg) + " kg</b> · " + esc(fmtDate(u.d)) + "</div>" + this.grafico(L, fx) +
-        (fx ? '<p class="tiny faint">🟩 ' + tt("Faixa comum da raça: " + num(fx[0]) + " a " + num(fx[1]) + " kg. Cada bicho é de um jeito: confirme com a veterinária.", "Common range for the breed: " + num(fx[0]) + " to " + num(fx[1]) + " kg. Every pet is different: confirm with your vet.") + "</p>" : "") +
-        '<div class="list">' + L.slice(-5).reverse().map((x) => '<div class="li' + (ed ? ' click" data-act="pet.peso" data-id="' + p.id + '" data-w="' + esc(this.pesoChave(x)) + '"' : '"') + '><div class="main"><div class="t">' + this.kgTxt(x.kg) + ' kg</div><div class="s">' + esc(fmtDate(x.d)) + "</div></div></div>").join("") + "</div>"
-        : '<div class="empty tiny">' + tt("Anote o peso de vez em quando (na consulta ou na balança de casa): vira um gráfico.", "Log the weight now and then (at the vet or on the home scale): it becomes a chart.") + "</div>") + "</div>";
+      (u ? '<div class="small">' + tt("Último: ", "Latest: ") + "<b>" + T(u.kg) + "</b> · " + esc(fmtDate(u.d)) + "</div>" + this.grafico(L, fx, p) +
+        (fx ? '<p class="tiny faint">🟩 ' + tt("Faixa comum da " + (pf.raca ? "espécie" : "raça") + ": " + fa(" a ") + ". Cada bicho é de um jeito: confirme com a veterinária.", "Common range for the " + (pf.raca ? "species" : "breed") + ": " + fa(" to ") + ". Every pet is different: confirm with your vet.") + "</p>" : "") +
+        '<div class="list">' + L.slice(-5).reverse().map((x) => '<div class="li' + (ed ? ' click" data-act="pet.peso" data-id="' + p.id + '" data-w="' + esc(this.pesoChave(x)) + '"' : '"') + '><div class="main"><div class="t">' + T(x.kg) + '</div><div class="s">' + esc(fmtDate(x.d)) + "</div></div></div>").join("") + "</div>"
+        : '<div class="empty tiny">' + (pf.peso === "g" ? tt("Pese toda semana, na mesma balança de cozinha (gramas). Perdeu peso várias vezes seguidas: avise a veterinária; perder 10% é emergência.", "Weigh it every week, on the same kitchen scale (grams). Lost weight several times in a row: tell your vet; losing 10% is an emergency.") : tt("Anote o peso de vez em quando (na consulta ou na balança de casa): vira um gráfico.", "Log the weight now and then (at the vet or on the home scale): it becomes a chart.")) + "</div>") + "</div>";
   },
   /* ---------- contatos do pet (o mesmo contato pode ser os três) ---------- */
-  PAPEIS: () => [["vet", "🩺", tt("Veterinário(a)", "Vet")], ["hotel", "🏨", tt("Hotelzinho / creche", "Pet hotel / daycare")], ["banho", "🛁", tt("Banho e tosa", "Bath and grooming")]],
+  /* as chaves vet/hotel/banho ficam (a nuvem junta pet.contatos chave a chave); só o rótulo muda por tipo (ave: vet de aves) */
+  PAPEIS(p) { const n = this.perfil(p).papeis || {}; return [["vet", "🩺", n.vet || tt("Veterinário(a)", "Vet")], ["hotel", "🏨", n.hotel || tt("Hotelzinho / creche", "Pet hotel / daycare")], ["banho", "🛁", n.banho || tt("Banho e tosa", "Bath and grooming")]]; },
   fones(c) {
     const f = ((c && c.phones) || []).find((x) => onlyDigits(x).length >= 4);
     return f ? '<div class="row nw"><a class="btn xs" href="' + telHref(f) + '" aria-label="' + tt("Ligar para ", "Call ") + esc(c.name) + '">📞</a><a class="btn xs ghost" target="_blank" rel="noopener" href="' + waHref(f) + '" aria-label="WhatsApp ' + esc(c.name) + '">💬</a></div>' : "";
@@ -8667,7 +8872,7 @@ const Pets = {
   contatosCard(p) {
     const cs = this.dados(p).contatos || {}, ed = this.podeEditar() && Rec.ok("contacts");
     return '<div class="card"><div class="between"><h3>📇 ' + tt("Contatos", "Contacts") + "</h3>" + (ed ? '<button class="btn sm ghost" data-act="pet.contatos" data-id="' + p.id + '">' + tt("Escolher", "Choose") + "</button>" : "") + '</div><div class="list">' +
-      this.PAPEIS().map((x) => { const c = cs[x[0]] ? DB.get("contacts", cs[x[0]]) : null; return '<div class="li"><div class="ico">' + x[1] + '</div><div class="main"><div class="s">' + x[2] + '</div><div class="t">' + (c ? esc(c.name) : '<span class="faint">—</span>') + "</div>" + (c && (c.phones || [])[0] ? '<div class="s">' + esc(c.phones[0]) + "</div>" : "") + "</div>" + this.fones(c) + "</div>"; }).join("") + "</div></div>";
+      this.PAPEIS(p).map((x) => { const c = cs[x[0]] ? DB.get("contacts", cs[x[0]]) : null; return '<div class="li"><div class="ico">' + x[1] + '</div><div class="main"><div class="s">' + x[2] + '</div><div class="t">' + (c ? esc(c.name) : '<span class="faint">—</span>') + "</div>" + (c && (c.phones || [])[0] ? '<div class="s">' + esc(c.phones[0]) + "</div>" : "") + "</div>" + this.fones(c) + "</div>"; }).join("") + "</div></div>";
   },
   /* pend: o que a pessoa já tinha escolhido antes de tocar em "＋ Novo contato" (não se perde ao voltar) */
   async contatosEscolher(pid, novoId, pend) {
@@ -8676,12 +8881,13 @@ const Pets = {
     const opts = [["", "—"]].concat(cs.map((c) => [c.id, (c.cat === "pet" ? "🐾 " : "") + c.name + (c.org && c.org !== c.name ? " (" + c.org + ")" : "")]));
     const vals = Object.assign({}, pend || this.dados(p).contatos || {});
     /* o contato novo vai para o primeiro papel ainda vazio (com os três escolhidos, a pessoa escolhe onde) */
-    if (novoId) { const vago = this.PAPEIS().map((x) => x[0]).find((k) => !vals[k]); if (vago) vals[vago] = novoId; }
+    if (novoId) { const vago = this.PAPEIS(p).map((x) => x[0]).find((k) => !vals[k]); if (vago) vals[vago] = novoId; }
     let novo = null;
     const r = await formModal({ title: "📇 " + tt("Contatos de ", "Contacts of ") + esc(this.nome(p)), values: vals,
-      fields: this.PAPEIS().map((x) => ({ k: x[0], label: x[1] + " " + x[2], type: "select", opts, full: true })).concat([{ type: "note", html: tt("O mesmo contato pode ser os três (ex.: o pet shop que tem veterinário, hotelzinho e banho e tosa). Os contatos de pet (🐾) vêm primeiro.", "The same contact can be all three (e.g. a pet shop with a vet, boarding and grooming). Pet contacts (🐾) come first.") }]),
+      /* o exemplo do pet shop é de cachorro e gato; nos outros bichos a nota fica sem ele */
+      fields: this.PAPEIS(p).map((x) => ({ k: x[0], label: x[1] + " " + x[2], type: "select", opts, full: true })).concat([{ type: "note", html: ["cachorro", "gato"].includes(this.esp(p)[0]) ? tt("O mesmo contato pode ser os três (ex.: o pet shop que tem veterinário, hotelzinho e banho e tosa). Os contatos de pet (🐾) vêm primeiro.", "The same contact can be all three (e.g. a pet shop with a vet, boarding and grooming). Pet contacts (🐾) come first.") : tt("O mesmo contato pode ser os três. Os contatos de pet (🐾) vêm primeiro.", "The same contact can be all three. Pet contacts (🐾) come first.") }]),
       extraFoot: '<button class="btn ghost sm" type="button" data-novoct>＋ ' + tt("Novo contato", "New contact") + "</button>",
-      after: (el, m) => { el.querySelector("[data-novoct]").onclick = () => { novo = {}; this.PAPEIS().forEach((x) => { novo[x[0]] = el.querySelector('[name="' + x[0] + '"]').value; }); m.close(); }; } });
+      after: (el, m) => { el.querySelector("[data-novoct]").onclick = () => { novo = {}; this.PAPEIS(p).forEach((x) => { novo[x[0]] = el.querySelector('[name="' + x[0] + '"]').value; }); m.close(); }; } });
     if (novo) {
       const c = await Contacts.edit({ cat: "pet", vis: "familia", phones: [], members: [pid] });
       return this.contatosEscolher(pid, c && c.id, novo);
@@ -8689,7 +8895,7 @@ const Pets = {
     if (!r) return;
     /* cada papel com o nome dele, e o vazio como undefined: na nuvem o omni_mudar_campos junta objetos chave a chave e só
        tira a chave que chega null (o aninhar troca undefined por null); sem isso o "—" não pegava e o contato voltava */
-    const ch = {}; this.PAPEIS().forEach((x) => { ch["pet.contatos." + x[0]] = r[x[0]] || undefined; });
+    const ch = {}; this.PAPEIS(p).forEach((x) => { ch["pet.contatos." + x[0]] = r[x[0]] || undefined; });
     await DB.patch("people", pid, ch);
   },
   /* ---------- guia para quem cuida (kind "pet"), montado da ficha ----------
@@ -8699,17 +8905,25 @@ const Pets = {
   guiaSecoes(p) {
     const d = this.dados(p), r = d.racao || {}, c = this.racaoCalc(r), h = DB.get("health", p.id) || {}, cs = d.contatos || {}, ct = (k) => (cs[k] ? DB.get("contacts", cs[k]) : null);
     const tel = (x) => (x ? x.name + ((x.phones || [])[0] ? ": " + x.phones[0] : "") : "");
-    const al = Health.allergyList(h), vet = ct("vet"), hotel = ct("hotel"), banho = ct("banho");
-    /* [título no idioma de agora, corpo, [pt, en]]: o guia acha a seção pelos dois títulos */
-    const sec = (pt, en, body) => [tt(pt, en), body, [pt, en]];
+    const al = Health.allergyList(h), vet = ct("vet"), hotel = ct("hotel"), banho = ct("banho"), pf = this.perfil(p), viagem = pf.viagem || ["Hotelzinho e banho e tosa", "Boarding and grooming"];
+    /* [título no idioma de agora, corpo, [pt, en, apelidos…]]: o guia acha a seção por qualquer um dos títulos */
+    const sec = (pt, en, body, ...apelidos) => [tt(pt, en), body, [pt, en].concat(apelidos)];
+    /* comida: no modo simples só o que come; quem anota gramas por dia (ave, roedor, coelho) não tem "por refeição" */
+    const comida = pf.comida === "simples" ? (r.marca ? tt("Comida: ", "Food: ") + r.marca : "")
+      : r.marca || c ? [tt("Ração: ", "Food: ") + [r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · "), !pf.refeicoes ? (r.gRefeicao ? tt(num(+r.gRefeicao * (+r.refeicoesDia || 1)) + " g por dia.", num(+r.gRefeicao * (+r.refeicoesDia || 1)) + " g a day.") : "")
+        : r.gRefeicao && r.refeicoesDia ? tt(num(+r.gRefeicao) + " g por refeição, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " vezes" : " vez") + " por dia.", num(+r.gRefeicao) + " g per meal, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " times" : " time") + " a day.") : ""].filter(Boolean).join("\n") : "";
     return [
-      sec("Comida (quanto e quando)", "Food (how much and when)", r.marca || c ? [tt("Ração: ", "Food: ") + [r.marca, this.faseTxt(r.fase)].filter(Boolean).join(" · "), r.gRefeicao && r.refeicoesDia ? tt(num(+r.gRefeicao) + " g por refeição, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " vezes" : " vez") + " por dia.", num(+r.gRefeicao) + " g per meal, " + r.refeicoesDia + (+r.refeicoesDia > 1 ? " times" : " time") + " a day.") : ""].filter(Boolean).join("\n") : ""),
-      sec("Passeios", "Walks", ""),
+      sec("Comida (quanto e quando)", "Food (how much and when)", comida),
+      /* a seção do tipo no lugar de "Passeios" (o cachorro continua com ela), já com o que é de todo dia (gaiola, aquário…) */
+      sec(pf.secao[0], pf.secao[1], pf.secao[2]),
       sec("Remédios", "Medicines", [(h.meds || []).map((m) => "💊 " + [m.name, m.dose, m.times ? "(" + m.times + ")" : ""].filter(Boolean).join(" ")).join("\n"), al.length ? "⚠️ " + tt("Alergias: ", "Allergies: ") + al.map((x) => x.what).join(", ") : ""].filter(Boolean).join("\n")),
       sec("Manias e cuidados", "Habits and care", d.descricao || p.notes || ""),
       sec("Veterinário", "Vet", [tel(vet) || h.doctor || "", h.plan && h.plan.operator ? tt("Plano: ", "Plan: ") + h.plan.operator + (h.plan.number ? " nº " + h.plan.number : "") : ""].filter(Boolean).join("\n")),
-      sec("Hotelzinho e banho e tosa", "Boarding and grooming", [hotel ? "🏨 " + tel(hotel) : "", banho && banho !== hotel ? "🛁 " + tel(banho) : ""].filter(Boolean).join("\n")),
-      sec("Se acontecer algo", "If something happens", "")
+      /* bicho exótico: "quem cuida nas viagens e onde comprar"; os títulos de antes ficam de apelido, para o guia já montado
+         achar a seção antiga e não ganhar outra */
+      sec(viagem[0], viagem[1], [hotel ? "🏨 " + tel(hotel) : "", banho && banho !== hotel ? "🛁 " + tel(banho) : ""].filter(Boolean).join("\n"), ...(pf.viagem ? ["Hotelzinho e banho e tosa", "Boarding and grooming"] : [])),
+      /* os perigos do tipo (panela antiaderente para a ave, salmonela no réptil…); o cachorro continua sem texto pronto */
+      sec("Se acontecer algo", "If something happens", pf.alerta)
     ];
   },
   async guia(pid) {
@@ -8746,7 +8960,7 @@ const Pets = {
   },
   listView() {
     const ps = this.list(), ed = this.podeEditar();
-    if (!ps.length) return '<div class="card"><div class="empty"><div class="e">🐾</div><p>' + tt("Nenhum pet ainda. Cadastre o seu: espécie, raça, fotos, vacinas, ração e quem cuida, tudo num lugar só.", "No pets yet. Add yours: species, breed, photos, vaccines, food and who looks after them, all in one place.") + "</p>" + (ed ? '<button class="btn" data-act="pet.new">＋ ' + tt("Cadastrar pet", "Add a pet") + "</button>" : "") + "</div></div>";
+    if (!ps.length) return '<div class="card"><div class="empty"><div class="e">🐾</div><p>' + tt("Nenhum pet ainda. Cadastre o seu bicho: espécie, fotos, cuidados com aviso, comida, saúde e quem cuida, tudo num lugar só.", "No pets yet. Add yours: species, photos, care reminders, food, health and who looks after them, all in one place.") + "</p>" + (ed ? '<button class="btn" data-act="pet.new">＋ ' + tt("Cadastrar pet", "Add a pet") + "</button>" : "") + "</div></div>";
     return '<div class="grid gauto">' + ps.map((p) => this.cartao(p)).join("") + "</div>";
   },
   view(id) {
@@ -8754,21 +8968,30 @@ const Pets = {
     if (!p) return '<div class="card">' + tt("Pet não encontrado.", "Pet not found.") + ' <button class="linkbtn" data-act="go" data-tab="pets">' + tt("Ver os pets", "See the pets") + "</button></div>";
     const d = this.dados(p), ed = this.podeEditar(), e = this.esp(p), info = (r, t) => (t ? '<div class="li"><div class="main"><div class="s">' + r + '</div><div class="t">' + esc(t) + "</div></div></div>" : "");
     const sexo = d.sexo === "femea" ? tt("fêmea", "female") : d.sexo === "macho" ? tt("macho", "male") : "";
+    /* o registro ganha linha própria onde é documento de origem (ave, jabuti…) ou onde o pedigree não aparece; no cachorro
+       continua dentro da linha do pedigree. Campo escondido com valor salvo continua aparecendo aqui */
+    const pf = this.perfil(p), regLinha = !!pf.registro || pf.esconde.includes("pet.pedigree");
     let h = '<div class="card"><div class="path" style="margin-bottom:8px">🐾 <button class="linkbtn" data-act="go" data-tab="pets">' + tt("Pets", "Pets") + "</button> › <b>" + esc(this.nome(p)) + "</b></div>" +
       '<div class="row nw" style="align-items:flex-start">' + PetFoto.avatar(p, "lg") + '<div style="min-width:0;flex:1"><div class="between"><h2>' + esc(this.nome(p)) + "</h2>" + (ed ? '<button class="btn sm ghost" data-act="pet.edit" data-id="' + p.id + '" aria-label="' + tt("Editar", "Edit") + '">✏️</button>' : "") + "</div>" +
       '<div class="small muted">' + esc([e[1] + " " + e[2], d.raca, sexo, d.cor].filter(Boolean).join(" · ")) + "</div>" +
       '<div class="chips" style="margin-top:6px">' + (p.birth ? '<span class="badge acc">🎂 ' + ageTxt(p.birth) + "</span>" : "") + (d.castrado ? '<span class="badge ok">✂️ ' + this.castradoTxt(d) + "</span>" : "") + (d.pedigree === "sim" ? '<span class="badge">🏅 ' + tt("pedigree", "pedigree") + "</span>" : "") + "</div></div></div>" +
       '<div class="list" style="margin-top:6px">' + info(tt("Nascimento", "Birth date"), p.birth ? fmtDate(p.birth) : "") + info(tt("Em casa desde", "At home since"), d.chegada ? fmtDate(d.chegada) + " (" + ageTxt(d.chegada) + ")" : "") +
-      info(tt("Microchip", "Microchip"), d.microchip) + info(tt("Pedigree", "Pedigree"), d.pedigree === "sim" ? tt("sim", "yes") + (d.registro ? " · " + d.registro : "") : d.pedigree === "nao" ? tt("não", "no") : "") + "</div>" +
+      info(pf.chip ? tt("Anilha ou microchip", "Leg ring or microchip") : tt("Microchip", "Microchip"), d.microchip) + info(tt("Pedigree", "Pedigree"), d.pedigree === "sim" ? tt("sim", "yes") + (d.registro && !regLinha ? " · " + d.registro : "") : d.pedigree === "nao" ? tt("não", "no") : "") +
+      (regLinha ? info(pf.registro ? pf.registro[0] : tt("Registro", "Registration"), d.registro) : "") + "</div>" +
       (d.descricao || p.notes ? '<p class="small" style="white-space:pre-line;margin-top:8px">' + esc(d.descricao || p.notes) + "</p>" : "") +
+      /* os perigos do tipo (os mesmos do guia, em "Se acontecer algo"), fechados para não ocupar a ficha */
+      (pf.alerta ? moreBox("⚠️ " + tt("Importante para quem cuida de ", "Important for whoever looks after ") + esc(this.nome(p)), '<p class="small">' + esc(pf.alerta) + "</p>") : "") +
       (ed ? '<div class="row" style="margin-top:8px"><button class="btn sm ghost" data-act="pet.foto" data-id="' + p.id + '">📷 ' + (d.foto ? tt("Trocar a foto de perfil", "Change profile photo") : tt("Pôr foto de perfil", "Add profile photo")) + "</button>" +
         (d.foto && isGuardian() ? '<button class="btn sm ghost" data-act="pet.apagarfoto" data-id="' + p.id + '" data-f="' + esc(d.foto.id) + '">🗑 ' + tt("Tirar a foto", "Remove photo") + "</button>" : "") + "</div>" : "") + "</div>";
     /* próximos cuidados: o que vence primeiro, de tudo (vacinas, banho, ração), cada um com o ✓ (o 🔔 traz para cá: o
        "Comprar ração" só tem o ✓ aqui, que abre a ração para anotar a compra nova) */
     const ms = this.cuidados(p.id), prox = ms.filter((m) => m._days != null).slice(0, 4);
+    /* "Vacinas e cuidados" só no tipo que tem vacina (aquário não tem); o texto vazio cita os primeiros cuidados do tipo */
+    const cd = this.cuidadosDe(p), vac = cd.some((c) => c[0] === "vacina"), tit = vac ? tt("Vacinas e cuidados", "Vaccines and care") : tt("Cuidados", "Care");
+    const exs = esc(cd.filter((c) => c[0] !== "outro").slice(0, 3).map((c) => { const s = c[2].replace(/\s*\(.*?\)/g, ""); return s.charAt(0).toLowerCase() + s.slice(1); }).join(", "));
     h += '<div class="card accent"><h3>⏰ ' + tt("Próximos cuidados", "Coming up") + "</h3>" + (prox.length ? '<div class="list">' + prox.map((m) => '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t">' + esc(this.info(m)[2]) + " " + this.badge(m) + '</div><div class="s">' + esc(fmtDate(m.next)) + "</div></div>" +
       (ed ? '<button class="btn xs ok" data-act="pet.feito" data-m="' + esc(m.id) + '">✓ ' + (m.petTipo === "racao" ? tt("Comprei", "Bought it") : tt("Feito", "Done")) + "</button>" : "") + "</div>").join("") + "</div>"
-      : '<div class="empty tiny">' + tt("Nada marcado ainda. Acrescente a vacina, o vermífugo, o antipulgas e o banho em “Vacinas e cuidados”, e a ração logo abaixo.", "Nothing scheduled yet. Add the vaccine, dewormer, flea treatment and bath under “Vaccines and care”, and the food right below.") + "</div>") + "</div>";
+      : '<div class="empty tiny">' + tt("Nada marcado ainda. Acrescente os cuidados (ex.: " + exs + ") em “" + tit + "”, e a ração logo abaixo.", "Nothing scheduled yet. Add care items (e.g. " + exs + ") under “" + tit + "”, and the food right below.") + "</div>") + "</div>";
     h += this.racaoCard(p);
     if (Rec.ok("health")) {
       const hh = DB.get("health", p.id) || {}, al = Health.allergyList(hh), pl = hh.plan || {};
@@ -8779,13 +9002,14 @@ const Pets = {
         (!hh.doctor && !pl.operator && !al.length && !(hh.meds || []).length && !hh.conditions ? '<div class="empty tiny">' + tt("Veterinário, plano, alergias e remédios do pet (os remédios com horário avisam na hora).", "The pet's vet, plan, allergies and medicines (timed medicines remind you on time).") + "</div>" : "") +
         (S.mode === "cloud" ? '<p class="tiny faint">🔒 ' + tt("A saúde fica só neste aparelho.", "Health stays on this device only.") + "</p>" : "") + "</div>";
     }
-    h += this.histCard(p) + this.pesoCard(p);
+    /* peixe não se pesa: sem cartão de peso, a não ser que já tenha algum peso anotado */
+    h += this.histCard(p) + (pf.peso || this.pesos(p).length ? this.pesoCard(p) : "");
     /* vacinas e cuidados: cada um com ✓ Feito, 📅 Remarcar e 🚫 Não se aplica (lembrete que não para sozinho) */
     const cu = ms.filter((m) => m.petTipo !== "racao");
-    h += '<div class="card"><div class="between"><h3>💉 ' + tt("Vacinas e cuidados", "Vaccines and care") + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.cuidado" data-id="' + p.id + '" aria-label="' + tt("Acrescentar cuidado", "Add care item") + '">＋</button>' : "") + "</div>" +
+    h += '<div class="card"><div class="between"><h3>' + (vac ? "💉 " : "🗓 ") + tit + "</h3>" + (ed ? '<button class="btn sm" data-act="pet.cuidado" data-id="' + p.id + '" aria-label="' + tt("Acrescentar cuidado", "Add care item") + '">＋</button>' : "") + "</div>" +
       (cu.length ? '<div class="list">' + cu.map((m) => { const ult = (m.history || [])[(m.history || []).length - 1] || {}; return '<div class="li"><div class="ico">' + this.info(m)[1] + '</div><div class="main"><div class="t' + (ed ? ' click" data-act="pet.vercuidado" data-m="' + m.id : "") + '">' + esc(m.title) + " " + this.badge(m) + '</div><div class="s">' + esc([m.next ? tt("próxima: ", "next: ") + fmtDate(m.next) : tt("sem data", "no date"), m.last ? tt("última: ", "last: ") + fmtDate(m.last) : "", m.interval ? tt("a cada " + m.interval + " dias", "every " + m.interval + " days") : "", ult.produto].filter(Boolean).join(" · ")) + "</div>" +
         (ed ? '<div class="row" style="margin-top:6px"><button class="btn xs ok" data-act="pet.feito" data-m="' + m.id + '">✓ ' + tt("Feito", "Done") + '</button><button class="btn xs ghost" data-act="pet.remarcar" data-m="' + m.id + '">📅 ' + tt("Remarcar", "Reschedule") + '</button><button class="btn xs ghost" data-act="pet.na" data-m="' + m.id + '">🚫 ' + tt("Não se aplica", "Doesn't apply") + "</button></div>" : "") + "</div></div>"; }).join("") + "</div>"
-        : '<div class="empty tiny">' + tt("Toque em ＋ para pôr a vacina, o vermífugo, o antipulgas e o banho e tosa: eu aviso no 🔔, na agenda e no celular.", "Tap ＋ to add the vaccine, dewormer, flea treatment and bath: I'll remind you in the 🔔, the calendar and on your phone.") + "</div>") + "</div>";
+        : '<div class="empty tiny">' + tt("Toque em ＋ para pôr os cuidados (ex.: " + exs + "): eu aviso no 🔔, na agenda e no celular.", "Tap ＋ to add care items (e.g. " + exs + "): I'll remind you in the 🔔, the calendar and on your phone.") + "</div>") + "</div>";
     h += this.contatosCard(p) + PetFoto.card(p);
     const gd = DB.all("guides").find((g) => g.kind === "pet" && g.pet === p.id);
     h += '<div class="card tight"><h3>📘 ' + tt("Guia para quem cuida", "Guide for the carer") + '</h3><p class="small muted">' + tt("Monta as instruções para quem vai ficar com o pet (pet-sitter, hotelzinho, vizinho): ração e horários, remédios, manias, veterinário e telefones. Você confere antes de mandar.", "Builds the instructions for whoever looks after the pet (sitter, boarding, neighbour): food and times, medicines, habits, vet and phones. You check it before sending.") + "</p>" +
@@ -9016,7 +9240,7 @@ const PetFoto = {
 SCREENS.pets = {
   render(sub, arg) {
     const ficha = sub === "ficha" && arg;
-    return '<div class="pagehead"><div><h1>🐾 ' + tt("Pets", "Pets") + '</h1><div class="sub">' + tt("A ficha de cada bicho: fotos, vacinas, ração, saúde e quem cuida", "Each pet's record: photos, vaccines, food, health and who looks after them") + "</div></div>" +
+    return '<div class="pagehead"><div><h1>🐾 ' + tt("Pets", "Pets") + '</h1><div class="sub">' + tt("A ficha de cada bicho: fotos, cuidados com aviso, comida, saúde e quem cuida", "Each pet's record: photos, care reminders, food, health and who looks after them") + "</div></div>" +
       (!ficha && Pets.podeEditar() && Pets.list().length ? '<div class="row"><button class="btn" data-act="pet.new">＋ ' + tt("Pet", "Pet") + "</button></div>" : "") + "</div>" + (ficha ? Pets.view(arg) : Pets.listView());
   },
   after(root, sub, arg) { PetFoto.preencher(root); PetFoto.reenviar(); Pets.ligarAntigos(); if (sub === "ficha") Pets.after(root, arg); }
@@ -9076,7 +9300,10 @@ const HouseViews = {
     let h = '<div class="card"><div class="between"><div><h3>🛠 ' + tt("Manutenções da casa, carro e pets", "Home, car and pet maintenance") + '</h3><div class="small muted">' + tt("O app avisa quando está chegando a hora e guarda o histórico.", "The app warns when it's due and keeps the history.") + '</div></div><button class="btn sm" data-act="mt.new">＋</button></div>' +
       (ms.length ? '<div class="list" style="margin-top:8px">' + ms.map((m) => { const c = MT_CATS().find((x) => x[0] === m.cat) || MT_CATS()[5]; const st = m._days == null ? "" : m._days < 0 ? '<span class="badge bad">' + tt("atrasada ", "overdue ") + -m._days + "d</span>" : m._days <= 15 ? '<span class="badge warn">' + relDay(m.next) + "</span>" : '<span class="badge ok">' + fmtDate(m.next, "short") + "</span>"; return '<div class="li"><div class="ico">' + c[1] + '</div><div class="main click" data-act="mt.edit" data-id="' + m.id + '"><div class="t">' + esc(m.title) + " " + st + '</div><div class="s">' + [m.last ? tt("última: ", "last: ") + fmtDate(m.last) : tt("sem registro", "no record"), m.interval ? tt("a cada ", "every ") + m.interval + tt(" dias", " days") : "", m.provider].filter(Boolean).map(esc).join(" · ") + '</div></div><button class="btn xs ok" data-act="mt.done" data-id="' + m.id + '">✓ ' + tt("Feito", "Done") + "</button></div>"; }).join("") + "</div>" : "") + "</div>";
     const have = new Set(ms.map((m) => norm(m.title)));
-    const tpl = MT_TEMPLATES().filter((t) => !have.has(norm(t[0])));
+    /* com 🐾 Pets ligado, os cuidados do pet nascem na ficha dele (com o tipo do bicho): o atalho daqui criava um "Antipulgas do
+       pet" sem pet, que ia para o único pet da família, mesmo um jabuti, e aparecia mesmo com o cuidado já posto em Pets */
+    const semPet = Rec.ok("pets") && canTab("pets");
+    const tpl = MT_TEMPLATES().filter((t) => !have.has(norm(t[0])) && !(semPet && t[1] === "pet"));
     if (tpl.length) h += '<div class="card tight"><h4>⚡ ' + tt("Sugestões rápidas", "Quick suggestions") + '</h4><div class="chips">' + tpl.map((t, i) => '<span class="chip" data-act="mt.tpl" data-i="' + MT_TEMPLATES().findIndex((x) => x[0] === t[0]) + '">＋ ' + esc(t[0]) + "</span>").join("") + "</div></div>";
     return h;
   },
@@ -9452,7 +9679,8 @@ ACT["doc.rmfile"] = () => {};
 /* =====================================================================
    FAMÍLIA — pessoas, contas, convites, controle parental e pontos
    ===================================================================== */
-const EMOJIS = ["", "👩", "👨", "🧑", "👧", "👦", "👶", "👵", "👴", "🧑‍🍼", "🐶", "🐱", "🐰", "🐦", "🐟", "🦜", "⭐", "🌸", "⚽", "🎮"];
+/* 🐹 🦎 🐢 dos tipos de pet: o select de Família não achava o ícone e o pet o perdia ao ser salvo por lá */
+const EMOJIS = ["", "👩", "👨", "🧑", "👧", "👦", "👶", "👵", "👴", "🧑‍🍼", "🐶", "🐱", "🐰", "🐦", "🐟", "🦜", "🐹", "🦎", "🐢", "⭐", "🌸", "⚽", "🎮"];
 function personFields(p) {
   const f = [{ k: "name", label: tt("Nome completo", "Full name"), req: true }, { k: "nick", label: tt("Apelido (como aparece no app)", "Nickname") },
     { k: "role", label: tt("Papel na família", "Role"), type: "select", opts: Object.entries(ROLES()).filter(([k]) => k !== "pet" || (p && p.role === "pet") || !Rec.ok("pets")) }, { k: "birth", label: tt("Nascimento", "Birth date"), type: "date" },
@@ -11039,13 +11267,14 @@ const HELP = () => ({
     tt("Recebeu uma <b>ficha pronta (.json)</b>? Abra as Senhas da casa, volte em 🚗 Veículos e toque em <b>📥 Escolher o arquivo</b>: o app mostra o que vai trazer e só grava depois do seu OK.", "Got a <b>ready-made record (.json)</b>? Open the vault, come back to 🚗 Vehicles and tap <b>📥 Choose the file</b>: the app shows what it will add and only saves after your OK.")
   ], note: tt("O custo do seguro fica só como referência do MoneyTRIO: nada é enviado para lá, para não duplicar o lançamento. Os documentos e o PDF ficam só no aparelho onde foram guardados.", "The insurance cost is only a MoneyTRIO reference: nothing is sent there, so the entry isn't duplicated. Documents and the PDF stay only on the device where they were saved.") },
   "pets": { t: "🐾 " + tt("Pets: a ficha de cada bicho", "Pets: each pet's record"), steps: [
-    tt("Abra <b>🐾 Pets</b> (no ☰, em Cuidar da família) e toque em <b>＋ Cadastrar pet</b>. Escolha a espécie e a raça na lista (dá para escrever, e tem “SRD (vira-lata)”). Só o nome é obrigatório. Em Família o pet continua aparecendo; tocar nele abre a ficha.", "Open <b>🐾 Pets</b> (in the ☰, under Family care) and tap <b>＋ Add a pet</b>. Pick the species and the breed from the list (you can type, and there's “Mixed breed”). Only the name is required. The pet still shows in Family; tapping it opens the record."),
+    tt("Abra <b>🐾 Pets</b> (no ☰, em Cuidar da família) e toque em <b>＋ Cadastrar pet</b>. Escolha que bicho é (cachorro, gato, ave, peixe, jabuti…) e a raça ou a espécie na lista (dá para escrever; cachorro, gato e coelho têm “SRD (vira-lata)”). O nome e o tipo do bicho são obrigatórios. Peixe: um cadastro por aquário. Em Família o pet continua aparecendo; tocar nele abre a ficha.", "Open <b>🐾 Pets</b> (in the ☰, under Family care) and tap <b>＋ Add a pet</b>. Pick what animal it is (dog, cat, bird, fish, tortoise…) and the breed or species from the list (you can type; dogs, cats and rabbits have “Mixed breed”). The name and the type of animal are required. Fish: one record per aquarium. The pet still shows in Family; tapping it opens the record."),
+    tt("<b>Cada tipo de bicho</b> mostra os cuidados, a comida e o peso dele: o periquito pesa em gramas e não ganha antipulgas, o aquário não tem peso, e o guia já traz os perigos de cada um. Os prazos são sugestão: vale o que a veterinária disser. Um lembrete que já existe não some sozinho: para tirar, use <b>🚫 Não se aplica</b>.", "<b>Each type of animal</b> shows its own care items, food and weight: a budgie is weighed in grams and gets no flea treatment, an aquarium has no weight, and the guide already lists the dangers for each one. The intervals are suggestions: what your vet says is what counts. A reminder that already exists doesn't disappear by itself: to remove it, use <b>🚫 Doesn't apply</b>."),
     tt("<b>Fotos</b>: uma de perfil e até 12 na galeria. O app diminui cada foto antes de guardar (fica leve e sem a localização de onde foi tirada). Com a família na nuvem, os outros celulares também veem; no modo “só neste aparelho”, ficam só nele.", "<b>Photos</b>: one profile photo and up to 12 in the gallery. The app shrinks each photo before saving it (it stays light and without the location where it was taken). With the family in the cloud, the other phones see them too; in “this device only” mode, they stay on it."),
-    tt("<b>Vacinas e cuidados</b>: toque em ＋ e escolha vacina, vermífugo, antipulgas ou banho e tosa. Eles avisam no 🔔, na agenda e no celular. Em cada um: <b>✓ Feito</b> (na vacina, anote a marca e quem aplicou), <b>📅 Remarcar</b> ou <b>🚫 Não se aplica</b>.", "<b>Vaccines and care</b>: tap ＋ and pick vaccine, dewormer, flea treatment or bath and grooming. They remind you in the 🔔, the calendar and on your phone. On each one: <b>✓ Done</b> (for a vaccine, note the brand and who gave it), <b>📅 Reschedule</b> or <b>🚫 Doesn't apply</b>."),
-    tt("<b>Ração</b>: anote a marca, o tamanho do saco, os gramas por refeição e quantas refeições por dia. O app mostra quantos dias dura e quando acaba, e avisa uma semana antes. Se a validade chegar antes de acabar, ele diz quantos sacos dá para comprar. Vai comprar em promoção? Use a calculadora 🧮 antes.", "<b>Food</b>: note the brand, the bag size, the grams per meal and how many meals a day. The app shows how many days it lasts and when it runs out, and reminds you a week before. If the expiry date comes before it's finished, it tells you how many bags you can buy. Buying on sale? Use the 🧮 calculator first."),
-    tt("<b>Saúde, histórico e peso</b>: veterinário, plano, alergias e remédios ficam na carteira vital (❤️). No histórico vão consultas, exames, cirurgias e o que aconteceu; o peso vira um gráfico.", "<b>Health, history and weight</b>: vet, plan, allergies and medicines live in the health wallet (❤️). The history holds vet visits, tests, surgeries and what happened; the weight becomes a chart."),
-    tt("<b>Contatos e guia</b>: escolha o veterinário, o hotelzinho e o banho e tosa (pode ser o mesmo lugar) e ligue ou mande WhatsApp com um toque. <b>📘 Guia para quem cuida</b> monta as instruções para quem vai ficar com o pet: ração, remédios, manias e telefones. O que você escreveu no guia só é trocado se você deixar.", "<b>Contacts and guide</b>: pick the vet, the boarding place and the groomer (it can be the same place) and call or WhatsApp in one tap. <b>📘 Guide for the carer</b> builds the instructions for whoever looks after the pet: food, medicines, habits and phones. What you wrote in the guide is only replaced if you allow it.")
-  ], note: tt("As contas da ração e a faixa de peso da raça são estimativas: confirme sempre com a veterinária. A carteira vital (alergias, remédios) fica só neste aparelho.", "The food numbers and the breed's weight range are estimates: always confirm with your vet. The health wallet (allergies, medicines) stays on this device only.") },
+    tt("<b>Cuidados</b>: toque em ＋ e escolha o cuidado do seu bicho (no cachorro e no gato, vacina, vermífugo, antipulgas e banho e tosa; nos outros, consulta, gaiola, aquário, lâmpada UVB…). Eles avisam no 🔔, na agenda e no celular. Em cada um: <b>✓ Feito</b> (na vacina, anote a marca e quem aplicou), <b>📅 Remarcar</b> ou <b>🚫 Não se aplica</b>.", "<b>Care</b>: tap ＋ and pick your pet's care item (for dogs and cats, vaccine, dewormer, flea treatment and bath and grooming; for the others, check-up, cage, aquarium, UVB bulb…). They remind you in the 🔔, the calendar and on your phone. On each one: <b>✓ Done</b> (for a vaccine, note the brand and who gave it), <b>📅 Reschedule</b> or <b>🚫 Doesn't apply</b>."),
+    tt("<b>Ração</b>: anote a marca, o tamanho do saco (ou do pacote) e quanto o bicho come (no cachorro e no gato, gramas por refeição e quantas refeições por dia; na ave, no roedor e no coelho, gramas por dia). O app mostra quantos dias dura e quando acaba, e avisa uma semana antes. Se a validade chegar antes de acabar, ele diz quantos sacos dá para comprar. Vai comprar em promoção? Use a calculadora 🧮 antes. Peixe, jabuti, lagarto e cobra: anote só o que come e a validade.", "<b>Food</b>: note the brand, the bag (or pack) size and how much your pet eats (for dogs and cats, grams per meal and meals a day; for birds, rodents and rabbits, grams a day). The app shows how many days it lasts and when it runs out, and reminds you a week before. If the expiry date comes before it's finished, it tells you how many bags you can buy. Buying on sale? Use the 🧮 calculator first. Fish, tortoises, lizards and snakes: just note what it eats and the expiry date."),
+    tt("<b>Saúde, histórico e peso</b>: veterinário, plano, alergias e remédios ficam na carteira vital (❤️). No histórico vão consultas, exames, cirurgias e o que aconteceu; o peso vira um gráfico (em gramas no bicho pequeno).", "<b>Health, history and weight</b>: vet, plan, allergies and medicines live in the health wallet (❤️). The history holds vet visits, tests, surgeries and what happened; the weight becomes a chart (in grams for small animals)."),
+    tt("<b>Contatos e guia</b>: escolha o veterinário, o hotelzinho e o banho e tosa (nos bichos exóticos: quem cuida nas viagens e a loja; pode ser o mesmo lugar) e ligue ou mande WhatsApp com um toque. <b>📘 Guia para quem cuida</b> monta as instruções para quem vai ficar com o pet: ração, remédios, manias e telefones. O que você escreveu no guia só é trocado se você deixar.", "<b>Contacts and guide</b>: pick the vet, the boarding place and the groomer (for exotic pets: who looks after it when you travel and the shop; it can be the same place) and call or WhatsApp in one tap. <b>📘 Guide for the carer</b> builds the instructions for whoever looks after the pet: food, medicines, habits and phones. What you wrote in the guide is only replaced if you allow it.")
+  ], note: tt("As contas da ração, os prazos dos cuidados e a faixa de peso da raça ou da espécie são estimativas: confirme sempre com a veterinária. A carteira vital (alergias, remédios) fica só neste aparelho.", "The food numbers, the care intervals and the breed's or species' weight range are estimates: always confirm with your vet. The health wallet (allergies, medicines) stays on this device only.") },
   "atalho-ios": { t: "📲 " + tt("Ícone na tela inicial — iPhone/iPad", "Home-screen icon — iPhone/iPad"), steps: [
     tt("Abra o OmniLifeONE no <b>Safari</b>.", "Open OmniLifeONE in <b>Safari</b>."),
     tt("Toque em <b>Compartilhar</b> (o quadrado com a seta para cima, embaixo da tela).", "Tap <b>Share</b> (the square with the up arrow)."),
@@ -11337,7 +11566,7 @@ const Search = {
     if (Transit.allowed()) { add(G("fn"), "🧭", tt("Deslocamento e hora de sair", "Travel and time to leave"), tt("carro, táxi, avião, ônibus: rota e “sair às”", "car, taxi, plane, bus: route and “leave at”"), () => Help.open("rotas"), "transporte rota transito waze uber moovit aeroporto voo deslocamento travel"); add(G("ct"), "📍", tt("Lugares da família (só CEP)", "Family places (ZIP only)"), tt("Trabalho, Escola, médico…", "Work, School, the doctor…"), () => go("contacts", "services"), "lugar lugares trabalho escola endereco cep place"); }
     if (Rec.ok("agenda", "escola")) School.list().forEach((sc) => add(G("ag"), "🎒", tt("Grade de ", "Timetable of ") + School.label(sc), [sc.school, sc.turma].filter(Boolean).join(" · "), () => { S.schoolSel = sc.id; go("agenda", "escola"); }, Object.values(sc.days || {}).flat().map((c) => c.s).join(" ")));
     if (Rec.ok("family")) People.list().filter((p) => p.role !== "pet" || !Rec.ok("pets")).forEach((p) => add(G("pp"), People.emoji(p), p.nick || p.name, "", () => go("family"), [p.name, p.phone, p.email].join(" ")));
-    if (Rec.ok("pets") && canTab("pets")) Pets.list().forEach((p) => { const d = Pets.dados(p); add(G("pp"), p.emoji || Pets.esp(p)[1], Pets.nome(p), Pets.desc(p), () => go("pets", "ficha", p.id), [p.name, d.raca, d.cor, Pets.esp(p)[2], tt("pet bicho animal estimação", "pet animal")].join(" ")); });
+    if (Rec.ok("pets") && canTab("pets")) Pets.list().forEach((p) => { const d = Pets.dados(p); add(G("pp"), p.emoji || Pets.esp(p)[1], Pets.nome(p), Pets.desc(p), () => go("pets", "ficha", p.id), [p.name, d.raca, d.cor, Pets.esp(p)[2], tt("pet bicho animal estimação", "pet animal"), Pets.perfil(p).busca].join(" ")); });   /* busca: sinônimos do tipo em PT e EN ("passarinho" acha a calopsita) */
     if (canTab("contacts") && Rec.ok("contacts")) Contacts.list().forEach((c) => add(G("ct"), "📇", c.name, [c.org, (c.phones || [])[0], c.email].filter(Boolean).join(" · "), () => go("contacts", "list", c.id), c.address));
     if (Rec.ok("security", "alertas")) MyContacts.list().forEach((c) => add(G("ct"), "🙋", c.name, [c.phone, c.email].filter(Boolean).join(" · "), () => go("security", "alertas")));
     if (Rec.ok("shop")) Shop.open().forEach((i) => add(G("sh"), "🛒", i.name, tt("na lista de compras", "on the shopping list"), () => go("shop")));
@@ -11462,7 +11691,7 @@ const AOne = {
       house: [tt("Casa", "Home"), tt("Onde está cada coisa, manutenção e as senhas da casa. O carro agora tem a aba própria: 🚗 Veículos.", "Where things are, maintenance and the house vault. The car now has its own tab: 🚗 Vehicles."), [["🔎 " + tt("Onde está?", "Where is it?"), G("house", "where"), 1], ["🛠 " + tt("Manutenção", "Maintenance"), G("house", "maint")], ["🚗 " + tt("Veículos", "Vehicles"), G("cars")]]],
       cars: [tt("Veículos", "Vehicles"), tt("O carro, o seguro, a revisão e a Vida do carro: tire foto da nota e eu anoto o que foi feito e aviso se já foi trocado há pouco.", "The car, its insurance, service and the car's history: snap the invoice and I log what was done and warn if it was replaced recently."), (Rec.ok("cars", "vida") && !isChild() ? [["📷 " + tt("Foto da nota ou orçamento", "Invoice or quote photo"), () => ACT["vida.foto"]({}), 1], ["🔧 " + tt("Vida do carro", "Car history"), G("cars", "vida")]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("veiculos")]])],
       docs: [tt("Documentos", "Documents"), tt("Mande várias fotos ou PDFs de uma vez; eu aviso se algum estiver repetido.", "Send many photos or PDFs at once; I'll flag duplicates."), [["📚 " + tt("Enviar vários de uma vez", "Upload many at once"), A("doc.batch"), 1], ["➕ " + tt("Novo documento", "New document"), A("doc.new")]]],
-      pets: [tt("Pets", "Pets"), tt("A ficha de cada bicho: fotos, vacinas com aviso, ração que avisa antes de acabar (e se vence antes), saúde, peso e o guia para quem cuida.", "Each pet's record: photos, vaccines with reminders, food that warns before it runs out (and if it expires first), health, weight and the guide for the carer."), (Pets.podeEditar() ? [["＋ " + tt("Cadastrar pet", "Add a pet"), A("pet.new"), 1]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("pets")]])],
+      pets: [tt("Pets", "Pets"), tt("A ficha de cada bicho: fotos, cuidados com aviso (vacina, aquário, gaiola, terrário…), ração que avisa antes de acabar (e se vence antes), saúde, peso e o guia para quem cuida.", "Each pet's record: photos, care reminders (vaccines, aquarium, cage, enclosure…), food that warns before it runs out (and if it expires first), health, weight and the guide for the carer."), (Pets.podeEditar() ? [["＋ " + tt("Cadastrar pet", "Add a pet"), A("pet.new"), 1]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("pets")]])],
       family: [tt("Família", "Family"), tt("Pessoas, logins, convites, papéis dos responsáveis, duas casas e controle parental.", "People, logins, invites, guardian roles, two homes and parental controls."), [["➕ " + (Rec.ok("pets") ? tt("Pessoa", "Person") : tt("Pessoa ou pet", "Person or pet")), A("person.new"), 1]].concat(Rec.ok("pets") ? [["🐾 " + tt("Cadastrar pet", "Add a pet"), A("pet.new")]] : []).concat([["🛡 " + tt("Administração segura", "Safe administration"), H("familia-seguranca")], ["❓ " + tt("Como convidar alguém", "How to invite someone"), H("familia")]])],
       settings: [tt("Configurações", "Settings"), tt("Idioma, tema, IA, acessibilidade, avisos, instalar o app para acessar sem internet e versões & novidades.", "Language, theme, AI, accessibility, alerts, installing the app to use offline, and versions & what's new."), [["🤖 " + tt("Configurar a IA", "Set up AI"), G("settings", "ai"), 1], ["♿ " + tt("Acessibilidade", "Accessibility"), G("settings", "a11y")], [(Offline.pc() ? "💻 " : "📲 ") + tt("Instalar app para acessar sem internet", "Install the app to use offline"), G("settings", "offline")]]]
     };

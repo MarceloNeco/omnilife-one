@@ -14,6 +14,12 @@
      - peso com gráfico e a faixa da raça; histórico; um contato como veterinário, hotel e banho e tosa
      - guia para quem cuida montado da ficha, sem trocar o que a pessoa escreveu sem perguntar
      - Saúde do pet sem tipo sanguíneo, RH e SUS; criança vê e não muda; EN; nada passa da largura; nenhum erro
+     - qualquer bicho (2.25.0): pet novo começa em "— escolha —" e salvar sem a espécie avisa e não fecha; calopsita (＋ sem
+       vacina/antipulgas, campos de ave, peso em gramas, ração em gramas por dia e pacote, guia com a panela antiaderente, EN);
+       jabuti de antes (réptil + Jabuti + 🦎) vira quelonio e 🐢 ao salvar, com UVB e hidratação, comida sem conta e sem
+       castração no histórico; aquário sem peso e sem castrado/microchip/pedigree, com água e filtro; coelho sem antipulgas, o
+       "Antipulgas do pet" antigo ligado como "outro" e Casa → Manutenção sem "Vacina anual do pet"; papagaio com o texto dos
+       documentos; nenhum tipo com nome de remédio ou dose; busca ("tartaruga", "passarinho"); EMOJIS; 390 px em cada tipo
    Só valores de mentira (nenhum pet, pet shop, chave ou token de verdade). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar } = require('./_base');
 const { falhas, conferir } = criarConferir();
@@ -101,6 +107,13 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await p.click('#screen [data-act="pet.new"]');
   conferir(await modal(p, '[name="pet.especie"]'), '＋ Cadastrar pet abre o formulário do pet');
   conferir(await p.evaluate(() => !document.querySelector('.modal [name="_pin"]') && !document.querySelector('.modal [name="controls.seeList"]') && !document.querySelector('.modal [name="role"]')), 'o formulário do pet não tem PIN, controle parental nem papel');
+  /* o pet novo começa sem espécie ("— escolha —", 2.25.0): salvar assim pergunta "que bicho é?" e o formulário não fecha */
+  conferir(await p.evaluate(() => { const s = document.querySelector('.modal [name="pet.especie"]'); return s.value === '' && /— escolha —/.test(s.options[0].textContent) && s.options.length === 11; }), 'pet novo começa com "— escolha —" (e os 10 tipos de bicho)');
+  await p.fill('.modal [name="name"]', 'Bolinha de Teste');
+  await p.click('.modal:has([name="pet.especie"]) [data-ok]'); await p.waitForTimeout(500);
+  conferir(await p.evaluate(() => !!document.querySelector('.modal [name="pet.especie"]') && [...document.querySelectorAll('.toast')].some((t) => /Que bicho é\? Escolha a espécie na lista/.test(t.textContent)) && !Pets.list().length), 'salvar o pet novo sem a espécie avisa ("Que bicho é?") e o formulário não fecha (nada é gravado)');
+  /* escolher cachorro para ver as raças dele */
+  await p.selectOption('.modal [name="pet.especie"]', 'cachorro');
   const dl = await p.evaluate(() => [...document.querySelector('.modal [name="pet.raca"]').list.options].map((o) => o.value));
   conferir(dl.length >= 50 && dl.includes('Cavachon') && dl.includes('SRD (vira-lata)') && dl.includes('Outra') && dl.includes('Shih Tzu'), 'raças de cachorro para buscar (' + dl.length + '), com "SRD (vira-lata)", "Cavachon" e "Outra"');
   await p.selectOption('.modal [name="pet.especie"]', 'gato');
@@ -375,7 +388,7 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
     const cao = document.createElement('div'); cao.innerHTML = Pets.pesoCard({ id: 'pCao', pet: { pesos: [{ id: 'w4', d: '2026-01-01', kg: 7.05 }] } });
     return { txt: box.textContent, eixo: [...box.querySelectorAll('svg text')].map((t) => t.textContent), cao: cao.textContent };
   });
-  conferir(/Último: 0,16 kg/.test(ham.txt) && /0,145 kg/.test(ham.txt) && ham.eixo.length === 2 && ham.eixo.every((t) => !/-/.test(t)) && /Último: 7,05 kg/.test(ham.cao), 'peso de hamster com as gramas ("0,145 kg", último 0,16 kg), eixo do gráfico sem negativo (' + ham.eixo.join(' / ') + ') e 7,05 kg sem arredondar');
+  conferir(/Último: 160 g/.test(ham.txt) && /145 g/.test(ham.txt) && ham.eixo.length === 2 && ham.eixo.every((t) => !/-/.test(t)) && /Último: 7,05 kg/.test(ham.cao), 'peso de hamster em gramas ("145 g", último 160 g; 2.25.0), eixo do gráfico sem negativo (' + ham.eixo.join(' / ') + ') e 7,05 kg sem arredondar');
 
   /* ---------- histórico ---------- */
   await p.click('#screen [data-act="pet.hist"]'); await modal(p, '[name="titulo"]');
@@ -742,5 +755,142 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   conferir(await semRolagem(q), 'nada passa da largura da tela');
   conferir(v.lixo.erros.length === 0 && v.lixo.nativos.length === 0, 'nenhum erro de script nem janela nativa' + (v.lixo.erros.length ? ': ' + v.lixo.erros.join(' | ') : ''));
 
-  await terminar(falhas, browser, '🐾 Pets como aba própria — ficha, fotos leves na nuvem da família, vacinas e cuidados, ração com validade, peso, histórico, contatos e guia, em 390 px.');
+  /* =================== 3) qualquer bicho (2.25.0): cada tipo com os cuidados, os campos, a comida e o guia dele =================== */
+  console.log('\n[celular, qualquer bicho]');
+  const { p: pb, lixo: lb } = await abrirApp(browser, 'celular', { semEntrar: true });
+  await pb.evaluate(() => ACT['gate.local']());
+  await pb.waitForSelector('#fn', { timeout: 10000 });
+  await pb.fill('#fn', 'Família Bichos Teste'); await pb.fill('#mn', 'Pessoa Teste'); await pb.click('#go');
+  await pb.waitForFunction(() => S.booted, null, { timeout: 15000 });
+  await pb.waitForTimeout(600); await fecharJanelas(pb);
+  await pb.evaluate(() => { AOne.save({ hello: 1, tips: { home: 1, pets: 1, family: 1, house: 1, health: 1, shop: 1 } }); if (AOne.view) AOne.close(); });
+  const ficha = async (id) => { await pb.evaluate((id) => go('pets', 'ficha', id), id); await pb.waitForTimeout(400); };
+  /* as opções do ＋ de cuidados de um pet, uma por linha */
+  const menuDe = async (id) => {
+    await ficha(id);
+    await pb.click('#screen [data-act="pet.cuidado"]'); await pb.waitForSelector('.menu', { timeout: 4000 });
+    const t = await pb.evaluate(() => [...document.querySelectorAll('.menu button')].map((b) => b.textContent.trim()));
+    await fecharJanelas(pb); await pb.waitForTimeout(200);
+    return t;
+  };
+  const tem = (L, re) => L.some((t) => re.test(t));
+
+  /* ---------- coelho, sozinho na família (o cuidado antigo sem nome de pet vai para ele) ---------- */
+  const coelho = await pb.evaluate(async () => (await DB.put('people', { name: 'Orelha Teste', role: 'pet', emoji: '🐰', pet: { especie: 'coelho', raca: 'Mini Lop' } })).id);
+  const antigo = await pb.evaluate(async () => (await DB.put('maint', { title: 'Antipulgas do pet', cat: 'pet', interval: 30, last: addDays(today(), -10) })).id);
+  await pb.evaluate(() => go('pets'));
+  await pb.waitForFunction((id) => !!(DB.get('maint', id) || {}).pet, antigo, { timeout: 5000 }).catch(() => {});
+  await ficha(coelho);
+  const ant = await pb.evaluate((id) => { const m = DB.get('maint', id); return { pet: m.pet, tipo: m.petTipo, rot: Pets.info(m)[2], tela: /Antipulgas do pet/.test(document.querySelector('#screen').textContent) }; }, antigo);
+  conferir(ant.pet === coelho && ant.tipo === 'outro' && ant.rot === 'Antipulgas do pet' && ant.tela, 'coelho sozinho na família: o "Antipulgas do pet" de antes fica ligado a ele como "outro" (com o título dele) e continua na ficha (' + JSON.stringify(ant) + ')');
+  const mc = await menuDe(coelho);
+  conferir(!tem(mc, /Antipulgas|Banho e tosa|Vacina|Vermífugo/) && tem(mc, /Escovar o pelo/) && tem(mc, /Limpeza completa da gaiola/) && tem(mc, /Outro cuidado/), '＋ do coelho: sem antipulgas, banho e tosa, vacina e vermífugo; com escovar o pelo e a gaiola (' + mc.join(' | ') + ')');
+  await pb.evaluate(() => go('house', 'maint')); await pb.waitForTimeout(400);
+  const chips = await pb.evaluate(() => [...document.querySelectorAll('#screen [data-act="mt.tpl"]')].map((c) => c.textContent));
+  conferir(!tem(chips, /Vacina anual do pet|Vermífugo do pet|Antipulgas do pet/) && tem(chips, /Troca do botijão de gás/), 'Casa → Manutenção com 🐾 Pets ligado: sem o atalho "Vacina anual do pet" (nem vermífugo e antipulgas); os da casa ficam');
+
+  /* ---------- calopsita (ave), cadastrada pelo formulário ---------- */
+  await pb.evaluate(() => go('pets')); await pb.waitForTimeout(400);
+  await pb.click('#screen [data-act="pet.new"]'); await modal(pb, '[name="pet.especie"]');
+  await pb.selectOption('.modal [name="pet.especie"]', 'ave'); await pb.waitForTimeout(150);
+  const fAve = await pb.evaluate(() => { const c = (k) => document.querySelector('.modal [name="' + k + '"]').closest('label'); return { cast: c('pet.castrado').style.display, ped: c('pet.pedigree').style.display, cor: c('pet.cor').textContent, chip: c('pet.microchip').textContent, raca: c('pet.raca').textContent }; });
+  conferir(fAve.cast === 'none' && fAve.ped === 'none' && /Plumagem/.test(fAve.cor) && /anilha/.test(fAve.chip) && /Espécie/.test(fAve.raca), 'formulário da ave: castrado e pedigree escondidos, a cor diz "Plumagem" e o microchip diz "anilha"');
+  await pb.fill('.modal [name="name"]', 'Kiwi Teste'); await pb.fill('.modal [name="pet.raca"]', 'Calopsita');
+  await salvar(pb, '[name="pet.especie"]');
+  const ave = await pb.evaluate(() => (Pets.list().find((x) => x.name === 'Kiwi Teste') || {}).id);
+  conferir(await pb.evaluate((id) => { const x = DB.get('people', id); return !!x && x.pet.especie === 'ave' && x.emoji === '🐦'; }, ave), 'calopsita salva como ave, com 🐦');
+  const ma = await menuDe(ave);
+  conferir(tem(ma, /Consulta anual com veterinária de aves/) && tem(ma, /Limpeza completa da gaiola · a cada 7 dias/) && tem(ma, /Outro cuidado/) && !tem(ma, /Vacina|Vermífugo|Antipulgas|Banho e tosa/), '＋ da calopsita: consulta anual com veterinária de aves, limpeza da gaiola a cada 7 dias e outro cuidado; sem vacina, vermífugo, antipulgas e banho e tosa (' + ma.join(' | ') + ')');
+  /* peso em gramas: "35" é 35 g; "1,2 kg" (com a unidade) é 1,2 kg */
+  await ficha(ave);
+  for (const [dias, g] of [[10, '1,2 kg'], [0, '35']]) {
+    await pb.click('#screen [data-act="pet.peso"]'); await modal(pb, '[name="kg"]');
+    await pb.fill('.modal [name="d"]', await pb.evaluate((n) => addDays(today(), -n), dias)); await pb.fill('.modal [name="kg"]', g);
+    await salvar(pb, '[name="kg"]');
+  }
+  const pAve = await pb.evaluate((id) => ({ kgs: Pets.pesos(Pets.get(id)).map((x) => x.kg), txt: document.querySelector('#screen').textContent }), ave);
+  conferir(JSON.stringify(pAve.kgs) === '[1.2,0.035]' && /Último: 35 g/.test(pAve.txt), 'peso da calopsita: "35" grava 0,035 kg, "1,2 kg" grava 1,2 kg e o cartão mostra "Último: 35 g" (' + JSON.stringify(pAve.kgs) + ')');
+  /* ração: gramas por dia (sem refeições) e o pacote */
+  await pb.click('#screen [data-act="pet.racao"]'); await modal(pb, '[name="sacoKg"]');
+  conferir(await pb.evaluate(() => !document.querySelector('.modal [name="refeicoesDia"]') && /Gramas por dia/.test(document.querySelector('.modal [name="gRefeicao"]').closest('label').textContent) && /pacote/.test(document.querySelector('.modal [name="sacoKg"]').closest('label').textContent)), 'ração da calopsita: sem "Refeições por dia", com "Gramas por dia" e o tamanho do pacote');
+  await pb.fill('.modal [name="marca"]', 'Mistura Exemplo'); await pb.fill('.modal [name="sacoKg"]', '500 g'); await pb.fill('.modal [name="gRefeicao"]', '10');
+  await salvar(pb, '[name="sacoKg"]');
+  const rAve = await pb.evaluate((id) => { const r = Pets.dados(Pets.get(id)).racao; return { r, c: Pets.racaoCalc(r), txt: document.querySelector('#pracao').textContent }; }, ave);
+  conferir(rAve.r.sacoKg === 0.5 && rAve.c && rAve.c.dias === 50 && /dura ~50 dias/.test(rAve.txt) && !/×/.test(rAve.txt), 'pacote de 0,5 kg ("500 g") com 10 g por dia dura 50 dias, sem "× 1" no cartão (' + JSON.stringify(rAve.r) + ')');
+  /* o guia de verdade (📘), como a pessoa monta */
+  await pb.click('#screen [data-act="pet.guia"]'); await modal(pb, '#gsec');
+  const gAve = await pb.evaluate((id) => { const g = DB.all('guides').find((x) => x.kind === 'pet' && x.pet === id); return g ? g.sections.map((s) => [s.h, s.body]) : []; }, ave);
+  await cancelar(pb, '#gsec');
+  conferir(gAve.length && !gAve.some((s) => s[0] === 'Passeios') && gAve.some((s) => s[0] === 'Gaiola, água e banho de sol' && /banho de sol/i.test(s[1])) && gAve.some((s) => s[0] === 'Se acontecer algo' && /antiaderente/.test(s[1])), 'guia da calopsita: sem "Passeios", com "Gaiola, água e banho de sol" e "Se acontecer algo" falando da panela antiaderente');
+  /* em inglês */
+  await pb.evaluate(() => setLang('en')); await pb.waitForTimeout(300);
+  const mEn = await menuDe(ave);
+  await pb.evaluate(() => setLang('pt')); await pb.waitForTimeout(300);
+  conferir(tem(mEn, /Yearly avian vet check-up/) && !tem(mEn, /Flea/), 'em inglês, o ＋ da ave mostra "Yearly avian vet check-up" e nada de "Flea" (' + mEn.join(' | ') + ')');
+
+  /* ---------- jabuti cadastrado antes (réptil + "Jabuti" + 🦎) ---------- */
+  const jab = await pb.evaluate(async () => (await DB.put('people', { name: 'Casco Teste', role: 'pet', emoji: '🦎', pet: { especie: 'reptil', raca: 'Jabuti' } })).id);
+  conferir(await pb.evaluate((id) => Pets.esp(Pets.get(id))[0] === 'quelonio' && Pets.esp({ pet: { especie: 'ave', raca: 'Papagaio' } })[0] === 'papagaio', jab), 'jabuti de antes (réptil + "Jabuti" + 🦎): Pets.esp diz quelonio (e ave + "Papagaio" diz papagaio)');
+  await ficha(jab);
+  await pb.click('#screen [data-act="pet.edit"]'); await modal(pb, '[name="pet.especie"]');
+  const selJ = await pb.evaluate(() => document.querySelector('.modal [name="pet.especie"]').value);
+  await salvar(pb, '[name="pet.especie"]');
+  const sJ = await pb.evaluate((id) => { const x = DB.get('people', id); return { esp: x.pet.especie, emoji: x.emoji, raca: x.pet.raca }; }, jab);
+  conferir(selJ === 'quelonio' && sJ.esp === 'quelonio' && sJ.emoji === '🐢' && sJ.raca === 'Jabuti', 'abrir o ✏️ do jabuti e salvar sem mexer grava quelonio e 🐢, nunca cachorro/🐶 (' + JSON.stringify(sJ) + ')');
+  const mj = await menuDe(jab);
+  conferir(tem(mj, /Trocar a lâmpada UVB · a cada 180 dias/) && tem(mj, /Banho morno de hidratação/) && !tem(mj, /Antipulgas|Banho e tosa/), '＋ do jabuti: lâmpada UVB a cada 180 dias e banho morno de hidratação; sem antipulgas e banho e tosa (' + mj.join(' | ') + ')');
+  await pb.click('#screen [data-act="pet.racao"]'); await modal(pb, '[name="marca"]');
+  const camposJ = await pb.evaluate(() => [...document.querySelectorAll('.modal [name]')].map((i) => i.name).join());
+  await pb.fill('.modal [name="marca"]', 'Folhas verdes'); await salvar(pb, '[name="marca"]');
+  conferir(camposJ === 'marca,compradoEm,validade' && await pb.evaluate((id) => Pets.dados(Pets.get(id)).racao.marca === 'Folhas verdes' && !DB.get('maint', 'racao-' + id) && !DB.raw('maint').some((m) => m.pet === id && m.petTipo === 'racao') && !document.querySelector('#pracao #pck'), jab), 'comida do jabuti: só o que come, a compra e a validade; "Folhas verdes" não cria o aviso racao-<pid> nem a calculadora 🧮 (' + camposJ + ')');
+  await pb.click('#screen [data-act="pet.hist"]'); await modal(pb, '[name="tipo"]');
+  const hJ = await pb.evaluate(() => [...document.querySelectorAll('.modal [name="tipo"] option')].map((o) => o.value));
+  await cancelar(pb, '[name="tipo"]');
+  conferir(!hJ.includes('castracao') && hJ.includes('consulta') && hJ.includes('outro'), 'o histórico do jabuti não oferece "Castração" (' + hJ.join(', ') + ')');
+
+  /* ---------- aquário (peixe) ---------- */
+  const aq = await pb.evaluate(async () => (await DB.put('people', { name: 'Aquario Teste', role: 'pet', emoji: '🐟', pet: { especie: 'peixe', raca: '1 betta' } })).id);
+  await ficha(aq);
+  conferir(await pb.evaluate(() => !document.querySelector('#screen [data-act="pet.peso"]') && !/⚖️ Peso/.test(document.querySelector('#screen').textContent)), 'aquário: sem cartão de peso (peixe não se pesa)');
+  const mq = await menuDe(aq);
+  conferir(tem(mq, /Troca parcial da água .*· a cada 7 dias/) && tem(mq, /Testar a água/) && tem(mq, /Lavar o filtro/) && !tem(mq, /Vacina|Vermífugo|Antipulgas|Banho e tosa/), '＋ do aquário: troca parcial da água a cada 7 dias, testar a água e lavar o filtro (' + mq.join(' | ') + ')');
+  await pb.click('#screen [data-act="pet.edit"]'); await modal(pb, '[name="pet.especie"]');
+  const fq = await pb.evaluate(() => ({ esc: ['pet.castrado', 'pet.microchip', 'pet.pedigree', 'pet.registro'].map((k) => { const i = document.querySelector('.modal [name="' + k + '"]'); return !!i && !i.checkVisibility(); }), raca: document.querySelector('.modal [name="pet.raca"]').closest('label').textContent }));
+  await cancelar(pb, '[name="pet.especie"]');
+  conferir(fq.esc.every(Boolean) && /Quem mora aqui/.test(fq.raca), 'formulário do aquário: castrado, microchip, pedigree e documento não aparecem (mas continuam no formulário: nada salvo se perde); "Quem mora aqui"');
+
+  /* ---------- papagaio: os documentos de ave silvestre ---------- */
+  const pp = await pb.evaluate(async () => (await DB.put('people', { name: 'Louro Teste', role: 'pet', emoji: '🦜', pet: { especie: 'papagaio', raca: 'Maritaca' } })).id);
+  await ficha(pp);
+  await pb.click('#screen [data-act="pet.edit"]'); await modal(pb, '[name="pet.especie"]');
+  const docP = await pb.evaluate(() => document.querySelector('.modal [name="pet.registro"]').closest('label').textContent);
+  await cancelar(pb, '[name="pet.especie"]');
+  conferir(/criadouro autorizado/.test(docP) && /anilha fechada/.test(docP) && /órgão ambiental/.test(docP), 'papagaio: o campo do documento explica a origem legal ("criadouro autorizado", anilha fechada, "órgão ambiental")');
+
+  /* ---------- todos os tipos: largura, nada de remédio nem dose, busca e ícones ---------- */
+  await pb.evaluate(async () => {
+    const put = (name, emoji, pet) => DB.put('people', { name, role: 'pet', emoji, pet });
+    await put('Rex Teste', '🐶', { especie: 'cachorro', raca: 'SRD (vira-lata)' }); await put('Mingau Teste', '🐱', { especie: 'gato' });
+    await put('Bolota Teste', '🐹', { especie: 'roedor', raca: 'Hamster sírio' }); await put('Gecko Teste', '🦎', { especie: 'reptil', raca: 'Gecko-leopardo' });
+    await put('Furao Teste', '🐾', { especie: 'outro', raca: 'Furão' });
+  });
+  const todos = await pb.evaluate(() => Pets.list().map((x) => [x.id, Pets.esp(x)[0]]));
+  conferir(new Set(todos.map((x) => x[1])).size === 10,'um pet de cada um dos 10 tipos (' + todos.map((x) => x[1]).join(', ') + ')');
+  const largos = [], remedios = [];
+  /* nome de remédio ou dose não entra em ficha nem em guia (só "nunca use antipulgas ou vermífugo de cão ou gato") */
+  const REMEDIO = /ivermectina|fipronil|fluralaner|bravecto|doxiciclina|piretrina|mg\/kg|ml\/kg|\bdoses?\b/i;
+  for (const [id, tipo] of todos) {
+    await ficha(id);
+    const f = await pb.evaluate((id) => ({ txt: document.querySelector('#screen').textContent, guia: Pets.guiaSecoes(Pets.get(id)).map((s) => s[0] + ' ' + s[1]).join(' '), larg: document.documentElement.scrollWidth <= innerWidth + 1 }), id);
+    if (!f.larg) largos.push(tipo);
+    if (REMEDIO.test(f.txt + ' ' + f.guia)) remedios.push(tipo + ': ' + (f.txt + ' ' + f.guia).match(REMEDIO)[0]);
+  }
+  conferir(!largos.length, 'nada passa da largura da tela (390 px) na ficha de cada tipo' + (largos.length ? ': ' + largos.join(', ') : ''));
+  conferir(!remedios.length, 'nenhum tipo mostra nome de remédio (ivermectina, fipronil…) nem dose na ficha ou no guia' + (remedios.length ? ': ' + remedios.join(' | ') : ''));
+  conferir(await pb.evaluate(() => Search.find('tartaruga').some((x) => x.t === 'Casco Teste') && Search.find('passarinho').some((x) => x.t === 'Kiwi Teste')), 'a busca: "tartaruga" acha o jabuti e "passarinho" acha a calopsita');
+  conferir(await pb.evaluate(() => ['🐹', '🦎', '🐢'].every((e) => EMOJIS.includes(e))), 'Família: a lista de ícones tem 🐹 🦎 🐢 (o pet não perde o ícone ao ser salvo por lá)');
+  conferir(lb.erros.length === 0 && lb.nativos.length === 0, 'nenhum erro de script nem janela nativa' + (lb.erros.length ? ': ' + lb.erros.join(' | ') : ''));
+  await pb.context().close();
+
+  await terminar(falhas, browser, '🐾 Pets como aba própria — ficha, fotos leves na nuvem da família, vacinas e cuidados, ração com validade, peso, histórico, contatos e guia, para qualquer bicho, em 390 px.');
 })().catch((e) => { console.error(e); process.exit(1); });
