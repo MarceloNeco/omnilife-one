@@ -350,7 +350,7 @@ sem framework: HTML, CSS e JavaScript puros.
   MoneyTRIO uma vez (`mtEnviado`) e só se o registro foi gravado. Cancelar a leitura (✕) para antes da IA. **Revisão por km** (#53): `cadaKm`/`ultKm` na manutenção do carro (`Maint.edit`/`done`); `Vida.revisao(c)`.
   `Vida.saude(c)`: revisão, seguro, km, o que foi feito em 90 dias e gastos de 12 meses (resumo, não diagnóstico). Teste:
   `teste/vida-carro-omni.js`.
-- `Pets` — **🐾 Pets, aba própria** (`SCREENS.pets`, rotas `pets` e `pets/ficha/<id>`; id `pets` em `Rec` e no
+- `Pets` (2.24.0) — **🐾 Pets, aba própria** (`SCREENS.pets`, rotas `pets` e `pets/ficha/<id>`; id `pets` em `Rec` e no
   `recursos-do-app.json`; ☰ › Cuidar da família; `canTab` como Casa e Veículos: criança vê e não muda). O pet continua sendo
   `people` com `role: "pet"` (Família, aniversários, Saúde e `SaudeMT` com `especie: "pet"` não mudaram) e ganha `p.pet`:
   `especie` (`PET_ESP`; pet antigo sem `especie` usa o ícone), `raca` (datalist `PET_RACAS()` por espécie, troca no `after` do
@@ -378,7 +378,7 @@ sem framework: HTML, CSS e JavaScript puros.
   Saúde, manias, veterinário e hotel com telefone); `petAuto` guarda o que veio da ficha: texto diferente escrito pela pessoa só é
   trocado depois de perguntar; depois abre o `Guides.edit` para conferir. Apagar o pet leva fotos, cuidados e carteira vital.
   Gastos do pet → MoneyTRIO: ainda não (#62). Ajuda `HELP().pets`, AssistONE `HERE().pets`. Teste: `teste/pets-omni.js`.
-- `PetFoto` — fotos dos pets (decisão do dono: na nuvem da família, leves). `redesenhar` (canvas, maior lado 640 px no perfil e
+- `PetFoto` (2.24.0) — fotos dos pets (decisão do dono: na nuvem da família, leves). `redesenhar` (canvas, maior lado 640 px no perfil e
   1080 px na galeria, WebP 0,78; JPEG 0,8 se o navegador não faz WebP; nunca corta; tira EXIF/GPS) — falhou = foto recusada, o
   original nunca é guardado. `Files.save(…, { raw: true })` no aparelho e, com `S.mode === "cloud"`, `POST
   /storage/v1/object/sol-arquivos/omnilife-one/<família>/pet-<fileId>.<webp|jpg>` (apikey + sessão de `Conta.token`, `x-upsert`).
