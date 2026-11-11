@@ -18,6 +18,18 @@
          só sai no fim); "Não lembro" (PIN novo sem o atual); o código antigo entra como "kit"; K15 "Falta liberar" já no PIN da conta
      A12 conta nova (Cris): "Crie o PIN da sua conta", sem código; a pública uma vez, kit desligado, "primeiro", PIN v1,
          "Falta liberar" até a Ana abrir; a pública intacta (com e sem o kit) em todos os caminhos
+   Etapa 6 (quem aprova), Omni ↔ Omni (um contexto por aparelho):
+     A3  a faixa (só com pedido; pelo Cloud.poll; a mesma nas voltas — K22; espera com janela do cadeado aberta — K31), os 6
+         números iguais, PIN errado não aprova nem gasta tentativa da conta (K11), PIN certo aprova
+     A4  o aparelho aprovado: "Digite o PIN da sua conta", aprovado_por(_ap), "usado", a mesma CF (item do outro e envelope _em)
+     A5  resposta repetida · A6 recusar (pela lista "🔔 Pedidos de acesso (N)" do 👤, depois do ✕ na faixa) · A7 vencer
+     A8  a pública trocada (números diferentes) e alterada (sem como aprovar)
+     A9  pela família (Bia): o aviso de quem pede, K16 (o aparelho da 2.25 entra na lista antes), só a chave da família,
+         G2 (as chaves de IA sem a janela do cofre), o aviso "Um aparelho novo entrou na sua conta" nos aparelhos da Ana
+     A9b um membro pede para a família → só "Recusar" (K2) · K3 o próprio pedido "para a família" leva a chave pessoal
+     A10 o tirado sai ao abrir · A11 tirado, o PIN certo não abre · K9 tirado, a digital não aprova
+     B5  24 h de espera → "Esqueci o PIN" → aprovado → "Não lembro" · A3b PIN trocado em outro aparelho (G1 nas chaves de IA)
+     D1  o cartão "🔐 Falta um passo para as Senhas da casa neste …" no Início
    E o banco de mentira faz o que o SQL faz (as próximas etapas dependem dele): pedidos de membro de qualquer papel, os
    ataques "troca", "troca-sem-compromisso" e "troca-depois", o dono recusa o próprio pedido, PIN da conta, passkey,
    404 das tabelas novas por REST e o DELETE da omni_chave_privada (403 42501 com M.semDelete).
@@ -25,13 +37,14 @@
 const crypto = require('crypto');
 const { BASE, criarConferir, iniciar, terminar } = require('./_base');
 const { M, db, rpcs, prepararChaves, compromisso, cf, agora, normCode, b64u, PESSOAS, ANA, BIA, CRIS, DAVI, GID } = require('./mock-sol');
-const { aparelho, entrarOmni, senhasDaCasa } = require('./_nuvem');
+const { aparelho, entrarOmni, senhasDaCasa, cadeado225 } = require('./_nuvem');
 
 /* espera uma condição do lado do banco (Node) */
 async function ate(fn, ms) { const fim = Date.now() + (ms || 8000); while (Date.now() < fim) { if (fn()) return true; await new Promise((r) => setTimeout(r, 100)); } return !!fn(); }
 
 /* ---- etapa 5: PINs de mentira e o "outro aparelho" (A) feito aqui no Node ---- */
-const PIN_CONTA = '590317', PIN_NOVO = '482915', PIN_X = '615048', PIN_CRIS = '903726', PINS = [PIN_CONTA, PIN_NOVO, PIN_X, PIN_CRIS];
+const PIN_CONTA = '590317', PIN_NOVO = '482915', PIN_X = '615048', PIN_CRIS = '903726', PIN_BIA = '271846', PINS = [PIN_CONTA, PIN_NOVO, PIN_X, PIN_CRIS, PIN_BIA];
+const CHAVE6 = 'mentira-groq-etapa6-0123456789';   /* chave de IA de mentira */
 const OUTRA = '33333333-3333-3333-3333-333333333333';   /* uma família que não é a do pedido */
 const subtle = crypto.webcrypto.subtle, utf8 = (t) => new TextEncoder().encode(t), b64n = (b) => Buffer.from(b).toString('base64');
 const vNode = (pin, sal) => b64u(crypto.pbkdf2Sync(Buffer.from(String(pin), 'utf8'), Buffer.from(sal, 'base64url'), 600000, 32, 'sha256'));
@@ -86,6 +99,26 @@ const quieto = (p) => p.evaluate(() => { AOne.save({ hello: 1, tour: 1, tips: Ob
 /* conta quantas vezes um par RSA novo é feito nesta página (com a pública na conta: nunca) */
 const vigiarPares = (p) => p.evaluate(() => { window.__pares = 0; const f = Cofre.novoPar; Cofre.novoPar = function () { window.__pares++; return f.apply(this, arguments); }; });
 const guardouSegredo = (lixos) => lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x))));
+/* ---- etapa 6 (quem aprova) ---- */
+const espere = (ms) => new Promise((r) => setTimeout(r, ms));
+const toasts = (p) => p.evaluate(() => document.querySelector('#toasts').textContent);
+/* quem abriu a família neste aparelho (para provar que NADA abriu) */
+const vigiarAbertura = (p) => p.evaluate(() => { window.__abriu = 0; const o = Cofre.usarChave; Cofre.usarChave = function () { window.__abriu++; return o.apply(this, arguments); }; });
+/* pergunta pelos pedidos agora (sem esperar os 20 s do Cloud.poll); limpar = esquece os dispensados nesta aba. Devolve o texto da faixa */
+const olhar = (p, limpar) => p.evaluate(async (limpar) => {
+  for (let i = 0; i < 80 && Aparelhos._olhando; i++) await new Promise((r) => setTimeout(r, 100));
+  if (limpar) Aparelhos._vistos = {};
+  await Aparelhos.olharPedidos();
+  const f = document.getElementById('apFaixa'); return f ? f.textContent : '';
+}, limpar !== false);
+const verPedido = async (p) => { await p.click('#apFaixa #apVer'); return janela(p, /Pedido de acesso/); };
+const linhasDe = (uid) => db.sol_aparelhos.filter((a) => a.user_id === uid && !a.removido_em);
+const pedidoDe = (uid) => db.sol_acesso_pedidos.filter((x) => x.user_id === uid && x.estado === 'aberto').slice(-1)[0];
+const abriu = (p) => p.waitForFunction(() => Cofre.aberto() && !document.querySelector('.modal'), null, { timeout: 60000 }).then(() => true, () => false);
+const saiuDaConta = (p) => p.waitForFunction(() => S.gate === 'welcome', null, { timeout: 25000 }).then(() => true, () => false);
+/* o passo a passo das Senhas da casa já visto (sob carga ele abre depois da espera do senhasDaCasa e cobriria os botões) */
+const quieto6 = async (p) => { await quieto(p); await p.evaluate(() => lsSet(GuiaCofre.K, Date.now())); };
+const fechouSas = (p) => p.waitForSelector('.modal #apSas', { state: 'detached', timeout: 30000 }).then(() => true, () => false);
 
 (async () => {
   const browser = await iniciar();
@@ -481,5 +514,319 @@ const guardouSegredo = (lixos) => lixos.some((l) => l.console.some((t) => PINS.s
   conferir(!guardouSegredo(lixosB.concat([C.lixo, D.lixo])), 'nenhum PIN no console');
   await B.ctx.close();
 
-  await terminar(falhas, browser, 'aparelhos da conta — a fumaça do banco de mentira; o aparelho novo pede e entra sem código (os 6 números fixados, Cancelar recusa, nenhuma linha órfã, "Esqueci o PIN" sem perder o cadeado, o código antigo como "kit") e a conta nova sem código, sem par novo quando a conta já tem a pública.');
+  /* ===================== Etapa 6: quem aprova (A), o aviso da família e o cartão do Início =====================
+     Omni ↔ Omni, cada aparelho um contexto: A = o computador da Ana (entra pelo código antigo e cria o PIN da conta),
+     B = um celular da Ana (aprovado pelo computador), D = o celular da Bia (o cadeado da 2.25, com a digital, ainda fora da
+     lista da conta), E = outro celular da Ana (pela família). O Davi (membro) só pede, direto no banco. */
+  console.log('Etapa 6. Quem aprova: a faixa, os 6 números e o PIN deste aparelho');
+  for (const t of ['sol_aparelhos', 'sol_pin_conta', 'sol_aparelho_pin', 'sol_acesso_pedidos']) db[t].splice(0, db[t].length, ...db[t].filter((x) => ![ANA, BIA, DAVI].includes(x.user_id)));
+  const lixos6 = [];
+  const A = await aparelho(browser, { nome: 'Ana computador', vp: 'computador', base: BASE }), a = A.p; lixos6.push(A.lixo);
+  await entrarOmni(a, ANA); await quieto6(a);
+  await senhasDaCasa(a); await a.click('[data-act="cofre.comecar"]'); await janela(a, /Primeira vez neste/);
+  await a.click('.modal #apCodigo'); await a.waitForSelector('.modal #apCod', { timeout: 8000 });
+  await a.fill('.modal #apCod', PESSOAS[ANA].codigo); await a.click('.modal #apCodOk');
+  await janela(a, /Crie o PIN da sua conta SolverONE/, 20000);
+  await a.fill('.modal #pcP1', PIN_CONTA); await a.fill('.modal #pcP2', PIN_CONTA); await a.click('.modal #pcOk');
+  await abriu(a);
+  const LA = await cadeado(a);
+  conferir(LA.ap && LA.como === 'kit' && LA.sk && LA.srv && LA.pinVersao === 1 && pinDaConta(ANA).versao === 1, 'preparo: o computador da Ana (código antigo, "kit") com a chave pessoal e o PIN da conta (versão 1)');
+  const salvA = a.evaluate((c) => Keys.set('groq', c, { pt: 'teste', en: 'test' }).then(() => 'ok', (x) => x.message), CHAVE6);
+  await a.waitForSelector('.modal #upin', { timeout: 8000 }); await a.fill('.modal #upin', PIN_CONTA); await a.click('.modal:has(#upin) [data-ok]');
+  conferir(await salvA === 'ok' && (await a.evaluate(() => SolverCofre.pessoas())).includes(ANA), 'preparo: o computador guarda uma chave de IA (o PIN das chaves é o da conta)');
+  const B6 = await aparelho(browser, { nome: 'Ana celular 2', vp: 'celular', base: BASE }), b6 = B6.p; lixos6.push(B6.lixo);
+  await entrarOmni(b6, ANA); await quieto6(b6);
+
+  /* A3 */
+  conferir(await olhar(a) === '' && !(await naTela(a, '#apFaixa')), 'A3. sem pedido: nenhuma faixa no computador');
+  await a.evaluate(() => { window.__pedir = PinUnico.pedir({}); });   /* a janela "Digite o seu PIN" (as chaves de IA) aberta */
+  await a.waitForSelector('.modal #upin', { timeout: 8000 });
+  await senhasDaCasa(b6); await b6.click('[data-act="cofre.comecar"]'); await janela(b6, /Primeira vez neste/);
+  await b6.click('.modal #apOutro'); await b6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const p3 = pedidoDe(ANA);
+  conferir(p3 && await olhar(a) === '' && await a.evaluate(() => TelaConta.ocupada()), 'K31. com a janela "Digite o seu PIN" aberta, a faixa espera (nada do cadeado por cima de outra tela dele)');
+  await a.click('.modal:has(#upin) .mf [data-x]');
+  await a.evaluate(async () => { for (let i = 0; i < 80 && Cloud._polling; i++) await new Promise((r) => setTimeout(r, 100)); Aparelhos._vistos = {}; await Cloud.poll(); });
+  const f3 = await a.waitForSelector('#apFaixa', { timeout: 10000 }).then(() => a.evaluate(() => document.getElementById('apFaixa').textContent), () => '');
+  conferir(/Pedido de acesso: Linux · Chrome \(OmniLifeONE\) · /.test(f3) && await a.evaluate(() => document.getElementById('apFaixa').getAttribute('role') === 'alert' && !!document.querySelector('header.app #apFaixa')),
+    'A3. depois do pedido, o Cloud.poll traz a faixa "🔔 Pedido de acesso: Linux · Chrome (OmniLifeONE) · …" (embaixo do cabeçalho, role alert)');
+  await a.evaluate(() => { document.querySelector('#apFaixa span').__marca = 1; });
+  await olhar(a); await olhar(a);
+  conferir(await a.evaluate(() => (document.querySelector('#apFaixa span') || {}).__marca === 1), 'K22. nas voltas seguintes a faixa é a mesma (não é desenhada de novo: o leitor de tela não repete o aviso)');
+  await verPedido(a);
+  conferir(/Só aprove se este pedido é do aparelho que você está segurando agora/.test(await textoJanelas(a)) && !(await naTela(a, '#apFaixa')), 'A3. "Ver": a janela do pedido com o aviso "Só aprove se este pedido é do aparelho que você está segurando agora"');
+  const sasA = await sasNaTela(a), sasB = await sasNaTela(b6);
+  conferir(sasA.length === 6 && sasA === sasB && await semFila(a), 'A3. os dois aparelhos mostram os mesmos 6 números (' + sasA + ')');
+  const t3x = pinDaConta(ANA).tentativas, n3x = M.log.length;
+  await a.fill('.modal #apPin', '000000'); await a.click('.modal #apOk');
+  conferir(await erroEm(a, 'PIN errado') && p3.estado === 'aberto' && pinDaConta(ANA).tentativas === t3x && !M.log.slice(n3x).some((x) => /sol_pin_conferir/.test(x.caminho)) && (await a.evaluate(async () => (await Cofre.local()).erros)) === 1,
+    'A3. PIN errado: não aprova e não gasta tentativa da conta (confere o PIN deste aparelho, sem ir ao banco — K11)');
+  await a.fill('.modal #apPin', PIN_CONTA); await a.click('.modal #apOk');
+  conferir(await fechouSas(a) && /Aprovado. O outro aparelho já pode entrar com o PIN da sua conta/.test(await toasts(a)) && ['aprovado', 'usado'].includes(p3.estado),
+    'A3. PIN certo: "✓ Aprovado. O outro aparelho já pode entrar com o PIN da sua conta."');
+
+  /* A4 */
+  conferir(await janela(b6, /Digite o PIN da sua conta/, 15000) && !(await temJanela(b6, /Crie o PIN/)), 'A4. o celular: "Digite o PIN da sua conta" (não pede para criar outro)');
+  await b6.fill('.modal #pcPin', PIN_CONTA); await b6.click('.modal #pcOk');
+  conferir(await abriu(b6), 'A4. o PIN da conta abre as Senhas da casa no celular');
+  const LB6 = await cadeado(b6), lB6 = db.sol_aparelhos.find((x) => x.id === LB6.ap);
+  conferir(LB6.sk && LB6.fam.join() === GID && LB6.como === 'aparelho' && LB6.srv && LB6.pinVersao === 1 && lB6 && lB6.aprovado_por === ANA && lB6.aprovado_por_ap === LA.ap &&
+    p3.estado === 'usado' && p3.resposta === null && !(await temPedido(b6)),
+    'A4. no celular: a chave pessoal e a da família, "aparelho", L.srv e versão 1; na lista aprovado pela Ana pelo computador (aprovado_por_ap); o pedido "usado" sem resposta; o par apagado');
+  const codigo6 = await a.evaluate(async () => {
+    if (!Cofre.aberto()) throw new Error('computador fechado');
+    await DB.put('vault', { id: 'v-etapa6', kind: 'wifi', enc: await Vault.encObj({ title: 'Wi-Fi de mentira', password: 'senha-de-mentira-6' }), files: [], vis: 'restrito' });
+    return Cofre.envelope();
+  });
+  await ate(() => db.omni_docs.some((x) => x.colecao === 'vault' && x.id === 'v-etapa6') && db.omni_docs.some((x) => x.colecao === 'vault' && x.id === '_em'), 15000);
+  const cf6 = await b6.evaluate(async (codigo) => {
+    await CloudDriver.sync();
+    const v = DB.raw('vault').find((x) => x.id === 'v-etapa6'); let o = null; try { o = v && await Vault.decObj(v.enc); } catch (e) {}
+    const agora = b64FromBuf(Cofre.vfRaw); Cofre.trancar();
+    const em = await Cofre.abrirComCodigo(codigo);
+    return { titulo: o && o.title, cf: agora, em: em && b64FromBuf(Cofre.vfRaw) };
+  }, codigo6);
+  conferir(cf6.titulo === 'Wi-Fi de mentira' && cf6.cf === b64n(cf()) && cf6.em === cf6.cf, 'A4. a chave da família no celular é a da família: abre o item que o computador guardou, e o envelope de emergência (_em) abre com o mesmo código');
+
+  /* A5 */
+  const rep5 = rpcs.sol_pedido_aprovar(ANA, { p_id: p3.id, p_resposta: { v: 2, iv: 'aXYtZGUtbWVudGlyYQ==', ct: 'Y3QtZGUtbWVudGlyYQ==' }, p_meu_ap: LA.ap });
+  const bus5 = await rpcs.sol_pedido_buscar(ANA, { p_id: p3.id });
+  conferir(rep5 === false && bus5[0].estado === 'usado' && bus5[0].resposta === null && JSON.stringify(await cadeado(b6)) === JSON.stringify(LB6), 'A5. a resposta repetida: aprovar de novo dá false; buscar de novo dá "usado" sem resposta; nada muda no celular');
+
+  /* A6–A8 (o celular pede pelo "Esqueci o PIN": o cadeado dele fica) */
+  console.log('A6–A8. Recusar (pela lista do 👤), vencer, a pública trocada');
+  await tranca(b6); await senhasDaCasa(b6);
+  await b6.click('#screen [data-act="cofre.esqueci"]'); await janela(b6, /Abrir sem o PIN/);
+  await b6.click('.modal #apOutro'); await b6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const p6 = pedidoDe(ANA);
+  conferir(/Pedido de acesso/.test(await olhar(a)), 'A6. o computador vê o pedido do celular');
+  await a.click('#apFaixa #apFaixaX');
+  conferir(!(await naTela(a, '#apFaixa')) && await olhar(a, false) === '', 'K22. "✕" na faixa: ela some e não insiste nesta aba');
+  await a.click('#whoami');
+  const item6 = await a.waitForSelector('.whomenu button:has-text("Pedidos de acesso (1)")', { timeout: 5000 }).then(() => true, () => false);
+  conferir(item6, 'K22. o pedido dispensado continua no menu do 👤: "🔔 Pedidos de acesso (1)"');
+  await a.click('.whomenu button:has-text("Pedidos de acesso (1)")');
+  await a.waitForSelector('.modal #apLista', { timeout: 5000 }); await a.click('.modal #apLista [data-i="0"]');
+  await janela(a, /Pedido de acesso/); await a.click('.modal #apRecusar');
+  conferir(await janela(b6, /Pedido recusado/, 15000) && p6.estado === 'recusado' && p6.respondido_por === ANA, 'A6. pela lista do 👤 → "Ver" → "Recusar": o celular mostra "Pedido recusado"');
+  const n6 = db.sol_acesso_pedidos.filter((x) => x.user_id === ANA).length;
+  await b6.click('.modal #apDeNovo'); await b6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const p7 = pedidoDe(ANA);
+  conferir(db.sol_acesso_pedidos.filter((x) => x.user_id === ANA).length === n6 + 1 && p7 && p7.id !== p6.id, 'A6. "Pedir de novo" cria outro pedido');
+  conferir(/Pedido de acesso/.test(await olhar(a)), 'A7. a faixa mostra o pedido novo');
+  M.relogio += 11 * 60e3;
+  conferir(await janela(b6, /O pedido venceu/, 15000) && await olhar(a) === '' && !(await naTela(a, '#apFaixa')), 'A7. ninguém aprovou em 10 minutos: "O pedido venceu" no celular e a faixa some do computador');
+  await b6.click('.modal #apDeNovo'); await b6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  M.ataque = 'troca';
+  await olhar(a); await verPedido(a);
+  const s8a = await sasNaTela(a), s8b = await sasNaTela(b6);
+  M.ataque = null;
+  conferir(s8a.length === 6 && s8b.length === 6 && s8a !== s8b, 'A8. o banco troca a pública do celular (e forja o compromisso): os 6 números ficam DIFERENTES nos dois aparelhos');
+  await a.click('.modal #apRecusar'); await janela(b6, /Pedido recusado/, 15000);
+  await b6.click('.modal #apDeNovo'); await b6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  M.ataque = 'troca-sem-compromisso';
+  await olhar(a); await verPedido(a);
+  const alt8 = await a.waitForSelector('.modal #apAlterado', { timeout: 20000 }).then(() => true, () => false);
+  M.ataque = null;
+  conferir(alt8 && !(await naTela(a, '.modal #apOk')) && !(await naTela(a, '.modal #apDig')) && /alterado no caminho/.test(await textoJanelas(a)), 'A8. o banco troca só a pública: "⚠️ Este pedido foi alterado no caminho…" e não há como aprovar');
+  await a.click('.modal #apRecusar'); await janela(b6, /Pedido recusado/, 15000);
+  await b6.click('.modal #apVoltar'); await janela(b6, /Abrir sem o PIN/); await b6.click('.modal #apVolta');
+  conferir(JSON.stringify(await cadeado(b6)) === JSON.stringify(LB6), 'A6–A8. o cadeado do celular continua o mesmo (pedir pelo "Esqueci o PIN" não apaga nada)');
+
+  /* A9: pela família */
+  console.log('A9. Pela família: a Bia aprova o celular novo da Ana; o aviso nos aparelhos da Ana; as chaves de IA sem a janela do cofre');
+  const D6 = await aparelho(browser, { nome: 'Bia', vp: 'celular', base: BASE, digital: true }), d6 = D6.p; lixos6.push(D6.lixo);
+  await entrarOmni(d6, BIA);
+  if (await d6.waitForSelector('.modal [data-no]', { timeout: 5000 }).then(() => true, () => false)) await d6.click('.modal [data-no]');
+  await quieto6(d6);
+  /* um aparelho da 2.25 (fora da lista da conta): o aoAbrir automático não o registra no meio do preparo */
+  await d6.evaluate(() => { Aparelhos.__aoAbrir = Aparelhos.aoAbrir; Aparelhos.aoAbrir = () => Promise.resolve(); });
+  await cadeado225(d6, BIA, PIN_BIA, true); await tranca(d6);
+  await d6.evaluate(() => { Aparelhos.aoAbrir = Aparelhos.__aoAbrir; });
+  const LD0 = await cadeado(d6);
+  conferir(!LD0.ap && LD0.sk && LD0.fam.join() === GID && await d6.evaluate(async () => !!(await Cofre.local()).prf) && !linhasDe(BIA).length, 'preparo: o celular da Bia com o cadeado da 2.25 (e a digital), fora da lista da conta');
+  const E6 = await aparelho(browser, { nome: 'Ana celular 3', vp: 'celular', base: BASE }), e6 = E6.p; lixos6.push(E6.lixo);
+  await entrarOmni(e6, ANA); await quieto6(e6);
+  await senhasDaCasa(e6); await e6.click('[data-act="cofre.comecar"]'); await janela(e6, /Primeira vez neste/);
+  await e6.click('.modal #apFamilia'); await e6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const p9 = pedidoDe(ANA);
+  conferir(p9 && p9.grupo_id === GID && /Pedido de acesso de Ana Teste: Linux · Chrome \(OmniLifeONE\) · /.test(await olhar(d6)), 'A9. o celular novo pede "para alguém da família"; a faixa da Bia: "🔔 Pedido de acesso de Ana Teste: Linux · Chrome (OmniLifeONE) · …"');
+  await verPedido(d6);
+  const t9 = await textoJanelas(d6);
+  conferir(/Ana Teste \(ana@teste\.com\) quer entrar na família Família Teste pelo aparelho Linux · Chrome \(OmniLifeONE\)/.test(t9) && /Só aprove se a pessoa está com você \(ou ao telefone\) e lê o mesmo número/.test(t9),
+    'A9. a Bia vê quem pede (nome e e-mail), a família, o aparelho e o aviso "Só aprove se a pessoa está com você…"');
+  const s9d = await sasNaTela(d6), s9e = await sasNaTela(e6);
+  conferir(s9d.length === 6 && s9d === s9e, 'A9. os mesmos 6 números nos dois (' + s9d + ')');
+  await d6.fill('.modal #apPin', PIN_BIA); await d6.click('.modal #apOk');
+  await fechouSas(d6);
+  const LD = await cadeado(d6);
+  conferir(LD.ap && linhasDe(BIA).some((x) => x.id === LD.ap) && ['aprovado', 'usado'].includes(p9.estado) && p9.respondido_por === BIA && p9.respondido_por_ap === LD.ap,
+    'K16. o celular da Bia, fora da lista, entrou nela ANTES de aprovar: o pedido ficou aprovado por ele (respondido_por_ap)');
+  await janela(e6, /Digite o PIN da sua conta/, 15000);
+  await e6.fill('.modal #pcPin', PIN_CONTA); await e6.click('.modal #pcOk');
+  conferir(await abriu(e6), 'A9. o celular novo abre com o PIN da conta da Ana');
+  const LE = await cadeado(e6), lE = db.sol_aparelhos.find((x) => x.id === LE.ap);
+  conferir(!LE.sk && LE.fam.join() === GID && LE.como === 'familia' && lE && lE.como === 'familia' && lE.aprovado_por === BIA && lE.aprovado_por_ap === LD.ap,
+    'A9. só a chave da família (sem a chave pessoal), "familia"; na lista aprovado pela Bia, pelo celular dela');
+  /* G2: as chaves de IA num aparelho sem a chave pessoal */
+  const salv9 = e6.evaluate((c) => Keys.set('groq', c, { pt: 'teste', en: 'test' }).then(() => 'ok', (x) => x.message), CHAVE6);
+  /* a 1ª chave cria o cofre das chaves com o PIN: pede pela janela do APP ("Digite o seu PIN", a das Senhas da casa) */
+  const q9 = await Promise.race([salv9, e6.waitForSelector('.modal #upin, dialog#solver-cofre[open]', { timeout: 6000 }).then(() => 'janela', () => 'nada')]);
+  const app9 = q9 === 'janela' && await naTela(e6, '.modal #upin');
+  if (app9) { await e6.fill('.modal #upin', PIN_CONTA); await e6.click('.modal:has(#upin) [data-ok]'); }
+  const jan9 = await e6.waitForSelector('dialog#solver-cofre[open]', { timeout: 3000 }).then(() => true, () => false);
+  if (jan9) await e6.keyboard.press('Escape');
+  const r9 = await Promise.race([salv9, espere(5000).then(() => 'pendente')]);
+  const ia9 = await e6.evaluate(async (pin) => { const sg = await PinUnico.segredo(); await SolverCofre.trancar(); const x = await SolverCofre.abrir(pin).then(() => 'abriu', (e) => e.message); return { seg: !!sg && sg.length === 32, x }; }, PIN_CONTA);
+  conferir(app9 && !jan9 && r9 === 'ok' && ia9.seg && ia9.x === 'abriu', 'G2. sem a chave pessoal, o segredo vem deste aparelho: a 1ª chave de IA pede o PIN só na janela do app ("Digite o seu PIN") e fica guardada sem a janela do cofre; o PIN das chaves é o da conta');
+  /* o aviso nos aparelhos da Ana */
+  await a.evaluate(async () => { for (let i = 0; i < 80 && Cloud._polling; i++) await new Promise((r) => setTimeout(r, 100)); Aparelhos._voltas = 0; await Cloud.poll(); });
+  const av9 = await a.waitForSelector('#apAviso', { timeout: 15000 }).then(() => a.evaluate(() => document.getElementById('apAviso').textContent), () => '');
+  conferir(/Um aparelho novo entrou na sua conta: Linux · Chrome \(OmniLifeONE\), aprovado por Bia Teste · .*Não foi você\?/.test(av9) && await naTela(a, '#apAviso #apAvisoTirar') && await a.evaluate(() => document.getElementById('apAviso').getAttribute('role') === 'alert'),
+    'A9. no computador da Ana (Cloud.poll → aoAbrir): "⚠️ Um aparelho novo entrou na sua conta: … aprovado por Bia Teste · …. Não foi você?" com "Tirar"');
+  const avB = await b6.evaluate(async () => { await Aparelhos.aoAbrir(); const el = document.getElementById('apAviso'); return el ? el.textContent : ''; });
+  const avE = await e6.evaluate(async () => { await Aparelhos.aoAbrir(); return !!document.getElementById('apAviso'); });
+  conferir(/aprovado por Bia Teste/.test(avB) && !avE, 'A9. o aviso aparece também no outro celular da Ana; no próprio aparelho novo, não');
+  await a.click('#apAviso #apAvisoX');
+  const LA9 = await a.evaluate(async () => { await Aparelhos.aoAbrir(); return { aviso: !!document.getElementById('apAviso'), ate: (await Cofre.local()).avisosAte }; });
+  conferir(!LA9.aviso && Date.parse(LA9.ate) === Date.parse(lE.criado_em), 'A9. "✕" (está certo): o aviso some e não volta (o avisosAte do cadeado avançou)');
+  await b6.click('#apAviso #apAvisoTirar');
+  conferir(await b6.waitForSelector('#apAviso', { state: 'detached', timeout: 10000 }).then(() => true, () => false) && !!lE.removido_em && /Aparelho tirado da sua conta/.test(await toasts(b6)), 'A10. "Tirar" no aviso (no outro celular): o aparelho novo sai da conta');
+
+  /* A10: o aparelho tirado, ao abrir, sai */
+  console.log('A10. O aparelho tirado, ao abrir com internet, sai da conta');
+  const nuv = (p) => p.evaluate(async (g) => (await IDB.entries('nuvem')).filter(([k]) => k.startsWith(g + '|') && !k.includes('|vault|')).length, GID);
+  const nuvE = await nuv(e6);
+  await e6.reload();
+  const saiuE = await saiuDaConta(e6), txtE = await toasts(e6);
+  const fimE = await e6.evaluate(async (u) => ({ conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u), chaveAp: await IDB.get('kv', 'chaveAp|' + u), ia: SolverCofre.existe() }), ANA);
+  conferir(saiuE && !fimE.conta && !fimE.L && !fimE.chaveAp && !fimE.ia && /foi tirado da sua conta em outro aparelho/.test(txtE) && nuvE > 0 && await nuv(e6) === nuvE,
+    'A10. ao abrir, o aparelho tirado sai da conta (aviso "Este aparelho foi tirado…"): o cadeado, a chave do navegador e as chaves de IA saem; o resto da família neste aparelho fica');
+  await entrarOmni(e6, ANA); await quieto6(e6);
+  await e6.evaluate(() => go('home'));
+  const card = await e6.waitForSelector('#inicioPasso', { timeout: 12000 }).then(() => e6.evaluate(() => document.getElementById('inicioPasso').textContent), () => '');
+  conferir(/Falta um passo para as Senhas da casa neste/.test(card), 'D1. de volta, sem o cadeado aqui: o Início mostra "🔐 Falta um passo para as Senhas da casa neste …"');
+  await e6.click('#inicioPasso [data-act="conta.passo"]');
+  conferir(await janela(e6, /Primeira vez neste/), 'A10/D1. "Continuar" abre a tela certa: "Primeira vez neste …" (entrar de novo pede a aprovação)');
+  const semCartao = await a.evaluate(async () => { await Cofre.atualizar(); go('home'); await new Promise((r) => setTimeout(r, 400)); return !document.getElementById('inicioPasso'); });
+  conferir(semCartao, 'D1. no computador (já no PIN da conta) não falta passo: nenhum cartão');
+
+  /* A9b (K2): um membro pede "para a família" */
+  console.log('A9b. Um membro (Davi) pede "para a família": a Bia vê o aviso e não aprova');
+  const dvp = await ladoA.par(), nBd = b64u(crypto.randomBytes(32));
+  const idD = rpcs.sol_pedido_criar(DAVI, { p_nome: 'Linux · Chrome', p_app: 'omnilife', p_pub: dvp.pub, p_compromisso: compromisso(dvp.pub, nBd), p_grupo: GID });
+  const pD = db.sol_acesso_pedidos.find((x) => x.id === idD);
+  conferir(/Pedido de acesso de Davi Teste/.test(await olhar(d6)), 'A9b. a faixa da Bia mostra o pedido do Davi');
+  await verPedido(d6);
+  /* se alguém desafiar, o "aparelho do Davi" (aqui no Node) revela o nB, como faria */
+  const revelou = ate(() => !!pD.pub_a, 4000).then((sim) => sim && rpcs.sol_pedido_revelar(DAVI, { p_id: idD, p_n_b: nBd }));
+  const naoPode = await d6.waitForSelector('.modal #apNaoPode', { timeout: 6000 }).then(() => d6.evaluate(() => document.querySelector('.modal #apNaoPode').textContent), () => '');
+  await revelou; await espere(3500);
+  conferir(/Davi Teste não é chefe nem responsável desta família/.test(naoPode) && !(await naTela(d6, '.modal #apOk')) && !(await naTela(d6, '.modal #apDig')) && !(await naTela(d6, '.modal #apSas')) &&
+    await naTela(d6, '.modal #apRecusar') && await naTela(d6, '.modal #apDepois') && !pD.pub_a,
+    'K2. "⚠️ Davi Teste não é chefe nem responsável desta família…": sem os 6 números e sem como aprovar (nem desafiou), só "Recusar" e "Agora não"');
+  await d6.click('.modal #apRecusar');
+  conferir(await ate(() => pD.estado === 'recusado' && pD.respondido_por === BIA), 'A9b. "Recusar": o pedido do Davi é recusado');
+
+  /* K3 e K22: o próprio pedido "para a família" */
+  console.log('K3. A Ana aprova o próprio pedido "para a família": vai a chave pessoal (o tipo que o banco deu)');
+  await e6.click('.modal #apFamilia'); await e6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const pK = pedidoDe(ANA);
+  const fa = await olhar(a), fb = await olhar(b6);
+  conferir(pK.grupo_id === GID && /Pedido de acesso: Linux · Chrome/.test(fa) && /Pedido de acesso: Linux · Chrome/.test(fb), 'K3. o pedido "para a família" da própria Ana aparece nos aparelhos dela como pessoal ("Pedido de acesso: …")');
+  await verPedido(a);
+  await ate(() => !!pK.pub_a, 8000);
+  const k22 = await b6.evaluate(async () => { Aparelhos._vistos = {}; await Aparelhos.olharPedidos(); return { faixa: !!document.getElementById('apFaixa'), todos: Aparelhos.todos.length }; });
+  conferir(!k22.faixa && k22.todos === 1, 'K22. o computador já está cuidando do pedido: a faixa sai do celular (que ainda o lista no 👤)');
+  const sK = await sasNaTela(a), sKe = await sasNaTela(e6);
+  await a.fill('.modal #apPin', PIN_CONTA); await a.click('.modal #apOk');
+  await fechouSas(a);
+  conferir(sK === sKe && await janela(e6, /Digite o PIN da sua conta/, 15000), 'K3. os 6 números iguais; aprovado, a resposta abriu no celular ("Digite o PIN da sua conta")');
+  await e6.fill('.modal #pcPin', PIN_CONTA); await e6.click('.modal #pcOk');
+  await abriu(e6);
+  const LK3 = await cadeado(e6), lK3 = db.sol_aparelhos.find((x) => x.id === LK3.ap);
+  conferir(pK.tipo_resposta === 'pessoal' && LK3.sk && LK3.como === 'aparelho' && lK3 && lK3.como === 'aparelho' && lK3.aprovado_por_ap === LA.ap, 'K3. a carga foi a pessoal: o celular tem a chave pessoal e entrou como "aparelho"');
+  const semCartaoE = await e6.evaluate(async () => { go('home'); await new Promise((r) => setTimeout(r, 400)); return !document.getElementById('inicioPasso'); });
+  conferir(semCartaoE, 'D1. com o cadeado aqui, o cartão do Início some');
+
+  /* B5: desbloqueio da espera de 24 h pela aprovação e "Não lembro" */
+  console.log('B5. 24 h de espera na conta: "Esqueci o PIN", o computador aprova com o PIN dele, "Não lembro"');
+  const pc = pinDaConta(ANA); pc.tentativas = 10; pc.espera_ate = M.relogio + 24 * 3600e3;
+  await tranca(b6); await b6.evaluate(() => { Pin.limpar(); Jornada.limpar(); });
+  const s5 = await senhasDaCasa(b6);
+  conferir(/tente de novo em 24 h/.test(s5.texto), 'B5. a conta em espera de 24 h (10 erros): o card do celular diz "… tente de novo em 24 h …"');
+  await b6.click('#screen [data-act="cofre.esqueci"]'); await janela(b6, /Abrir sem o PIN/);
+  await b6.click('.modal #apOutro'); await b6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  await olhar(a); await verPedido(a);
+  const s5a = await sasNaTela(a), s5b = await sasNaTela(b6);
+  await a.fill('.modal #apPin', PIN_CONTA); await a.click('.modal #apOk');
+  conferir(s5a === s5b && await fechouSas(a) && /Aprovado/.test(await toasts(a)) && pc.tentativas === 10, 'B5. com a conta em espera, o computador aprova pelo PIN deste aparelho (sem ir ao banco)');
+  await janela(b6, /Digite o PIN da sua conta/, 15000);
+  await b6.fill('.modal #pcPin', PIN_CONTA); await b6.click('.modal #pcOk');
+  conferir(await erroEm(b6, '24 h'), 'B5. o PIN da conta ainda espera 24 h ("Digite o PIN da sua conta" avisa)');
+  await b6.click('.modal #pcNaoLembro'); await b6.waitForSelector('.modal #pcP1', { timeout: 8000 });
+  await b6.fill('.modal #pcP1', PIN_X); await b6.fill('.modal #pcP2', PIN_X); await b6.click('.modal #pcOk');
+  conferir(await abriu(b6), 'B5. "Não lembro": o PIN novo abre as Senhas da casa');
+  const LB5 = await cadeado(b6);
+  conferir(pc.versao === 2 && pc.tentativas === 0 && !pc.espera_ate && LB5.pinVersao === 2 && LB5.ap !== LB6.ap && linhasDe(ANA).some((x) => x.id === LB5.ap) && await ate(() => !linhasDe(ANA).some((x) => x.id === LB6.ap)),
+    'B5. o PIN novo (versão 2), sem espera e com as tentativas zeradas; o lugar antigo do celular saiu da lista e ficou o novo');
+
+  /* A3b (K11): o PIN mudou em outro aparelho */
+  console.log('A3b. O PIN da conta mudou em outro aparelho: o computador aprova com o PIN novo e passa para ele');
+  const t3b = pc.tentativas;
+  await tranca(e6); await senhasDaCasa(e6);
+  await e6.click('#screen [data-act="cofre.esqueci"]'); await janela(e6, /Abrir sem o PIN/);
+  await e6.click('.modal #apOutro'); await e6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  await olhar(a); await verPedido(a);
+  await sasNaTela(a); await sasNaTela(e6);
+  await a.fill('.modal #apPin', PIN_X); await a.click('.modal #apOk');
+  const ok3b = await fechouSas(a) && /Aprovado/.test(await toasts(a));
+  const LA3b = await cadeado(a);
+  const g3b = await a.evaluate(async (x) => {
+    const novo = await Cofre.conferirPin(x.novo), velho = await Cofre.conferirPin(x.velho);
+    await SolverCofre.trancar(); const ia = await SolverCofre.abrir(x.novo).then(() => 'abriu', (e) => e.message);
+    await SolverCofre.trancar(); const iaV = await SolverCofre.abrir(x.velho).then(() => 'abriu', (e) => e.message);
+    return { novo: novo.ok === true, velho: velho.erro, ia, iaV };
+  }, { novo: PIN_X, velho: PIN_CONTA });
+  conferir(ok3b && LA3b.pinVersao === 2 && LA3b.ct !== LA.ct && g3b.novo && g3b.velho === 'pin' && pc.tentativas === t3b, 'A3b. aprovado com o PIN novo: o PIN deste computador foi refeito (versão 2; o velho não abre mais), sem gastar tentativa');
+  conferir(g3b.ia === 'abriu' && g3b.iaV === 'pin-errado', 'A3b (G1). as chaves de IA do computador passaram para o PIN novo');
+  await janela(e6, /Digite o PIN da sua conta/, 15000);
+  await e6.fill('.modal #pcPin', PIN_X); await e6.click('.modal #pcOk');
+  conferir(await abriu(e6), 'A3b. o celular aprovado abre com o PIN novo da conta');
+
+  /* A11: tirado, o PIN certo não abre */
+  console.log('A11. O computador tira o celular da conta; o PIN certo não abre nada lá');
+  await b6.evaluate(() => { Aparelhos.aoAbrir = () => Promise.resolve(); });   /* só o caminho do PIN (sem a volta do aoAbrir no meio) */
+  await a.evaluate((ap) => Sol.apTirar(ap), LB5.ap);
+  await tranca(b6); await vigiarAbertura(b6);
+  const n11 = M.log.length;
+  await senhasDaCasa(b6); await b6.waitForSelector('#cfpin', { timeout: 10000 });
+  await b6.fill('#cfpin', PIN_X); await b6.click('[data-act="cofre.pin"]');
+  const saiu11 = await saiuDaConta(b6);
+  const fim11 = await b6.evaluate(async (u) => ({ abriu: window.__abriu, conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), ANA);
+  conferir(saiu11 && fim11.abriu === 0 && !fim11.conta && !fim11.L && M.log.slice(n11).some((x) => /sol_pin_conferir/.test(x.caminho)) && !linhasDe(ANA).some((x) => x.id === LB5.ap),
+    'A11. tirado pelo computador: o PIN certo não abre nada no celular (o banco diz "aparelho"; não cai para o PIN deste aparelho), o cadeado sai e a conta sai dali');
+
+  /* K9: aprovar com a digital num aparelho já tirado */
+  console.log('K9. A Bia, tirada da conta em outro aparelho, toca "Aprovar com a digital"');
+  await tranca(e6); await senhasDaCasa(e6);
+  await e6.click('#screen [data-act="cofre.esqueci"]'); await janela(e6, /Abrir sem o PIN/);
+  await e6.click('.modal #apFamilia'); await e6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const p9k = pedidoDe(ANA);
+  await olhar(d6); await verPedido(d6); await sasNaTela(d6);
+  conferir(await naTela(d6, '.modal #apDig'), 'K9. preparo: o celular da Bia (com a digital) mostra "👆 Aprovar com a digital"');
+  await d6.evaluate(() => { Aparelhos.aoAbrir = () => Promise.resolve(); });   /* só o caminho da aprovação (sem a volta do aoAbrir no meio) */
+  rpcs.sol_aparelho_tirar(BIA, { p_id: LD.ap });
+  await d6.click('.modal #apDig');
+  const saiuD = await saiuDaConta(d6);
+  const fimD = await d6.evaluate(async (u) => ({ conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), BIA);
+  conferir(saiuD && !fimD.conta && !fimD.L && p9k.estado === 'aberto' && !p9k.respondido_por, 'K9. a digital confirmou, mas o aparelho foi tirado: nada foi aprovado, o cadeado sai e a conta sai deste celular');
+  await e6.click('.modal #apCancelar');
+
+  const sujos = lixos6.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
+  conferir(!sujos.length, 'etapa 6: sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
+  conferir(!guardouSegredo(lixos6), 'etapa 6: nenhum PIN no console');
+  for (const x of [A, B6, D6, E6]) await x.ctx.close();
+
+  await terminar(falhas, browser, 'aparelhos da conta — a fumaça do banco de mentira; o aparelho novo pede e entra sem código (os 6 números fixados, Cancelar recusa, nenhuma linha órfã, "Esqueci o PIN" sem perder o cadeado, o código antigo como "kit") e a conta nova sem código, sem par novo quando a conta já tem a pública; quem aprova (a faixa, os 6 números, o PIN deste aparelho, a família só de chefe/responsável, a carga pelo tipo, o aviso da família, o tirado sai) e o cartão do Início.');
 })().catch((e) => { console.error('Erro no teste:', e.message); process.exit(1); });

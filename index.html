@@ -593,6 +593,10 @@ footer.app{border-top:0;opacity:.8}
 .sechead{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px}
 .sechead h3{margin:0}
 .sechead .linkbtn{font-weight:650}
+/* 2.26.0: faixas de aparelhos da conta ("🔔 Pedido de acesso", "⚠️ Um aparelho novo…"): presas embaixo do cabeçalho, abaixo das janelas */
+.apfaixa{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px max(14px,env(safe-area-inset-left));font-size:.86rem;background:linear-gradient(var(--warn-soft),var(--warn-soft)),var(--surface);border-top:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
+.apfaixa span{flex:1;min-width:180px;overflow-wrap:anywhere}
+body:not(.booted) .apfaixa{display:none}
 .vstrip{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:.8rem;color:var(--text2);background:var(--surface2);border-radius:14px;padding:8px 12px;margin-bottom:12px}.vstrip span{flex:1;min-width:160px}
 .homecols{display:block}@media(min-width:900px){.homecols{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:start}.homecols .card{margin:0 0 14px}}
 .feed .fi .chev{border:0;background:none}
@@ -2477,6 +2481,9 @@ const Cloud = {
       await Gov.tick();
       /* cofre aberto aqui: libera a chave da família para quem preparou o cofre e ainda espera (a cada 2 min no máximo) */
       if (Cofre.aberto()) Cofre.distribuir().catch((e) => console.warn("cofre: liberar", e));
+      /* 2.26.0: pedidos de acesso para aprovar (toda volta) e, a cada 3 voltas, este aparelho na conta (visto, PIN trocado em
+         outro lugar, aparelho novo aprovado pela família) */
+      if (isGuardian()) { Aparelhos.olharPedidos(); if (++Aparelhos._voltas % 3 === 1) Aparelhos.aoAbrir(); }
       scheduleRender();
     } catch (e) { if (e && e.status) console.warn("família", e); }
     finally { this._polling = false; }
@@ -3446,7 +3453,7 @@ const Cofre = {
     return new Promise((res) => {
       let feito = false;
       const fim = (v) => { if (!feito) { feito = true; res(v); } };
-      const m = modal({ title: titulo, campo: true, onClose: () => fim(false), body: "<p>" + texto + "</p>" +
+      const m = modal({ title: titulo, campo: true, cls: "cadeado", onClose: () => fim(false), body: "<p>" + texto + "</p>" +
         (dig ? '<button type="button" class="btn big block" data-dig style="margin:8px 0">👆 ' + tt("Confirmar com a digital", "Confirm with fingerprint") + "</button>" : "") +
         '<label class="fld"><span>' + tt("Seu PIN de agora", "Your current PIN") + '</span><input type="password" id="ppin" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore></label><p class="small" id="perr" role="alert" style="color:var(--warn)"></p>',
         foot: '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button class="btn" data-ok>' + tt("Confirmar", "Confirm") + "</button>" });
@@ -3793,7 +3800,9 @@ const Cofre = {
   /* 2.26.0: o estado de verdade (este aparelho + a conta), pela Jornada; fase = aberto | trancado | novo, como antes */
   async atualizar() {
     if (!this.usa()) return (this.status = null);
-    return (this.status = await Jornada.ler());
+    this.status = await Jornada.ler();
+    TelaConta.marcarPasso(this.status);   /* D1: o cartão do Início aparece ou some */
+    return this.status;
   },
   view() {
     const st = this.status || { fase: "?" };
@@ -3888,8 +3897,15 @@ const Aparelhos = {
     return p;
   },
   /* ao abrir: este aparelho entra na lista se ainda não está (só com o cadeado aberto aqui) e, se já está, confere se não
-     foi tirado em outro aparelho e se o PIN da conta não mudou em outro lugar. Só mexe no ap (pelo registrar, dentro da trava) */
-  async aoAbrir() {
+     foi tirado em outro aparelho, se o PIN da conta não mudou em outro lugar e se a FAMÍLIA aprovou um aparelho novo nesta
+     conta. Só mexe no ap (pelo registrar) e no avisosAte, sempre pela porta única do cadeado (K5). Uma volta por vez: o
+     startApp e o Cloud.poll chamam juntos na entrada */
+  _abrindo: null,
+  aoAbrir() {
+    if (!this._abrindo) this._abrindo = this._aoAbrir().finally(() => { this._abrindo = null; });
+    return this._abrindo;
+  },
+  async _aoAbrir() {
     if (!this.pode()) return;
     const L = await Cofre.local(); if (!L) return;
     try {
@@ -3899,7 +3915,120 @@ const Aparelhos = {
          estar atrás, nunca na frente), relida depois da espera (um PIN digitado agora já gravou a versão nova antes de abrir) */
       const info = await Pin.info(), L2 = await Cofre.local();
       if (info && info.tem && L2 && L2.srv && L2.pinVersao && info.versao > L2.pinVersao && Cofre.aberto()) await TelaConta.travarPinTrocado();
+      /* um aparelho novo entrou nesta conta aprovado pela família (não por esta pessoa): avisa uma vez. Quem avança o avisosAte
+         (dentro da trava, relendo o L) é quem mostra: duas voltas ou duas abas não avisam duas vezes. Datas comparadas como data */
+      const lista = await Sol.apsMeus(), eu = Conta.uid(), t = (x) => Date.parse(x) || 0;
+      let novo = null;
+      await Cofre.mudarLocal(null, (X) => {
+        if (!X || !X.ap) return;
+        if (!X.avisosAte) { X.avisosAte = new Date().toISOString(); return X; }   /* sem marca (não devia faltar): conta daqui para frente */
+        const novos = lista.filter((a) => a.id !== X.ap && a.como === "familia" && a.aprovado_por !== eu && t(a.criado_em) > t(X.avisosAte));
+        if (!novos.length) return;
+        X.avisosAte = novos.reduce((m, a) => (t(a.criado_em) > t(m) ? String(a.criado_em) : m), X.avisosAte || "");
+        novo = novos[0]; return X;
+      });
+      if (novo) TelaConta.avisoFamilia(novo);
     } catch (e) {}
+  },
+  /* ===== A: este aparelho já entra e aprova outro (um aparelho novo da pessoa, ou de alguém da família) ===== */
+  _apr: {},       /* pedidos que ESTE aparelho está aprovando: {id: {priv, pub, nA}} — só na memória ("Agora não" deixa continuar depois) */
+  _vistos: {},    /* pedidos dispensados nesta aba: a faixa não insiste (a lista "🔔 Pedidos de acesso" do 👤 continua mostrando) */
+  pendentes: [],  /* os da faixa (o 1º aparece) */
+  todos: [],      /* todos os pedidos para mim, menos o que este aparelho criou */
+  _voltas: 0, _olhando: false,
+  /* pergunta ao banco quem pede para entrar. Com uma janela do cadeado aberta a faixa espera (TelaConta.ocupada) */
+  async olharPedidos() {
+    if (!this.pode() || this._olhando || TelaConta.ocupada()) return;
+    this._olhando = true;
+    try {
+      if (!(await Cofre.local())) { this.todos = this.pendentes = []; return TelaConta.faixaPedido(null); }   /* sem cadeado aqui: não aprova */
+      const lista = await Sol.pedidosParaMim();
+      let meu = null; try { meu = await IDB.get("kv", "pedido|" + Conta.uid()); } catch (e) {}
+      this.todos = lista.filter((p) => !(meu && meu.id === p.id));   /* o pedido que ESTE aparelho criou não é para ele aprovar */
+      /* K22: já desafiado por outro aparelho meu (pub_a sem o par daqui) sai da faixa: ele está cuidando */
+      this.pendentes = this.todos.filter((p) => !this._vistos[p.id] && !(p.pub_a && !this._apr[p.id]));
+      TelaConta.faixaPedido(this.pendentes[0] || null);
+    } catch (e) {} finally { this._olhando = false; }
+  },
+  /* "✕" na faixa: não insiste nesta aba (o pedido continua na lista do 👤, para recusar se foi engano) */
+  dispensar(p) { this._vistos[p.id] = 1; this.pendentes = this.pendentes.filter((x) => x.id !== p.id); TelaConta.faixaPedido(this.pendentes[0] || null); },
+  tirarDaLista(id) { this.todos = this.todos.filter((x) => x.id !== id); this.pendentes = this.pendentes.filter((x) => x.id !== id); TelaConta.faixaPedido(this.pendentes[0] || null); },
+  aprovar(p) { this.dispensar(p); return TelaConta.aprovar(p); },
+  async recusar(p) {
+    delete this._apr[p.id]; this.tirarDaLista(p.id);
+    let ok = false; try { ok = await Sol.pedidoRecusar(p.id); } catch (e) {}
+    toast(ok ? tt("Pedido recusado.", "Request declined.") : tt("Não deu para recusar: o pedido venceu ou já foi respondido.", "Could not decline: the request expired or was already answered."), 4000);
+  },
+  /* K2: o banco só confere o papel de quem APROVA; um pedido "para a família" só vale se quem pede é chefe ou responsável
+     DESTA família (as Senhas da casa são só deles) */
+  podeFamilia(p) { return !!S.family && p.grupo_id === S.family.id && ["admin", "responsavel"].includes(((S.family.members || {})[p.quem] || {}).role); },
+  /* 1) o desafio: o par efêmero deste aparelho, uma vez por pedido. null = outro aparelho já desafiou (ou venceu) */
+  async desafiar(p) {
+    if (this._apr[p.id]) return this._apr[p.id];
+    const par = await SolProto.novoPar(), nA = SolProto.b64u(SolProto.rnd(32));
+    if (!(await Sol.pedidoDesafio(p.id, par.pub, nA))) return null;
+    return (this._apr[p.id] = { priv: par.priv, pub: par.pub, nA });
+  },
+  /* 2) espera o aparelho novo revelar o nB (a cada 1,5 s, até 300 vezes). null = o pedido não está mais aberto (ou parou) */
+  async esperarNb(p, parou) {
+    let q = p;
+    for (let i = 0; !q.n_b && i < 300; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      if (parou()) return null;
+      q = (await Sol.pedidosParaMim()).find((x) => x.id === p.id);
+      if (!q) return null;
+    }
+    return q.n_b ? q : null;
+  },
+  /* 3) o que o aparelho novo publicou confere com o compromisso dele (feito ANTES de ele ver o meu): senão foi alterado */
+  async confere(q) { return SolProto.pubOk(q.pub) && SolProto.nonceOk(q.n_b) && (await SolProto.compromisso(q.pub, q.n_b)) === q.compromisso; },
+  /* K3: a carga pelo TIPO que o banco deu (o meu próprio pedido "para a família" vem como pessoal), nunca pelo grupo */
+  async carga(p, L, raw) {
+    const duk = await Cofre.aes(raw);
+    if (p.tipo === "familia") {
+      const f = (L.fam || {})[p.grupo_id];
+      if (!f || !S.family || p.grupo_id !== S.family.id) return { texto: tt("Esta família não está aberta neste aparelho.", "This family is not open on this device.") };
+      const cf = await Cofre.decifrar(duk, f);
+      return { c: SolProto.cargaFamilia(p.grupo_id, f.kv, f.fk, cf), zerar: () => cf.fill(0) };
+    }
+    if (!L.sk) return { texto: tt("Este aparelho entrou pela família e não guarda a sua chave pessoal: aprove por outro aparelho seu.", "This device joined through the family and does not keep your personal key: approve from another device of yours.") };
+    const sk = await Cofre.decifrar(duk, L.sk);
+    return { c: SolProto.cargaPessoal(sk), zerar: () => sk.fill(0) };
+  },
+  /* 4) a prova (o PIN deste aparelho, sem gastar tentativa da conta — K11; ou a digital) e a resposta fechada só para o aparelho
+     novo (o mesmo q da conferência e dos 6 números). pin null = a digital. {ok} (false = venceu ou já foi respondido) | {erro, texto} */
+  async responder(p, eu, q, pin) {
+    let d = pin == null ? await Cofre.dukDigital() : await Pin.dukParaAprovar(pin);
+    if (d.erro === "tirado") { const c = await Pin.confirmarTirado(); return c.erro === "tirado" ? c : { erro: c.erro, texto: Pin.explicar(c) }; }
+    if (d.erro || !d.raw) { if (d.raw) d.raw.fill(0); return { erro: d.erro, texto: (["pin", "espera", "bloqueado", "digital"].includes(d.erro) && Pin.explicar(d)) || tt("Não conferiu.", "Could not verify.") }; }
+    try {
+      let L = await Cofre.local();
+      if (L.ap) {
+        /* tirado da conta em outro aparelho: nada sai daqui, nem pela digital (K9) — e o cadeado sai deste aparelho */
+        let visto = null; try { visto = await Sol.apVisto(L.ap); } catch (e) {}
+        if (visto === false) { await this.tirado(); return { erro: "tirado" }; }
+      } else {
+        /* K16: quem aprova entra na lista antes (a prova acabou de acontecer aqui): o aparelho novo fica "aprovado por" este */
+        try { await this.registrar(); } catch (e) {}
+        L = (await Cofre.local()) || L;
+      }
+      const k = await this.carga(p, L, d.raw);
+      if (!k.c) return { erro: "carga", texto: k.texto };
+      let resp; try { resp = await SolProto.fechar(await SolProto.chave(eu.priv, q.pub, p.id, p.quem, eu.nA, q.n_b), p.id, k.c); } finally { k.zerar(); }
+      const ok = await Sol.pedidoAprovar(p.id, resp, L.ap || null);
+      delete this._apr[p.id]; this.tirarDaLista(p.id);
+      if (ok) Cloud.audit("aparelho.aprovado", (p.tipo === "familia" ? (p.quem_nome || p.quem_email || "") + " · " : "") + p.nome + " (" + SolProto.rotuloApp(p.app) + ")");
+      /* o PIN daqui estava velho (trocado em outro aparelho ou app) e o da conta acabou de passar a valer aqui: as Senhas da casa
+         abrem com ele e o PIN das chaves de IA acompanha (G1; sem isso a próxima abertura, já na versão nova, não realinharia) */
+      if (d.realinhar && pin) await Pin.abrirFam(new Uint8Array(d.raw), pin, true);
+      return { ok: !!ok };
+    } finally { d.raw.fill(0); }
+  },
+  /* sair da conta neste aparelho: nenhum pedido nem aviso na tela, nenhum par efêmero na memória, a espera do aparelho novo para */
+  parar() {
+    this._apr = {}; this._vistos = {}; this.pendentes = []; this.todos = []; this._voltas = 0; TelaConta._passo = null;
+    if (this._esperando) this._esperando.parar();
+    TelaConta.faixaPedido(null); const a = document.getElementById("apAviso"); if (a) a.remove();
   },
   /* este aparelho foi tirado da conta em outro aparelho: o cadeado e a cópia das Senhas da casa saem daqui, as chaves de IA
      desta pessoa também (as de outra pessoa ficam), e a conta sai deste aparelho. O resto (Saúde, documentos, fotos, a fila)
@@ -4080,7 +4209,7 @@ const TelaConta = {
   _ofertou: false,       /* já ofereceu uma digital nesta entrada (a das Senhas da casa ou a de abrir o app): a outra fica para depois */
   campo(id, rotulo) { return '<label class="fld"><span>' + rotulo + '</span><input type="password" id="' + id + '" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore></label>'; },
   janela(op) {
-    const m = modal(Object.assign({ confirmacao: true, campo: true }, op));
+    const m = modal(Object.assign({ confirmacao: true, campo: true, cls: "cadeado" }, op));   /* cadeado: TelaConta.ocupada() */
     try { DGO.senha.aplicar(m.el); } catch (e) {}   /* o 👁 nos campos de PIN (aceita colar) */
     return m;
   },
@@ -4501,9 +4630,139 @@ const TelaConta = {
       } finally { bOk.disabled = false; bOk.textContent = tt("Continuar", "Continue"); }
     };
     inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); bOk.click(); } };
+  },
+  /* ===== A: quem aprova ===== */
+  /* há uma janela do cadeado aberta (as desta tela, "Digite o seu PIN", "Seu PIN de agora", a das chaves de IA) ou a espera do
+     aparelho novo: a faixa de pedidos espera (K31) */
+  ocupada() { return !!document.querySelector(".modal.cadeado, dialog#solver-cofre[open]") || !!Aparelhos._esperando; },
+  rotuloPedido(p) {
+    return (p.tipo === "familia" ? tt("Pedido de acesso de ", "Access request from ") + (p.quem_nome || p.quem_email || "") + ": " : tt("Pedido de acesso: ", "Access request: ")) +
+      p.nome + " (" + SolProto.rotuloApp(p.app) + ") · " + fmtDateTime(p.criado_em);
+  },
+  /* uma faixa presa embaixo do cabeçalho (abaixo das janelas): pedido de acesso ou aviso. Fora do app (tela de entrar) não aparece */
+  faixa(id) {
+    let el = document.getElementById(id);
+    if (!el) { el = document.createElement("div"); el.id = id; el.className = "apfaixa"; el.setAttribute("role", "alert"); $("header.app").appendChild(el); }
+    return el;
+  },
+  /* "🔔 Pedido de acesso: …" — some quando não há pedido; só é desenhada de novo quando o 1º pedido muda (role="alert": o leitor
+     de tela não repete o aviso a cada volta do Cloud.poll — K22) */
+  faixaPedido(p) {
+    const velha = document.getElementById("apFaixa");
+    if (!p || !S.booted) { if (velha) velha.remove(); return; }
+    if (velha && velha.dataset.id === p.id) return;
+    const el = this.faixa("apFaixa");
+    el.dataset.id = p.id;
+    el.innerHTML = "<span>🔔 " + esc(this.rotuloPedido(p)) + '</span><button type="button" class="btn sm" id="apVer">' + tt("Ver", "View") + '</button><button type="button" class="iconbtn" id="apFaixaX" aria-label="' + tt("Agora não", "Not now") + '">✕</button>';
+    $("#apVer", el).onclick = () => Aparelhos.aprovar(p);
+    $("#apFaixaX", el).onclick = () => Aparelhos.dispensar(p);
+  },
+  /* "🔔 Pedidos de acesso (N)" (menu do 👤): todos, também os dispensados na faixa — um pedido fechado por engano ainda pode
+     ser visto e recusado */
+  pedidos() {
+    const L = Aparelhos.todos.slice();
+    if (!L.length) return toast(tt("Nenhum pedido de acesso agora.", "No access request right now."));
+    const m = this.janela({ title: "🔔 " + tt("Pedidos de acesso", "Access requests"), campo: false,
+      body: '<div class="list" id="apLista">' + L.map((p, i) => '<div class="li"><div class="main"><div class="t">' + esc(this.rotuloPedido(p)) + '</div></div><button type="button" class="btn sm" data-i="' + i + '">' + tt("Ver", "View") + "</button></div>").join("") + "</div>",
+      foot: '<button class="btn ghost" data-x>' + tt("Fechar", "Close") + "</button>" });
+    m.el.querySelectorAll("[data-i]").forEach((b) => { b.onclick = () => { m.drop(); Aparelhos.aprovar(L[+b.dataset.i]); }; });
+  },
+  /* 🔔 Pedido de acesso — quem aprova (A). Da família, só se quem pede é chefe ou responsável desta família (K2); depois: o desafio,
+     a espera do nB, o compromisso (senão "alterado", sem aprovar), os 6 números e o PIN ou a digital DESTE aparelho */
+  async aprovar(p) {
+    const fam = p.tipo === "familia", app = SolProto.rotuloApp(p.app), quando = fmtDateTime(p.criado_em), quem = esc(p.quem_nome || p.quem_email || "");
+    const nomeFam = esc((S.family && S.family.name) || ""), disp = "<b>" + esc(p.nome) + "</b> (" + esc(app) + ") · " + quando;
+    const cabeca = fam
+      ? "<p><b>" + quem + "</b>" + (p.quem_nome && p.quem_email ? " (" + esc(p.quem_email) + ")" : "") + tt(" quer entrar na família <b>" + nomeFam + "</b> pelo aparelho " + disp, " wants to join the family <b>" + nomeFam + "</b> on the device " + disp) + "</p>" +
+        '<p class="note warn">⚠️ ' + tt("Só aprove se a pessoa está com você (ou ao telefone) e lê o mesmo número.", "Only approve if the person is with you (or on the phone) and reads the same number.") + "</p>"
+      : "<p>" + tt("Pedido de acesso de: ", "Access request from: ") + disp + "</p>" +
+        '<p class="note warn">⚠️ ' + tt("Só aprove se este pedido é do aparelho que você está segurando agora.", "Only approve if this request comes from the device you are holding now.") + "</p>";
+    let fim = false;
+    const m = this.janela({ title: "🔔 " + tt("Pedido de acesso", "Access request"), campo: false, onClose: () => { fim = true; },
+      body: cabeca + '<div id="apEtapa"><p class="small muted">⏳ ' + tt("Conectando com o outro aparelho…", "Connecting to the other device…") + "</p></div>" + this.ERRO,
+      foot: '<button class="btn ghost" id="apRecusar">' + tt("Recusar", "Decline") + '</button><button class="btn ghost" data-x id="apDepois">' + tt("Agora não", "Not now") + "</button>" });
+    const etapa = $("#apEtapa", m.el), err = $("#pcErr", m.el);
+    const sair = (msg) => { fim = true; m.drop(); if (msg) toast(msg, 6000); };
+    $("#apRecusar", m.el).onclick = () => { sair(); Aparelhos.recusar(p); };
+    const pare = (id, txt) => { delete Aparelhos._apr[p.id]; etapa.innerHTML = '<p class="note bad" id="' + id + '">⚠️ ' + txt + "</p>"; };
+    if (fam && !Aparelhos.podeFamilia(p)) return pare("apNaoPode", tt("<b>" + quem + "</b> não é chefe nem responsável desta família: as Senhas da casa são só deles. Recuse este pedido.", "<b>" + quem + "</b> is not a head or guardian of this family: the home passwords are only theirs. Decline this request."));
+    try {
+      const eu = await Aparelhos.desafiar(p);
+      if (fim) return;
+      if (!eu) return sair(tt("Outro aparelho já está cuidando deste pedido (ou ele venceu).", "Another device is already handling this request (or it expired)."));
+      const q = await Aparelhos.esperarNb(p, () => fim);
+      if (fim) return;
+      if (!q) { delete Aparelhos._apr[p.id]; Aparelhos.tirarDaLista(p.id); return sair(tt("O pedido não está mais aberto.", "The request is no longer open.")); }
+      if (!(await Aparelhos.confere(q))) return pare("apAlterado", tt("Este pedido foi alterado no caminho. Não aprove: recuse e peça de novo no outro aparelho.", "This request was altered on the way. Do not approve: decline and ask again on the other device."));
+      const sas = await SolProto.sas(p.id, eu.pub, q.pub, eu.nA, q.n_b), L = await Cofre.local();
+      if (fim) return;
+      etapa.innerHTML = '<div class="vcode" id="apSas" style="font-size:1.6rem;letter-spacing:.12em;text-align:center" aria-label="' + esc(SolProto.sasFalado(sas)) + '">' + SolProto.sasTela(sas) + "</div>" +
+        "<p>" + tt("O outro aparelho mostra estes mesmos 6 números? Se sim, digite o seu PIN para aprovar.", "Does the other device show these same 6 numbers? If so, type your PIN to approve.") + "</p>" + this.campo("apPin", "PIN") +
+        '<div class="stack"><button type="button" class="btn big block" id="apOk">' + tt("Os números são iguais: aprovar", "The numbers match: approve") + "</button>" +
+        (L && L.prf && !L.bloqueado ? '<button type="button" class="btn ghost big block" id="apDig">👆 ' + tt("Aprovar com a digital", "Approve with fingerprint") + "</button>" : "") + "</div>";
+      try { DGO.senha.aplicar(m.el); } catch (e) {}
+      const inp = $("#apPin", m.el), bOk = $("#apOk", m.el), bDig = $("#apDig", m.el), bts = [bOk, bDig].filter(Boolean);
+      const ir = async (pin) => {
+        bts.forEach((b) => { b.disabled = true; }); bOk.textContent = "⏳"; err.textContent = "";
+        let r; try { r = await Aparelhos.responder(p, eu, q, pin); } catch (e) { r = { erro: "falhou", texto: tt("Não deu para aprovar: ", "Could not approve: ") + Conta.explicar(e) }; }
+        if (fim) return;
+        bts.forEach((b) => { b.disabled = false; }); bOk.textContent = tt("Os números são iguais: aprovar", "The numbers match: approve");
+        if ("ok" in r) return sair(r.ok ? "✓ " + tt("Aprovado. O outro aparelho já pode entrar com o PIN da sua conta.", "Approved. The other device can now sign in with your account PIN.") : tt("Não deu para aprovar: o pedido venceu ou já foi respondido.", "Could not approve: the request expired or was already answered."));
+        if (r.erro === "tirado") return sair();
+        err.textContent = r.texto || tt("Não conferiu.", "Could not verify."); inp.value = ""; inp.focus();
+      };
+      bOk.onclick = () => { const v = inp.value; if (!v) return inp.focus(); ir(v); };
+      inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); bOk.click(); } };
+      if (bDig) bDig.onclick = () => ir(null);
+    } catch (e) { if (!fim) sair(tt("Não deu para aprovar: ", "Could not approve: ") + Conta.explicar(e)); }
+  },
+  /* "⚠️ Um aparelho novo entrou na sua conta…" (aprovado pela família): "Tirar" tira da conta já; "✕" = está certo */
+  avisoFamilia(a) {
+    const el = this.faixa("apAviso"), quem = a.aprovado_por_nome || a.aprovado_por_email || "?";
+    el.innerHTML = "<span>⚠️ " + esc(tt("Um aparelho novo entrou na sua conta: ", "A new device joined your account: ") + a.nome + " (" + SolProto.rotuloApp(a.app) + ")" + tt(", aprovado por ", ", approved by ") + quem + " · " + fmtDateTime(a.criado_em) + ". " + tt("Não foi você?", "Wasn't it you?")) +
+      '</span><button type="button" class="btn sm danger" id="apAvisoTirar">' + tt("Tirar", "Remove") + '</button><button type="button" class="iconbtn" id="apAvisoX" aria-label="' + tt("Está certo", "It's fine") + '">✕</button>';
+    $("#apAvisoX", el).onclick = () => el.remove();
+    $("#apAvisoTirar", el).onclick = async () => {
+      try { await Sol.apTirar(a.id); } catch (e) { return toast(Pin.explicar({ erro: "rede" }), 4000); }
+      el.remove(); Jornada.limpar();
+      toast("✓ " + tt("Aparelho tirado da sua conta.", "Device removed from your account."), 5000);
+    };
+  },
+  /* D1: falta um passo para as Senhas da casa neste aparelho (chefe/responsável, com internet): um cartão discreto no Início que
+     abre a tela certa e some quando não falta nada. Marcado a cada Cofre.atualizar (e logo depois de entrar) */
+  _passo: null,
+  passoDe(st) {
+    if (!st || !st.guardiao || !st.rede || !st.ligado) return null;
+    if (["contaNova", "outroApp", "primeiraVez"].includes(st.caso)) return "entrar";
+    return st.criarPin ? "criarPin" : st.migrar ? "migrar" : null;
+  },
+  marcarPasso(st) {
+    const p = this.passoDe(st);
+    if (p === this._passo) return;
+    this._passo = p;
+    if (S.booted && S.route && S.route.tab === "home") scheduleRender();
+  },
+  cartaoInicio() {
+    if (!this._passo || !S.booted || !Cofre.usa() || !isGuardian()) return "";
+    return '<div class="card" id="inicioPasso" style="padding:10px 14px"><div class="between" style="gap:10px;flex-wrap:wrap"><span class="small">🔐 ' + tt("Falta um passo para as Senhas da casa neste " + apN(), "One step left for the home passwords on this " + apN()) +
+      '</span><button type="button" class="btn sm" data-act="conta.passo">' + tt("Continuar", "Continue") + "</button></div></div>";
   }
 };
 
+/* o cartão do Início (D1): a tela certa para o passo que falta */
+ACT["conta.passo"] = async () => {
+  const p = TelaConta.passoDe(await Cofre.atualizar());
+  TelaConta.marcarPasso(Cofre.status);
+  if (p === "entrar") return TelaConta.primeiraVez();
+  if (p === "criarPin" && Cofre.aberto()) return TelaConta.criarPin();
+  /* aberto (pela digital) e ainda no PIN antigo: "Agora o PIN é um só para a conta" com a chave deste aparelho, que está aberta */
+  if (p === "migrar" && Cofre.aberto() && Cofre.dukRaw) {
+    const f = await TelaConta.depoisDeAbrir({ erro: "pinConta", raw: new Uint8Array(Cofre.dukRaw) }, "");
+    if (f.ok) toast("✓ " + tt("Pronto: o PIN da conta vale neste " + apN() + ".", "Done: the account PIN works on this " + apN() + "."), 5000);
+    await Cofre.atualizar(); return render();
+  }
+  go("house", "vault");   /* trancado: o PIN abre e a própria tela leva ao passo */
+};
 ACT["conta.pin.criar"] = () => TelaConta.criarPin();
 ACT["conta.pin.trocar"] = () => TelaConta.trocarPin();
 
@@ -4706,12 +4965,15 @@ const PinUnico = {
   pronto: new Promise((ok) => { _pinPronto = ok; }),   /* o app já sabe quem é a pessoa (depois de entrar) */
   quem() { return S.booted && Cofre.usa() && isGuardian() && Conta.uid() ? Conta.uid() : ""; },
   /* o segredo da pessoa: o resumo (SHA-256) da chave privada dela. Só existe com as Senhas da casa abertas e continua
-     o mesmo quando ela troca o PIN ou volta pelo código do papel. */
+     o mesmo quando ela troca o PIN ou volta pelo código do papel.
+     2.26.0 (G2): aparelho que entrou pela família (sem a chave pessoal) usa SHA-256(utf8("omnilife-um-pin-ap:" + uid + ":") ‖ DUK),
+     em bytes (K34): o mesmo neste aparelho para esta pessoa, também quando o PIN muda — as chaves de IA abrem sem a janela do cofre */
   async segredo() {
     if (!Cofre.aberto() || !Cofre.dukRaw) return null;
-    const L = await Cofre.local(); if (!L || !L.sk) return null;
+    const L = await Cofre.local(); if (!L) return null;
     try {
-      const pk = await Cofre.decifrar(await Cofre.aes(Cofre.dukRaw), L.sk), t = new TextEncoder().encode("omnilife-um-pin:");
+      const pk = L.sk ? await Cofre.decifrar(await Cofre.aes(Cofre.dukRaw), L.sk) : new Uint8Array(Cofre.dukRaw);
+      const t = new TextEncoder().encode(L.sk ? "omnilife-um-pin:" : "omnilife-um-pin-ap:" + Conta.uid() + ":");
       const b = new Uint8Array(t.length + pk.length); b.set(t); b.set(pk, t.length); pk.fill(0);
       const h = new Uint8Array(await crypto.subtle.digest("SHA-256", b)); b.fill(0); return h;
     } catch (e) { return null; }
@@ -4746,7 +5008,7 @@ const PinUnico = {
       let feito = false;
       const fim = (v) => { if (feito) return; feito = true; res(v); };
       /* por cima da janela que pediu a chave (ex.: salvar uma chave de IA), como a janela do cofre: senão uma esperaria a outra */
-      const m = modal({ title: "🔐 " + tt("Digite o seu PIN", "Type your PIN"), confirmacao: true, onClose: () => fim(false), body:
+      const m = modal({ title: "🔐 " + tt("Digite o seu PIN", "Type your PIN"), confirmacao: true, cls: "cadeado", onClose: () => fim(false), body:
         (motivo ? "<p>" + esc(motivo) + "</p>" : "") +
         '<p class="small muted">' + tt("É o mesmo PIN das Senhas da casa: ele abre as senhas e as chaves de IA juntas.", "It's the same PIN as the home passwords: it opens the passwords and the AI keys together.") + "</p>" +
         (dig ? '<button type="button" class="btn big block" data-dig style="margin:8px 0">👆 ' + tt("Abrir com a digital", "Open with fingerprint") + "</button>" : "") +
@@ -5957,7 +6219,7 @@ ACT["gate.visitor"] = () => startVisitor();
 ACT["gate.advertiser"] = () => { S.mode = "advertiser"; lsSet(LS.mode, "advertiser"); S.role = "membro"; S.meId = null; DB.driver = MemoryDriver; S.route = { tab: "ads" }; location.hash = "#/ads"; startApp(); };
 ACT["gate.pick"] = async (d) => { if (await selectProfile(d.id)) startApp(); };
 /* sair tranca também as chaves de IA: quem entrar depois na mesma aba não herda o cofre aberto de outra pessoa */
-ACT["cloud.logout"] = async () => { Sess.end(); Vault.lock(); SolverCofre.trancar().catch(() => {}); await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
+ACT["cloud.logout"] = async () => { Aparelhos.parar(); Sess.end(); Vault.lock(); SolverCofre.trancar().catch(() => {}); await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
 ACT["join.cancel"] = async (d) => { if (!(await confirmBox(tt("Cancelar o pedido de entrada?", "Cancel the join request?"), tt("Cancelar pedido", "Cancel request"), true))) return; await Cloud.cancelRequest(d.id); setGate("create"); };
 ACT["cloud.retry"] = async () => { if (!Conta.on()) return setGate("welcome"); try { await Cloud.resolve(); } catch (e) { setGate("offline"); } };
 
@@ -6361,6 +6623,8 @@ async function startApp() {
       try { await Bio.register(); S.prefs.bioLock = true; savePrefs(); S.unlocked = true; toast("✓ " + tt("Pronto: da próxima vez é só a digital.", "Done: next time just use your fingerprint."), 4000); } catch (e) { toast(tt("A digital não foi ativada. Dá para tentar de novo em ⚙ → Geral → Segurança.", "Fingerprint wasn't enabled. Try again in ⚙ → General → Security."), 5000); }
     }
   }, 1200);
+  /* 2.26.0: este aparelho na conta, os pedidos de acesso e, se faltar, o passo das Senhas da casa (cartão do Início, D1) */
+  if (S.mode === "cloud") setTimeout(async () => { if (!S.booted || !isGuardian()) return; await Aparelhos.aoAbrir(); Aparelhos.olharPedidos(); if (S.booted) Cofre.atualizar().catch(() => {}); }, 1500);
   Plan.publish();
   Ads.popup("depois");
   /* conta SolverONE: confere se não foi encerrada e registra uso e acesso (uma vez por aba) */
@@ -6469,6 +6733,8 @@ function whoMenu(anchor) {
   if (S.mode === "local" && People.list("humans").length > 1) items.push({ ic: "🔄", t: tt("Trocar de perfil", "Switch profile"), fn: () => setGate("profiles") });
   if (S.booted && S.mode !== "advertiser") items.push({ ic: ico("family"), t: tt("Família", "Family"), fn: () => go("family") });
   if (S.booted && S.mode === "local" && !Conta.on()) items.push({ ic: "✨", t: tt("Entrar na conta SolverONE", "Sign in to SolverONE account"), fn: () => ACT["conta.entrar"]() });
+  /* 2.26.0: pedidos de acesso de aparelhos (também os dispensados na faixa), só quando há */
+  if (S.booted && Aparelhos.todos.length) items.push({ ic: "🔔", t: tt("Pedidos de acesso", "Access requests") + " (" + Aparelhos.todos.length + ")", fn: () => TelaConta.pedidos() });
   items.push({ ic: guest ? ico("leave") : "🚪", t: guest ? tt("Entrar", "Sign in") : tt("Sair", "Sign out"), fn: () => signOut(), cls: guest ? " pri" : " danger" });
   const m = document.createElement("div"); m.className = "menu whomenu"; m.setAttribute("role", "menu"); m.setAttribute("aria-label", tt("Perfil", "Profile"));
   const themeRow = () => '<button type="button" role="menuitemcheckbox" aria-checked="' + (S.theme === "dark") + '" data-theme-tg><span class="mi">' + ico(S.theme === "dark" ? "moon" : "sun") + "</span><span>" + tt("Tema escuro", "Dark theme") + '</span><span class="sw"' + (S.theme === "dark" ? ' data-on' : "") + "></span></button>";
@@ -10827,7 +11093,7 @@ const FamilyViews = {
     return h;
   }
 };
-const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho desconectado", "📴 Device disconnected"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
+const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho desconectado", "📴 Device disconnected"), "aparelho.aprovado": tt("📱 Aparelho aprovado", "📱 Device approved"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
 ACT["person.new"] = () => editPerson(null);
 /* pet tem a ficha própria em 🐾 Pets (com a aba desligada, volta ao cadastro de pessoa) */
 ACT["person.edit"] = (d) => { const p = People.get(d.id); if (!p) return; if (p.role === "pet" && Rec.ok("pets") && canTab("pets")) return go("pets", "ficha", p.id); editPerson(JSON.parse(JSON.stringify(p))); };
@@ -13617,7 +13883,7 @@ SCREENS.home = {
       '<button data-act="chk.arrive"><span class="qi ok">' + ico("pin") + '</span><span class="ql">' + tt("Cheguei", "I'm here") + "</span></button>" +
       '<button data-act="msg.new"><span class="qi info">' + ico("inbox") + '</span><span class="ql">' + tt("Recado", "Message") + "</span></button>" +
       '<button data-act="rem.new"><span class="qi warn">' + ico("zap") + '</span><span class="ql">' + tt("Lembrete rápido", "Quick reminder") + "</span></button></div>";
-    h += Move.card() + Offline.pcCard() + Offline.samsungCard() + Weather.card();
+    h += TelaConta.cartaoInicio() + Move.card() + Offline.pcCard() + Offline.samsungCard() + Weather.card();
     h += '<div class="quickadd">' + ico("plus") + '<input type="text" id="addin" placeholder="' + tt("Pôr na lista: leite, pão 2…", "Add to list: milk, bread 2…") + '" autocomplete="off" aria-label="' + tt("Pôr na lista", "Add to list") + '"><button class="mic iconbtn" data-act="shop.voice" aria-label="' + tt("Falar", "Speak") + '">' + ico("mic") + '</button><button class="btn" data-act="shop.addq">' + tt("Pôr", "Add") + "</button></div>";
     h += AddFb.html(true);
     const sc = [["leave", tt("Estou saindo", "I'm leaving"), "chk.leave"], ["where", tt("Onde está?", "Where is it?"), "go:house:where"]];
