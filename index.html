@@ -3039,6 +3039,254 @@ const SolProto = {
   rotuloApp(codigo) { return { omnilife: "OmniLifeONE", "omnilife-one": "OmniLifeONE", moneytrio: "MoneyTRIO" }[codigo] || codigo; }
 };
 
+/* Sol: só o transporte das funções sol_* do banco (aparelhos e PIN da conta), pelo Conta.rpc. Nenhuma tela, nenhuma regra.
+   Dois sinais, como no MoneyTRIO: ligadoAp (sol_pedido*, sol_aparelho*, sol_passkey*) e ligadoPin (sol_pin_*). false = essa
+   parte do SQL ainda não existe neste banco (PGRST202/404): o app volta ao PIN do aparelho, como na 2.25. Um 404 passageiro
+   (o PostgREST recarregando) não fica preso na página: depois de 5 min tenta de novo. */
+const Sol = {
+  _s: { ap: null, pin: null }, _t: { ap: 0, pin: 0 },
+  _sinal(k) { if (this._s[k] === false && Date.now() - this._t[k] > 300000) this._s[k] = null; return this._s[k]; },
+  get ligadoAp() { return this._sinal("ap"); },
+  set ligadoAp(v) { this._s.ap = v; this._t.ap = Date.now(); },
+  get ligadoPin() { return this._sinal("pin"); },
+  set ligadoPin(v) { this._s.pin = v; this._t.pin = Date.now(); },
+  pode() { return navigator.onLine && Conta.on(); },   /* sem internet ou sem conta o Conta.rest nem tenta */
+  semRede(e) { return !(e && e.status); },              /* Conta.rest lança SEM status quando não há internet nem sessão */
+  nome() { return SolProto.nomeAparelho(navigator.userAgent, S.lang); },
+  async rpc(nome, args) {
+    const k = /^sol_pin_/.test(nome) ? "pin" : /^sol_(pedido|aparelho|passkey)/.test(nome) ? "ap" : "";
+    try { const r = await Conta.rpc(nome, args); if (k) this._s[k] = true; return r; }
+    catch (e) { if (k && (e.code === "PGRST202" || e.status === 404)) { this._s[k] = false; this._t[k] = Date.now(); } throw e; }
+  },
+  /* aparelhos */
+  pedidoCriar(pub, compromisso, grupo) { return this.rpc("sol_pedido_criar", { p_nome: this.nome(), p_app: SolProto.APP, p_pub: pub, p_compromisso: compromisso, p_grupo: grupo || null }); },
+  pedidoDesafio(id, pubA, nA) { return this.rpc("sol_pedido_desafio", { p_id: id, p_pub_a: pubA, p_n_a: nA }); },
+  pedidoRevelar(id, nB) { return this.rpc("sol_pedido_revelar", { p_id: id, p_n_b: nB }); },
+  pedidoAprovar(id, resposta, meuAp) { return this.rpc("sol_pedido_aprovar", { p_id: id, p_resposta: resposta, p_meu_ap: meuAp || null }); },
+  pedidoRecusar(id) { return this.rpc("sol_pedido_recusar", { p_id: id }); },
+  async pedidoBuscar(id) { const r = await this.rpc("sol_pedido_buscar", { p_id: id }); return (r && r[0]) || null; },
+  async pedidosParaMim() { return (await this.rpc("sol_pedidos_para_mim")) || []; },
+  apRegistrar(como) { return this.rpc("sol_aparelho_registrar", { p_nome: this.nome(), p_app: SolProto.APP, p_como: como }); },
+  apVisto(id) { return this.rpc("sol_aparelho_visto", { p_id: id }); },
+  apTirar(id) { return this.rpc("sol_aparelho_tirar", { p_id: id }); },
+  async apsMeus() { return (await this.rpc("sol_aparelhos_meus")) || []; },
+  pkGuardar(cred, sal, fechada) { return this.rpc("sol_passkey_guardar", { p_cred: cred, p_sal: sal, p_fechada: fechada }); },
+  pkTirar(cred) { return this.rpc("sol_passkey_tirar", { p_cred: cred }); },
+  async pksMinhas() { return (await this.rpc("sol_passkeys_minhas")) || []; },
+  /* PIN da conta. null = sem internet, sem conta ou sem o SQL (aí vale o PIN do aparelho) */
+  async pinInfo() {
+    if (this.ligadoPin === false || !this.pode()) return null;
+    try { const r = await this.rpc("sol_pin_info"); return (r && r[0]) || null; } catch (e) { return null; }
+  },
+  async pinConferir(v, ap) { try { return await this.rpc("sol_pin_conferir", { p_v: v, p_ap: ap }); } catch (e) { return null; } },
+  pinDefinir(vNovo, salNovo, vAtual, ap) { return this.rpc("sol_pin_definir", { p_v_novo: vNovo, p_sal_novo: salNovo, p_v_atual: vAtual || null, p_ap: ap }); }
+};
+
+/* Pin: o PIN da conta SolverONE (estado, sem tela). O PIN nunca sai do aparelho: vai v = PBKDF2(PIN, sal da conta, 600 mil);
+   com o PIN certo o banco devolve o segredo DESTE aparelho. A chave do aparelho (DUK) fica fechada de dois jeitos:
+     L.pin = AES(PBKDF2(PIN), DUK) → abre SEM internet (o mesmo de hoje);
+     L.srv = AES(HKDF(segredo), AES(chave não extraível deste navegador, DUK)) → abre COM internet: "trocou num aparelho, vale em todos".
+   Diferente do MoneyTRIO, de propósito: conta sem PIN NÃO transforma o PIN do aparelho em PIN da conta sem a pessoa pedir, e
+   "aparelho" na resposta do banco quer dizer tirado da conta (não cai para o PIN local). */
+const Pin = {
+  _info: null,   /* {uid, t, r}: 15 s, só para desenhar. Para calcular v é sempre info(true): cada troca grava um sal novo */
+  async info(forcar) {
+    const uid = Conta.uid(), c = this._info;
+    if (!forcar && c && c.uid === uid && Date.now() - c.t < 15000) return c.r;
+    const r = await Sol.pinInfo();
+    this._info = r ? { uid, t: Date.now(), r } : null;
+    return r;
+  },
+  limpar() { this._info = null; },
+  _criando: null,
+  /* a chave deste navegador (não extraível; uma cópia do IndexedDB em outro aparelho não abre o L.srv) */
+  async chaveAp() {
+    const k = "chaveAp|" + Conta.uid();
+    let c = null; try { c = await IDB.get("kv", k); } catch (e) {}
+    if (c) return c;
+    if (!this._criando || this._criando.k !== k) {   /* duas chamadas juntas não criam duas chaves */
+      const p = crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]).then(async (n) => { await IDB.set("kv", k, n); return n; });
+      this._criando = { k, p };
+      p.then(() => { this._criando = null; }, () => { this._criando = null; });
+    }
+    return this._criando.p;
+  },
+  async fecharSrv(dukRaw, segredo) {
+    const dentro = await Cofre.cifrar(await this.chaveAp(), dukRaw);
+    return Cofre.cifrar(await SolProto.hkdf(SolProto.unb64u(segredo), SolProto.PIN_SRV), SolProto.utf8(JSON.stringify(dentro)));
+  },
+  async abrirSrv(srv, segredo) {
+    const dentro = JSON.parse(SolProto.deUtf8(await Cofre.decifrar(await SolProto.hkdf(SolProto.unb64u(segredo), SolProto.PIN_SRV), srv)));
+    return Cofre.decifrar(await this.chaveAp(), dentro);
+  },
+  /* grava o PIN da conta neste aparelho. Recebe os campos, nunca um L lido antes: o L é relido dentro da trava (K5) */
+  async gravar(pin, dukRaw, segredo, versao, ap) {
+    const srv = segredo ? await this.fecharSrv(dukRaw, segredo) : null, sal = b64FromBuf(Cofre.rnd(16));
+    const pinL = Object.assign({ sal, iter: COFRE_ITER }, await Cofre.cifrar(await Cofre.kdf(pin, sal, COFRE_ITER), dukRaw));
+    return Cofre.mudarLocal(null, (L) => {
+      if (!L) return;
+      if (srv) L.srv = srv;
+      L.pin = pinL; L.pinVersao = versao || L.pinVersao || 0; L.erros = 0; L.ate = 0; L.bloqueado = false;
+      if (ap) L.ap = ap;
+      return L;
+    });
+  },
+  /* a chave deste aparelho (DUK) pelo PIN, sem abrir a família: {L, raw, realinhar?, criarPin?} ou {erro, …}.
+     O PIN deste aparelho (PBKDF2 local) é calculado no máximo uma vez: custa ~1 s no celular e o erro local não conta duas vezes.
+     realinhar = o PIN das chaves de IA tem de acompanhar; quem abre a família faz isso DEPOIS de abrir (o segredo delas
+     só existe com as Senhas da casa abertas). */
+  async duk(pin) {
+    let L = await Cofre.local(); if (!L) return { erro: "novo" };
+    let local = null;
+    const doAparelho = async () => local || (local = await Cofre._pinRaw(pin));
+    /* aparelho de antes, ainda fora da lista da conta: prova aqui primeiro e só então entra na lista */
+    if (!L.ap && Sol.pode() && Sol.ligadoAp !== false) {
+      if (!(await doAparelho()).raw) return local;
+      try { await Aparelhos.registrar(); L = (await Cofre.local()) || L; } catch (e) {}
+    }
+    const info = L.ap ? await this.info(true) : null;
+    if (!info) return doAparelho();                     /* sem internet, sem o SQL ou fora da lista: o PIN deste aparelho */
+    if (!info.tem) {                                    /* conta sem PIN: continua sem (a pessoa é que cria) */
+      const r = await doAparelho();
+      return r.raw ? Object.assign({ criarPin: true }, r) : r;
+    }
+    if (info.espera_ate && Date.parse(info.espera_ate) > Date.now()) return { erro: "espera", ate: Date.parse(info.espera_ate), muitas: info.tentativas >= 10, conta: true };
+    if (!L.srv) await doAparelho();                     /* ainda no PIN antigo: o daqui primeiro (pode gastar tentativa local) */
+    const c = await Sol.pinConferir(await SolProto.verificador(pin, info.sal), L.ap);
+    if (c === null) return doAparelho();                /* a internet caiu no meio */
+    if (c.erro === "aparelho") return { erro: "tirado" };
+    if (c.ok) {
+      this.limpar(); Jornada.limpar();
+      let raw = null, peloSrv = false;
+      if (L.srv) { try { raw = await this.abrirSrv(L.srv, c.segredo); peloSrv = true; } catch (e) {} }
+      if (!raw) raw = (await doAparelho()).raw || null; /* o L.srv não abriu (ex.: a chave deste navegador sumiu): o mesmo PIN no L.pin */
+      if (!raw) return { erro: "pinAntigo", segredo: c.segredo, versao: c.versao, pinConta: pin, ap: L.ap };
+      const mesma = peloSrv && L.pinVersao === c.versao;
+      /* a mesma versão: o L.pin já é o PIN da conta, só zera os erros (um PBKDF2 a menos) */
+      if (mesma) await Cofre.mudarLocal(null, (X) => { if (X && (X.erros || X.ate || X.bloqueado)) { X.erros = 0; X.ate = 0; X.bloqueado = false; return X; } });
+      else await this.gravar(pin, raw, c.segredo, c.versao);
+      return { L: await Cofre.local(), raw, realinhar: !mesma };
+    }
+    if (c.erro === "pin" && local && local.raw) return { erro: "pinConta", raw: local.raw, L: local.L, info, restam: c.restam };
+    if (c.erro === "pin") return { erro: "pin", conta: true, restam: c.restam, tentativas: c.tentativas, ate: c.espera_ate ? Date.parse(c.espera_ate) : 0 };
+    if (c.erro === "espera") return { erro: "espera", ate: Date.parse(c.espera_ate), muitas: c.tentativas >= 10, conta: true };
+    return doAparelho();                                /* "sempin" (outra aba mexeu no meio): o PIN deste aparelho */
+  },
+  /* aprovar outro aparelho: o PIN deste aparelho, sem gastar tentativa da conta. Só vai ao banco quando o PIN daqui está
+     sabidamente velho (trocado em outro aparelho ou app) */
+  async dukParaAprovar(pin) {
+    const L = await Cofre.local(); if (!L) return { erro: "novo" };
+    const info = L.srv && L.ap ? await this.info(true) : null;
+    return info && info.tem && info.versao !== L.pinVersao ? this.duk(pin) : Cofre._pinRaw(pin);
+  },
+  /* abre as Senhas da casa com o PIN, nesta ordem: o PIN gravado (no duk) → a família aberta → o PIN das chaves de IA acompanha */
+  async abrir(pin) {
+    const d = await this.duk(pin);
+    if (d.erro === "tirado") {   /* confere antes de apagar: o banco tem de dizer de novo que este aparelho saiu da lista */
+      const L = await Cofre.local(); let visto = null;
+      try { visto = L && L.ap ? await Sol.apVisto(L.ap) : null; } catch (e) {}
+      if (visto === false) { await Aparelhos.tirado(); return d; }
+      return { erro: "rede" };   /* não deu para confirmar agora: nada abre e nada é apagado */
+    }
+    if (d.erro || !d.raw) return d;
+    const r = await Cofre.comChaveDoAparelho(await Cofre.local(), d.raw);
+    if (r.ok && d.realinhar) { if (SolverCofre.pessoas().includes(Conta.uid())) await PinUnico.trocou(pin); else PinUnico.junto(pin); }
+    return d.criarPin ? Object.assign({ criarPin: true }, r) : r;
+  },
+  /* conta SEM PIN: cria o PIN da conta a partir deste aparelho (cadeado aberto e na lista da conta) */
+  async criar(novo) {
+    const L = await Cofre.local();
+    if (!L || !Cofre.aberto() || !Cofre.dukRaw) return { erro: "fechado" };
+    if (!L.ap || !Sol.pode()) return { erro: "rede" };
+    const sal = SolProto.novoSalConta(), raw = new Uint8Array(Cofre.dukRaw);
+    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, L.ap); } catch (e) { raw.fill(0); return { erro: "rede" }; }
+    if (!d || !d.ok) { raw.fill(0); return d || { erro: "rede" }; }
+    this.limpar(); Jornada.limpar();
+    await this.gravar(novo, raw, d.segredo, d.versao); raw.fill(0);
+    await PinUnico.trocou(novo);
+    return { ok: true };
+  },
+  /* conta COM PIN: troca no banco (ele confere o atual) e aqui; vale em todos os aparelhos e apps */
+  async trocar(atual, novo) {
+    const L = await Cofre.local();
+    if (!L || !Cofre.aberto() || !Cofre.dukRaw) return { erro: "fechado" };
+    const info = L.ap ? await this.info(true) : null;
+    if (!info) return { erro: "rede" };
+    if (!info.tem) return { erro: "sempin" };
+    const sal = SolProto.novoSalConta(), raw = new Uint8Array(Cofre.dukRaw);
+    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, await SolProto.verificador(atual, info.sal), L.ap); } catch (e) { raw.fill(0); return { erro: "rede" }; }
+    this.limpar(); Jornada.limpar();
+    if (!d || !d.ok) { raw.fill(0); return d ? { erro: d.erro, conta: true, restam: d.restam, tentativas: d.tentativas, ate: d.espera_ate ? Date.parse(d.espera_ate) : 0, muitas: d.tentativas >= 10 } : { erro: "rede" }; }
+    await this.gravar(novo, raw, d.segredo, d.versao); raw.fill(0);
+    await PinUnico.trocou(novo);
+    return { ok: true };
+  },
+  /* "Não lembro o PIN da conta" logo depois de aprovado pelo outro aparelho (o banco só deixa a quem entrou assim há menos
+     de 10 min): o PIN novo sem o atual. Quem chama monta o cadeado e grava. */
+  async naoLembro(novo, ap) {
+    const sal = SolProto.novoSalConta();
+    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, ap); } catch (e) { return { erro: "rede" }; }
+    this.limpar(); Jornada.limpar();
+    return d && d.ok ? { ok: true, segredo: d.segredo, versao: d.versao } : { erro: (d && d.erro) || "sem_permissao" };
+  },
+  /* o texto dos erros do PIN da conta (o mesmo em todas as telas) */
+  explicar(r) {
+    if (!r) return "";
+    const falta = (ate) => { const s = Math.max(1, Math.ceil((ate - Date.now()) / 1000)); return s >= 60 ? Math.ceil(s / 60) + " min" : s + tt(" segundos", " seconds"); };
+    if (r.erro === "espera" && r.conta && r.muitas) return tt("PIN errado muitas vezes: tente de novo em 24 h ou aprove por outro aparelho seu (“Esqueci o PIN”).", "Wrong PIN too many times: try again in 24 h or approve from another device of yours (“I forgot the PIN”).");
+    if (r.erro === "espera" && r.conta) return tt("Espere ", "Wait ") + falta(r.ate) + tt(" para tentar de novo.", " to try again.");
+    if (r.erro === "pin" && r.conta) return tt("PIN errado. ", "Wrong PIN. ") + (r.restam >= 1 && r.restam <= 5 ? tt("Faltam " + r.restam + " tentativas antes da espera de 24 h.", r.restam + " tries left before the 24 h wait.") : "") + (r.ate > Date.now() ? " " + tt("Espere um pouco para tentar de novo.", "Wait a bit to try again.") : "");
+    /* migração e aparelho tirado: por enquanto só o aviso (as telas próprias vêm com o TelaConta) */
+    if (r.erro === "pinConta") return tt("Agora o PIN é um só para a conta: digite o PIN da sua conta SolverONE (o mesmo dos seus outros aparelhos e do MoneyTRIO).", "Now there is one PIN for the account: type your SolverONE account PIN (the same as on your other devices and in MoneyTRIO).");
+    if (r.erro === "pinAntigo") return tt("O PIN da conta está certo, mas este " + apN() + " ainda usa o PIN antigo dele.", "The account PIN is right, but this " + apN() + " still uses its old PIN.");
+    if (r.erro === "rede") return tt("Sem conexão. Tente de novo.", "No connection. Try again.");
+    if (r.erro === "tirado") return tt("Este aparelho foi tirado da sua conta em outro aparelho. Para usar aqui de novo, entre e peça a aprovação.", "This device was removed from your account on another device. To use it here again, sign in and ask for approval.");
+    return "";
+  }
+};
+
+/* Jornada: o estado de verdade (este aparelho + a conta) antes de desenhar as Senhas da casa (tabela 5.1 do desenho).
+   O que vem da internet fica 20 s (só para desenhar); o cadeado deste aparelho é lido sempre. */
+const Jornada = {
+  _c: null,
+  limpar() { this._c = null; },
+  rotulosOutrosApps(aps) {
+    const v = [];
+    (aps || []).forEach((a) => { if (a.app !== "omnilife" && a.app !== "omnilife-one") { const r = SolProto.rotuloApp(a.app); if (!v.includes(r)) v.push(r); } });
+    return v;
+  },
+  async ler(forcar) {
+    const L = await Cofre.local(), conta = Conta.on(), uid = conta ? Conta.uid() : "", guardiao = isGuardian();
+    let c = null;
+    if (conta && guardiao && navigator.onLine) {
+      c = this._c;
+      if (forcar || !c || c.uid !== uid || Date.now() - c.t > 20000) {
+        const nada = () => undefined, leitor = Sol.ligadoAp !== false && (await Bio.available());
+        const [info, aps, nb, pks] = await Promise.all([Pin.info(forcar), Sol.ligadoAp === false ? null : Sol.apsMeus().catch(nada),
+          Cofre.minhasNoBanco().catch(nada), leitor ? Sol.pksMinhas().catch(nada) : null]);
+        c = nb ? (this._c = { uid, t: Date.now(), info, aps, pub: nb.pub, bk: nb.bk, pks }) : null;   /* sem as chaves da conta = sem internet */
+      }
+    }
+    const rede = guardiao ? !!c : conta && navigator.onLine, info = c && c.info, aps = (c && c.aps) || [], tem = !!(info && info.tem);
+    const omniOutros = aps.filter((a) => (a.app === "omnilife" || a.app === "omnilife-one") && (!L || a.id !== L.ap)).length;
+    const outrosApps = this.rotulosOutrosApps(aps), temPub = !!(c && c.pub), temKit = !!(c && c.bk), aberto = Cofre.aberto();
+    const fam = (S.family && S.family.members) || {}, pv = (L && L.pinVersao) || 0;
+    const caso = !conta ? "semConta" : !guardiao ? "naoGuardiao" : L ? (aberto ? "aberto" : "trancado")
+      : !rede ? "semRede" : !temPub && !aps.length && !tem ? "contaNova" : outrosApps.length && !omniOutros ? "outroApp" : "primeiraVez";
+    return {
+      caso, rede, ligado: Sol.ligadoAp !== false, ligadoPin: Sol.ligadoPin !== false, guardiao,
+      fase: aberto ? "aberto" : L ? "trancado" : "novo",   /* os ramos do Cofre.view */
+      L: !!L, ap: (L && L.ap) || null, como: (L && L.como) || null, prf: !!(L && L.prf), srv: !!(L && L.srv), pinVersao: pv,
+      erros: (L && L.erros) || 0, ate: (L && L.ate) || 0, bloqueado: !!(L && L.bloqueado), semFam: !!(L && S.family && !(L.fam || {})[S.family.id]),
+      tem, versao: (info && info.versao) || 0, espera_ate: info && info.espera_ate ? Date.parse(info.espera_ate) : 0, tentativas: (info && info.tentativas) || 0,
+      criarPin: !!info && !tem && !!L, trocarPin: tem && !!L, migrar: !!L && !L.srv && tem, pinTrocado: !!L && !!pv && tem && info.versao !== pv,
+      outrosApps, omniOutros, temPub, temKit, temPasskey: !!(c && c.pks && c.pks.length),
+      familiaPode: Object.keys(fam).some((u) => u !== uid && ["admin", "responsavel"].includes(fam[u].role)),
+      jaTem: temPub && temKit   /* a tela de hoje (o papel com o código), até a "Primeira vez" chegar */
+    };
+  }
+};
+
 /* =====================================================================
    COFRE DA FAMÍLIA NA NUVEM — ponta a ponta (Etapa 2c, v2.15.0)
    Diretriz "Cofre de senhas e entrada sem internet" (03/Out/2026):
@@ -3068,6 +3316,18 @@ const Cofre = {
   K(uid) { return "cofre|" + (uid || Conta.uid()); },
   async local(uid) { try { return (await IDB.get("kv", this.K(uid))) || null; } catch (e) { return null; } },
   gravarLocal(o, uid) { return IDB.set("kv", this.K(uid), o); },
+  /* a ÚNICA porta de escrita do cadeado deste aparelho (2.26.0): o PIN, a digital, o registro na lista da conta e o aoAbrir
+     gravam ao mesmo tempo (e outra aba também). Em fila e com a trava do navegador (vale entre abas), relê o L DENTRO da
+     trava; fn(L) devolve o L a gravar (ou nada: não grava). fn nunca chama mudarLocal (ficaria esperando a si mesma). */
+  _vez: Promise.resolve(),
+  mudarLocal(uid, fn) {
+    uid = uid || Conta.uid();
+    const vez = async () => { const L = await fn(await this.local(uid)); if (L) await this.gravarLocal(L, uid); return L; };
+    const trava = () => (navigator.locks && navigator.locks.request ? navigator.locks.request("omnilife-cofre|" + uid, vez) : vez());
+    const p = this._vez.then(trava, trava);
+    this._vez = p.catch(() => {});
+    return p;
+  },
   registro() { return DB.col("settings").get("cofre") || null; },   /* { fk, kv, membros: { uid: { kid, seq, fk } } } — sem segredo */
   /* ---------- cripto ---------- */
   rnd(n) { return crypto.getRandomValues(new Uint8Array(n)); },
@@ -3123,7 +3383,8 @@ const Cofre = {
   },
   /* ---------- destrancar ---------- */
   ESPERAS: [0, 0, 0, 0, 30, 60, 300, 900, 1800, 3600],   /* segundos de espera depois do n-ésimo erro; no 10º bloqueia */
-  async destrancarPin(pin) { const r = await this._pinRaw(pin); return r.raw ? this.comChaveDoAparelho(r.L, r.raw) : r; },
+  /* 2.26.0: o PIN da conta (Pin.abrir). Sem internet ou sem o SQL, o PIN deste aparelho, como antes */
+  destrancarPin(pin) { return Pin.abrir(pin); },
   /* 2.21.0: confere o PIN (com a mesma contagem de erros) sem destrancar de novo — o "confirmar" das chaves de IA */
   async conferirPin(pin) { const r = await this._pinRaw(pin); if (r.raw) { r.raw.fill(0); return { ok: true }; } return r; },
   async conferirDigital() {
@@ -3161,30 +3422,42 @@ const Cofre = {
     });
   },
   async _pinRaw(pin) {
-    const L = await this.local(); if (!L) return { erro: "novo" };
-    if (L.bloqueado) return { erro: "bloqueado" };
-    if (L.ate && Date.now() < L.ate) return { erro: "espera", ate: L.ate };
-    let raw;
-    try { raw = await this.decifrar(await this.kdf(pin, L.pin.sal, L.pin.iter), L.pin); }
-    catch (e) {
-      L.erros = (L.erros || 0) + 1;
-      const w = this.ESPERAS[L.erros] || 0;
-      if (L.erros >= 10) { L.bloqueado = true; L.ate = 0; } else L.ate = w ? Date.now() + w * 1000 : 0;
-      await this.gravarLocal(L);
-      return { erro: L.bloqueado ? "bloqueado" : "pin", erros: L.erros, ate: L.ate };
-    }
-    L.erros = 0; L.ate = 0; await this.gravarLocal(L);
-    return { L, raw };
+    let r = { erro: "novo" };
+    /* conferir e contar o erro dentro da trava: dois PINs ao mesmo tempo não perdem erro nem desfazem o PIN novo */
+    await this.mudarLocal(null, async (L) => {
+      if (!L) return;
+      if (L.bloqueado) { r = { erro: "bloqueado" }; return; }
+      if (L.ate && Date.now() < L.ate) { r = { erro: "espera", ate: L.ate }; return; }
+      try { r = { L, raw: await this.decifrar(await this.kdf(pin, L.pin.sal, L.pin.iter), L.pin) }; L.erros = 0; L.ate = 0; }
+      catch (e) {
+        L.erros = (L.erros || 0) + 1;
+        const w = this.ESPERAS[L.erros] || 0;
+        if (L.erros >= 10) { L.bloqueado = true; L.ate = 0; } else L.ate = w ? Date.now() + w * 1000 : 0;
+        r = { erro: L.bloqueado ? "bloqueado" : "pin", erros: L.erros, ate: L.ate };
+      }
+      return L;
+    });
+    return r;
   },
   async destrancarDigital() {
     const L = await this.local(); if (!L || !L.prf) return { erro: "semdigital" };
     if (L.bloqueado) return { erro: "bloqueado" };
     const out = await this.prfAvaliar(L.prf.cred, L.prf.sal); if (!out) return { erro: "digital" };
     let raw; try { raw = await this.decifrar(await this.hkdf(out, "omnilife-cofre-prf"), L.prf); } catch (e) { return { erro: "digital" }; }
-    if (L.erros || L.ate) { L.erros = 0; L.ate = 0; await this.gravarLocal(L); }   /* a digital confirmou a pessoa: os erros de PIN zeram */
-    return this.comChaveDoAparelho(L, raw);
+    /* 2.26.0: a digital não fala com o servidor; com internet, um aparelho tirado da conta não abre nem por ela */
+    if (L.ap && Sol.pode() && Sol.ligadoAp !== false) {
+      let visto = null; try { visto = await Sol.apVisto(L.ap); } catch (e) {}
+      if (visto === false) { raw.fill(0); await Aparelhos.tirado(); return { erro: "tirado" }; }
+    }
+    /* a digital confirmou a pessoa: os erros de PIN zeram */
+    if (L.erros || L.ate) await this.mudarLocal(null, (X) => { if (X) { X.erros = 0; X.ate = 0; return X; } });
+    const r = await this.comChaveDoAparelho(await this.local(), raw);
+    /* aparelho de antes, aberto aqui: entra na lista da conta (como pelo PIN) */
+    if (r.ok && !L.ap && Sol.pode() && Sol.ligadoAp !== false) { try { await Aparelhos.registrar(); } catch (e) {} }
+    return r;
   },
   async comChaveDoAparelho(L, raw) {
+    if (!L) return { erro: "novo" };
     const duk = await this.aes(raw), gid = S.family.id, f = (L.fam || {})[gid];
     if (f) { this.dukRaw = raw; await this.usarChave(await this.decifrar(duk, f), f.kv, f.fk); return { ok: true }; }
     /* a chave desta família ainda não está neste aparelho: vem do banco, embrulhada para mim (precisa de internet) */
@@ -3192,8 +3465,9 @@ const Cofre = {
     if (!navigator.onLine) return { erro: "offline" };
     let r = null; try { r = await this.buscarMinha(await this.importarSk(await this.decifrar(duk, L.sk))); } catch (e) {}
     if (!r) return { erro: "aguardando" };
-    L.fam = Object.assign({}, L.fam, { [gid]: Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw)) });
-    await this.gravarLocal(L); this.dukRaw = raw;
+    const f2 = Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw));
+    await this.mudarLocal(null, (X) => { if (X) { X.fam = Object.assign({}, X.fam, { [gid]: f2 }); return X; } });
+    this.dukRaw = raw;
     await this.usarChave(r.raw, r.kv, r.fk); return { ok: true };
   },
   async usarChave(raw, kv, fk) {
@@ -3209,7 +3483,7 @@ const Cofre = {
     this.vf = null; this.vfRaw = null; this.dukRaw = null; this.kv = 0; this.fk = ""; this.gid = null;
     if (estava) { S.vaultKey = null; CloudDriver.fecharCofre(); }
   },
-  async zerarErros() { const L = await this.local(); if (L && (L.erros || L.bloqueado)) { L.erros = 0; L.ate = 0; L.bloqueado = false; await this.gravarLocal(L); } },
+  async zerarErros() { await this.mudarLocal(null, (L) => { if (L && (L.erros || L.bloqueado)) { L.erros = 0; L.ate = 0; L.bloqueado = false; return L; } }); },
   /* ---------- digital/rosto (WebAuthn PRF): a digital libera um segredo que decifra a CA ---------- */
   async prfAvaliar(cred, sal) {
     try {
@@ -3238,10 +3512,10 @@ const Cofre = {
        semPin = no Começar, logo depois de escolher o PIN (acabou de ser digitado) */
     if (!semPin && !(await this.provarAgora("👆 " + tt("Abrir também com a digital", "Also open with fingerprint"), tt("Para ligar a digital, digite o seu PIN de agora.", "To turn on the fingerprint, type your current PIN.")))) return;
     const p = await this.prfNovo(); if (!p) return;
-    const L = await this.local(); L.prf = Object.assign({ cred: p.cred, sal: p.sal }, await this.cifrar(await this.hkdf(p.out, "omnilife-cofre-prf"), this.dukRaw)); p.out.fill(0);
-    await this.gravarLocal(L); toast("✓ " + tt("Pronto: as Senhas da casa abrem com a digital neste " + apN() + ".", "Done: the vault opens with your fingerprint on this " + apN() + "."), 4000); render();
+    const prf = Object.assign({ cred: p.cred, sal: p.sal }, await this.cifrar(await this.hkdf(p.out, "omnilife-cofre-prf"), this.dukRaw)); p.out.fill(0);
+    await this.mudarLocal(null, (L) => { if (L) { L.prf = prf; return L; } }); toast("✓ " + tt("Pronto: as Senhas da casa abrem com a digital neste " + apN() + ".", "Done: the vault opens with your fingerprint on this " + apN() + "."), 4000); render();
   },
-  async desligarDigital() { const L = await this.local(); if (L) { L.prf = null; await this.gravarLocal(L); } toast(tt("Pronto: a digital não abre mais as Senhas da casa.", "Fingerprint off for the vault.")); render(); },
+  async desligarDigital() { await this.mudarLocal(null, (L) => { if (L) { L.prf = null; return L; } }); toast(tt("Pronto: a digital não abre mais as Senhas da casa.", "Fingerprint off for the vault.")); render(); },
   /* ---------- no banco: minhas chaves, a CF embrulhada para mim, liberar para os outros ---------- */
   async minhasNoBanco() {
     const uid = Conta.uid();
@@ -3254,7 +3528,7 @@ const Cofre = {
     const priv = JSON.stringify(Object.assign({ v: 1, kid: par.pub.kid }, await this.cifrar(k, par.pkcs8)));
     await Conta.rest("POST", "omni_chave_privada?on_conflict=user_id", { user_id: Conta.uid(), privada_cifrado: priv, sal, iteracoes: COFRE_ITER }, "resolution=merge-duplicates,return=minimal");
     await Conta.rpc("sol_publicar_minha_chave", { p_chave_publica: par.pub, p_algoritmo: "RSA-OAEP-256" });
-    this._nb = null;   /* a tela volta a conferir se já existe papel com código */
+    Jornada.limpar();   /* a tela volta a conferir se já existe papel com código */
   },
   async privadaPeloCodigo(codigo) {
     const { bk } = await this.minhasNoBanco(); if (!bk) return null;
@@ -3327,15 +3601,15 @@ const Cofre = {
     if (!reg || !reg.fk) {
       const raw = this.rnd(32), fk = this.id();
       L.fam[S.family.id] = Object.assign({ kv: 1, fk }, await this.cifrar(duk, raw));
-      await this.gravarLocal(L); this.dukRaw = dukRaw;
+      await this.mudarLocal(null, () => L); this.dukRaw = dukRaw;
       await this.usarChave(raw, 1, fk);
       /* o registro do cofre (quem já tem a chave) sobe já: outro aparelho não cria uma segunda chave da família */
       try { await this.distribuir(true); } catch (e) { console.warn("cofre: liberar", e); }
       Cloud.audit("cofre.criado", Cloud.myName());
     } else {
-      await this.gravarLocal(L);
+      await this.mudarLocal(null, () => L);
       let r = null; try { r = await this.buscarMinha(await this.importarSk(pkcs8)); } catch (e) {}
-      if (r) { L.fam[S.family.id] = Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw)); await this.gravarLocal(L); this.dukRaw = dukRaw; await this.usarChave(r.raw, r.kv, r.fk); }
+      if (r) { L.fam[S.family.id] = Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw)); await this.mudarLocal(null, () => L); this.dukRaw = dukRaw; await this.usarChave(r.raw, r.kv, r.fk); }
       else modal({ title: "⏳ " + tt("Falta liberar", "Waiting for release"), body: "<p>" + tt("Pronto, a sua parte está feita! Agora peça para outro responsável da família abrir as Senhas da casa no aparelho dele (Casa → Senhas da casa), com a internet ligada. Ele não precisa fazer mais nada: o app libera para você sozinho. Depois é só voltar aqui e digitar o seu PIN.", "Done on your side! Now ask another family guardian to open the vault on their device (Home → Vault) with the internet on. They don't need to do anything else: the app releases it to you by itself. Then come back here and type your PIN.") + "</p>", foot: '<button class="btn" data-x>' + tt("Entendi", "Got it") + "</button>" });
     }
     if (this.aberto()) {   /* 2.21.0: o mesmo PIN abre as chaves de IA */
@@ -3391,9 +3665,8 @@ const Cofre = {
     /* o PIN novo vale também para as chaves de IA: quem pegou o aparelho com a casa aberta não troca sem o PIN de agora */
     if (!(await this.provarAgora("🔢 " + tt("Trocar o PIN", "Change PIN"), tt("Para trocar o PIN, primeiro digite o PIN de agora (ou use a digital). Esqueceu? Feche as Senhas da casa e toque em “Esqueci o PIN”.", "To change the PIN, first type the current PIN (or use your fingerprint). Forgot it? Close the vault and tap “Forgot the PIN”."), true))) return;
     const pin = await this.pedirNovoPin(); if (!pin) return;
-    const L = await this.local(), sal = b64FromBuf(this.rnd(16));
-    L.pin = Object.assign({ sal, iter: COFRE_ITER }, await this.cifrar(await this.kdf(pin, sal, COFRE_ITER), this.dukRaw)); L.erros = 0; L.ate = 0; L.bloqueado = false;
-    await this.gravarLocal(L); toast("✓ " + tt("PIN trocado.", "PIN changed."));
+    const sal = b64FromBuf(this.rnd(16)), pinL = Object.assign({ sal, iter: COFRE_ITER }, await this.cifrar(await this.kdf(pin, sal, COFRE_ITER), this.dukRaw));
+    await this.mudarLocal(null, (L) => { if (L) { L.pin = pinL; L.erros = 0; L.ate = 0; L.bloqueado = false; return L; } }); toast("✓ " + tt("PIN trocado.", "PIN changed."));
     PinUnico.trocou(pin);   /* 2.21.0: o PIN das chaves de IA acompanha (um PIN só) */
   },
   async novoCodigo() {
@@ -3415,7 +3688,7 @@ const Cofre = {
     if (!(await confirmBox(tt("Esqueceu o PIN? Dá para escolher um PIN novo usando o código de recuperação que você anotou no papel (ou pedindo para outro responsável liberar de novo). Nada do que está guardado se perde.", "Forgot the PIN? You can choose a new PIN using the recovery code you wrote on paper (or by asking another guardian to release it again). Nothing stored is lost."), tt("Escolher um PIN novo", "Choose a new PIN")))) return;
     /* as janelas de baixo fecham só depois do sim: quem desiste não perde o que digitou; quem segue vê os passos na hora */
     closeModals();
-    this.trancar(); try { await IDB.del("kv", this.K()); } catch (e) {}
+    this.trancar(); try { await this.mudarLocal(null, async () => { await IDB.del("kv", this.K()); }); } catch (e) {}
     this.comecar();
   },
   /* ---------- contato de emergência: envelope com a CF cifrada pelo código de emergência ---------- */
@@ -3471,8 +3744,12 @@ const Cofre = {
   async apagarDoAparelho(uid) {
     uid = uid || Conta.uid(); const L = await this.local(uid);
     this.trancar();
-    try { await IDB.del("kv", this.K(uid)); } catch (e) {}
-    const gids = Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : []);
+    /* dentro da trava: uma gravação que estava na fila não recria o cadeado depois de apagado */
+    try { await this.mudarLocal(uid, async () => { await IDB.del("kv", this.K(uid)); }); } catch (e) {}
+    /* 2.26.0: o que só serve com o cadeado: a chave deste navegador do PIN da conta, o pedido em espera e a pergunta da digital */
+    for (const k of ["chaveAp|", "pedido|", "digitalPerguntada|"]) { try { await IDB.del("kv", k + uid); } catch (e) {} }
+    Pin.limpar(); Jornada.limpar();
+    const gids =Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : []);
     /* o cofre antigo (senha mestra, só neste aparelho, nunca subiu) não é cache: fica, protegido pela senha dele */
     const antigo = (v) => !!(v && v.doc && !v.cif);
     try {
@@ -3487,7 +3764,7 @@ const Cofre = {
   },
   async esquecerFamilia(gid) {
     if (this.gid === gid) this.trancar();
-    const L = await this.local(); if (L && L.fam && L.fam[gid]) { delete L.fam[gid]; await this.gravarLocal(L); }
+    await this.mudarLocal(null, (L) => { if (L && L.fam && L.fam[gid]) { delete L.fam[gid]; return L; } });
   },
   async desconectarAparelho() {
     /* o que ainda está na fila do cofre tenta subir antes (o cofre fica na nuvem; só a cópia deste aparelho sai) */
@@ -3502,18 +3779,10 @@ const Cofre = {
     toast("✓ " + tt("Pronto: este " + apN() + " saiu da conta.", "Done: this " + apN() + " left the account."), 4000);
   },
   /* ---------- tela (Casa → Cofre, na nuvem) ---------- */
+  /* 2.26.0: o estado de verdade (este aparelho + a conta), pela Jornada; fase = aberto | trancado | novo, como antes */
   async atualizar() {
     if (!this.usa()) return (this.status = null);
-    const L = await this.local();
-    const st = { fase: this.aberto() ? "aberto" : L ? "trancado" : "novo", prf: !!(L && L.prf), erros: (L && L.erros) || 0, ate: (L && L.ate) || 0, bloqueado: !!(L && L.bloqueado), semFam: !!(L && !(L.fam || {})[S.family.id]) };
-    /* aparelho novo de quem já usa as Senhas da casa: a tela avisa antes que vai precisar do papel com o código
-       (teste de 05/Out/2026). Uma consulta por conta enquanto o app está aberto. */
-    if (st.fase === "novo" && navigator.onLine) {
-      const uid = Conta.uid();
-      if (uid && (!this._nb || this._nb.uid !== uid)) { try { const nb = await this.minhasNoBanco(); this._nb = { uid, ja: !!(nb.pub && nb.bk) }; } catch (e) {} }
-      st.jaTem = !!(this._nb && this._nb.uid === uid && this._nb.ja);
-    }
-    return (this.status = st);
+    return (this.status = await Jornada.ler());
   },
   view() {
     const st = this.status || { fase: "?" };
@@ -3566,10 +3835,13 @@ ACT["cofre.pin"] = async () => {
   const i = $("#cfpin"); if (!i || !i.value) return;
   const b = document.querySelector('[data-act="cofre.pin"]'); if (b) { b.disabled = true; b.textContent = "⏳"; }
   const pin = i.value, r = await Cofre.destrancarPin(pin); i.value = "";
-  if (r.ok) { toast("🔓 " + tt("Senhas da casa abertas.", "Vault open.")); PinUnico.junto(pin); }
-  else if (r.erro === "pin") toast(tt("PIN errado. Tente de novo.", "Wrong PIN. Try again.") + (r.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((r.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : ""), 4000);
+  /* conta sem PIN: por enquanto só o aviso (a tela "Crie o PIN da sua conta" vem com o TelaConta) */
+  if (r.ok) { toast("🔓 " + tt("Senhas da casa abertas.", "Vault open.") + (r.criarPin ? " 🔢 " + tt("Falta criar o PIN da sua conta SolverONE: um PIN só, para todos os seus aparelhos e apps.", "Your SolverONE account PIN is still missing: one PIN for all your devices and apps.") : ""), r.criarPin ? 6000 : undefined); PinUnico.junto(pin); }
+  else if (r.erro === "pin" && !r.conta) toast(tt("PIN errado. Tente de novo.", "Wrong PIN. Try again.") + (r.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((r.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : ""), 4000);
   else if (r.erro === "aguardando") toast(tt("Ainda falta outro responsável abrir as Senhas da casa no aparelho dele para liberar para você.", "Another guardian still has to open the vault on their device to release it to you."), 6000);
   else if (r.erro === "offline") toast(tt("Na primeira vez neste " + apN() + ", abra com a internet ligada.", "The first time on this " + apN() + ", open it with the internet on."), 6000);
+  else if (r.erro !== "tirado" && Pin.explicar(r)) toast(Pin.explicar(r), 6000);   /* o aparelho tirado já avisou ao sair da conta */
+  if (r.raw) r.raw.fill(0);   /* PIN antigo certo e a conta com outro PIN: a chave daqui não fica na memória */
   await Cofre.atualizar(); render();
 };
 ACT["cofre.digital"] = async () => {
@@ -3578,6 +3850,59 @@ ACT["cofre.digital"] = async () => {
   else if (r.erro === "digital") toast(tt("A digital não deu certo. Use o PIN.", "Fingerprint didn't work. Use the PIN."), 4000);
   else if (r.erro === "aguardando" || r.erro === "offline") toast(tt("Na primeira vez, abra com o PIN e a internet ligada.", "The first time, open with the PIN and the internet on."), 5000);
   await Cofre.atualizar(); render();
+};
+
+/* =====================================================================
+   APARELHOS DA CONTA (sol-ap-v2) — 2.26.0. Cada aparelho que abre as Senhas da casa tem um lugar na lista da conta
+   (sol_aparelhos, a mesma do MoneyTRIO). Aqui: entrar na lista e conferir se não foi tirado em outro aparelho.
+   ===================================================================== */
+const Aparelhos = {
+  _registrando: null, _tirando: false,
+  pode() { return S.booted && Cofre.usa() && isGuardian() && Sol.pode() && Sol.ligadoAp !== false; },
+  /* entra na lista da conta, só depois de o cadeado abrir AQUI (quem chama já provou): "primeiro" se a conta não tem
+     nenhum aparelho em nenhum app; senão "kit" (aparelho de antes, com a conta já no MoneyTRIO, por exemplo). Uma promessa
+     só e dentro da trava do cadeado, relendo o L: o PIN, o aoAbrir e outra aba não registram o mesmo aparelho duas vezes. */
+  registrar() {
+    if (this._registrando) return this._registrando;
+    const p = Cofre.mudarLocal(null, async (L) => {
+      if (!L || L.ap) return;
+      let como = L.como === "passkey" || L.como === "kit" ? L.como : "primeiro", id;
+      try { id = await Sol.apRegistrar(como); }
+      catch (e) { if (como !== "primeiro" || !/já tem aparelho|precisa ser aprovado/.test(String(e && e.message))) throw e; como = "kit"; id = await Sol.apRegistrar(como); }
+      L.ap = id; L.como = como; if (!L.avisosAte) L.avisosAte = new Date().toISOString();
+      Jornada.limpar(); return L;
+    });
+    this._registrando = p;
+    p.then(() => { this._registrando = null; }, () => { this._registrando = null; });
+    return p;
+  },
+  /* ao abrir: este aparelho entra na lista se ainda não está (só com o cadeado aberto aqui) e, se já está, confere se não
+     foi tirado em outro aparelho. Só mexe no ap (pelo registrar, dentro da trava) */
+  async aoAbrir() {
+    if (!this.pode()) return;
+    const L = await Cofre.local(); if (!L) return;
+    try {
+      if (!L.ap) { if (Cofre.aberto() && Cofre.dukRaw) await this.registrar(); return; }
+      if ((await Sol.apVisto(L.ap)) === false) await this.tirado();
+    } catch (e) {}
+  },
+  /* este aparelho foi tirado da conta em outro aparelho: o cadeado e a cópia das Senhas da casa saem daqui, as chaves de IA
+     desta pessoa também (as de outra pessoa ficam), e a conta sai deste aparelho. O resto (Saúde, documentos, fotos, a fila)
+     nunca é apagado. */
+  async tirado() {
+    const uid = Conta.uid(); if (!uid || this._tirando) return;
+    this._tirando = true;
+    try {
+      await Cofre.apagarDoAparelho(uid);
+      try {
+        await SolverCofre.trancar();
+        const ps = SolverCofre.pessoas();
+        if (ps.length && ps.every((q) => q === uid)) await SolverCofre.apagarCofre(); else await SolverCofre.esquecerPessoa(uid);
+      } catch (e) {}
+      toast(Pin.explicar({ erro: "tirado" }), 8000);
+      await Conta.sair(true);
+    } finally { this._tirando = false; }
+  }
 };
 
 /* ---------- primeiro uso do cofre: passo a passo na tela, em palavras simples (teste no celular, 04/Out/2026) ----------
@@ -3864,14 +4189,15 @@ const PinUnico = {
         '<p class="small" id="uerr" role="alert" style="color:var(--warn)"></p><button type="button" class="linkbtn tiny" data-esq>' + tt("Esqueci o PIN", "Forgot the PIN") + "</button>",
         foot: '<button class="btn ghost" data-x>' + tt("Agora não", "Not now") + "</button>" + (L.bloqueado ? "" : '<button class="btn" data-ok>🔓 ' + tt("Abrir", "Open") + "</button>") });
       const err = $("#uerr", m.el), inp = $("#upin", m.el), bOk = m.el.querySelector("[data-ok]");
-      const erroTxt = (r) => r.erro === "pin" ? tt("PIN errado. Tente de novo.", "Wrong PIN. Try again.") + (r.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((r.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : "")
+      /* 2.26.0: os erros do PIN da conta (e, por enquanto, a migração e o aparelho tirado) têm texto próprio */
+      const erroTxt = (r) => Pin.explicar(r) || (r.erro === "pin" ? tt("PIN errado. Tente de novo.", "Wrong PIN. Try again.") + (r.ate > Date.now() ? " " + tt("Espere ", "Wait ") + Math.ceil((r.ate - Date.now()) / 1000) + tt(" segundos.", " seconds.") : "")
         : r.erro === "espera" ? tt("Espere ", "Wait ") + Math.ceil((r.ate - Date.now()) / 1000) + tt(" segundos e tente de novo.", " seconds and try again.")
         : r.erro === "bloqueado" ? tt("O PIN ficou bloqueado neste " + apN() + ". Abra Casa → Senhas da casa para liberar.", "The PIN is blocked on this " + apN() + ". Open Home → Home passwords to unblock it.")
         : r.erro === "digital" ? tt("A digital não deu certo. Use o PIN.", "Fingerprint didn't work. Use the PIN.")
         : r.erro === "aguardando" ? tt("Ainda falta outro responsável abrir as Senhas da casa no aparelho dele para liberar para você.", "Another guardian still has to open the vault on their device to release it to you.")
-        : r.erro === "offline" ? tt("Na primeira vez neste " + apN() + ", abra com a internet ligada.", "The first time on this " + apN() + ", open it with the internet on.") : tt("Não deu para abrir.", "Couldn't open.");
+        : r.erro === "offline" ? tt("Na primeira vez neste " + apN() + ", abra com a internet ligada.", "The first time on this " + apN() + ", open it with the internet on.") : tt("Não deu para abrir.", "Couldn't open."));
       const pronto = async (r, pin) => {
-        if (!r.ok) { if (bOk) { bOk.disabled = false; bOk.textContent = "🔓 " + tt("Abrir", "Open"); } err.textContent = erroTxt(r); if (inp) { inp.value = ""; inp.focus(); } return; }
+        if (!r.ok) { if (r.raw) r.raw.fill(0); if (bOk) { bOk.disabled = false; bOk.textContent = "🔓 " + tt("Abrir", "Open"); } err.textContent = erroTxt(r); if (inp) { inp.value = ""; inp.focus(); } return; }
         const segredo = await PinUnico.segredo();
         m.drop(); Cofre.atualizar().then(() => scheduleRender()).catch(() => {});
         fim(segredo ? { segredo, pin } : null);

@@ -4,8 +4,8 @@
    Por enquanto (etapa 2 da construção) só a fumaça, duas rodadas seguidas (cada uma um aparelho novo):
      - Ana entra pela janela da conta (e-mail e senha) no banco de mentira; o registro de acesso "login" chega
      - a família abre (Família Teste, Ana chefe, 4 pessoas); o app cria a pessoa dela e registra o aparelho na família
-     - Casa → Senhas da casa mostra o estado de hoje (2.25): aparelho novo de quem já usa → passo a passo e
-       "Pegue o papel com o código de recuperação" + "Usar neste …"
+     - Casa → Senhas da casa: a Jornada lê o estado de verdade ("primeira vez" neste aparelho) e a tela ainda é a de hoje
+       (2.25): passo a passo e "Pegue o papel com o código de recuperação" + "Usar neste …"
      - nenhuma requisição sai do site local e do banco de mentira; nenhum erro de script nem diálogo nativo
    E o banco de mentira faz o que o SQL faz (as próximas etapas dependem dele): pedidos de membro de qualquer papel, os
    ataques "troca", "troca-sem-compromisso" e "troca-depois", o dono recusa o próprio pedido, PIN da conta, passkey,
@@ -41,7 +41,8 @@ async function ate(fn, ms) { const fim = Date.now() + (ms || 8000); while (Date.
 
     const sc = await senhasDaCasa(p);
     conferir(sc.guia === true, rodada + ': Casa → Senhas da casa: o passo a passo abre sozinho na primeira vez neste aparelho');
-    conferir(sc.status.fase === 'novo' && sc.status.jaTem === true, rodada + ': o estado de hoje: sem cadeado neste aparelho, e a conta já tem as chaves (pública e cópia pelo código)');
+    conferir(sc.status.fase === 'novo' && sc.status.caso === 'primeiraVez' && sc.status.rede && sc.status.temPub && sc.status.temKit && !sc.status.tem && sc.status.familiaPode && sc.status.jaTem === true,
+      rodada + ': a Jornada lê o estado de verdade: sem cadeado neste aparelho, "primeira vez" (a conta já tem as chaves e a cópia pelo código; sem PIN da conta; a Bia pode aprovar)');
     conferir(/Pegue o papel com o código de recuperação/.test(sc.texto) && await p.evaluate(() => /Usar neste/.test((document.querySelector('[data-act="cofre.comecar"]') || {}).textContent || '')),
       rodada + ': a tela pede o papel com o código e oferece "🔑 Usar neste …" (como na 2.25)');
     conferir(!(await p.$('.modal')), rodada + ': nenhuma janela ficou aberta');
@@ -62,7 +63,7 @@ async function ate(fn, ms) { const fim = Date.now() + (ms || 8000); while (Date.
     await ctx.close();
   }
   conferir(db.omni_docs.filter((d) => d.colecao === 'people' && d.id === 'p-ana').length === 1 && !db.sol_aparelhos.length && !db.sol_acesso_pedidos.length && !db.sol_pin_conta.length,
-    'depois das duas rodadas: uma pessoa só para a Ana; nada nas tabelas novas (o app de hoje não as usa)');
+    'depois das duas rodadas: uma pessoa só para a Ana; nada nas tabelas novas (abrir a tela das Senhas da casa só lê)');
   conferir([ANA, BIA].every((u) => db.sol_chave_publica.some((k) => k.user_id === u) && db.omni_chave_privada.some((k) => k.user_id === u)) &&
     ![CRIS, DAVI].some((u) => db.sol_chave_publica.some((k) => k.user_id === u) || db.omni_chave_privada.some((k) => k.user_id === u) || db.sol_grupo_chaves.some((k) => k.user_id === u)),
     'as chaves de mentira: Ana e Bia têm (pública, cópia pelo código e a CF embrulhada); a Cris (responsável) ainda não; o Davi (membro) nunca');
