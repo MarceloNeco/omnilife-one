@@ -597,6 +597,15 @@ footer.app{border-top:0;opacity:.8}
 .apfaixa{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px max(14px,env(safe-area-inset-left));font-size:.86rem;background:linear-gradient(var(--warn-soft),var(--warn-soft)),var(--surface);border-top:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
 .apfaixa span{flex:1;min-width:180px;overflow-wrap:anywhere}
 body:not(.booted) .apfaixa{display:none}
+/* ⚙ → Segurança e aparelhos: grade que usa a largura (2–3 colunas no computador, uma no celular, sem rolar para o lado em 320 px) */
+.segap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:12px;align-items:start}
+.segap>.card{margin:0;min-width:0;overflow-wrap:anywhere}
+.segap .segav{padding:10px 0;border-top:1px solid var(--border)}
+.segap .segav:first-child{border-top:0}
+.segap .segav .tiny{margin:4px 0 6px}
+/* "🔒 Bloquear agora" com a explicação pequena embaixo (no lugar do antigo "🔒 Fechar") */
+.btn.bloq{flex-direction:column;gap:1px;line-height:1.15}
+.btn.bloq .tiny{font-weight:400;opacity:.85}
 .vstrip{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:.8rem;color:var(--text2);background:var(--surface2);border-radius:14px;padding:8px 12px;margin-bottom:12px}.vstrip span{flex:1;min-width:160px}
 .homecols{display:block}@media(min-width:900px){.homecols{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:start}.homecols .card{margin:0 0 14px}}
 .feed .fi .chev{border:0;background:none}
@@ -3255,8 +3264,11 @@ const Pin = {
     this.limpar(); Jornada.limpar();
     await this.gravar(novo, raw, d.segredo, d.versao); raw.fill(0);
     await PinUnico.trocou(novo);
+    this.auditar(true);
     return { ok: true };
   },
+  /* K33: no histórico da família, sem PIN nem segredo (só o aparelho e quem) */
+  auditar(criou) { if (S.family) Cloud.audit(criou ? "pin.criado" : "pin.trocado", Sol.nome() + " · " + Cloud.myName()); },
   /* conta COM PIN: troca no banco (ele confere o atual) e aqui; vale em todos os aparelhos e apps */
   async trocar(atual, novo) {
     const L = await Cofre.local();
@@ -3270,6 +3282,7 @@ const Pin = {
     if (!d || !d.ok) { raw.fill(0); return d ? { erro: d.erro, conta: true, restam: d.restam, tentativas: d.tentativas, ate: d.espera_ate ? Date.parse(d.espera_ate) : 0, muitas: d.tentativas >= 10 } : { erro: "rede" }; }
     await this.gravar(novo, raw, d.segredo, d.versao); raw.fill(0);
     await PinUnico.trocou(novo);
+    this.auditar(false);
     return { ok: true };
   },
   /* "Não lembro o PIN da conta" logo depois de aprovado pelo outro aparelho (o banco só deixa a quem entrou assim há menos
@@ -3278,6 +3291,7 @@ const Pin = {
     const sal = SolProto.novoSalConta();
     let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, ap); } catch (e) { return { erro: Sol.foraDaLista(e) ? "aparelho" : "rede" }; }
     this.limpar(); Jornada.limpar();
+    if (d && d.ok) this.auditar(false);
     return d && d.ok ? { ok: true, segredo: d.segredo, versao: d.versao } : { erro: (d && d.erro) || "sem_permissao" };
   },
   /* o texto dos erros do PIN (da conta e deste aparelho), o mesmo em todas as telas */
@@ -3667,19 +3681,37 @@ const Cofre = {
      de outro aparelho ou app: aí é a "Primeira vez"). Sem código para anotar: o kit fica desligado (nada em omni_chave_privada).
      Ordem: o par e a pública → este aparelho na lista ("primeiro") → o cadeado (a chave pessoal fica guardada aqui antes de
      tudo) → o PIN da conta (versão 1). Sem o registro agora, ele entra depois, ao abrir com o PIN; sem o PIN da conta agora, o
-     botão "Criar o PIN da conta" aparece. {ok} | {erro: "aguardando"} (Falta liberar) | {erro: "temPub"} | {erro: "rede"} */
-  async criarConta(pin) {
+     botão "Criar o PIN da conta" aparece. {ok} | {erro: "aguardando"} (Falta liberar) | {erro: "temPub"} | {erro: "rede"}
+     zero (D4, "Começar do zero" em Avançado): a ÚNICA vez em que o par novo nasce com a pública já na conta — só no beco (relido
+     aqui), e a conta que já tem PIN confere o PIN da conta ANTES de mudar qualquer coisa ({erro: "pin" | "espera", conta}).
+     {erro: "naoPode"} = há outro caminho de volta */
+  async criarConta(pin, zero) {
     let nb; try { nb = await this.minhasNoBanco(); } catch (e) { return { erro: "rede" }; }
-    if (nb.pub) { Jornada.limpar(); return { erro: "temPub" }; }
+    if (nb.pub && !zero) { Jornada.limpar(); return { erro: "temPub" }; }
+    if (zero && !TelaConta.podeZero(await Jornada.ler(true))) return { erro: "naoPode" };
     try { await CloudDriver.sync(); } catch (e) {}   /* o registro do cofre mais novo, antes de decidir se a família já tem chave */
+    /* D4 depois do "Esqueci o PIN": este aparelho fica com o lugar dele na lista */
+    const L0 = zero ? await this.local() : null, novo = !(L0 && L0.ap);
+    let ap = novo ? null : L0.ap, conta = null;
+    if (novo) { try { ap = await Sol.apRegistrar("primeiro"); } catch (e) {} }
+    if (zero) {
+      const info = ap ? await Pin.info(true) : null;
+      const c = info && info.tem ? await Sol.pinConferir(await SolProto.verificador(pin, info.sal), ap) : null;
+      if (c) { Pin.limpar(); Jornada.limpar(); }
+      if (!info || (info.tem && !(c && c.ok))) {   /* nada mudou: o lugar novo na lista sai (K19) */
+        if (novo && ap) Sol.apTirar(ap).catch(() => {});
+        return !c ? { erro: "rede" } : c.erro === "pin" ? { erro: "pin", conta: true, restam: c.restam, ate: c.espera_ate ? Date.parse(c.espera_ate) : 0 }
+          : c.erro === "espera" ? { erro: "espera", conta: true, ate: Date.parse(c.espera_ate), muitas: c.tentativas >= 10 } : { erro: c.erro === "aparelho" ? "tirado" : "rede" };
+      }
+      if (c) conta = { segredo: c.segredo, versao: c.versao };
+    }
     const par = await this.novoPar();
-    try { await this.publicarPub(par); } catch (e) { par.pkcs8.fill(0); return { erro: "rede" }; }
-    let ap = null; try { ap = await Sol.apRegistrar("primeiro"); } catch (e) {}
-    const r = await this.montar(par.pkcs8, null, pin, "primeiro", ap, null, true); par.pkcs8.fill(0);
-    if (ap) {
+    try { await this.publicarPub(par); } catch (e) { par.pkcs8.fill(0); if (zero && novo && ap) Sol.apTirar(ap).catch(() => {}); return { erro: "rede" }; }
+    const r = await this.montar(par.pkcs8, null, pin, novo ? "primeiro" : L0.como || "primeiro", ap, conta, true); par.pkcs8.fill(0);
+    if (ap && !conta) {
       const sal = SolProto.novoSalConta();
       let d = null; try { d = await Sol.pinDefinir(await SolProto.verificador(pin, sal), sal, null, ap); } catch (e) {}
-      if (d && d.ok) await Pin.gravar(pin, r.raw, d.segredo, d.versao);
+      if (d && d.ok) { await Pin.gravar(pin, r.raw, d.segredo, d.versao); Pin.auditar(true); }
     }
     r.raw.fill(0); Pin.limpar(); Jornada.limpar();
     if (this.aberto()) {   /* 2.21.0: o mesmo PIN abre as chaves de IA */
@@ -3805,7 +3837,7 @@ const Cofre = {
     const st = this.status || { fase: "?" };
     const guia = '<button class="linkbtn tiny" data-act="cofre.guia">❔ ' + tt("Como funciona", "How it works") + "</button>";
     if (st.fase === "?") return '<div class="card center"><div class="empty tiny">…</div></div>';
-    if (!isGuardian() && this.aberto()) return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa abertas (emergência)", "Vault open (emergency)") + '</h3><button class="btn sm ghost" data-act="vault.lock">🔒 ' + tt("Fechar", "Close") + '</button></div><p class="small muted">' + tt("Você pode ver, mas não mudar. Toque num item para ver.", "You can view but not change. Tap an item to view it.") + '</p><div id="vlist" class="list"><div class="empty tiny">…</div></div></div>';
+    if (!isGuardian() && this.aberto()) return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa abertas (emergência)", "Vault open (emergency)") + '</h3><button class="btn sm ghost bloq" data-act="conta.bloquear"><span>🔒 ' + tt("Bloquear agora", "Lock now") + '</span><span class="tiny">' + tt("(pede o código de emergência para abrir de novo)", "(asks for the emergency code to open again)") + '</span></button></div><p class="small muted">' + tt("Você pode ver, mas não mudar. Toque num item para ver.", "You can view but not change. Tap an item to view it.") + '</p><div id="vlist" class="list"><div class="empty tiny">…</div></div></div>';
     if (!isGuardian()) return '<div class="card center"><div style="font-size:2.4rem">🆘</div><h3>' + tt("Acesso de emergência", "Emergency access") + '</h3><p class="small">' + tt("Digite o código de emergência que um chefe da família entregou a você (no papel ou por mensagem).", "Type the emergency code a family head gave you (on paper or by message).") + '</p><button class="btn" data-act="gov.emcode">🔐 ' + tt("Abrir com o código", "Open with the code") + "</button></div>";
     if (st.fase === "novo") {
       const tem = !!(this.registro() || {}).fk, ap = apN();
@@ -3843,10 +3875,10 @@ const Cofre = {
     }
     /* aberto */
     const trocar = st.trocarPin || (!st.ligadoPin && !st.srv && !st.pinVersao);
-    return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + '</button><button class="btn sm ghost" data-act="vault.lock">🔒 ' + tt("Fechar", "Close") + '</button></div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
+    return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
       (st.criarPin ? '<div class="card tight"><p class="small">🔢 ' + tt("Falta criar o PIN da sua conta SolverONE: um PIN só, para todos os seus aparelhos e apps (OmniLifeONE, MoneyTRIO e os próximos).", "Your SolverONE account PIN is still missing: one PIN for all your devices and apps (OmniLifeONE, MoneyTRIO and the next ones).") + '</p><button class="btn sm" data-act="conta.pin.criar">🔢 ' + tt("Criar o PIN da conta", "Create the account PIN") + "</button></div>" : "") +
       (this.temLegado() ? '<div class="card warnc"><h3>📦 ' + tt("Senhas antigas neste aparelho", "Old vault on this device") + '</h3><p class="small">' + tt("Este aparelho ainda tem itens do cofre antigo (o que abria com a senha mestra). Traga para cá: assim eles aparecem em todos os aparelhos da família.", "This device still has items from the old vault (the one opened with the master password). Bring them into this vault so they show up on every family device.") + '</p><button class="btn sm" data-act="cofre.legado">⬆️ ' + tt("Trazer as senhas antigas", "Bring the old vault") + "</button></div>" : "") +
-      '<details class="card tight"><summary class="grouph">⚙️ ' + tt("Opções deste " + apN(), "Vault options on this " + apN()) + '</summary><div class="row" style="margin-top:8px">' + (st.prf ? '<button class="btn ghost sm" data-act="cofre.semdigital">👆 ' + tt("Parar de usar a digital", "Stop using fingerprint") + "</button>" : '<button class="btn ghost sm" data-act="cofre.comdigital">👆 ' + tt("Abrir também com a digital", "Also open with fingerprint") + "</button>") + (trocar ? '<button class="btn ghost sm" data-act="conta.pin.trocar">🔢 ' + tt("Trocar o PIN", "Change PIN") + "</button>" : "") + '<button class="btn ghost sm" data-act="cofre.codigo">📝 ' + tt("Fazer um código de recuperação novo", "Make a new recovery code") + '</button><button class="btn ghost sm danger" data-act="cofre.desconectar">📴 ' + tt("Desconectar este " + apN(), "Disconnect this " + apN()) + "</button></div></details>";
+      '<details class="card tight"><summary class="grouph">⚙️ ' + tt("Opções deste " + apN(), "Vault options on this " + apN()) + '</summary><div class="row" style="margin-top:8px">' + (st.prf ? '<button class="btn ghost sm" data-act="cofre.semdigital">👆 ' + tt("Parar de usar a digital", "Stop using fingerprint") + "</button>" : '<button class="btn ghost sm" data-act="cofre.comdigital">👆 ' + tt("Abrir também com a digital", "Also open with fingerprint") + "</button>") + (trocar ? '<button class="btn ghost sm" data-act="conta.pin.trocar">🔢 ' + tt("Trocar o PIN", "Change PIN") + "</button>" : "") + '<button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="conta">🔐 ' + tt("Segurança e aparelhos", "Security and devices") + "</button></div></details>";   /* o kit e o "Tirar este aparelho" ficam lá, em Avançado */
   }
 };
 /* 2.26.0: sem o cadeado aqui (ou "Esqueci o PIN"): a Primeira vez — aprovar pelo outro aparelho, pela família, o código antigo
@@ -3945,11 +3977,12 @@ const Aparelhos = {
       /* K22: já desafiado por outro aparelho meu (pub_a sem o par daqui) sai da faixa: ele está cuidando */
       this.pendentes = this.todos.filter((p) => !this._vistos[p.id] && !(p.pub_a && !this._apr[p.id]));
       TelaConta.faixaPedido(this.pendentes[0] || null);
+      TelaConta.pedidosNaPagina();   /* "Segurança e aparelhos" aberta: o aviso dos pedidos acompanha */
     } catch (e) {} finally { this._olhando = false; }
   },
   /* "✕" na faixa: não insiste nesta aba (o pedido continua na lista do 👤, para recusar se foi engano) */
   dispensar(p) { this._vistos[p.id] = 1; this.pendentes = this.pendentes.filter((x) => x.id !== p.id); TelaConta.faixaPedido(this.pendentes[0] || null); },
-  tirarDaLista(id) { this.todos = this.todos.filter((x) => x.id !== id); this.pendentes = this.pendentes.filter((x) => x.id !== id); TelaConta.faixaPedido(this.pendentes[0] || null); },
+  tirarDaLista(id) { this.todos = this.todos.filter((x) => x.id !== id); this.pendentes = this.pendentes.filter((x) => x.id !== id); TelaConta.faixaPedido(this.pendentes[0] || null); TelaConta.pedidosNaPagina(); },
   aprovar(p) { this.dispensar(p); return TelaConta.aprovar(p); },
   async recusar(p) {
     delete this._apr[p.id]; this.tirarDaLista(p.id);
@@ -4036,6 +4069,43 @@ const Aparelhos = {
   /* este aparelho foi tirado da conta em outro aparelho: sai de verdade (Saida, D3) — o cadeado, a cópia das Senhas da casa e
      as chaves de IA desta pessoa saem daqui (as de outra pessoa ficam). O resto (Saúde, documentos, fotos, a fila) nunca é apagado */
   tirado() { return Saida.sair({ apagar: true, motivo: "tirado", semPerguntar: true }); },
+  /* ===== "Seus aparelhos" (⚙ → Segurança e aparelhos) =====
+     As linhas da conta juntadas pelo nome ("Android · Chrome"): o mesmo aparelho no OmniLifeONE e no MoneyTRIO vira uma linha só.
+     K20: num grupo, no máximo uma linha por app (o mesmo app repetido com o mesmo nome é OUTRO aparelho, outro grupo), para o
+     "Tirar" de um celular perdido nunca levar este junto. null = sem internet ou sem o SQL dos aparelhos */
+  async lista() {
+    if (!Sol.pode() || Sol.ligadoAp === false) return null;
+    let rows; try { rows = await Sol.apsMeus(); } catch (e) { return null; }
+    const L = await Cofre.local().catch(() => null), meu = (L && L.ap) || "", grupos = [];
+    rows.slice().sort((a, b) => String(a.criado_em).localeCompare(String(b.criado_em))).forEach((a) => {
+      const app = SolProto.rotuloApp(a.app);
+      let g = grupos.find((x) => x.nome === a.nome && !x.apps.includes(app));
+      if (!g) grupos.push((g = { nome: a.nome, apps: [], ids: [], linhas: [], este: false }));
+      g.apps.push(app); g.ids.push(a.id); g.linhas.push(a);
+      if (a.id === meu) g.este = true;
+    });
+    grupos.forEach((g) => {
+      const omni = g.linhas.find((a) => SolProto.rotuloApp(a.app) === "OmniLifeONE") || g.linhas[0];
+      g.apps.sort(); g.como = omni.como; g.quem = omni.aprovado_por_nome || omni.aprovado_por_email || "";
+      g.desde = g.linhas[0].criado_em; g.ultima = g.linhas.map((a) => a.visto_em || a.criado_em).sort().pop();
+    });
+    return grupos.sort((x, y) => (y.este - x.este) || String(y.ultima).localeCompare(String(x.ultima)));
+  },
+  /* "Tirar" um grupo da lista (um celular perdido, por exemplo): ele sai da conta na próxima vez que abrir com internet. Este
+     aparelho nunca sai por aqui (K20: só em Avançado → "Tirar este aparelho da conta") */
+  async tirarGrupo(g) {
+    const L = await Cofre.local().catch(() => null);
+    if (!g || g.este || (L && L.ap && g.ids.includes(L.ap))) return false;
+    const apps = g.apps.join(tt(" e no ", " and "));
+    if (!(await confirmBox(tt("Tirar este aparelho (" + esc(g.nome) + ") da sua conta, no " + esc(apps) + "? Na próxima vez que ele abrir com internet, ele sai da conta e pede aprovação para entrar de novo.",
+      "Remove this device (" + esc(g.nome) + ") from your account, in " + esc(apps) + "? Next time it opens with the internet, it signs out and asks for approval to get in again."), tt("Tirar", "Remove"), true))) return false;
+    let ok = true;
+    for (const id of g.ids) { try { if (!(await Sol.apTirar(id))) ok = false; } catch (e) { ok = false; } }
+    Jornada.limpar();
+    if (ok && S.family) Cloud.audit("aparelho.tirado", g.nome + " (" + g.apps.join(", ") + ") · " + Cloud.myName());
+    toast(ok ? "✓ " + tt("Aparelho tirado da sua conta.", "Device removed from your account.") : Pin.explicar({ erro: "rede" }), 5000);
+    return ok;
+  },
   /* ===== B: este aparelho é o novo (sem o cadeado aqui, ou "Esqueci o PIN") =====
      Um par efêmero (privada não extraível, só no IndexedDB enquanto o pedido existe) e o compromisso com a pública ANTES de ver
      a de quem aprova: um banco que troque as públicas não escolhe os 6 números. */
@@ -4220,22 +4290,22 @@ const TelaConta = {
   },
   /* o formulário do PIN novo. op = { title, texto, atual (pede também o PIN atual), okTxt, depois (botão "Agora não"), pequeno,
      ocupado (o texto enquanto a acao roda), aoDesistir, acao(novo, atual) → "" (deu certo: fecha) | texto do erro (fica aberta) |
-     false (fecha sem dar certo) }.
+     false (fecha sem dar certo), so (um campo só, "PIN da sua conta": digitar o que a conta já tem, sem as regras do PIN novo) }.
      Promise<true | false> */
   formPin(op) {
     return new Promise((res) => {
       let feito = false;
       const fim = (v) => { if (!feito) { feito = true; res(v); } };
       const m = this.janela({ title: op.title, onClose: () => { if (op.aoDesistir) op.aoDesistir(); fim(false); }, body:
-        (op.texto || "") + (op.atual ? this.campo("pcAtual", tt("PIN atual", "Current PIN")) : "") +
+        (op.texto || "") + (op.so ? this.campo("pcPin", tt("PIN da sua conta", "Your account PIN")) : (op.atual ? this.campo("pcAtual", tt("PIN atual", "Current PIN")) : "") +
         this.campo("pcP1", op.atual ? tt("PIN novo (6 números ou mais)", "New PIN (6 digits or more)") : tt("PIN (6 números ou mais)", "PIN (6 digits or more)")) +
-        this.campo("pcP2", op.atual ? tt("Digite o PIN novo de novo", "Type the new PIN again") : tt("Digite o mesmo PIN de novo", "Type the same PIN again")) +
+        this.campo("pcP2", op.atual ? tt("Digite o PIN novo de novo", "Type the new PIN again") : tt("Digite o mesmo PIN de novo", "Type the same PIN again"))) +
         (op.ocupado ? '<p class="small muted" id="pcOcupado" role="status"></p>' : "") + this.ERRO + (op.pequeno ? '<p class="tiny faint">' + op.pequeno + "</p>" : ""),
         foot: (op.depois ? '<button class="btn ghost" data-x id="pcDepois">' + tt("Agora não", "Not now") + "</button>" : '<button class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + "</button>") + '<button class="btn" id="pcOk">' + op.okTxt + "</button>" });
       const q = (s) => $(s, m.el), err = q("#pcErr"), bOk = q("#pcOk"), oc = q("#pcOcupado");
       bOk.onclick = async () => {
-        const atual = op.atual ? q("#pcAtual").value : "", a = q("#pcP1").value, b = q("#pcP2").value;
-        let e = op.atual && !atual ? tt("Digite o PIN atual.", "Type the current PIN.") : this.erroPinNovo(a, b, op.atual);
+        const atual = op.atual ? q("#pcAtual").value : "", a = q(op.so ? "#pcPin" : "#pcP1").value, b = op.so ? a : q("#pcP2").value;
+        let e = op.so ? (a ? "" : tt("Digite o PIN da sua conta.", "Type your account PIN.")) : op.atual && !atual ? tt("Digite o PIN atual.", "Type the current PIN.") : this.erroPinNovo(a, b, op.atual);
         if (!e) {
           bOk.disabled = true; bOk.textContent = "⏳"; err.textContent = ""; if (oc) oc.textContent = op.ocupado;
           try { e = await op.acao(a, atual); } catch (x) { e = tt("Não deu certo. Tente de novo.", "It didn't work. Try again."); }
@@ -4468,12 +4538,13 @@ const TelaConta = {
     if (st.L && !esqueci) { await Cofre.atualizar(); return scheduleRender(); }   /* este aparelho já tem o cadeado */
     if (st.caso === "contaNova") return this.contaNova();
     const outro = esc(st.outrosApps[0] || "MoneyTRIO");   /* vem do banco: como texto */
-    const beco = st.rede && !st.outros && !st.temKit && !st.temPasskey && !st.familiaPode;
+    const beco = this.beco(st);
     const texto = st.caso === "outroApp" ? tt("Você já usa o " + outro + ". Para entrar aqui, aprove por um aparelho seu (pode ser o " + outro + " neste mesmo " + ap + ") e use o mesmo PIN da sua conta.", "You already use " + outro + ". To get in here, approve from a device of yours (it can be " + outro + " on this same " + ap + ") and use the same account PIN.") +
         (st.tem ? "" : " " + tt("O PIN que você escolher agora passa a valer também no " + outro + ".", "The PIN you choose now will also work in " + outro + "."))
       : tt("Para usar as Senhas da casa e o PIN da sua conta neste " + ap + ", escolha um jeito:", "To use the home passwords and your account PIN on this " + ap + ", choose one way:");
     const corpo = beco ? "<p>" + tt("Não há outro aparelho seu para aprovar este " + ap + " (nem no OmniLifeONE, nem no MoneyTRIO), e ninguém mais da família pode aprovar. Peça para outro chefe ou responsável entrar na família e abrir as Senhas da casa: aí ele aprova este " + ap + " para você.", "There is no other device of yours to approve this " + ap + " (neither in OmniLifeONE nor in MoneyTRIO), and nobody else in the family can approve it. Ask another head or guardian to join the family and open the home passwords: then they approve this " + ap + " for you.") + "</p>" +
-        '<p class="small muted">' + tt("Se não houver mesmo nenhum jeito, existe “Começar do zero” em ⚙ → Segurança e aparelhos → Avançado. Nesse caso, as Senhas da casa antigas só voltam pelo código de emergência da família ou se outro responsável liberar.", "If there is really no other way, there is “Start from scratch” in ⚙ → Security and devices → Advanced. In that case, the old home passwords only come back with the family emergency code or if another guardian releases them.") + "</p>"
+        '<p class="small muted">' + tt("Se não houver mesmo nenhum jeito, existe “Começar do zero” em ⚙ → Segurança e aparelhos → Avançado. Nesse caso, as Senhas da casa antigas só voltam pelo código de emergência da família ou se outro responsável liberar.", "If there is really no other way, there is “Start from scratch” in ⚙ → Security and devices → Advanced. In that case, the old home passwords only come back with the family emergency code or if another guardian releases them.") + "</p>" +
+        '<button type="button" class="btn ghost sm" id="apAvancado">⚙️ ' + tt("Abrir Segurança e aparelhos → Avançado", "Open Security and devices → Advanced") + "</button>"
       : "<p>" + texto + '</p><div class="stack"><button class="btn big block" id="apOutro">📱 ' + tt("Aprovar pelo outro aparelho", "Approve from my other device") + "</button>" +
         (st.familiaPode ? '<button class="btn ghost big block" id="apFamilia">👪 ' + tt("Pedir para alguém da família aprovar", "Ask someone in the family to approve") + "</button>" : "") + "</div>" +
         '<p class="tiny faint">' + tt("Funciona com outro aparelho onde você já entra (celular ou computador), no OmniLifeONE ou no MoneyTRIO.", "Works with another device where you are already in (phone or computer), in OmniLifeONE or MoneyTRIO.") + "</p>" +
@@ -4486,6 +4557,7 @@ const TelaConta = {
     if (q("#apFamilia")) q("#apFamilia").onclick = () => pedir("familia");
     if (q("#apCodigo")) q("#apCodigo").onclick = () => { m.drop(); this.codigoAntigo(op2); };
     if (q("#apVolta")) q("#apVolta").onclick = () => m.close();
+    if (q("#apAvancado")) q("#apAvancado").onclick = () => { m.drop(); this._avAberto = true; go("settings", "conta"); };   /* D4: o atalho */
   },
   /* conta nova: "Crie o PIN da sua conta SolverONE" e o cadeado deste aparelho nasce com ele (sem código para anotar) */
   async contaNova() {
@@ -4551,7 +4623,7 @@ const TelaConta = {
         let d; try { d = await Sol.pinDefinir(await SolProto.verificador(pin, sal), sal, null, apId); } catch (e) { return Pin.explicar({ erro: "rede" }); }
         Pin.limpar(); Jornada.limpar();
         if (!d || !d.ok) { temPin = true; return false; }   /* outro aparelho ou app criou o PIN da conta agora: digitar o dele */
-        conta = { segredo: d.segredo, versao: d.versao };
+        conta = { segredo: d.segredo, versao: d.versao }; Pin.auditar(true);
       }
       res = { r: await montar(pin, conta), pin };
       return "";
@@ -4744,8 +4816,183 @@ const TelaConta = {
     if (!this._passo || !S.booted || !Cofre.usa() || !isGuardian()) return "";
     return '<div class="card" id="inicioPasso" style="padding:10px 14px"><div class="between" style="gap:10px;flex-wrap:wrap"><span class="small">🔐 ' + tt("Falta um passo para as Senhas da casa neste " + apN(), "One step left for the home passwords on this " + apN()) +
       '</span><button type="button" class="btn sm" data-act="conta.passo">' + tt("Continuar", "Continue") + "</button></div></div>";
+  },
+  /* K21/D4: ninguém para aprovar este aparelho — nenhum outro aparelho da pessoa (em nenhum app), nem o código antigo, nem a
+     digital em todos os aparelhos, nem outro chefe/responsável. A mesma regra na "Primeira vez" e no "Começar do zero" */
+  beco(st) { return !!st && st.rede && !st.outros && !st.temKit && !st.temPasskey && !st.familiaPode; },
+  /* o "Começar do zero" (Avançado) só no beco, para chefe/responsável, com a lista da conta funcionando e as Senhas da casa
+     fechadas aqui (abertas, não falta nada) */
+  podeZero(st) { return this.beco(st) && st.guardiao && st.ligado && !Cofre.aberto(); },
+  juntar(l) { return l.length < 2 ? l.join("") : l.slice(0, -1).join(", ") + tt(" e ", " and ") + l[l.length - 1]; },
+  /* como este aparelho entrou na conta. K24: "kit" também é o aparelho de antes da 2.26.0 (entrou na lista sem código nenhum) */
+  rotuloComo(como, quem) {
+    return { primeiro: tt("foi o primeiro aparelho", "was the first device"), aparelho: tt("aprovado por outro aparelho seu", "approved by another device of yours"),
+      familia: tt("aprovado pela família", "approved by the family") + (quem ? " (" + quem + ")" : ""), passkey: tt("entrou pela digital", "got in with the fingerprint"),
+      kit: tt("já usava antes (ou entrou com o código)", "was already in use (or used the code)") }[como] || tt("ainda não está na lista", "not on the list yet");
+  },
+  /* ⚙ → "🔐 Segurança e aparelhos" (#/settings/conta): seus dados, PIN e digital, seus aparelhos, sair e, recolhido, avançado —
+     nesta ordem, numa grade (2 ou 3 colunas no computador, uma no celular, sem rolar para o lado). Todo botão é conta.* (nunca some
+     com os interruptores "seguranca" e "casa.senhas"). O que precisa da internet (o PIN, a lista e o avançado) entra em
+     depoisDaPagina; até lá fica o que já estava na tela (sem piscar "Carregando…" a cada desenho). No "só neste aparelho" (com
+     conta): seus dados, a digital e o PIN do perfil, e sair */
+  _pag: null, _grupos: [], _avAberto: false,
+  pagina() {
+    const s = Conta.ler() || {}, nuvem = S.mode === "cloud", eu = me(), ap = apN(), guard = isGuardian();
+    const c = this._pag && this._pag.k === S.lang + Conta.uid() ? this._pag : {};
+    const sec = (id, tit, corpo, st) => '<section class="card" id="' + id + '"' + (st ? ' style="' + st + '"' : "") + "><h3>" + tit + "</h3>" + corpo + "</section>";
+    const carregando = '<p class="tiny faint">' + tt("Carregando…", "Loading…") + "</p>";
+    const fam = (S.family && S.family.name) || (!nuvem && DB.setting().familyName) || "";
+    const dados = '<p class="small"><b>' + esc(s.nome || (eu && eu.name) || "") + "</b><br>" + esc(s.email || "") + "</p>" +
+      (s.desde ? '<p class="small">' + tt("Conectado desde ", "Signed in since ") + esc(fmtDate(isoDate(new Date(s.desde)))) + "</p>" : "") +
+      (fam || S.role ? '<p class="small">' + [fam ? tt("Família ", "Family ") + "<b>" + esc(fam) + "</b>" : "", S.role ? esc(roleName(S.role)) : ""].filter(Boolean).join(" · ") + "</p>" : "") +
+      (nuvem ? '<p class="small" id="segComo">' + (c.como || tt("Este " + ap + ": ", "This " + ap + ": ") + "…") + "</p>" : "");
+    const pin = nuvem && guard ? '<div id="segPinC">' + (c.pin || carregando) + "</div>"
+      : (nuvem ? '<p class="small">' + tt("O PIN da conta abre as Senhas da casa, que são de chefes e responsáveis.", "The account PIN opens the home passwords, which belong to heads and guardians.") + "</p>" : SetViews.travaPerfil()) +
+        '<div class="row" style="margin:8px 0">' + this.botaoBloquear() + "</div>" + SetViews.travaApp();
+    const aps = nuvem ? sec("segAps", "📱 " + tt("Seus aparelhos", "Your devices"), '<div id="segApsC">' + (c.aps || carregando) + "</div>", "grid-column:1/-1") : "";
+    const sair = sec("segSair", "🚪 " + tt("Sair", "Sign out"), '<button type="button" class="btn danger" data-act="conta.sair">🚪 ' + tt("Sair", "Sign out") + "</button>" +
+      '<p class="tiny faint" style="margin-top:8px">' + (nuvem ? tt("Sai da conta neste aparelho. Para entrar de novo: e-mail e senha (ou Google) e o PIN da conta.", "Signs out on this device. To get back in: e-mail and password (or Google) and the account PIN.")
+        : tt("Sai da conta neste aparelho. Para entrar de novo: e-mail e senha (ou Google).", "Signs out on this device. To get back in: e-mail and password (or Google).")) + "</p>");
+    const av = nuvem ? '<details class="card" id="segAvancado"' + (this._avAberto ? " open" : "") + '><summary class="grouph">⚙️ ' + tt("Avançado", "Advanced") + '</summary><div id="segAvC">' + (c.av || carregando) + "</div></details>" : "";
+    return '<div id="segPedidos">' + this.pedidosHtml() + '</div><div class="segap">' + sec("segDados", "👤 " + tt("Seus dados", "Your data"), dados) +
+      sec("segPin", "🔢 " + tt("PIN e digital", "PIN and fingerprint"), pin) + aps + sair + av + "</div>";
+  },
+  botaoBloquear() {
+    return '<button type="button" class="btn ghost sm bloq" data-act="conta.bloquear"><span>🔒 ' + tt("Bloquear agora", "Lock now") + '</span><span class="tiny">' + (Cofre.usa() || S.mode === "cloud"
+      ? tt("(pede o PIN ou a digital para abrir de novo)", "(asks for the PIN or fingerprint to open again)") : tt("(pede a senha principal para abrir de novo)", "(asks for the main password to open again)")) + "</span></button>";
+  },
+  /* "🔔 Pedidos de acesso (N)": só quando há (os dispensados na faixa também: um pedido fechado por engano ainda pode ser recusado) */
+  pedidosHtml() {
+    const L = Aparelhos.todos || [];
+    return L.length ? '<div class="card warnc" role="status"><h3>🔔 ' + tt("Pedidos de acesso", "Access requests") + " (" + L.length + ')</h3><div class="list">' +
+      L.map((p) => '<div class="li"><div class="main"><div class="t">' + esc(this.rotuloPedido(p)) + '</div></div><button type="button" class="btn sm" data-act="conta.ap.ver" data-id="' + esc(p.id) + '">' + tt("Ver", "View") + "</button></div>").join("") + "</div></div>" : "";
+  },
+  pedidosNaPagina() { const el = document.getElementById("segPedidos"); if (el) el.innerHTML = this.pedidosHtml(); },
+  /* "PIN e digital" de chefe/responsável: "Criar o PIN da conta" OU "Trocar o PIN" (nunca os dois; nenhum sem internet), a digital
+     deste aparelho, "Bloquear agora", "Esqueci o PIN" e a digital para abrir o app. Sem as Senhas da casa aqui: o jeito de entrar (5.2) */
+  pinHtml(st) {
+    const ap = apN(), b = (act, t) => '<button type="button" class="btn ghost sm" data-act="' + act + '">' + t + "</button>";
+    if (!st.L) return '<p class="small">' + tt("As Senhas da casa ainda não estão neste " + ap + ". Para usar aqui, aprove pelo outro aparelho seu (no OmniLifeONE ou no MoneyTRIO) ou peça para alguém da família.", "The home passwords are not on this " + ap + " yet. To use them here, approve from your other device (in OmniLifeONE or MoneyTRIO) or ask someone in the family.") + "</p>" +
+      '<div class="row" style="margin:8px 0"><button type="button" class="btn sm" data-act="conta.ap.usar">🔑 ' + tt("Usar neste " + ap, "Use it on this " + ap) + "</button>" + this.botaoBloquear() + "</div>" + SetViews.travaApp();
+    const estado = !st.rede ? tt("Sem internet: não dá para saber agora.", "No internet: can't tell right now.")
+      : !st.ligadoPin ? tt("Por enquanto vale o PIN deste " + ap + ".", "For now, this " + ap + "'s PIN is used.")
+      : st.tem ? tt("PIN da conta: criado — vale no OmniLifeONE, no MoneyTRIO e nos próximos apps.", "Account PIN: created — it works in OmniLifeONE, MoneyTRIO and the next apps.")
+      : tt("Ainda não tem PIN da conta.", "No account PIN yet.");
+    /* a mesma regra das Senhas da casa (Cofre.view), só com internet: Criar com a conta sem PIN; Trocar com PIN (ou, sem o SQL do PIN,
+       o deste aparelho que nunca passou para o da conta — K12) */
+    const trocar = navigator.onLine && (st.trocarPin || (!st.ligadoPin && !st.srv && !st.pinVersao));
+    return '<p class="small" id="segPinEstado">' + estado + '</p><div class="row" style="margin:8px 0">' +
+      (st.criarPin ? b("conta.pin.criar", "🔢 " + tt("Criar o PIN da conta", "Create the account PIN")) : trocar ? b("conta.pin.trocar", "🔢 " + tt("Trocar o PIN", "Change PIN")) : "") +
+      (st.prf ? b("conta.dig.desligar", "👆 " + tt("Parar de usar a digital", "Stop using fingerprint")) : b("conta.dig.ligar", "👆 " + tt("Abrir também com a digital", "Also open with fingerprint"))) +
+      this.botaoBloquear() + "</div>" +
+      (Cofre.aberto() ? "" : '<button type="button" class="linkbtn tiny" data-act="conta.pin.esqueci">' + tt("Esqueci o PIN", "Forgot the PIN") + "</button>") + SetViews.travaApp();
+  },
+  apsHtml(lista) {
+    if (!lista) return '<p class="small muted">' + (!navigator.onLine ? tt("A lista aparece com a internet ligada.", "The list shows up with the internet on.")
+      : Sol.ligadoAp === false ? tt("A lista de aparelhos ainda está sendo ligada.", "The device list is still being switched on.") : tt("Não deu para carregar a lista agora.", "Could not load the list right now.")) + "</p>";
+    const dia = (t) => { const d = new Date(t); return isNaN(d) ? "" : fmtDate(isoDate(d)); };
+    const linhas = lista.map((g, i) => '<div class="li"><div class="ico">📱</div><div class="main"><div class="t"><b>' + esc(g.nome) + "</b> · " + esc(this.juntar(g.apps)) +
+      (g.este ? ' <span class="badge acc">' + tt("(este aparelho)", "(this device)") + "</span>" : "") + '</div><div class="s">' + esc(this.rotuloComo(g.como, g.quem)) +
+      (g.desde ? " · " + tt("desde ", "since ") + esc(dia(g.desde)) : "") + (g.ultima ? " · " + tt("última vez ", "last time ") + esc(fmtDateTime(g.ultima)) : "") + "</div></div>" +
+      (g.este ? "" : '<button type="button" class="btn sm ghost" data-act="conta.ap.tirar" data-i="' + i + '">' + tt("Tirar", "Remove") + "</button>") + "</div>").join("");
+    return (linhas ? '<div class="list">' + linhas + "</div>" : '<p class="small muted">' + tt("Nenhum aparelho na lista ainda.", "No device on the list yet.") + "</p>") +
+      '<p class="tiny faint" style="margin-top:8px">' + tt("Um aparelho com os dois apps aparece numa linha só (pelo sistema e pelo navegador).", "A device with both apps shows up as one line (by system and browser).") + "</p>" +
+      (S.role === "admin" ? '<button type="button" class="linkbtn tiny" data-act="go" data-tab="family">' + tt("Aparelhos de toda a família: Família → Aparelhos da família", "Devices of the whole family: Family → Family devices") + "</button>" : "");
+  },
+  /* Avançado: cada item com uma frase curta. Aqui ficam as palavras técnicas (e o que só vale para quem sabe o que está fazendo).
+     O kit e a digital em todos os aparelhos ganham os botões de ligar/desligar na etapa 9 */
+  avHtml(st, L, leitor) {
+    const ap = apN(), guard = isGuardian();
+    const item = (id, tit, txt, bt) => '<div class="segav" id="' + id + '"><b>' + tit + '</b><p class="tiny faint">' + txt + "</p>" + (bt || "") + "</div>";
+    const b = (act, t, cls) => '<button type="button" class="btn sm ' + (cls || "ghost") + '" data-act="' + act + '">' + t + "</button>";
+    const pk = guard && leitor && L && L.sk && (SolProto.rpId(location.hostname) === "solverone.com.br" || location.hostname === "localhost");   /* K23 */
+    return item("segTirarEste", "📴 " + tt("Tirar este aparelho da conta", "Remove this device from the account"), tt("Sai da conta e apaga daqui as Senhas da casa e o PIN guardado. Na internet continua tudo. Para usar de novo aqui, entre e peça a aprovação.", "Signs out and erases the home passwords and the saved PIN from here. Everything stays online. To use it here again, sign in and ask for approval."),
+        b("conta.ap.este", "📴 " + tt("Tirar este " + ap, "Remove this " + ap), "danger")) +
+      (guard ? item("segKit", "🧰 " + tt("Kit de emergência (código de recuperação)", "Emergency kit (recovery code)"),
+        st.temKit ? tt("Ligado: há uma cópia da sua chave fechada por um código que só você tem.", "On: there is a copy of your key locked by a code only you have.")
+          : tt("Desligado. Se perder todos os aparelhos, só alguém da família consegue liberar de novo para você.", "Off. If you lose all your devices, only someone in the family can release it to you again.") +
+            " " + tt("Ligado, o app mostra um código para você guardar num papel. Com ele, você entra num aparelho novo mesmo sem outro aparelho.", "When on, the app shows a code for you to keep on paper. With it, you get in on a new device even without another device."),
+        L && L.sk && st.rede ? b("conta.kit.ligar", st.temKit ? "📝 " + tt("Fazer um código novo", "Make a new code") : "🧰 " + tt("Ligar", "Turn on")) : "") : "") +
+      (pk ? item("segPasskey", "👆 " + tt("Digital em todos os aparelhos (passkey)", "Fingerprint on all devices (passkey)"), tt("A digital fica salva na sua conta do Google ou da Apple e abre num aparelho novo sem precisar de outro aparelho.", "The fingerprint is saved in your Google or Apple account and opens on a new device without needing another device.") +
+        " " + (st.temPasskey ? tt("Ligada.", "On.") : tt("Desligada.", "Off."))) : "") +
+      (window.SolverCofre && SolverCofre.digitalAtiva && SolverCofre.digitalAtiva() ? item("segDigChaves", "👆 " + tt("Digital antiga das chaves de IA", "Old fingerprint of the AI keys"), tt("Quem ligou antes a digital no cofre das chaves de IA pode desligar aqui. As chaves continuam abrindo com o PIN ou com a digital das Senhas da casa.", "If you turned on the fingerprint in the AI key vault before, you can turn it off here. The keys keep opening with the PIN or the home passwords fingerprint."),
+        b("conta.dig.chaves", "👆 " + tt("Parar de usar a digital antiga", "Stop using the old fingerprint"))) : "") +
+      item("segComoGuarda", "🔒 " + tt("Como as Senhas da casa ficam guardadas", "How the home passwords are kept"), tt("Elas vão para a internet embaralhadas aqui no aparelho (criptografia de ponta a ponta, com a chave da família): nem a SolverONE lê. Quem abre são os chefes e responsáveis, cada um com a chave dele.", "They go online scrambled here on the device (end-to-end encryption, with the family key): not even SolverONE can read them. Heads and guardians open them, each with their own key.")) +
+      (this.podeZero(st) ? item("segZero", "🧹 " + tt("Começar do zero", "Start from scratch"), tt("Só quando não há nenhum outro jeito de usar as Senhas da casa neste " + ap + ": nenhum outro aparelho seu, nem o código antigo, nem outro responsável na família. As Senhas da casa antigas só voltam pelo código de emergência da família ou se outro responsável liberar.", "Only when there is no other way to use the home passwords on this " + ap + ": no other device of yours, no old code and no other guardian in the family. The old home passwords only come back with the family emergency code or if another guardian releases them."),
+        b("conta.zero", "🧹 " + tt("Começar do zero", "Start from scratch"), "danger")) : "");
+  },
+  /* D4 (K21): "Começar do zero" — só no beco. Duas confirmações e, só então, a chave pessoal nova (a única vez em que ela nasce
+     com a pública já na conta: Cofre.criarConta(pin, true)). Conta com PIN: o mesmo PIN da conta (conferido antes de mudar
+     qualquer coisa); sem PIN: cria. As Senhas da casa antigas só voltam pelo código de emergência da família ou se outro
+     responsável liberar (a família libera para a chave nova sozinha quando alguém abre) */
+  async comecarDoZero() {
+    const ap = apN(), st = await Jornada.ler(true);
+    if (!this.podeZero(st)) { toast(tt("Há outro jeito de usar as Senhas da casa neste " + ap + ": Casa → Senhas da casa.", "There is another way to use the home passwords on this " + ap + ": Home → Home passwords."), 5000); return false; }
+    const aviso = tt("As Senhas da casa antigas só voltam pelo código de emergência da família ou se outro responsável liberar.", "The old home passwords only come back with the family emergency code or if another guardian releases them.");
+    if (!(await confirmBox("🧹 " + tt("Começar do zero neste " + ap + "? Use só se não há nenhum outro jeito: nenhum outro aparelho seu, nem o código antigo, nem outro responsável na família.", "Start from scratch on this " + ap + "? Use it only if there is no other way: no other device of yours, no old code and no other guardian in the family.") + "<br><br>⚠️ " + aviso, tt("Continuar", "Continue"), true))) return false;
+    if (!(await confirmBox("⚠️ " + tt("Tem certeza? Não dá para desfazer: a sua chave das Senhas da casa é trocada por uma nova, e o que a família guardou antes não abre com ela.", "Are you sure? This can't be undone: your home passwords key is replaced by a new one, and what the family saved before does not open with it.") + "<br><br>" + aviso, tt("Começar do zero", "Start from scratch"), true))) return false;
+    let r = null;
+    const acao = async (pin) => {
+      if (!Sol.pode()) return tt("Para isso, ligue a internet.", "For this, connect to the internet.");
+      r = await Cofre.criarConta(pin, true);
+      if (r.erro === "naoPode") return false;
+      return r.ok || r.erro === "aguardando" ? "" : Pin.explicar(r) || tt("Não deu certo. Tente de novo.", "It didn't work. Try again.");
+    };
+    const ocupado = "⏳ " + tt("Preparando este " + ap + "… (leva alguns segundos)", "Setting up this " + ap + "… (takes a few seconds)");
+    const ok = await this.formPin(st.tem ? { title: "🔢 " + tt("Digite o PIN da sua conta", "Type your account PIN"), so: true, okTxt: tt("Começar do zero", "Start from scratch"), ocupado, acao,
+        texto: "<p>" + tt("É o mesmo PIN dos seus outros aparelhos e do MoneyTRIO. Ele continua valendo.", "It is the same PIN as on your other devices and in MoneyTRIO. It keeps working.") + "</p>" }
+      : { title: "🔢 " + tt("Crie o PIN da sua conta SolverONE", "Create your SolverONE account PIN"), okTxt: tt("Começar do zero", "Start from scratch"), ocupado, acao,
+        texto: "<p>" + tt("Ele vale no OmniLifeONE, no MoneyTRIO e nos próximos apps. Escolha 6 números (ou mais) fáceis para você lembrar e difíceis para os outros — não use data de aniversário nem 123456.", "It works in OmniLifeONE, MoneyTRIO and the next apps. Choose 6 digits (or more) easy for you to remember and hard for others — not a birthday or 123456.") + "</p>" });
+    await Cofre.atualizar(); render();
+    if (!ok) { if (r && r.erro === "naoPode") toast(tt("Há outro jeito de usar as Senhas da casa neste " + ap + ": Casa → Senhas da casa.", "There is another way to use the home passwords on this " + ap + ": Home → Home passwords."), 5000); return false; }
+    if (r.erro === "aguardando") {
+      const em = !!(DB.col("vault").get("_em") || {}).em;
+      const v = await this.aviso("⏳ " + tt("Falta liberar", "Waiting for release"), tt("Pronto: este " + ap + " começou do zero. ", "Done: this " + ap + " started from scratch. ") + aviso,
+        (em ? [["apEmCodigo", "🆘 " + tt("Tenho o código de emergência", "I have the emergency code")]] : []).concat([["apEntendi", tt("Entendi", "Got it"), true]]));
+      if (v === "apEmCodigo") Gov.openWithCode();
+      return true;
+    }
+    toast("✓ " + tt("Pronto: as Senhas da casa começaram do zero neste " + ap + ".", "Done: the home passwords started from scratch on this " + ap + "."), 5000);
+    this.oferecerDigital();
+    return true;
+  },
+  /* o que vem da internet: o estado do PIN (Jornada), a lista da conta, como este aparelho entrou e o avançado */
+  async depoisDaPagina(root) {
+    if (S.mode !== "cloud") return;
+    const vivo = () => root.isConnected && S.route && S.route.tab === "settings" && S.route.sub === "conta";
+    const det = $("#segAvancado", root); if (det) det.addEventListener("toggle", () => { this._avAberto = det.open; });
+    const [st, L, lista, leitor] = await Promise.all([Jornada.ler(), Cofre.local().catch(() => null), Aparelhos.lista(), Bio.available().catch(() => false)]);
+    if (!vivo()) return;
+    const este = (lista || []).find((g) => g.este), ap = apN();
+    const c = this._pag = { k: S.lang + Conta.uid(), como: tt("Este " + ap + ": ", "This " + ap + ": ") + esc(this.rotuloComo(L && L.ap ? L.como : null, este && este.quem)),
+      pin: isGuardian() ? this.pinHtml(st) : "", aps: this.apsHtml(lista), av: this.avHtml(st, L, leitor) };
+    this._grupos = lista || [];
+    const put = (id, h) => { const el = $("#" + id, root); if (el && h) el.innerHTML = h; };
+    put("segComo", c.como); put("segPinC", c.pin); put("segApsC", c.aps); put("segAvC", c.av);
+    this.pedidosNaPagina();
   }
 };
+
+/* ⚙ → Segurança e aparelhos: todos os botões são conta.* (os interruptores "seguranca" e "casa.senhas" nunca os escondem) */
+/* "🔒 Bloquear agora": as Senhas da casa e as chaves de IA fecham juntas (com um PIN só, uma aberta reabriria a outra); para abrir
+   de novo, o PIN ou a digital (no "só neste aparelho", a senha principal) */
+ACT["conta.bloquear"] = async () => {
+  Trava.trancar();
+  await SolverCofre.trancar().catch(() => {});
+  toast("🔒 " + (Cofre.usa() ? tt("Bloqueado: as Senhas da casa e as chaves de IA. Para abrir de novo, o app pede o PIN ou a digital.", "Locked: home passwords and AI keys. To open again, the app asks for the PIN or fingerprint.")
+    : tt("Bloqueado: as Senhas da casa e as chaves de IA. Para abrir de novo, o app pede a senha principal (ou a digital).", "Locked: home passwords and AI keys. To open again, the app asks for the main password (or fingerprint).")), 5000);
+  render();
+};
+ACT["conta.ap.usar"] = () => TelaConta.primeiraVez();
+ACT["conta.ap.este"] = () => Saida.tirarEste();
+ACT["conta.ap.ver"] = (d) => { const p = Aparelhos.todos.find((x) => x.id === d.id); if (p) Aparelhos.aprovar(p); else toast(tt("O pedido não está mais aberto.", "The request is no longer open."), 4000); };
+ACT["conta.ap.tirar"] = async (d) => { if (await Aparelhos.tirarGrupo(TelaConta._grupos[+d.i])) render(); };
+ACT["conta.pin.esqueci"] = () => TelaConta.primeiraVez({ esqueci: true });
+ACT["conta.dig.ligar"] = () => Cofre.ligarDigital();
+ACT["conta.dig.desligar"] = () => Cofre.desligarDigital();
+ACT["conta.dig.chaves"] = () => ACT["cofre.semdigitalchaves"]();
+ACT["conta.kit.ligar"] = () => Cofre.novoCodigo();
+ACT["conta.zero"] = () => TelaConta.comecarDoZero();
 
 /* o cartão do Início (D1): a tela certa para o passo que falta */
 ACT["conta.passo"] = async () => {
@@ -4917,12 +5164,12 @@ const Keys = {
   erro(e) { return e && e.message === "cofre-trancado" ? new Error(tt("As chaves de IA ficaram trancadas. Abra com o seu PIN para continuar.", "The AI keys stayed locked. Open them with your PIN to continue.")) : e; },
   /* a chave que está sendo mostrada (30 s): vive aqui para o desenho da tela (que se refaz quando o cofre abre ou tranca) não a perder */
   _show: null,
-  /* ⚙: "✓ Guardado no cofre", "👁 Mostrar a chave guardada" (tranca e pede o PIN de novo; mostra por 30 s) e "🔒 Trancar o cofre agora" */
+  /* ⚙: "✓ Guardado no cofre", "👁 Mostrar a chave guardada" (tranca e pede o PIN de novo; mostra por 30 s) e "🔒 Bloquear agora" */
   status(has, name) {
     const sh = has && name && this._show && this._show.name === name && Date.now() < this._show.ate ? this._show.v : "";
     return '<div class="keyst"><div class="row" style="margin-top:6px;align-items:center">' + (has ? '<span class="badge ok">✓ ' + tt("Guardado no cofre", "Saved in the vault") + "</span>" : "") +
       (has && name ? '<button type="button" class="btn ghost sm" data-act="keys.show" data-k="' + esc(name) + '">👁 ' + tt("Mostrar a chave guardada", "Show the saved key") + "</button>" : "") +
-      (SolverCofre.aberto() ? '<button type="button" class="btn ghost sm" data-act="cofre.lock">🔒 ' + tt("Trancar o cofre agora", "Lock the vault now") + "</button>" : SolverCofre.existe() ? '<span class="tiny faint">🔒 ' + tt("cofre trancado", "vault locked") + "</span>" : "") + "</div>" +
+      (SolverCofre.aberto() ? '<button type="button" class="btn ghost sm bloq" data-act="conta.bloquear"><span>🔒 ' + tt("Bloquear agora", "Lock now") + '</span><span class="tiny">' + tt("(pede o PIN ou a digital para abrir de novo)", "(asks for the PIN or fingerprint to open again)") + "</span></button>" : SolverCofre.existe() ? '<span class="tiny faint">🔒 ' + tt("cofre trancado", "vault locked") + "</span>" : "") + "</div>" +
       (has && name ? '<div class="tiny keyshown" role="status" data-shown="' + esc(name) + '" style="margin-top:4px;word-break:break-all;user-select:text">' + (sh ? tt("Chave guardada (some em 30 s): ", "Saved key (hides in 30 s): ") + "<b>" + esc(sh) + "</b>" : "") + "</div>" : "") + "</div>";
   }
 };
@@ -4940,13 +5187,9 @@ ACT["keys.show"] = async (d, el) => {
   } catch (e) { toast(e.message, 6000); }
   finally { el.disabled = false; }
 };
-/* com um PIN só, as Senhas da casa abertas reabririam as chaves sem perguntar: fecha as duas (a casa primeiro) */
-ACT["cofre.lock"] = async () => {
-  const casa = !!PinUnico.quem() && Trava.aberto();
-  if (casa) Trava.trancar();
-  await SolverCofre.trancar();
-  toast("🔒 " + (casa ? tt("Senhas da casa e chaves de IA trancadas. Para usar de novo, o app pede o seu PIN.", "Home passwords and AI keys locked. To use them again, the app asks for your PIN.") : tt("Cofre trancado. Para usar as chaves de novo, o app pede o PIN.", "Vault locked. To use the keys again, the app asks for the PIN."))); render();
-};
+/* com um PIN só, as Senhas da casa abertas reabririam as chaves sem perguntar: fecha as duas. 2.26.0: é o "🔒 Bloquear agora"
+   (conta.bloquear, que nunca some com os interruptores); este nome fica para quem já chamava */
+ACT["cofre.lock"] = () => ACT["conta.bloquear"]();
 /* o cofre tirou as chaves antigas do localStorage: tira também da memória, senão savePrefs() as gravaria de volta */
 document.addEventListener("cofre:migrado", (e) => (((e.detail || {}).itens) || []).forEach((it) => {
   if (it.chave !== LS.prefs || !S.prefs) return;
@@ -5127,7 +5370,7 @@ const SaudeMT = {
     const h4 = '<div class="sep"></div><h4>🩺 ' + tt("Saúde → MoneyTRIO", "Health → MoneyTRIO") + "</h4>";
     if (!this.pode()) return h4 + '<p class="tiny faint">' + tt("Para responsáveis com conta na nuvem e as Senhas da casa prontas. Neste modo, nada da Saúde vai para o MoneyTRIO.", "For guardians with a cloud account and the vault set up. In this mode, nothing from Health goes to MoneyTRIO.") + "</p>";
     return h4 + '<label class="check"><input type="checkbox" data-chg="mt.saude"' + (this.ligado() ? " checked" : "") + "> " + tt("Mandar o plano de saúde, a validade e o médico (ou veterinário) de cada um", "Send each one's health plan, expiry date and doctor (or vet)") + "</label>" +
-      '<p class="tiny faint">' + tt("Só se você também usa o MoneyTRIO. Vai cifrado com a chave da família: só os responsáveis abrem. Nunca vão carteirinha, SUS, tipo sanguíneo, alergias, remédios, condições ou telefones. Manda ao ligar e quando muda o plano, a validade ou o médico de alguém.", "Only if you also use MoneyTRIO. It goes encrypted with the family key: only guardians can open it. Card number, SUS, blood type, allergies, medicines, conditions and phones never go. It sends when turned on and whenever someone's plan, expiry date or doctor changes.") + "</p>" +
+      '<p class="tiny faint">' + tt("Só se você também usa o MoneyTRIO. Vai embaralhado aqui no aparelho, com a chave da família: só os responsáveis abrem, nem a SolverONE lê. Nunca vão carteirinha, SUS, tipo sanguíneo, alergias, remédios, condições ou telefones. Manda ao ligar e quando muda o plano, a validade ou o médico de alguém.", "Only if you also use MoneyTRIO. It goes scrambled here on the device, with the family key: only guardians can open it, not even SolverONE can read it. Card number, SUS, blood type, allergies, medicines, conditions and phones never go. It sends when turned on and whenever someone's plan, expiry date or doctor changes.") + "</p>" +
       (this.ligado() && this.pendente() ? '<p class="small">⏳ ' + tt("Tem uma atualização esperando: vai quando as Senhas da casa forem abertas.", "An update is waiting: it goes when the vault is opened.") + "</p>" : "");
   }
 };
@@ -6529,7 +6772,7 @@ const Conta = {
       if (esperar) await Promise.race([fora, new Promise((r) => setTimeout(r, 3000))]);
     }
     this.gravar(null, s); ssSet("omnilife.contaAcesso", ""); this._registrado = null;
-    if (!quieto) toast(tt("Conta SolverONE desconectada neste aparelho", "SolverONE account disconnected on this device"));
+    if (!quieto) toast(tt("Você saiu da conta SolverONE neste aparelho", "You signed out of your SolverONE account on this device"));
     this.mudou();
   },
   /* LGPD, como no Lab: encerra a conta na hora e abre o pedido de exclusão dos dados pessoais */
@@ -6569,7 +6812,8 @@ const Conta = {
   card() {
     const s = this.ler();
     if (!s) return '<div class="grouph" style="margin-top:12px">✨ ' + tt("Conta SolverONE", "SolverONE account") + '</div><p class="small muted">' + tt("A mesma conta de todos os apps da SolverONE. Com ela, cada pessoa da família usa o app no próprio celular, com tudo igual em todos (⚙ → Nuvem).", "The same account for every SolverONE app. With it, each family member uses the app on their own phone, with everything the same on all of them (⚙ → Cloud).") + '</p><button class="btn sm" data-act="conta.entrar">✨ ' + tt("Entrar ou criar conta", "Sign in or create account") + "</button>";
-    return '<div class="grouph" style="margin-top:12px">✨ ' + tt("Conta SolverONE", "SolverONE account") + '</div><p class="small">' + tt("Conectado como ", "Signed in as ") + "<b>" + esc(s.email) + "</b>" + (s.desde ? ' <span class="tiny faint">· ' + tt("desde ", "since ") + esc(fmtDate(isoDate(new Date(s.desde)))) + "</span>" : "") + '</p><p class="tiny faint">' + (S.mode === "cloud" ? tt("Vale em todos os apps da SolverONE neste aparelho. A família está na nuvem com esta conta.", "Works in every SolverONE app on this device. The family is in the cloud with this account.") : tt("Vale em todos os apps da SolverONE neste aparelho. Para pôr a família na nuvem: ⚙ → Nuvem.", "Works in every SolverONE app on this device. To put the family in the cloud: ⚙ → Cloud.")) + '</p><div class="row"><button class="btn ghost sm" data-act="conta.sair">' + tt("Sair da conta neste aparelho", "Sign out of the account on this device") + "</button>" + (S.mode === "cloud" ? '<button class="btn ghost sm danger" data-act="cofre.desconectar">📴 ' + tt("Desconectar este aparelho", "Disconnect this device") + "</button>" : "") + '</div><p class="tiny faint">' + tt("Sair: fecha as Senhas da casa. Desconectar: também apaga deste aparelho a cópia das Senhas da casa (elas continuam guardadas na internet).", "Sign out: locks the vault and drops the key from memory. Disconnect: also erases the vault's encrypted copy and its key from this device.") + "</p>";
+    /* 2.26.0: o sair e o "tirar este aparelho" ficam em "Segurança e aparelhos" (o "Sair" daqui é o do cartão) */
+    return '<div class="grouph" style="margin-top:12px">✨ ' + tt("Conta SolverONE", "SolverONE account") + '</div><p class="small">' + tt("Conectado como ", "Signed in as ") + "<b>" + esc(s.email) + "</b>" + (s.desde ? ' <span class="tiny faint">· ' + tt("desde ", "since ") + esc(fmtDate(isoDate(new Date(s.desde)))) + "</span>" : "") + '</p><div class="row"><button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="conta">🔐 ' + tt("Segurança e aparelhos", "Security and devices") + "</button></div>";
   },
   /* a conta mudou (entrou, saiu, sessão vencida): sem conta, a família da nuvem fecha neste aparelho (2.26.0: sai de verdade) */
   mudou() { try { if (Saida.saindo) return; if (S.mode === "cloud" && !this.on()) Saida.sair({ semPerguntar: true, motivo: "sessao" }); else if (S.booted) render(); else if (S.gate === "welcome") setGate("welcome"); } catch (e) {} }
@@ -6753,6 +6997,7 @@ function whoMenu(anchor) {
   if (S.booted && S.mode === "local" && !Conta.on()) items.push({ ic: "✨", t: tt("Entrar na conta SolverONE", "Sign in to SolverONE account"), fn: () => ACT["conta.entrar"]() });
   /* 2.26.0: pedidos de acesso de aparelhos (também os dispensados na faixa), só quando há */
   if (S.booted && Aparelhos.todos.length) items.push({ ic: "🔔", t: tt("Pedidos de acesso", "Access requests") + " (" + Aparelhos.todos.length + ")", fn: () => TelaConta.pedidos() });
+  if (SetViews.temConta()) items.push({ ic: "🔐", t: tt("Segurança e aparelhos", "Security and devices"), fn: () => go("settings", "conta") });   /* logo antes do Sair */
   items.push({ ic: guest ? ico("leave") : "🚪", t: guest ? tt("Entrar", "Sign in") : tt("Sair", "Sign out"), fn: () => signOut(), cls: guest ? " pri" : " danger" });
   const m = document.createElement("div"); m.className = "menu whomenu"; m.setAttribute("role", "menu"); m.setAttribute("aria-label", tt("Perfil", "Profile"));
   const themeRow = () => '<button type="button" role="menuitemcheckbox" aria-checked="' + (S.theme === "dark") + '" data-theme-tg><span class="mi">' + ico(S.theme === "dark" ? "moon" : "sun") + "</span><span>" + tt("Tema escuro", "Dark theme") + '</span><span class="sw"' + (S.theme === "dark" ? ' data-on' : "") + "></span></button>";
@@ -10706,7 +10951,7 @@ const HouseViews = {
     const meta = Vault.meta(), guia = '<button class="linkbtn tiny" data-act="cofre.guia">❔ ' + tt("Como funciona", "How it works") + "</button>";
     if (!meta) return '<div class="card accent"><h3>🔐 ' + tt("Senhas da casa", "Home passwords") + "</h3><p>" + tt("Um lugar trancado para guardar senhas e papéis importantes da casa: a senha do Wi-Fi, o código do portão, a senha do aplicativo do banco, o número do seguro do carro. Fica só neste aparelho, embaralhado, e abre com uma senha só dele.", "A locked place for the home's passwords and important papers: the Wi-Fi password, the gate code, the bank app password, the car insurance number. It stays only on this device, scrambled, and opens with its own password.") + '</p><div class="note warn">⚠️ ' + tt("Escreva a senha principal num papel e guarde em casa: se esquecer, ninguém consegue abrir.", "Write the vault password on paper and keep it at home: if you forget it, nobody can open it.") + '</div><button class="btn big" style="margin-top:10px" data-act="vault.setup">✨ ' + tt("Começar a guardar senhas", "Create the vault") + '</button><div style="margin-top:8px">' + guia + "</div></div>";
     if (!S.vaultKey) return '<div class="card center"><div style="font-size:2.4rem">🔒</div><h3>' + tt("Senhas da casa", "Home passwords") + '</h3><p class="small muted">' + tt("Está fechado. Digite a senha principal.", "It's closed. Type the main password.") + '</p><div class="stack" style="max-width:340px;margin:0 auto"><input type="password" id="vpw" aria-label="' + tt("Senha principal", "Vault password") + '" placeholder="' + tt("Senha principal", "Vault password") + '"><button class="btn big" data-act="vault.unlock">🔓 ' + tt("Abrir", "Open") + '</button><button class="btn ghost big" id="vbio" data-act="vault.bio">👆 ' + tt("Abrir com a digital", "Open with fingerprint") + "</button>" + (DB.col("vault").get("_em") && !isGuardian() ? '<button class="btn ghost" data-act="gov.emcode">🆘 ' + tt("Abrir com o código de emergência", "Open with the emergency code") + "</button>" : "") + '</div><div style="margin-top:8px">' + guia + "</div></div>";
-    return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + '</button><button class="btn sm ghost" data-act="vault.lock">🔒 ' + tt("Fechar", "Close") + '</button></div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + '</p></div><div class="card tight small muted"><button class="linkbtn" data-act="vault.rememberbio">👆 ' + tt("Abrir também com a digital", "Also open this vault with fingerprint") + "</button> · " + tt("Tudo fica embaralhado neste aparelho.", "Everything stays scrambled on this device.") + "</div>";
+    return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + '</p></div><div class="card tight small muted"><button class="linkbtn" data-act="vault.rememberbio">👆 ' + tt("Abrir também com a digital", "Also open this vault with fingerprint") + "</button> · " + tt("Tudo fica embaralhado neste aparelho.", "Everything stays scrambled on this device.") + "</div>";
   },
   async vaultAfter(root) {
     const semCofre = Cofre.usa() ? Cofre.status && Cofre.status.fase === "novo" : !Vault.meta();
@@ -11200,7 +11445,8 @@ const FamilyViews = {
     return h;
   }
 };
-const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho desconectado", "📴 Device disconnected"), "aparelho.aprovado": tt("📱 Aparelho aprovado", "📱 Device approved"), "aparelho.tirado": tt("📴 Aparelho tirado da conta", "📴 Device removed from the account"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
+const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho tirado da família", "📴 Device removed from the family"), "aparelho.aprovado": tt("📱 Aparelho aprovado", "📱 Device approved"), "aparelho.recusado": tt("✕ Pedido de acesso recusado", "✕ Access request declined"), "aparelho.tirado": tt("📴 Aparelho tirado da conta", "📴 Device removed from the account"),
+  "pin.criado": tt("🔢 PIN da conta criado", "🔢 Account PIN created"), "pin.trocado": tt("🔢 PIN da conta trocado", "🔢 Account PIN changed"), "kit.ligado": tt("🧰 Kit de emergência ligado", "🧰 Emergency kit turned on"), "kit.desligado": tt("🧰 Kit de emergência desligado", "🧰 Emergency kit turned off"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
 ACT["person.new"] = () => editPerson(null);
 /* pet tem a ficha própria em 🐾 Pets (com a aba desligada, volta ao cadastro de pessoa) */
 ACT["person.edit"] = (d) => { const p = People.get(d.id); if (!p) return; if (p.role === "pet" && Rec.ok("pets") && canTab("pets")) return go("pets", "ficha", p.id); editPerson(JSON.parse(JSON.stringify(p))); };
@@ -11426,7 +11672,7 @@ ACT["mem.help"] = async (d) => {
   const body = '<p class="small">' + tt("Escolha o que aconteceu com ", "Choose what happened to ") + "<b>" + esc(m.name || m.email) + '</b>:</p><div class="aone-opts">' +
     (m.email ? '<button type="button" data-h="mail">📧 <span>' + tt("Esqueceu a senha", "Forgot the password") + '<span class="s">' + tt("Enviar e-mail para ", "Send e-mail to ") + esc(m.email) + tt(" trocar a senha (conta com e-mail e senha)", " to reset the password (e-mail/password account)") + "</span></span></button>" : "") +
     '<button type="button" data-h="inv">💌 <span>' + tt("Perdeu a conta ou o celular / criou conta nova", "Lost the account or phone / made a new account") + '<span class="s">' + tt("Gera um convite de uso único, válido por 24 h, já ligado à mesma pessoa (com o mesmo papel). Depois de entrar, remova o login antigo.", "Makes a single-use invite, valid 24 h, tied to the same person and role. After they're in, remove the old login.") + "</span></span></button>" +
-    '<button type="button" data-h="dev">📱 <span>' + tt("Desconectar um aparelho perdido", "Disconnect a lost device") + '<span class="s">' + tt("Veja os aparelhos da pessoa e desconecte à distância.", "See the person's devices and disconnect remotely.") + "</span></span></button></div>";
+    '<button type="button" data-h="dev">📱 <span>' + tt("Tirar um aparelho perdido", "Remove a lost device") + '<span class="s">' + tt("Veja os aparelhos da pessoa e tire o perdido à distância.", "See the person's devices and remove the lost one remotely.") + "</span></span></button></div>";
   const md = modal({ title: "🔑 " + tt("Ajudar a entrar de novo", "Help them get back in"), body, foot: '<button class="btn ghost" data-x>' + tt("Fechar", "Close") + "</button>" });
   md.el.onclick = async (e) => {
     const b = e.target.closest("[data-h]"); if (!b) return;
@@ -11444,7 +11690,7 @@ ACT["pin.reset"] = async (d) => {
   toast("✓ " + tt("PIN limpo.", "PIN cleared."));
 };
 
-/* ---------- 7) aparelhos conectados ---------- */
+/* ---------- 7) aparelhos da família ---------- */
 const Devices = {
   KEY: "omnilife.deviceId",
   id() { let v = null; try { v = localStorage.getItem(this.KEY); } catch (e) {} if (!v) { v = "d" + Cloud.newCode(10).toLowerCase(); try { localStorage.setItem(this.KEY, v); } catch (e) {} } return v; },
@@ -11468,9 +11714,9 @@ const Devices = {
   async revoke(id) {
     const d = this.list.find((x) => x.id === id);
     const r = await Conta.rest("PATCH", "omni_aparelhos?grupo_id=eq." + S.family.id + "&id=eq." + encodeURIComponent(id), { desconectado: true }, "return=representation");
-    if (!r || !r.length) throw new Error(tt("Sem permissão para desconectar este aparelho.", "Not allowed to disconnect this device."));
+    if (!r || !r.length) throw new Error(tt("Sem permissão para tirar este aparelho.", "Not allowed to remove this device."));
     await Cloud.audit("aparelho.desconectado", (d ? d.name + " · " + Gov.name(d.uid) : id));
-    toast("✓ " + tt("Aparelho desconectado. Ele sai da conta na próxima vez que abrir o app.", "Device disconnected. It signs out next time it opens the app."), 5000);
+    toast("✓ " + tt("Aparelho tirado da família. Ele sai na próxima vez que abrir o app.", "Device removed from the family. It signs out next time it opens the app."), 5000);
     Cloud.poll();
   },
   view() {
@@ -11478,10 +11724,10 @@ const Devices = {
     const me = S.user.uid, admin = S.role === "admin"; const mine = this.myId();
     let L = this.list.slice().sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)));
     if (S.devFilter) L = L.filter((x) => x.uid === S.devFilter);
-    return '<div class="card" id="devcard"><div class="between"><h3>📱 ' + tt("Aparelhos conectados", "Connected devices") + "</h3>" + (S.devFilter ? '<button class="linkbtn small" data-act="dev.all">' + tt("ver todos", "see all") + "</button>" : "") + '</div><div class="list">' + (L.length ? L.map((x) => '<div class="li"><div class="ico">' + (x.kind === "computador" ? "💻" : "📱") + '</div><div class="main"><div class="t">' + esc(x.name) + (x.id === mine ? ' <span class="badge acc">' + tt("este", "this one") + "</span>" : "") + '</div><div class="s">' + esc(Gov.name(x.uid)) + " · " + tt("último uso ", "last used ") + fmtDateTime(x.lastAt) + "</div></div>" + (x.id !== mine && (admin || x.uid === me) ? '<button class="btn xs ghost" data-act="dev.rm" data-id="' + x.id + '">' + tt("Desconectar", "Disconnect") + "</button>" : "") + "</div>").join("") : '<div class="empty tiny">' + tt("Nenhum aparelho listado ainda.", "No devices listed yet.") + "</div>") + "</div></div>";
+    return '<div class="card" id="devcard"><div class="between"><h3>📱 ' + tt("Aparelhos da família", "Family devices") + "</h3>" + (S.devFilter ? '<button class="linkbtn small" data-act="dev.all">' + tt("ver todos", "see all") + "</button>" : "") + '</div><div class="list">' + (L.length ? L.map((x) => '<div class="li"><div class="ico">' + (x.kind === "computador" ? "💻" : "📱") + '</div><div class="main"><div class="t">' + esc(x.name) + (x.id === mine ? ' <span class="badge acc">' + tt("este", "this one") + "</span>" : "") + '</div><div class="s">' + esc(Gov.name(x.uid)) + " · " + tt("último uso ", "last used ") + fmtDateTime(x.lastAt) + "</div></div>" + (x.id !== mine && (admin || x.uid === me) ? '<button class="btn xs ghost" data-act="dev.rm" data-id="' + x.id + '">' + tt("Tirar", "Remove") + "</button>" : "") + "</div>").join("") : '<div class="empty tiny">' + tt("Nenhum aparelho listado ainda.", "No devices listed yet.") + "</div>") + "</div></div>";
   }
 };
-ACT["dev.rm"] = async (d) => { if (await confirmBox(tt("Desconectar este aparelho? Ele sai da família na próxima vez que abrir o app.", "Disconnect this device? It leaves the family next time it opens the app."), tt("Desconectar", "Disconnect"), true)) { try { await Devices.revoke(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
+ACT["dev.rm"] = async (d) => { if (await confirmBox(tt("Tirar este aparelho da família? Ele sai da família na próxima vez que abrir o app.", "Remove this device from the family? It leaves the family next time it opens the app."), tt("Tirar", "Remove"), true)) { try { await Devices.revoke(d.id); } catch (e) { toast(Cloud.errMsg(e)); } } };
 ACT["dev.all"] = () => { S.devFilter = null; render(); };
 
 /* ---------- 6) criança que cresce ---------- */
@@ -12679,7 +12925,7 @@ const HELP = () => ({
     tt("<b>Passar a criação</b> da família só vale quando a outra pessoa aceita.", "<b>Handing over ownership</b> only happens when the other person accepts."),
     tt("<b>Ajudar a entrar de novo</b> (🔑 ao lado do login): e-mail de troca de senha ou convite de uso único para a mesma pessoa. No modo deste aparelho, o responsável pode limpar o PIN.", "<b>Help someone back in</b> (🔑 next to the login): password e-mail or a single-use invite for the same person. In this-device mode, a guardian can clear the PIN."),
     tt("<b>Acesso de emergência às Senhas da casa:</b> escolha um contato de confiança e a espera. Entregue a ele o código (fora do app). Se ele pedir e ninguém negar até o fim da espera, elas abrem com o código.", "<b>Emergency vault access:</b> pick a trusted contact and a waiting period. Give them the code (outside the app). If they request it and nobody denies before the wait ends, the vault opens with the code."),
-    tt("<b>Aparelhos conectados:</b> veja onde cada um está logado e desconecte um celular perdido.", "<b>Connected devices:</b> see where each person is signed in and disconnect a lost phone."),
+    tt("<b>Aparelhos da família:</b> veja onde cada um entrou e tire um celular perdido.", "<b>Family devices:</b> see where each person is signed in and remove a lost phone."),
     tt("<b>Criança que cresce:</b> na idade escolhida (16, 18 ou 21), o app sugere passar para adulto.", "<b>Growing up:</b> at the chosen age (16, 18 or 21), the app suggests switching to adult."),
     tt("<b>Duas casas</b> (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga.", "<b>Two homes</b> (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted."),
     tt("<b>Quem cuida de cada área:</b> divida Compras, Saúde, Casa… entre os adultos; o nome aparece no topo da área.", "<b>Who looks after each area:</b> split Shopping, Health, Home… among the adults; their name shows at the top of the area.")
@@ -12951,7 +13197,7 @@ const Search = {
     add(G("fn"), "💻", tt("Instalar no computador (atalho na área de trabalho)", "Install on computer (desktop shortcut)"), tt("app, ícone, atalho", "app, icon, shortcut"), () => Offline.install(), "desktop area de trabalho atalho icone instalar pwa janela barra de tarefas dock menu iniciar tela inicial");
     if (Rec.ok("family")) add(G("fn"), "🏠", tt("Duas casas (pais separados)", "Two homes (separated parents)"), tt("guarda, despesas, combinados", "custody, expenses, agreements"), () => { go("family"); setTimeout(() => { const c = $("#duascard"); if (c) c.scrollIntoView({ block: "start" }); }, 200); }, "guarda compartilhada coparentalidade divorcio separados pensao despesas");
     if (Rec.ok("family")) add(G("fn"), "🆘", tt("Acesso de emergência às Senhas da casa", "Emergency vault access"), tt("Família", "Family"), () => go("family"), "emergencia cofre contato confianca");
-    if (Rec.ok("family")) add(G("fn"), "📱", tt("Aparelhos conectados", "Connected devices"), tt("Família", "Family"), () => go("family"), "desconectar celular perdido sessao logins");
+    if (Rec.ok("family")) add(G("fn"), "📱", tt("Aparelhos da família", "Family devices"), tt("Família", "Family"), () => go("family"), "tirar desconectar aparelhos conectados celular perdido sessao logins");
     if (!AOne.admOff()) add(G("fn"), "💡", "AssistONE", tt("assistente, passo a passo, tour, dicas", "assistant, walkthrough, tour, tips"), () => ACT["aone.open"](), "clipe ajudante onboarding wizard tutorial");
     if (Rec.ok("agenda", "escola")) add(G("fn"), "🎒", tt("Calendário escolar (grade de aulas por filho)", "School timetable (per child)"), tt("Agenda", "Calendar"), () => go("agenda", "escola"), "escola grade horario aulas materias filho filha colegio school timetable");
     if (Rec.ok("shop", "scan")) add(G("fn"), "📷", tt("O que tem em casa, por foto (geladeira, despensa, limpeza)", "What's at home, by photo (fridge, pantry, cleaning)"), tt("Compras", "Shopping"), () => go("shop", "scan"), "foto geladeira despensa limpeza higiene produtos reconhecer scan");
@@ -14273,12 +14519,24 @@ ACT["wx.key"] = async () => { const c = Weather.C(); const k = String(($("#wxkey
 SCREENS.settings = {
   render(sub) {
     sub = sub || "general";
-    const segs = [["general", "⚙️ " + tt("Geral", "General")], ["cloud", "☁️ " + tt("Nuvem", "Cloud")], ["ai", "🤖 IA"], ["a11y", "♿ " + tt("Acessibilidade", "Accessibility")], ["net", "📶 " + tt("Rede", "Network")], ["offline", (Offline.pc() ? "💻 " : "📲 ") + tt("Instalar app para acessar sem internet", "Install the app to use offline")], ["alerts", "🔔 " + tt("Avisos", "Alerts")], ["integr", "🔗 " + tt("Integrações", "Integrations")], ["clima", "🌤 " + tt("Clima", "Weather")], ["data", "💾 " + tt("Dados", "Data")], ["versions", "🆕 " + tt("Versões & Novidades", "Versions & What's new") + (Versions.isNew() ? ' <span class="nbadge">1</span>' : "")]].filter((x) => x[0] !== "clima" || Weather.visible());
+    if (sub === "conta" && !SetViews.temConta()) sub = "general";   /* "Segurança e aparelhos" só existe com a conta */
+    const segs = [["general", "⚙️ " + tt("Geral", "General")]].concat(SetViews.temConta() ? [["conta", "🔐 " + tt("Segurança e aparelhos", "Security and devices")]] : []).concat([["cloud", "☁️ " + tt("Nuvem", "Cloud")], ["ai", "🤖 IA"], ["a11y", "♿ " + tt("Acessibilidade", "Accessibility")], ["net", "📶 " + tt("Rede", "Network")], ["offline", (Offline.pc() ? "💻 " : "📲 ") + tt("Instalar app para acessar sem internet", "Install the app to use offline")], ["alerts", "🔔 " + tt("Avisos", "Alerts")], ["integr", "🔗 " + tt("Integrações", "Integrations")], ["clima", "🌤 " + tt("Clima", "Weather")], ["data", "💾 " + tt("Dados", "Data")], ["versions", "🆕 " + tt("Versões & Novidades", "Versions & What's new") + (Versions.isNew() ? ' <span class="nbadge">1</span>' : "")]]).filter((x) => x[0] !== "clima" || Weather.visible());
     if (S.mode === "advertiser") return '<div class="pagehead"><h1>⚙️ ' + tt("Configurações", "Settings") + "</h1></div>" + SetViews.general();
     return '<div class="pagehead"><h1>⚙️ ' + tt("Configurações", "Settings") + "</h1></div>" + '<div class="seg segscroll">' + segs.map((s) => '<button class="' + (sub === s[0] ? "active" : "") + '" data-act="go" data-tab="settings" data-sub="' + s[0] + '">' + s[1] + "</button>").join("") + "</div>" + Compat.view(sub) + (SetViews[sub] || SetViews.general)();
   }
 };
 const SetViews = {
+  /* "🔐 Segurança e aparelhos" (⚙, depois de Geral, e no menu do 👤): na nuvem e no "só neste aparelho" com a conta conectada */
+  temConta() { return !!S.booted && (S.mode === "cloud" || S.mode === "local") && Conta.on(); },
+  conta() { return TelaConta.pagina(); },
+  /* a digital ou o PIN do perfil (só no "só neste aparelho") e a digital para abrir o app: em ⚙ → Geral → 🔒 Segurança (sem a
+     conta) ou em "Segurança e aparelhos" → PIN e digital */
+  travaPerfil() {
+    const how = S.prefs.loginHow || "auto", hasBioP = S.meId && Bio.profId(S.meId);
+    return S.mode === "local" ? '<label class="fld" style="max-width:420px;margin-bottom:10px"><span>' + tt("Para entrar no meu perfil neste aparelho", "To open my profile on this device") + '</span><select data-chg="set.loginhow"><option value="auto"' + (how === "auto" ? " selected" : "") + ">👆 " + tt("Digital/rosto (se falhar, PIN)", "Fingerprint/face (PIN if it fails)") + '</option><option value="pin"' + (how === "pin" ? " selected" : "") + ">🔢 " + tt("Sempre o PIN", "Always the PIN") + "</option></select></label>" +
+      '<div class="row" style="margin-bottom:10px">' + (hasBioP ? '<span class="badge ok">👆 ' + tt("Digital ativada para o seu perfil", "Fingerprint on for your profile") + '</span><button class="btn ghost xs" data-act="bio.prof.off">' + tt("Desativar", "Turn off") + "</button>" : '<button class="btn ghost sm" data-act="bio.prof.on">👆 ' + tt("Ativar digital/rosto para o meu perfil", "Turn on fingerprint/face for my profile") + "</button>") + "</div>" : "";
+  },
+  travaApp() { return '<label class="check"><input type="checkbox" data-chg="set.biolock"' + (S.prefs.bioLock && Bio.cred() ? " checked" : "") + "> 👆 " + tt("Pedir digital/rosto para abrir o app neste aparelho", "Require fingerprint/face to open the app on this device") + "</label>"; },
   versions() { return Versions.view(); },
   offline() { return Offline.view(); },
   general() {
@@ -14293,10 +14551,9 @@ const SetViews = {
       '<div class="row" style="margin-top:10px"><button class="btn ghost" data-act="signout">🚪 ' + tt("Sair", "Sign out") + "</button></div></div>";
     if (S.mode !== "visitor") h += Plan.card();
     h += BarEd.html();
-    const how = S.prefs.loginHow || "auto", hasBioP = S.meId && Bio.profId(S.meId);
-    const loginCfg = S.mode === "local" ? '<label class="fld" style="max-width:420px;margin-bottom:10px"><span>' + tt("Para entrar no meu perfil neste aparelho", "To open my profile on this device") + '</span><select data-chg="set.loginhow"><option value="auto"' + (how === "auto" ? " selected" : "") + ">👆 " + tt("Digital/rosto (se falhar, PIN)", "Fingerprint/face (PIN if it fails)") + '</option><option value="pin"' + (how === "pin" ? " selected" : "") + ">🔢 " + tt("Sempre o PIN", "Always the PIN") + "</option></select></label>" +
-      '<div class="row" style="margin-bottom:10px">' + (hasBioP ? '<span class="badge ok">👆 ' + tt("Digital ativada para o seu perfil", "Fingerprint on for your profile") + '</span><button class="btn ghost xs" data-act="bio.prof.off">' + tt("Desativar", "Turn off") + "</button>" : '<button class="btn ghost sm" data-act="bio.prof.on">👆 ' + tt("Ativar digital/rosto para o meu perfil", "Turn on fingerprint/face for my profile") + "</button>") + "</div>" : "";
-    h += '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + "</h3>" + loginCfg + '<label class="check"><input type="checkbox" data-chg="set.biolock"' + (S.prefs.bioLock && Bio.cred() ? " checked" : "") + "> 👆 " + tt("Pedir digital/rosto para abrir o app neste aparelho", "Require fingerprint/face to open the app on this device") + '</label><p class="tiny faint" style="margin-top:6px">' + tt("As Senhas da casa têm PIN ou senha própria e também abrem com a digital (Casa → Senhas da casa).", "The vault has its own password and can also be unlocked by biometrics (House → Vault).") + "</p></div>";
+    /* K30: com a conta, a digital e o PIN ficam em "Segurança e aparelhos"; sem ela (só neste aparelho), o cartão de sempre */
+    h += SetViews.temConta() ? '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + '</h3><p class="small">' + tt("O PIN, a digital, os seus aparelhos e o sair ficam num lugar só.", "The PIN, the fingerprint, your devices and signing out are all in one place.") + '</p><button class="btn sm" data-act="go" data-tab="settings" data-sub="conta">🔐 ' + tt("Segurança e aparelhos", "Security and devices") + "</button></div>"
+      : '<div class="card"><h3>🔒 ' + tt("Segurança", "Security") + "</h3>" + SetViews.travaPerfil() + SetViews.travaApp() + '<p class="tiny faint" style="margin-top:6px">' + tt("As Senhas da casa têm PIN ou senha própria e também abrem com a digital (Casa → Senhas da casa).", "The vault has its own password and can also be unlocked by biometrics (House → Vault).") + "</p></div>";
     h += '<div class="card"><h3>🥫 ' + tt("Compras", "Shopping") + '</h3><label class="check"><input type="checkbox" data-chg="set.autoadd"' + (DB.setting().autoAdd !== false ? " checked" : "") + "> " + tt("Quando marcar que algo acabou, pôr na lista automaticamente", "When something runs out, add it to the list automatically") + "</label></div>";
     return h;
   },
@@ -14352,6 +14609,7 @@ const SetViews = {
 SetViews.clima = () => Weather.settingsView();
 SCREENS.settings.after = (root, sub) => {
   if (sub === "clima") Weather.after(root);
+  if (sub === "conta" && SetViews.temConta()) TelaConta.depoisDaPagina(root);
   if (sub === "offline" && S.mode !== "advertiser" && !Offline._snVisto && !lsGet(Offline.KSN, null)) setTimeout(() => { if (S.route && S.route.tab === "settings" && S.route.sub === "offline") Offline.avisoSemNet(); }, 300);
 };
 ACT["set.lang"] = (d) => setLang(d.v);

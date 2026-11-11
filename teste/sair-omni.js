@@ -5,7 +5,8 @@
      D1b o "Sair" espera a resposta do logout no servidor antes de recarregar (K8: o mock responde com atraso)
      K28 durante o "Saindo…" o cabeçalho e a memória já estão vazios (nem o nome da pessoa nem o da família)
      D2  depois de sair: recarregar e o Voltar (uma e duas vezes) continuam na tela de entrar, sem dado
-     D3  ⚙ → Geral → "Sair", o "Sair da conta" do cartão da conta e o "Sair da conta" da trava da digital (a digital continua ligada)
+     D3  ⚙ → Geral → "Sair", ⚙ → Segurança e aparelhos → "Sair" (o cartão da conta não tem mais sair) e o "Sair da conta" da trava
+         da digital (a digital continua ligada)
      K27 sem conta (sessão apagada em outro lugar): o Cloud.poll sai de verdade; e o "Sair" numa aba chega à outra (D9)
      K29 a página que volta da memória do navegador (pageshow persisted): na nuvem sem conta recarrega; no "só neste aparelho", não
      D4  saídas automáticas com uma janela aberta — aparelho tirado da conta, tirado da família, sessão recusada: a janela fecha, a
@@ -21,7 +22,8 @@
          aviso do navegador ("sair do site?") por cima — nada preso em "Saindo…" (revisão 2.26.0)
      D10 antes de entrar na família (tela "Quase lá!"): o 👤 "Entrar" volta à tela de entrar como antes e a espera para (aprovado depois,
          nada abre por trás); o "Sair" das 4 telas antes da família sai da conta de verdade (revisão 2.26.0)
-     D11 "Tirar este aparelho da conta": confirma, sai, apaga daqui o cadeado e as chaves de IA, tira das duas listas, fica no histórico
+     D11 "Tirar este aparelho da conta" (⚙ → Segurança e aparelhos → Avançado): confirma, sai, apaga daqui o cadeado e as chaves de
+         IA, tira das duas listas, fica no histórico
      D12 conta encerrada: tela de entrar com o aviso inteiro; o cadeado e as chaves de IA saem; os dados da família ficam
      sem erro de script, sem diálogo nativo, nada fora do banco de mentira, nenhum PIN no console
    Pessoas, senhas, PINs e chaves de mentira. Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/sair-omni.js */
@@ -133,17 +135,22 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   await A.ctx.close();
 
   /* ================= D3, K27 (poll), K29 (nuvem) ================= */
-  console.log('D3. Os outros "Sair": ⚙ → Geral, o cartão da conta e a trava da digital');
+  console.log('D3. Os outros "Sair": ⚙ → Geral, ⚙ → Segurança e aparelhos e a trava da digital');
   const B = await preparar(browser, lixos, 'Ana-computador', ANA, { vp: 'computador' }), b = B.p;
   await b.evaluate(() => go('settings')); await b.waitForSelector('#screen [data-act="signout"]', { timeout: 10000 });
   await b.click('#screen [data-act="signout"]');
   const s3a = await naEntrada(b), e3a = await estado(b, ANA);
   conferir(s3a && !e3a.conta && !(await continuarComo(b)), 'D3. ⚙ → Geral → "🚪 Sair" sai da conta (tela de entrar sem "Continuar como")');
   await entrarOmni(b, ANA); await quieto(b);
-  await b.evaluate(() => go('settings')); await b.waitForSelector('#screen [data-act="conta.sair"]', { timeout: 10000 });
-  await b.click('#screen [data-act="conta.sair"]');
+  /* 2.26.0 etapa 8: o "Sair da conta neste aparelho" saiu do cartão da conta (⚙ → Geral); o "Sair" fica no cartão de baixo e em
+     ⚙ → Segurança e aparelhos */
+  await b.evaluate(() => go('settings')); await b.waitForSelector('#screen [data-act="signout"]', { timeout: 10000 });
+  const cartao = await b.evaluate(() => ({ sair: !!document.querySelector('#screen [data-act="conta.sair"], #screen [data-act="cofre.desconectar"]'), texto: document.querySelector('#screen').innerText }));
+  conferir(!cartao.sair && !/Sair da conta neste aparelho|Desconectar/.test(cartao.texto), 'D3. ⚙ → Geral: o cartão da conta não tem mais "Sair da conta neste aparelho" nem "📴 Desconectar"');
+  await b.evaluate(() => go('settings', 'conta')); await b.waitForSelector('#segSair [data-act="conta.sair"]', { timeout: 10000 });
+  await b.click('#segSair [data-act="conta.sair"]');
   const s3b = await naEntrada(b), e3b = await estado(b, ANA);
-  conferir(s3b && !e3b.conta && !(await continuarComo(b)), 'D3. o "Sair da conta neste aparelho" do cartão da conta (⚙ → Geral) também sai de verdade');
+  conferir(s3b && !e3b.conta && !(await continuarComo(b)), 'D3. ⚙ → Segurança e aparelhos → "Sair" também sai de verdade');
   /* K27: a sessão some sem o evento desta aba (apagada por outro app, por exemplo): o Cloud.poll sai de verdade */
   await entrarOmni(b, ANA); await quieto(b);
   await b.evaluate(() => { localStorage.removeItem('solverone.sessao.v1'); Cloud._polling = false; Cloud.poll(); });
@@ -395,13 +402,13 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   await P.ctx.close();
 
   /* ================= D11: "Tirar este aparelho da conta" ================= */
-  console.log('D11. "Tirar este aparelho da conta" (Casa → Senhas da casa → Opções)');
+  console.log('D11. "Tirar este aparelho da conta" (⚙ → Segurança e aparelhos → Avançado)');
   const R = await preparar(browser, lixos, 'Ana-tirar', ANA, { cadeado: true }), t = R.p;
   const nuvR = await nuvemDaFamilia(t), devR = await t.evaluate(() => Devices.myId()), idR = await t.evaluate(() => localStorage.getItem('omnilife.deviceId'));
   const apR = await t.evaluate(async () => (await Cofre.local()).ap), h11 = db.omni_historico.length;
-  await t.evaluate(() => go('house', 'vault'));
-  await t.waitForSelector('#screen details:has([data-act="cofre.desconectar"]) summary', { timeout: 10000 });
-  await t.click('#screen details:has([data-act="cofre.desconectar"]) summary'); await t.click('#screen [data-act="cofre.desconectar"]');
+  await t.evaluate(() => go('settings', 'conta'));
+  await t.waitForSelector('#segAvancado #segTirarEste [data-act="conta.ap.este"]', { state: 'attached', timeout: 15000 });
+  await t.click('#segAvancado summary'); await t.click('#segAvancado [data-act="conta.ap.este"]');
   const perg11 = await t.waitForSelector('.modal [data-yes]', { timeout: 8000 }).then(() => t.evaluate(() => document.querySelector('.modal').innerText), () => '');
   await t.click('.modal [data-yes]');
   const s11 = await naEntrada(t), e11 = await estado(t, ANA), rowR = db.omni_aparelhos.find((r) => r.id === devR);

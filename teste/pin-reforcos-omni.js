@@ -5,7 +5,7 @@
      2. trocar o PIN pede o PIN de agora ou a digital (PIN errado não troca nada; a digital confirma) — a troca só deste aparelho,
         que desde a 2.26.0 só existe sem o SQL do PIN da conta (K12); a do PIN da conta pede o "PIN atual", que o banco confere
         (pin-conta-omni.js, B3)
-     3. "🔒 Trancar o cofre agora" com as Senhas da casa abertas fecha as duas e diz isso; o próximo uso pede o PIN
+     3. "🔒 Bloquear agora" (era "Trancar o cofre agora") com as Senhas da casa abertas fecha as duas e diz isso; o próximo uso pede o PIN
      4. ⚙ → IA: quem tem o PIN único pronto não vê "Abrir a tela do cofre" (vê a digital das Senhas da casa), e a
         tela comum não abre nem chamando a ação; sem as Senhas da casa, o botão continua lá
      5. "Esqueci o PIN" na janela "Digite o seu PIN" aberta por cima de outra janela: o passo seguinte ("Abrir sem o PIN",
@@ -120,8 +120,8 @@ async function guardarChave(p, pin) {
   await p.evaluate(async (pin) => { await Cofre.destrancarPin(pin); await SolverCofre.abrir(pin); }, PIN_NOVO);
   conferir(await p.evaluate(() => Cofre.aberto() && SolverCofre.aberto()), 'preparo: Senhas da casa e chaves abertas');
   await p.evaluate(() => ACT['cofre.lock']());
-  conferir(await p.evaluate(() => !Cofre.aberto() && !SolverCofre.aberto()), '3. "Trancar o cofre agora" fecha as chaves e também as Senhas da casa');
-  conferir(/Senhas da casa e chaves de IA trancadas/.test(await p.evaluate(() => document.querySelector('#toasts').textContent)), '3. o aviso diz que as duas ficaram trancadas');
+  conferir(await p.evaluate(() => !Cofre.aberto() && !SolverCofre.aberto()), '3. "Bloquear agora" fecha as chaves e também as Senhas da casa');
+  conferir(/Bloqueado: as Senhas da casa e as chaves de IA/.test(await p.evaluate(() => document.querySelector('#toasts').textContent)), '3. o aviso diz que as duas ficaram bloqueadas');
   const lendo3 = p.evaluate(() => Keys.need('groq', { pt: 'teste', en: 'test' }).then((v) => v, () => ''));
   conferir(await janelaUmPin(p), '3. o próximo uso da chave pede o PIN (não reabre sozinho)');
   await p.click('.modal [data-x]:not(.xbtn)', { timeout: 1500 }).catch(() => {}); await lendo3;
