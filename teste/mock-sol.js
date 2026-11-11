@@ -17,7 +17,8 @@
    sol_acesso_pedidos, sol_passkeys, sol_pin_conta, sol_aparelho_pin) dão 404 por REST: só pelas funções, como no banco.
    Controles para o teste (objeto M): relogio (hora do banco; somar minutos faz o pedido vencer), ataque ("troca",
    "troca-sem-compromisso", "troca-depois"), semPin / semAp (as funções do PIN / dos aparelhos "não existem" no banco),
-   semDelete (o GRANT de hoje: apagar omni_chave_privada dá 403 42501), log (toda chamada recebida) e acessos.
+   semDelete (o GRANT de hoje: apagar omni_chave_privada dá 403 42501), banidas ({uid: true}: a renovação da sessão
+   responde "user_banned", como o Supabase para conta bloqueada), log (toda chamada recebida) e acessos.
    PESSOAS, SENHAS, CÓDIGOS E CHAVES: TUDO FICTÍCIO, feito só para teste (nada de dado de gente de verdade).
    ===================================================================== */
 'use strict';
@@ -47,7 +48,7 @@ const PESSOAS = {
    pode adiantar (M.relogio += 11 * 60e3) para um pedido vencer. */
 const M = {
   _desvio: 0, get relogio() { return Date.now() + this._desvio; }, set relogio(v) { this._desvio = v - Date.now(); },
-  ataque: null, ATACANTE: null, semPin: false, semAp: false, semDelete: false, log: [], acessos: [] };
+  ataque: null, ATACANTE: null, semPin: false, semAp: false, semDelete: false, banidas: {}, log: [], acessos: [] };
 let _ultimo = 0;
 /* hora do banco em texto; sempre crescente (o cursor do omni_docs depende da ordem de atualizado_em) */
 const agora = () => { _ultimo = Math.max(M.relogio, _ultimo + 1); return new Date(_ultimo).toISOString(); };
@@ -359,6 +360,7 @@ async function supabase(route) {
       return uid ? json(200, sessao(uid)) : json(400, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' });
     }
     const s = SESSOES[(corpo && corpo.refresh_token) || ''];
+    if (s && !s.saiu && M.banidas[s.uid]) return json(400, { code: 400, error_code: 'user_banned', msg: 'User is banned' });
     return s && !s.saiu ? json(200, sessao(s.uid, corpo.refresh_token)) : json(400, { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' });
   }
   if (p === '/auth/v1/logout') {

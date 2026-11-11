@@ -1,6 +1,6 @@
 /* Roda os testes automáticos do OmniLifeONE no computador.
    1) sobe um servidor de arquivos simples (só leitura) na porta 8098 (ou na PORTA=… pedida)
-   2) roda cada arquivo de teste desta pasta: mestres.js, janelas-omni.js, cofre-omni.js, veiculos-omni.js, vida-carro-omni.js, pets-omni.js, saude-moneytrio-omni.js, pin-unico-omni.js, pin-reforcos-omni.js, sol-proto-omni.js, aparelhos-omni.js, pin-conta-omni.js
+   2) roda cada arquivo de teste desta pasta: mestres.js, janelas-omni.js, cofre-omni.js, veiculos-omni.js, vida-carro-omni.js, pets-omni.js, saude-moneytrio-omni.js, pin-unico-omni.js, pin-reforcos-omni.js, sol-proto-omni.js, aparelhos-omni.js, pin-conta-omni.js, pin-conta-bordas-omni.js
    Precisa do Playwright uma vez:  npm install -D playwright && npx playwright install chromium
    (num computador onde o Playwright já está instalado em outro lugar: NODE_PATH=<pasta dos node_modules>)  */
 const { spawn } = require('child_process');
@@ -23,7 +23,7 @@ const servidor = http.createServer((req, res) => {
   });
 }).listen(PORTA, async () => {
   /* um item pode ser [arquivo, argumentos...]: o sql-grants.js (sem navegador) recebe a pasta dos scripts SQL */
-  const testes = [['sql-grants.js', 'supabase'], 'mestres.js', 'janelas-omni.js', 'cofre-omni.js', 'veiculos-omni.js', 'vida-carro-omni.js', 'pets-omni.js', 'saude-moneytrio-omni.js', 'pin-unico-omni.js', 'pin-reforcos-omni.js', 'sol-proto-omni.js', 'aparelhos-omni.js', 'pin-conta-omni.js'];
+  const testes = [['sql-grants.js', 'supabase'], 'mestres.js', 'janelas-omni.js', 'cofre-omni.js', 'veiculos-omni.js', 'vida-carro-omni.js', 'pets-omni.js', 'saude-moneytrio-omni.js', 'pin-unico-omni.js', 'pin-reforcos-omni.js', 'sol-proto-omni.js', 'aparelhos-omni.js', 'pin-conta-omni.js', 'pin-conta-bordas-omni.js'];
   let falhou = false;
   for (const t of testes) {
     const [arq, ...args] = Array.isArray(t) ? t : [t];

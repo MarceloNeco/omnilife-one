@@ -25,12 +25,13 @@ function servir(raiz) {
 
 /* um aparelho: op = { nome, vp: "celular" | "computador" | {width, height}, base, digital, anuncio }
    digital: autenticador virtual com digital e PRF (como um celular com leitor). Sem "anuncio", o anúncio de entrada não abre.
-   Devolve { ctx, p, lixo: { erros (pageerror), nativos (alert/confirm/prompt), fora (endereços cortados) }, cdp, autenticador }. */
+   Devolve { ctx, p, lixo: { erros (pageerror), nativos (alert/confirm/prompt), fora (endereços cortados), console (o texto de
+   cada mensagem do console, para conferir que nenhum PIN ou segredo vai para lá) }, cdp, autenticador }. */
 async function aparelho(browser, op) {
   op = op || {};
   const vp = typeof op.vp === 'object' ? op.vp : VP[op.vp || 'celular'], base = op.base;
   const ctx = await browser.newContext({ viewport: vp, hasTouch: vp.width < 600, serviceWorkers: 'block', locale: 'pt-BR' });
-  const lixo = { erros: [], nativos: [], fora: [] };
+  const lixo = { erros: [], nativos: [], fora: [], console: [] };
   await ctx.route('**/*', (route) => {
     const u = route.request().url();
     if (u.startsWith(SB + '/')) return supabase(route);
@@ -42,6 +43,7 @@ async function aparelho(browser, op) {
   p.base = base; p.nome = op.nome || 'aparelho';
   p.on('pageerror', (e) => { lixo.erros.push(String(e && e.message || e)); console.log('  [' + p.nome + ' pageerror] ' + (e && e.message || e)); });
   p.on('dialog', (d) => { lixo.nativos.push(d.type() + ': ' + d.message()); d.dismiss().catch(() => {}); });
+  p.on('console', (m) => lixo.console.push(m.text()));
   let cdp = null, autenticador = null;
   if (op.digital) {
     cdp = await ctx.newCDPSession(p);

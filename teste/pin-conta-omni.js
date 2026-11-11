@@ -25,7 +25,7 @@
      B7  "Criar o PIN da conta" × "Trocar o PIN": nunca os dois, "Trocar" nunca sem PIN da conta nem sem internet
      K31 nenhuma tela da sequência fica esperando atrás de outra · K32 trocar o PIN da conta não troca as chaves de outra pessoa
      K17 a digital oferecida uma vez por aparelho, nunca na mesma entrada da oferta de abrir o app com a digital
-     8. (B8) nada de PIN ou segredo no localStorage/sessionStorage, no histórico nem nas chamadas (só o v); sem erro de script,
+     8. (B8) nada de PIN ou segredo no localStorage/sessionStorage, no console, no histórico nem nas chamadas (só o v); sem erro de script,
         sem diálogo nativo, nada fora do banco de mentira
    Pessoas, senhas, PINs e chaves de mentira. Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/pin-conta-omni.js */
 const crypto = require('crypto');
@@ -513,6 +513,7 @@ function zerarConta(uid) { for (const t of ['sol_aparelhos', 'sol_pin_conta', 's
   conferir(![guardA, guardB, guardCel, guardPc, guardT].some((g) => temPin(g) || segredos.some((s) => g.includes(s))), '8/B8. nenhum PIN nem segredo do aparelho no localStorage/sessionStorage (todos os aparelhos)');
   conferir(!temPin(corpos) && !temPin(hist) && !segredos.some((s) => hist.includes(s)),
     '8. nenhuma chamada ao banco levou um PIN (só o v) e nada disso foi para o histórico');
+  conferir(!lixos.some((l) => l.console.some((t) => temPin(t) || segredos.some((s) => t.includes(s)))), '8/B8. nenhum PIN nem segredo do aparelho no console (todos os aparelhos)');
   conferir(lixos.every((l) => !l.erros.length), '8. nenhum erro de script' + lixos.map((l) => l.erros.join(' | ')).filter(Boolean).map((x) => ': ' + x).join(''));
   conferir(lixos.every((l) => !l.nativos.length), '8. nenhum alert/confirm/prompt do navegador');
   conferir(lixos.every((l) => !l.fora.some((u) => /supabase/i.test(u))), '8. o Supabase só pelo banco de mentira');

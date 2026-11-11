@@ -3052,6 +3052,8 @@ const Sol = {
   set ligadoPin(v) { this._s.pin = v; this._t.pin = Date.now(); },
   pode() { return navigator.onLine && Conta.on(); },   /* sem internet ou sem conta o Conta.rest nem tenta */
   semRede(e) { return !(e && e.status); },              /* Conta.rest lança SEM status quando não há internet nem sessão */
+  /* sol_pin_definir com um aparelho que já saiu da lista da conta: o banco recusa com esta frase (não é falta de internet) */
+  foraDaLista(e) { return /aparelho que não é seu/.test(String(e && e.message)); },
   nome() { return SolProto.nomeAparelho(navigator.userAgent, S.lang); },
   async rpc(nome, args) {
     const k = /^sol_pin_/.test(nome) ? "pin" : /^sol_(pedido|aparelho|passkey)/.test(nome) ? "ap" : "";
@@ -3233,7 +3235,7 @@ const Pin = {
     if (!L || !Cofre.aberto() || !Cofre.dukRaw) return { erro: "fechado" };
     if (!L.ap || !Sol.pode()) return { erro: "rede" };
     const sal = SolProto.novoSalConta(), raw = new Uint8Array(Cofre.dukRaw);
-    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, L.ap); } catch (e) { raw.fill(0); return { erro: "rede" }; }
+    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, L.ap); } catch (e) { raw.fill(0); return { erro: Sol.foraDaLista(e) ? "aparelho" : "rede" }; }
     if (!d || !d.ok) { raw.fill(0); return d || { erro: "rede" }; }
     this.limpar(); Jornada.limpar();
     await this.gravar(novo, raw, d.segredo, d.versao); raw.fill(0);
@@ -3248,7 +3250,7 @@ const Pin = {
     if (!info) return { erro: "rede" };
     if (!info.tem) return { erro: "sempin" };
     const sal = SolProto.novoSalConta(), raw = new Uint8Array(Cofre.dukRaw);
-    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, await SolProto.verificador(atual, info.sal), L.ap); } catch (e) { raw.fill(0); return { erro: "rede" }; }
+    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, await SolProto.verificador(atual, info.sal), L.ap); } catch (e) { raw.fill(0); return { erro: Sol.foraDaLista(e) ? "aparelho" : "rede" }; }
     this.limpar(); Jornada.limpar();
     if (!d || !d.ok) { raw.fill(0); return d ? { erro: d.erro, conta: true, restam: d.restam, tentativas: d.tentativas, ate: d.espera_ate ? Date.parse(d.espera_ate) : 0, muitas: d.tentativas >= 10 } : { erro: "rede" }; }
     await this.gravar(novo, raw, d.segredo, d.versao); raw.fill(0);
@@ -3259,7 +3261,7 @@ const Pin = {
      de 10 min): o PIN novo sem o atual. Quem chama monta o cadeado e grava. */
   async naoLembro(novo, ap) {
     const sal = SolProto.novoSalConta();
-    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, ap); } catch (e) { return { erro: "rede" }; }
+    let d; try { d = await Sol.pinDefinir(await SolProto.verificador(novo, sal), sal, null, ap); } catch (e) { return { erro: Sol.foraDaLista(e) ? "aparelho" : "rede" }; }
     this.limpar(); Jornada.limpar();
     return d && d.ok ? { ok: true, segredo: d.segredo, versao: d.versao } : { erro: (d && d.erro) || "sem_permissao" };
   },
@@ -3789,7 +3791,7 @@ const Cofre = {
     /* 2.26.0: o que só serve com o cadeado: a chave deste navegador do PIN da conta, o pedido em espera e a pergunta da digital */
     for (const k of ["chaveAp|", "pedido|", "digitalPerguntada|"]) { try { await IDB.del("kv", k + uid); } catch (e) {} }
     Pin.limpar(); Jornada.limpar();
-    const gids =Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : []);
+    const gids = Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : []);
     /* o cofre antigo (senha mestra, só neste aparelho, nunca subiu) não é cache: fica, protegido pela senha dele */
     const antigo = (v) => !!(v && v.doc && !v.cif);
     try {
@@ -3898,14 +3900,16 @@ const Aparelhos = {
      só e dentro da trava do cadeado, relendo o L: o PIN, o aoAbrir e outra aba não registram o mesmo aparelho duas vezes. */
   registrar() {
     if (this._registrando) return this._registrando;
-    const p = Cofre.mudarLocal(null, async (L) => {
+    /* a sessão é renovada ANTES da trava: a renovação de uma conta bloqueada apaga o cadeado, e isso espera a trava
+       (renovar lá dentro travaria as duas para sempre) */
+    const p = Promise.resolve(Conta.token()).catch(() => null).then(() => Cofre.mudarLocal(null, async (L) => {
       if (!L || L.ap) return;
       let como = L.como === "passkey" || L.como === "kit" ? L.como : "primeiro", id;
       try { id = await Sol.apRegistrar(como); }
       catch (e) { if (como !== "primeiro" || !/já tem aparelho|precisa ser aprovado/.test(String(e && e.message))) throw e; como = "kit"; id = await Sol.apRegistrar(como); }
       L.ap = id; L.como = como; if (!L.avisosAte) L.avisosAte = new Date().toISOString();
       Jornada.limpar(); return L;
-    });
+    }));
     this._registrando = p;
     p.then(() => { this._registrando = null; }, () => { this._registrando = null; });
     return p;
@@ -4051,6 +4055,7 @@ const TelaConta = {
         if (r.ok) return "";
         if (r.erro === "fechado") return tt("Abra primeiro com o PIN ou a digital.", "Open it first with the PIN or fingerprint.");
         if (r.erro === "rede") return Pin.explicar(r);
+        if (r.erro === "aparelho") { await Pin.confirmarTirado(); return false; }   /* tirado da conta em outro aparelho */
         /* outra aba (ou outro aparelho) criou antes */
         Pin.limpar(); Jornada.limpar();
         toast(tt("A conta já tem PIN: use “Trocar o PIN”.", "The account already has a PIN: use “Change PIN”."), 5000);
@@ -4453,8 +4458,9 @@ const PinUnico = {
     const L = await Cofre.local();
     if (!L || !(L.fam || {})[S.family.id]) return null;   /* Senhas da casa ainda não prontas neste aparelho: vale a janela do cofre */
     const confirmar = Cofre.aberto(), dig = !info.precisaPin && !!L.prf && !L.bloqueado;
-    /* bloqueado neste aparelho: o campo só aparece se o PIN da conta pode liberar (o aparelho já passou para ele e há internet) */
-    const semCampo = !!L.bloqueado && !(L.srv && navigator.onLine);
+    /* bloqueado neste aparelho: o campo só aparece se o PIN da conta pode liberar (o aparelho já passou para ele e há internet).
+       Com as Senhas da casa já abertas (confirmar) a conferência é só deste aparelho: bloqueado, o campo não serve */
+    const semCampo = !!L.bloqueado && (confirmar || !(L.srv && navigator.onLine));
     const motivo = info && info.motivo ? (S.lang === "en" ? info.motivo.en : info.motivo.pt) || info.motivo.pt || "" : "";
     return new Promise((res) => {
       let feito = false;
@@ -4464,7 +4470,7 @@ const PinUnico = {
         (motivo ? "<p>" + esc(motivo) + "</p>" : "") +
         '<p class="small muted">' + tt("É o mesmo PIN das Senhas da casa: ele abre as senhas e as chaves de IA juntas.", "It's the same PIN as the home passwords: it opens the passwords and the AI keys together.") + "</p>" +
         (dig ? '<button type="button" class="btn big block" data-dig style="margin:8px 0">👆 ' + tt("Abrir com a digital", "Open with fingerprint") + "</button>" : "") +
-        (L.bloqueado ? '<p class="small">⛔ ' + Pin.explicar({ erro: "bloqueado", srv: !!L.srv }) + "</p>" : "") +
+        (L.bloqueado ? '<p class="small">⛔ ' + Pin.explicar({ erro: "bloqueado", srv: !confirmar && !!L.srv }) + "</p>" : "") +
         (semCampo ? "" : '<label class="fld"><span>' + tt("Seu PIN", "Your PIN") + '</span><input type="password" id="upin" inputmode="numeric" autocomplete="off" data-lpignore="true" data-1p-ignore></label>') +
         '<p class="small" id="uerr" role="alert" style="color:var(--warn)"></p><button type="button" class="linkbtn tiny" data-esq>' + tt("Esqueci o PIN", "Forgot the PIN") + "</button>",
         foot: '<button class="btn ghost" data-x>' + tt("Agora não", "Not now") + "</button>" + (semCampo ? "" : '<button class="btn" data-ok>🔓 ' + tt("Abrir", "Open") + "</button>") });
