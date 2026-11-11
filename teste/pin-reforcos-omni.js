@@ -2,19 +2,23 @@
    Mesmo modelo do pin-unico-omni.js: o app abre em visitante e o teste faz o papel de uma família na nuvem (sem
    internet de verdade: o banco não é chamado), com as Senhas da casa prontas neste aparelho e PINs de mentira. Confere:
      1. ligar a digital das Senhas da casa pede o PIN de agora (PIN errado ou Cancelar não liga)
-     2. trocar o PIN pede o PIN de agora ou a digital (PIN errado não troca nada; a digital confirma)
+     2. trocar o PIN pede o PIN de agora ou a digital (PIN errado não troca nada; a digital confirma) — a troca só deste aparelho,
+        que desde a 2.26.0 só existe sem o SQL do PIN da conta (K12); a do PIN da conta pede o "PIN atual", que o banco confere
+        (pin-conta-omni.js, B3)
      3. "🔒 Trancar o cofre agora" com as Senhas da casa abertas fecha as duas e diz isso; o próximo uso pede o PIN
      4. ⚙ → IA: quem tem o PIN único pronto não vê "Abrir a tela do cofre" (vê a digital das Senhas da casa), e a
         tela comum não abre nem chamando a ação; sem as Senhas da casa, o botão continua lá
      5. "Esqueci o PIN" na janela "Digite o seu PIN" aberta por cima de outra janela: Cancelar deixa a de baixo e não
         apaga nada; com o sim, a de baixo fecha e o passo seguinte aparece na hora (nada na fila)
-     6. outra pessoa na mesma aba: trocar o PIN dela não troca o PIN das chaves de quem as guardou
+     6. outra pessoa na mesma aba: trocar o PIN dela não troca o PIN das chaves de quem as guardou (a troca só deste aparelho;
+        a do PIN da conta é conferida no pin-conta-omni.js, B3)
      7. sair da conta tranca as chaves de IA (na nuvem e no "só neste aparelho")
      8. "Começar" as Senhas da casa com as chaves abertas por outro PIN: as chaves trancam e não mudam de PIN
      9. "Esqueci o PIN" com o código do papel: o PIN novo passa a abrir as chaves também nos outros apps; e a digital
         oferecida logo depois de escolher o PIN liga sem pedir o PIN de novo
     10. código de recuperação novo pede o PIN de agora (PIN errado ou Cancelar não faz código nenhum)
-    11. PIN bloqueado neste aparelho: a janela diz como liberar
+    11. PIN bloqueado neste aparelho: a janela diz como liberar (2.26.0: "Esqueci o PIN" e aprovar pelo outro aparelho; o PIN da
+        conta só libera o aparelho que já passou para ele)
     12. trocar o endereço do "Personalizado" com chave guardada pede o PIN (Cancelar não salva nada)
     13. quem ligou antes a digital do cofre de chaves pode desligá-la em ⚙ → IA (a tela comum não abre mais)
     14. abrir as Senhas da casa com as chaves abertas por outro PIN: as chaves trancam e não mudam de PIN
@@ -92,8 +96,8 @@ async function guardarChave(p, pin) {
   await janelaProva(p); await provar(p, PIN); await ligando;
   conferir(await p.evaluate(() => window.__prf) === 1, '1. com o PIN de agora, segue para ligar a digital');
 
-  /* 2. trocar o PIN */
-  await p.evaluate((novo) => { window.__novo = 0; Cofre.pedirNovoPin = async () => { window.__novo++; return novo; }; }, PIN_NOVO);
+  /* 2. trocar o PIN (sem o banco: a troca só deste aparelho, a que vale quando falta o SQL do PIN da conta) */
+  await p.evaluate((novo) => { Sol.ligadoPin = false; window.__novo = 0; Cofre.pedirNovoPin = async () => { window.__novo++; return novo; }; }, PIN_NOVO);
   let trocando = p.evaluate(() => Cofre.trocarPin());
   conferir(await janelaProva(p) && /primeiro digite o PIN de agora/.test(await textoJanela(p)), '2. trocar o PIN (Senhas da casa abertas) pede o PIN de agora');
   await provar(p, '000000');
@@ -155,7 +159,7 @@ async function guardarChave(p, pin) {
   await p.evaluate(async () => { const L = await Cofre.local(); L.bloqueado = true; await Cofre.gravarLocal(L); });
   codigo = p.evaluate(() => Cofre.novoCodigo());
   await janelaProva(p); await provar(p, PIN_NOVO);
-  conferir(await erroProva(p, 'bloqueado neste .*Feche as Senhas da casa'), '11. PIN bloqueado: a janela diz como liberar (fechar as Senhas da casa)');
+  conferir(await erroProva(p, 'errou muitas vezes neste .*Esqueci o PIN.* aprove pelo outro aparelho'), '11. PIN bloqueado: a janela diz como liberar ("Esqueci o PIN" e aprovar pelo outro aparelho)');
   await cancelarProva(p); await codigo;
   conferir(await p.evaluate(() => window.__cod) === 1, '11. bloqueado: nenhum código novo é feito');
   await p.evaluate(async () => { const L = await Cofre.local(); L.bloqueado = false; await Cofre.gravarLocal(L); });
@@ -215,7 +219,7 @@ async function guardarChave(p, pin) {
   await familia(p, 'u-B', PIN_B);
   await p.evaluate(async (pin) => { Cofre.trancar(); await Cofre.destrancarPin(pin); }, PIN_B);
   conferir(await p.evaluate(() => Cofre.aberto() && SolverCofre.aberto()), 'preparo: B abriu as Senhas da casa dela e as chaves de A ainda estão abertas');
-  await p.evaluate((novo) => { Cofre.pedirNovoPin = async () => novo; }, PIN_B_NOVO);
+  await p.evaluate((novo) => { Sol.ligadoPin = false; Cofre.pedirNovoPin = async () => novo; }, PIN_B_NOVO);
   trocando = p.evaluate(() => Cofre.trocarPin());
   await janelaProva(p); await provar(p, PIN_B); await trocando;
   await p.waitForTimeout(400);
