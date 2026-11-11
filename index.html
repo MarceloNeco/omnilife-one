@@ -2955,6 +2955,91 @@ const Bio = {
 };
 
 /* =====================================================================
+   PLATAFORMA SolverONE: aparelhos (sol-ap-v2) e PIN da conta (sol-pin-v1) — 2.26.0
+   As MESMAS contas do nuvem.js do MoneyTRIO, letra por letra: é o que deixa um aparelho aprovar o outro entre os apps
+   (OmniLifeONE ↔ MoneyTRIO) e o PIN da conta valer nos dois. Vetores fixos e fictícios em teste/vetores-sol-v2.json.
+   ===================================================================== */
+/* SolProto: só as contas (sem S, sem tela, sem conta, sem rede), para dar para testar contra os vetores.
+   Atenção: b64url/unb64url (lá em cima) são de objeto JSON; aqui b64u/unb64u são de bytes. */
+const SolProto = {
+  AP_V: "sol-ap-v2", PK_INFO: "sol-passkey-v2", PIN_SRV: "sol-pin-v1", ITER: 600000, APP: "omnilife",
+  b64u(bytes) { return b64FromBuf(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); },
+  unb64u(txt) { let s = String(txt).replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "="; return bufFromB64(s); },
+  rnd(n) { return crypto.getRandomValues(new Uint8Array(n)); },
+  utf8(s) { return new TextEncoder().encode(s); },
+  deUtf8(b) { return new TextDecoder().decode(b); },
+  async sha(txt) { return new Uint8Array(await crypto.subtle.digest("SHA-256", this.utf8(txt))); },
+  canon(pub) { return pub.x + "." + pub.y; },
+  /* o que vem do banco é conferido antes de usar: pública EC P-256 sem a parte privada; nonces de 32 bytes */
+  pubOk(pub) {
+    const b = /^[A-Za-z0-9_-]{43}$/;
+    return !!pub && typeof pub === "object" && !("d" in pub) && pub.kty === "EC" && pub.crv === "P-256" && b.test(pub.x) && b.test(pub.y);
+  },
+  nonceOk(n) { return typeof n === "string" && /^[A-Za-z0-9_-]{43}$/.test(n); },
+  /* B se compromete com a pública dele ANTES de ver a de A: um banco que troque a pública não escolhe os 6 números */
+  async compromisso(pub, nB) { return this.b64u(await this.sha([this.AP_V, "c", this.canon(pub), nB].join("|"))); },
+  async sas(id, pubA, pubB, nA, nB) {
+    const h = await this.sha([this.AP_V, id, this.canon(pubA), this.canon(pubB), nA, nB].join("|"));
+    return String((((h[0] << 24) >>> 0) + (h[1] << 16) + (h[2] << 8) + h[3]) % 1000000).padStart(6, "0");
+  },
+  sasTela(s) { return s.slice(0, 3) + " " + s.slice(3); },
+  sasFalado(s) { return String(s).split("").join(" "); },   /* aria-label: o leitor de tela lê dígito por dígito */
+  async novoPar() {
+    const k = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, false, ["deriveBits"]);
+    const j = await crypto.subtle.exportKey("jwk", k.publicKey);
+    return { priv: k.privateKey, pub: { kty: "EC", crv: "P-256", x: j.x, y: j.y } };   /* só os 4 campos que o banco aceita */
+  },
+  /* uidQuemPede: B usa o próprio uid; A usa p.quem. A pública do outro entra com usos [] (com ["deriveBits"] o Chromium recusa) */
+  async chave(priv, pubOutro, id, uidQuemPede, nA, nB) {
+    const pk = await crypto.subtle.importKey("jwk", { kty: "EC", crv: "P-256", x: pubOutro.x, y: pubOutro.y, ext: true }, { name: "ECDH", namedCurve: "P-256" }, false, []);
+    const bits = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: pk }, priv, 256));
+    const base = await crypto.subtle.importKey("raw", bits, "HKDF", false, ["deriveKey"]); bits.fill(0);
+    return crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(32), info: this.utf8([this.AP_V, id, uidQuemPede, nA, nB].join("|")) }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  },
+  async fechar(key, id, carga) {
+    const iv = this.rnd(12), ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: this.utf8(id) }, key, this.utf8(JSON.stringify(carga)));
+    return { v: 2, iv: b64FromBuf(iv), ct: b64FromBuf(ct) };
+  },
+  async abrirResp(key, id, o) {
+    return JSON.parse(this.deUtf8(new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: bufFromB64(o.iv), additionalData: this.utf8(id) }, key, bufFromB64(o.ct)))));
+  },
+  cargaPessoal(pkcs8) { return { v: 2, tipo: "pessoal", sk: b64FromBuf(pkcs8) }; },
+  cargaFamilia(gid, kv, fk, cfRaw) { return { v: 2, tipo: "familia", gid, kv, fk, cf: b64FromBuf(cfRaw) }; },
+  /* a carga que chegou é conferida antes de montar qualquer coisa: o tipo igual ao que o banco disse e, na família, o gid
+     que este aparelho pediu (quando vierem). O sk não é conferido como pkcs8 aqui: a importação acontece ao montar o cadeado. */
+  lerCarga(o, tipoDoBanco, gid) {
+    const bytes = (t) => { const b = typeof t === "string" ? bufFromB64(t) : null; if (!b || !b.length) throw new Error("carga"); return b; };
+    if (!o || typeof o !== "object" || o.v !== 2 || (o.tipo !== "pessoal" && o.tipo !== "familia")) throw new Error("carga");
+    if (tipoDoBanco && o.tipo !== tipoDoBanco) throw new Error("carga");
+    if (o.tipo === "pessoal") return { tipo: "pessoal", sk: bytes(o.sk) };
+    if (typeof o.gid !== "string" || !o.gid || (gid && o.gid !== gid) || !Number.isInteger(o.kv) || typeof o.fk !== "string") throw new Error("carga");
+    const cf = bytes(o.cf); if (cf.length !== 32) throw new Error("carga");
+    return { tipo: "familia", gid: o.gid, kv: o.kv, fk: o.fk, cf };
+  },
+  /* o PIN NÃO é normalizado (nem trim, nem NFC): o MoneyTRIO usa utf8(String(pin)) e o v tem de sair igual */
+  async verificador(pin, salConta) {
+    const base = await crypto.subtle.importKey("raw", this.utf8(String(pin)), "PBKDF2", false, ["deriveBits"]);
+    return this.b64u(new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", salt: this.unb64u(salConta), iterations: this.ITER, hash: "SHA-256" }, base, 256)));
+  },
+  novoSalConta() { return this.b64u(this.rnd(16)); },
+  /* as mesmas linhas do Cofre.hkdf, de propósito: a camada pura não depende do Cofre */
+  async hkdf(bytes, info) {
+    const k = await crypto.subtle.importKey("raw", bytes, "HKDF", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(32), info: this.utf8(info) }, k, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  },
+  /* o mesmo nome que o MoneyTRIO dá (nomeAparelho do nuvem.js): a lista junta pelo nome o aparelho dos dois apps */
+  nomeAparelho(ua, lang) {
+    const u = String(ua || "");
+    const so = /Android/i.test(u) ? "Android" : /iPhone/i.test(u) ? "iPhone" : /iPad/i.test(u) ? "iPad" : /Windows/i.test(u) ? "Windows" : /Mac OS/i.test(u) ? "Mac" : /Linux/i.test(u) ? "Linux" : (lang === "en" ? "Device" : "Aparelho");
+    const nav = /SamsungBrowser/i.test(u) ? "Samsung" : /Edg\//i.test(u) ? "Edge" : /Firefox/i.test(u) ? "Firefox" : /Chrome|CriOS/i.test(u) ? "Chrome" : /Safari/i.test(u) ? "Safari" : "";
+    return (so + (nav ? " · " + nav : "")).slice(0, 60);
+  },
+  /* passkey: em *.solverone.com.br vale para todos os apps; fora dali (endereço antigo, localhost) fica no próprio endereço */
+  rpId(hostname) { return /(^|\.)solverone\.com\.br$/.test(hostname) ? "solverone.com.br" : hostname; },
+  rotuloApp(codigo) { return { omnilife: "OmniLifeONE", "omnilife-one": "OmniLifeONE", moneytrio: "MoneyTRIO" }[codigo] || codigo; }
+};
+
+/* =====================================================================
    COFRE DA FAMÍLIA NA NUVEM — ponta a ponta (Etapa 2c, v2.15.0)
    Diretriz "Cofre de senhas e entrada sem internet" (03/Out/2026):
    - O conteúdo do cofre é cifrado NO APARELHO (AES-GCM 256, WebCrypto) antes de sair. O banco guarda só texto
