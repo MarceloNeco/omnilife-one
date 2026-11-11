@@ -74,7 +74,8 @@ const toasts = (p) => p.evaluate(() => document.querySelector('#toasts').textCon
 /* nada de PIN nem de segredo guardado fora do cadeado */
 const guardado = (p) => p.evaluate(() => { const o = {}; for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) o[s.key(i)] = s.getItem(s.key(i)); return JSON.stringify(o); });
 /* quem abriu a família neste aparelho (para provar que NADA abriu) */
-const vigiarAbertura = (p) => p.evaluate(() => { window.__abriu = 0; const o = Cofre.usarChave; Cofre.usarChave = function () { window.__abriu++; return o.apply(this, arguments); }; });
+/* (2.26.0: o aparelho tirado sai e a página recarrega — a conta fica no sessionStorage da aba, fora das chaves "omnilife." que a saída limpa) */
+const vigiarAbertura = (p) => p.evaluate(() => { sessionStorage.setItem('teste.abriu', '0'); const o = Cofre.usarChave; Cofre.usarChave = function () { sessionStorage.setItem('teste.abriu', String(+sessionStorage.getItem('teste.abriu') + 1)); return o.apply(this, arguments); }; });
 /* ---- as telas (Parte B) ---- */
 const janela = (p, re, ms) => p.waitForFunction((re) => [...document.querySelectorAll('.modal h3')].some((h) => new RegExp(re).test(h.textContent)), re.source, { timeout: ms || 10000 }).then(() => true, () => false);
 const temJanela = (p, re) => p.evaluate((re) => [...document.querySelectorAll('.modal h3')].some((h) => new RegExp(re).test(h.textContent)), re);
@@ -229,7 +230,7 @@ function zerarConta(uid) { for (const t of ['sol_aparelhos', 'sol_pin_conta', 's
   const n6 = M.log.length;
   await abrirPelaTela(a, PIN_Y);
   const saiu = await a.waitForFunction(() => S.gate === 'welcome', null, { timeout: 20000 }).then(() => true, () => false);
-  const fim6 = await a.evaluate(async (u) => ({ abriu: window.__abriu, aberto: Cofre.aberto(), conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u), chaveAp: await IDB.get('kv', 'chaveAp|' + u),
+  const fim6 = await a.evaluate(async (u) => ({ abriu: +sessionStorage.getItem('teste.abriu'), aberto: Cofre.aberto(), conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u), chaveAp: await IDB.get('kv', 'chaveAp|' + u),
     chavesIA: SolverCofre.existe() }), ANA);
   const nuvemDepois = await a.evaluate(async (g) => (await IDB.entries('nuvem')).filter(([k]) => k.startsWith(g + '|') && !k.includes('|vault|')).length, GID);
   conferir(saiu && fim6.abriu === 0 && !fim6.aberto && M.log.slice(n6).some((x) => /sol_pin_conferir/.test(x.caminho)) && M.log.slice(n6).some((x) => /sol_aparelho_visto/.test(x.caminho)), '6. o PIN certo (o L.pin conhecia) NÃO abriu nada: o banco disse "aparelho" e não caiu para o PIN local');
@@ -478,7 +479,7 @@ function zerarConta(uid) { for (const t of ['sol_aparelhos', 'sol_pin_conta', 's
   await senhasDaCasa(b); await b.waitForSelector('[data-act="cofre.digital"]', { timeout: 10000 });
   await b.click('[data-act="cofre.digital"]');
   const saiuB = await b.waitForFunction(() => S.gate === 'welcome', null, { timeout: 20000 }).then(() => true, () => false);
-  const fimB = await b.evaluate(async (u) => ({ abriu: window.__abriu, conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), BIA);
+  const fimB = await b.evaluate(async (u) => ({ abriu: +sessionStorage.getItem('teste.abriu'), conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), BIA);
   conferir(saiuB && fimB.abriu === 0 && !fimB.conta && !fimB.L && /foi tirado da sua conta em outro aparelho/.test(await toasts(b)),
     '6b. a digital (autenticador virtual) de um aparelho tirado não abre nada: o cadeado sai e a conta sai deste aparelho');
   const guardB = await guardado(b);

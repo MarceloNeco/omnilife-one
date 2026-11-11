@@ -1127,6 +1127,13 @@ details.more>.morein>ol,details.more>.morein>ul{margin:4px 0 6px}
 <div id="toasts" popover="manual"></div>
 <script src="janela.js"></script>
 <script src="cofre.js"></script>
+<script>
+/* 2.26.0 (G3): o PIN da pessoa (PinUnico, no script principal) entra no cofre das chaves de IA ANTES de o módulo ligar as regras
+   do PIN (diretrizes.js): sem isso, a pergunta "ao abrir" do cofre pode correr na frente e mostrar a janela dele mesmo — até na
+   tela de entrar, depois de "Sair". Nada é perguntado antes de o app soltar o _pinPronto (setGate / startApp). */
+var _pinPronto = null, _pinProntoP = new Promise((ok) => { _pinPronto = ok; });
+if (window.SolverCofre && SolverCofre.usarPinDaPessoa) SolverCofre.usarPinDaPessoa({ quem: () => PinUnico.quem(), segredo: () => PinUnico.segredo(), pedir: (i) => PinUnico.pedir(i || {}), pronto: _pinProntoP });
+</script>
 <script src="diretrizes.js"></script>
 <script src="diretrizes-config.js"></script>
 <script src="recursos.js" data-app="omnilife-one"></script>
@@ -2451,13 +2458,13 @@ const Cloud = {
   async poll() {
     if (S.mode !== "cloud" || !S.family || !navigator.onLine) return;
     if (this._polling) { this._denovo = true; return; }   /* já está perguntando: pergunta de novo no fim */
-    if (!Conta.on()) return ACT["cloud.logout"]();
+    if (!Conta.on()) return Saida.sair({ semPerguntar: true, motivo: "sessao" });   /* 2.26.0: sem conta, sai de verdade (K27) */
     this._polling = true; this._denovo = false;
     const fid = S.family.id, first = this._first; this._first = false;
     try {
       const papelAntes = S.role, cofreAntes = canVault(), guardAntes = isGuardian();
       let ok;
-      try { ok = await this.load(fid); } catch (e) { if (e.status === 401 && !Conta.on()) { this._polling = false; return ACT["cloud.logout"](); } throw e; }
+      try { ok = await this.load(fid); } catch (e) { if (e.status === 401 && !Conta.on()) { this._polling = false; return Saida.sair({ semPerguntar: true, motivo: "sessao" }); } throw e; }
       if (!ok) { toast(tt("Você não faz mais parte desta família.", "You are no longer part of this family."), 6000); this._polling = false; await Cofre.apagarDoAparelho(); return ACT["cloud.logout"](); }
       if (guardAntes && !isGuardian()) await Cofre.esquecerFamilia(fid);
       if ((papelAntes && papelAntes !== S.role) || cofreAntes !== canVault()) await CloudDriver.refazer();
@@ -2468,6 +2475,7 @@ const Cloud = {
       const [gov, dev, conv, info, peds, hist] = await Promise.all(pedidos);
       if (gov) Gov.setList(gov, first);
       if (dev) Devices.setList(dev);
+      if (Saida.saindo) return;   /* este aparelho foi tirado da família agora: nada mais desta família */
       if (guard) {
         S.invites = (conv || []).map((c) => { const i = (info || []).find((x) => x.codigo === c.codigo) || {}; return { code: c.codigo, role: this.PAPEL[c.papel] || c.papel, personId: i.perfil_id || "", forName: i.para_nome || "", maxUses: c.max_usos, uses: c.usos, expiresAt: Date.parse(c.expira_em), active: c.ativo, createdAt: c.criado_em || i.criado_em || "", createdByName: i.criado_por_nome || "" }; });
         const antes = new Set((S.joinRequests || []).map((r) => r.uid));
@@ -3758,8 +3766,9 @@ const Cofre = {
     for (const id of ["_meta"].concat(n === itens.length ? ["_em"] : [])) { const r = CloudDriver.recs.get("vault|" + id); if (r && !r.cif) { CloudDriver.recs.delete("vault|" + id); IDB.del("nuvem", CloudDriver.gid + "|vault|" + id).catch(() => {}); } }
     toast("✓ " + n + tt(" itens trazidos para as Senhas da casa (já estão na internet, embaralhados).", " items brought to the new vault (encrypted, in the cloud)."), 5000); render();
   },
-  /* ---------- apagar do aparelho: conta encerrada/banida, aparelho desconectado, "Desconectar este aparelho" ---------- */
-  async apagarDoAparelho(uid) {
+  /* ---------- apagar do aparelho: conta encerrada/banida, aparelho desconectado, "Desconectar este aparelho" ----------
+     gid: a família da tela, quando ela já saiu da memória (o Saida limpa a tela antes de apagar) */
+  async apagarDoAparelho(uid, gid) {
     uid = uid || Conta.uid(); const L = await this.local(uid);
     this.trancar();
     /* dentro da trava: uma gravação que estava na fila não recria o cadeado depois de apagado */
@@ -3767,7 +3776,7 @@ const Cofre = {
     /* 2.26.0: o que só serve com o cadeado: a chave deste navegador do PIN da conta, o pedido em espera e a pergunta da digital */
     for (const k of ["chaveAp|", "pedido|", "digitalPerguntada|"]) { try { await IDB.del("kv", k + uid); } catch (e) {} }
     Pin.limpar(); Jornada.limpar();
-    const gids = Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : []);
+    const gids = Object.keys((L && L.fam) || {}).concat(S.family ? [S.family.id] : gid ? [gid] : []);
     /* o cofre antigo (senha mestra, só neste aparelho, nunca subiu) não é cache: fica, protegido pela senha dele */
     const antigo = (v) => !!(v && v.doc && !v.cif);
     try {
@@ -3783,18 +3792,6 @@ const Cofre = {
   async esquecerFamilia(gid) {
     if (this.gid === gid) this.trancar();
     await this.mudarLocal(null, (L) => { if (L && L.fam && L.fam[gid]) { delete L.fam[gid]; return L; } });
-  },
-  async desconectarAparelho() {
-    /* o que ainda está na fila do cofre tenta subir antes (o cofre fica na nuvem; só a cópia deste aparelho sai) */
-    if (navigator.onLine) { try { await CloudDriver.flush(true); } catch (e) {} }
-    const pend = [...CloudDriver.fila.keys()].filter((k) => k.startsWith("vault|")).length;
-    if (!(await confirmBox(tt("Tirar este " + apN() + " da conta? As Senhas da casa somem deste " + apN() + ", mas continuam guardadas na internet para a família. Para usar de novo aqui: entre na conta e use o código de recuperação do papel.", "Remove this " + apN() + " from the account? The vault disappears from this " + apN() + " but stays saved online for the family. To use it here again: sign in and use the recovery code on paper.") +
-      (pend ? "<br><br>⚠️ " + pend + tt(" mudança(s) nas Senhas da casa ainda não foram para a internet e vão se perder. Se puder, ligue a internet antes.", " vault change(s) haven't gone online yet and will be lost. If you can, turn on the internet first.") : ""), tt("Tirar este " + apN(), "Remove this " + apN()), true))) return;
-    if (S.family && navigator.onLine) { try { await Conta.rest("PATCH", "omni_aparelhos?grupo_id=eq." + S.family.id + "&id=eq." + encodeURIComponent(Devices.myId()), { desconectado: true }, "return=minimal"); await Cloud.audit("aparelho.desconectado", Devices.label() + " · " + Cloud.myName()); } catch (e) {} }
-    await this.apagarDoAparelho();
-    try { localStorage.removeItem(Devices.KEY); } catch (e) {}
-    await Conta.sair(true); ACT["cloud.logout"]();
-    toast("✓ " + tt("Pronto: este " + apN() + " saiu da conta.", "Done: this " + apN() + " left the account."), 4000);
   },
   /* ---------- tela (Casa → Cofre, na nuvem) ---------- */
   /* 2.26.0: o estado de verdade (este aparelho + a conta), pela Jornada; fase = aberto | trancado | novo, como antes */
@@ -3861,7 +3858,7 @@ ACT["cofre.semdigital"] = () => Cofre.desligarDigital();
 ACT["cofre.trocarpin"] = () => TelaConta.trocarPin();
 ACT["cofre.codigo"] = () => Cofre.novoCodigo();
 ACT["cofre.legado"] = () => Cofre.trazerLegado();
-ACT["cofre.desconectar"] = () => Cofre.desconectarAparelho();
+ACT["cofre.desconectar"] = () => Saida.tirarEste();
 ACT["cofre.pin"] = async () => {
   const i = $("#cfpin"); if (!i || !i.value) return;
   const b = document.querySelector('[data-act="cofre.pin"]'); if (b) { b.disabled = true; b.textContent = "⏳"; }
@@ -3875,7 +3872,7 @@ ACT["cofre.digital"] = async () => TelaConta.abrirCasa(await Cofre.destrancarDig
    (sol_aparelhos, a mesma do MoneyTRIO). Aqui: entrar na lista e conferir se não foi tirado em outro aparelho.
    ===================================================================== */
 const Aparelhos = {
-  _registrando: null, _tirando: false,
+  _registrando: null,
   pode() { return S.booted && Cofre.usa() && isGuardian() && Sol.pode() && Sol.ligadoAp !== false; },
   /* entra na lista da conta, só depois de o cadeado abrir AQUI (quem chama já provou): "primeiro" se a conta não tem
      nenhum aparelho em nenhum app; senão "kit" (aparelho de antes, com a conta já no MoneyTRIO, por exemplo). Uma promessa
@@ -4030,23 +4027,9 @@ const Aparelhos = {
     if (this._esperando) this._esperando.parar();
     TelaConta.faixaPedido(null); const a = document.getElementById("apAviso"); if (a) a.remove();
   },
-  /* este aparelho foi tirado da conta em outro aparelho: o cadeado e a cópia das Senhas da casa saem daqui, as chaves de IA
-     desta pessoa também (as de outra pessoa ficam), e a conta sai deste aparelho. O resto (Saúde, documentos, fotos, a fila)
-     nunca é apagado. */
-  async tirado() {
-    const uid = Conta.uid(); if (!uid || this._tirando) return;
-    this._tirando = true;
-    try {
-      await Cofre.apagarDoAparelho(uid);
-      try {
-        await SolverCofre.trancar();
-        const ps = SolverCofre.pessoas();
-        if (ps.length && ps.every((q) => q === uid)) await SolverCofre.apagarCofre(); else await SolverCofre.esquecerPessoa(uid);
-      } catch (e) {}
-      toast(Pin.explicar({ erro: "tirado" }), 8000);
-      await Conta.sair(true);
-    } finally { this._tirando = false; }
-  },
+  /* este aparelho foi tirado da conta em outro aparelho: sai de verdade (Saida, D3) — o cadeado, a cópia das Senhas da casa e
+     as chaves de IA desta pessoa saem daqui (as de outra pessoa ficam). O resto (Saúde, documentos, fotos, a fila) nunca é apagado */
+  tirado() { return Saida.sair({ apagar: true, motivo: "tirado", semPerguntar: true }); },
   /* ===== B: este aparelho é o novo (sem o cadeado aqui, ou "Esqueci o PIN") =====
      Um par efêmero (privada não extraível, só no IndexedDB enquanto o pedido existe) e o compromisso com a pública ANTES de ver
      a de quem aprova: um banco que troque as públicas não escolhe os 6 números. */
@@ -4960,9 +4943,9 @@ document.addEventListener("cofre:migrado", (e) => (((e.detail || {}).itens) || [
    SolverCofre.usarPinDaPessoa): um pedido só, e o PIN das chaves vira o mesmo PIN da pessoa nos outros apps SolverONE.
    Quem não usa as Senhas da casa (modo "só neste aparelho", quem não é responsável, aparelho ainda sem as Senhas)
    continua com a janela do cofre, como antes. As chaves guardadas por uma pessoa não abrem com o PIN de outra. */
-var _pinPronto = null;   /* var: a tela de entrada (setGate) também o solta */
+/* _pinPronto (o "pronto" do PIN único) nasce no script logo depois do cofre.js; a tela de entrada (setGate) também o solta */
 const PinUnico = {
-  pronto: new Promise((ok) => { _pinPronto = ok; }),   /* o app já sabe quem é a pessoa (depois de entrar) */
+  pronto: _pinProntoP,   /* o app já sabe quem é a pessoa (depois de entrar) */
   quem() { return S.booted && Cofre.usa() && isGuardian() && Conta.uid() ? Conta.uid() : ""; },
   /* o segredo da pessoa: o resumo (SHA-256) da chave privada dela. Só existe com as Senhas da casa abertas e continua
      o mesmo quando ela troca o PIN ou volta pelo código do papel.
@@ -5049,7 +5032,6 @@ const PinUnico = {
     });
   }
 };
-if (SolverCofre.usarPinDaPessoa) SolverCofre.usarPinDaPessoa({ quem: () => PinUnico.quem(), segredo: () => PinUnico.segredo(), pedir: (i) => PinUnico.pedir(i || {}), pronto: PinUnico.pronto });
 /* regras do PIN (cofre.js 1.4): o módulo as liga com `cofre: { proteger: true }` (PIN ao abrir e ao recarregar, tranca ao sair, escondido e sem uso).
    Aqui só se acrescenta que o Modo Vigilante ligado conta como trabalho em andamento (como o `Fundo`): não tranca por falta de uso,
    porque os alertas da vigília (Telegram, WhatsApp) não podem ficar esperando o PIN com a tela escura. */
@@ -6085,14 +6067,16 @@ ACT.bell = () => {
 /* ---------- entrada (portão) ---------- */
 function setGate(kind, arg) {
   S.gate = kind; S.gateArg = arg; S.booted = false;
-  /* 2.21.0: na tela de entrada ainda não há pessoa: o cofre das chaves usa a janela dele, como antes ("Abrindo sua família…" espera) */
-  if (_pinPronto && kind !== "loading") { _pinPronto(); _pinPronto = null; }
+  /* 2.21.0: na tela de entrada ainda não há pessoa: o cofre das chaves usa a janela dele, como antes ("Abrindo sua família…" espera).
+     2.26.0 (G3): cofre ligado a uma pessoa da conta espera ela entrar — depois de "Sair", nada de janela do cofre na tela de entrar */
+  if (_pinPronto && kind !== "loading" && !(SolverCofre.pessoas && SolverCofre.pessoas().length)) { _pinPronto(); _pinPronto = null; }
   $("#tabs").innerHTML = ""; $("#bottombar").innerHTML = "";
   renderHeader();
   const scr = $("#screen");
   const G = GATES[kind] || GATES.welcome;
   scr.innerHTML = '<div class="gate">' + G.html(arg) + "</div>";
   if (G.after) G.after(scr, arg);
+  if (kind === "welcome") Saida.aviso();   /* por que saiu (aparelho tirado, sessão que terminou…), uma vez */
 }
 const GATES = {
   loading: { html: (msg) => '<div class="card center" style="padding:40px"><div style="font-size:2rem">⏳</div><p class="muted">' + esc(msg || tt("Carregando…", "Loading…")) + "</p></div>" },
@@ -6218,8 +6202,10 @@ ACT["gate.bio"] = async () => {
 ACT["gate.visitor"] = () => startVisitor();
 ACT["gate.advertiser"] = () => { S.mode = "advertiser"; lsSet(LS.mode, "advertiser"); S.role = "membro"; S.meId = null; DB.driver = MemoryDriver; S.route = { tab: "ads" }; location.hash = "#/ads"; startApp(); };
 ACT["gate.pick"] = async (d) => { if (await selectProfile(d.id)) startApp(); };
-/* sair tranca também as chaves de IA: quem entrar depois na mesma aba não herda o cofre aberto de outra pessoa */
-ACT["cloud.logout"] = async () => { Aparelhos.parar(); Sess.end(); Vault.lock(); SolverCofre.trancar().catch(() => {}); await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
+/* sair tranca também as chaves de IA: quem entrar depois na mesma aba não herda o cofre aberto de outra pessoa.
+   2.26.0: é o "não sou mais membro" e o "Sair desta família" — a conta continua de propósito; as janelas fecham e a pessoa sai
+   da tela (o "Sair" de verdade, que tira a conta, é o Saida) */
+ACT["cloud.logout"] = async () => { closeModals(); Aparelhos.parar(); Sess.end(); Vault.lock(); SolverCofre.trancar().catch(() => {}); await Cloud.logout(); S.user = null; S.family = null; S.data = {}; S.mode = null; S.meId = S.role = null; S.unlocked = false; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome"); };
 ACT["join.cancel"] = async (d) => { if (!(await confirmBox(tt("Cancelar o pedido de entrada?", "Cancel the join request?"), tt("Cancelar pedido", "Cancel request"), true))) return; await Cloud.cancelRequest(d.id); setGate("create"); };
 ACT["cloud.retry"] = async () => { if (!Conta.on()) return setGate("welcome"); try { await Cloud.resolve(); } catch (e) { setGate("offline"); } };
 
@@ -6328,7 +6314,11 @@ const Conta = {
       .then((j) => this.guardar(j).access_token)
       .catch(async (e) => {
         if ([400, 401, 403].includes(e.status)) {
-          if (/banned/i.test((e.codigo || "") + " " + (e.message || ""))) { try { await Cofre.apagarDoAparelho(this.dados(s.access_token).sub); } catch (er) {} toast("⛔ " + tt("Esta conta está bloqueada. As Senhas da casa foram apagadas deste aparelho.", "This account is blocked. The vault was erased from this device."), 8000); }
+          const banida = /banned/i.test((e.codigo || "") + " " + (e.message || ""));
+          /* 2.26.0: na nuvem, sai de verdade e apaga daqui (5.8). SEM esperar: quem pediu o token pode estar dentro da trava do
+             cadeado, e o apagar espera essa trava (R2) */
+          if (banida && S.mode === "cloud") Saida.sair({ semPerguntar: true, apagar: true, motivo: "bloqueada", uid: this.dados(s.access_token).sub });
+          else if (banida) { try { await Cofre.apagarDoAparelho(this.dados(s.access_token).sub); } catch (er) {} toast(Saida.texto("bloqueada"), 8000); }
           this.gravar(null, s); this.mudou();
         }
         return null;
@@ -6512,11 +6502,17 @@ const Conta = {
       catch (e) { er.textContent = this.explicar(e); er.classList.remove("hidden"); }
     };
   },
-  /* só desconecta a conta neste aparelho (scope=local): os outros aparelhos continuam conectados */
-  async sair(quieto) {
+  /* só desconecta a conta neste aparelho (scope=local): os outros aparelhos continuam conectados.
+     esperar (2.26.0, K8): quem vai recarregar a página espera o servidor (até 3 s) — senão o navegador corta o pedido e a sessão
+     continua valendo lá */
+  async sair(quieto, esperar) {
     const s = this.ler(); if (!s) return;
     const t = await this.token();
-    if (t) { await this.funcao({ acao: "registrar-acesso", evento: "logout", app: this.APP }); this.auth("logout?scope=local", null, "POST", t).catch(() => {}); }
+    if (t) {
+      await this.funcao({ acao: "registrar-acesso", evento: "logout", app: this.APP });
+      const fora = this.auth("logout?scope=local", null, "POST", t).catch(() => {});
+      if (esperar) await Promise.race([fora, new Promise((r) => setTimeout(r, 3000))]);
+    }
     this.gravar(null, s); ssSet("omnilife.contaAcesso", ""); this._registrado = null;
     if (!quieto) toast(tt("Conta SolverONE desconectada neste aparelho", "SolverONE account disconnected on this device"));
     this.mudou();
@@ -6544,10 +6540,15 @@ const Conta = {
     return senhas + tt("Saúde, Documentos, fotos e arquivos só existem neste aparelho e continuam aqui depois de encerrar: para apagá-los, ", "Health, Documents, photos and files exist only on this device and stay here after closing: to erase them, ") + como + ".";
   },
   encerrada() {
+    /* 2.26.0: na nuvem, sai de verdade (o cofre e a chave deste aparelho saem também); o aviso aparece na tela de entrar */
+    if (S.mode === "cloud") return Saida.sair({ semPerguntar: true, apagar: true, motivo: "encerrada" });
+    this.avisoEncerrada();
+    Cofre.apagarDoAparelho().catch(() => {}).finally(() => this.sair(true));   /* o cofre e a chave deste aparelho saem também */
+  },
+  avisoEncerrada() {
     modal({ title: tt("Sua conta SolverONE foi encerrada", "Your SolverONE account has been closed"), body:
       "<p>" + tt("Ela não foi excluída: fica encerrada para auditoria e obrigações legais, e os seus dados pessoais são anonimizados quando você pede a exclusão.", "It was not deleted: it stays closed for audit and legal duties, and your personal data is anonymised when you request erasure.") + "</p>" +
       "<p>" + tt("Dúvidas ou reativação: ", "Questions or reactivation: ") + '<a href="mailto:' + this.PRIV + '">' + this.PRIV + "</a>.</p>" });
-    Cofre.apagarDoAparelho().catch(() => {}).finally(() => this.sair(true));   /* o cofre e a chave deste aparelho saem também */
   },
   /* tela de Configurações → Geral */
   card() {
@@ -6555,14 +6556,14 @@ const Conta = {
     if (!s) return '<div class="grouph" style="margin-top:12px">✨ ' + tt("Conta SolverONE", "SolverONE account") + '</div><p class="small muted">' + tt("A mesma conta de todos os apps da SolverONE. Com ela, cada pessoa da família usa o app no próprio celular, com tudo igual em todos (⚙ → Nuvem).", "The same account for every SolverONE app. With it, each family member uses the app on their own phone, with everything the same on all of them (⚙ → Cloud).") + '</p><button class="btn sm" data-act="conta.entrar">✨ ' + tt("Entrar ou criar conta", "Sign in or create account") + "</button>";
     return '<div class="grouph" style="margin-top:12px">✨ ' + tt("Conta SolverONE", "SolverONE account") + '</div><p class="small">' + tt("Conectado como ", "Signed in as ") + "<b>" + esc(s.email) + "</b>" + (s.desde ? ' <span class="tiny faint">· ' + tt("desde ", "since ") + esc(fmtDate(isoDate(new Date(s.desde)))) + "</span>" : "") + '</p><p class="tiny faint">' + (S.mode === "cloud" ? tt("Vale em todos os apps da SolverONE neste aparelho. A família está na nuvem com esta conta.", "Works in every SolverONE app on this device. The family is in the cloud with this account.") : tt("Vale em todos os apps da SolverONE neste aparelho. Para pôr a família na nuvem: ⚙ → Nuvem.", "Works in every SolverONE app on this device. To put the family in the cloud: ⚙ → Cloud.")) + '</p><div class="row"><button class="btn ghost sm" data-act="conta.sair">' + tt("Sair da conta neste aparelho", "Sign out of the account on this device") + "</button>" + (S.mode === "cloud" ? '<button class="btn ghost sm danger" data-act="cofre.desconectar">📴 ' + tt("Desconectar este aparelho", "Disconnect this device") + "</button>" : "") + '</div><p class="tiny faint">' + tt("Sair: fecha as Senhas da casa. Desconectar: também apaga deste aparelho a cópia das Senhas da casa (elas continuam guardadas na internet).", "Sign out: locks the vault and drops the key from memory. Disconnect: also erases the vault's encrypted copy and its key from this device.") + "</p>";
   },
-  /* a conta mudou (entrou, saiu, sessão vencida): sem conta, a família da nuvem fecha neste aparelho */
-  mudou() { try { if (S.mode === "cloud" && !this.on()) ACT["cloud.logout"](); else if (S.booted) render(); else if (S.gate === "welcome") setGate("welcome"); } catch (e) {} }
+  /* a conta mudou (entrou, saiu, sessão vencida): sem conta, a família da nuvem fecha neste aparelho (2.26.0: sai de verdade) */
+  mudou() { try { if (Saida.saindo) return; if (S.mode === "cloud" && !this.on()) Saida.sair({ semPerguntar: true, motivo: "sessao" }); else if (S.booted) render(); else if (S.gate === "welcome") setGate("welcome"); } catch (e) {} }
 };
 /* entrou na conta com a família só neste aparelho: oferece levar para a nuvem na hora */
 /* entrou na conta de dentro do app "só neste aparelho": a nuvem passa a ter prioridade (abre a família da conta ou
    mostra as escolhas). Quem já confirmou o próprio perfil de responsável aqui não precisa do PIN de novo. */
 ACT["conta.entrar"] = () => Conta.janela(() => { if (S.mode === "local" && S.booted) { if (isGuardian()) Migrar._autorizado = S.meId; lsDel(LS.soAqui); Cloud.resolve(); } });
-ACT["conta.sair"] = () => Conta.sair();
+ACT["conta.sair"] = () => Saida.sair();
 ACT["conta.encerrar"] = () => Conta.encerrar();
 ACT["conta.google"] = () => Conta.google();
 ACT["conta.email"] = () => Conta.janela(() => { lsDel(LS.soAqui); Cloud.resolve(); });
@@ -6640,7 +6641,9 @@ function bioGate() {
     document.body.appendChild(el);
     const tryIt = async () => { if (await Bio.verify()) { S.unlocked = true; el.remove(); res(true); } };
     $("#bu", el).onclick = tryIt;
-    $("#bo", el).onclick = async () => { el.remove(); S.prefs.bioLock = false; savePrefs(); if (S.mode === "cloud") await ACT["cloud.logout"](); else { lsDel(LS.localMe); setGate("welcome"); } res(false); };
+    /* 2.26.0: "Sair da conta" sai de verdade e a digital continua ligada para a próxima entrada. A trava sai antes (a pergunta
+       da fila não fica atrás dela, K28) e volta se a pessoa desistir */
+    $("#bo", el).onclick = async () => { el.remove(); if (await Saida.sair()) return res(false); document.body.appendChild(el); };
     setTimeout(tryIt, 300);
   });
 }
@@ -6749,12 +6752,94 @@ function whoMenu(anchor) {
     const b = e.target.closest("[data-i]"); if (b) { j.fechar("fechar"); items[+b.dataset.i].fn(); }
   });
 }
+/* ---------- SAIR DE VERDADE (2.26.0) ----------
+   Uma rotina só para todo "Sair" de quem entrou (nuvem ou "só neste aparelho"): a conta sai deste aparelho (também no servidor),
+   nada fica na tela e a página recarrega na tela de entrar — recarregar e o Voltar não mostram dados.
+   apagar (aparelho tirado da conta ou da família, conta bloqueada ou encerrada, "Tirar este aparelho"): o cadeado e a cópia das
+   Senhas da casa saem daqui, e as chaves de IA desta pessoa também (D3). Nunca apaga o IDB nuvem (Saúde, Documentos, arquivos e
+   fotos só existem ali), a fila (sobe quando entrar de novo), files nem docs. */
+const Saida = {
+  saindo: false,
+  /* op = { motivo, apagar, semPerguntar, uid }. motivo: a frase da tela de entrar. false = a pessoa desistiu */
+  async sair(op) {
+    op = op || {};
+    if (this.saindo) return false;
+    if (!op.semPerguntar) {
+      const fila = S.mode === "cloud" ? CloudDriver.fila.size : 0, fundo = (window.DGO && DGO.fundo && DGO.fundo.ativas()) || [];
+      if (fila && !(await confirmBox(fila + tt(" mudança(s) ainda não subiram para a nuvem. Elas ficam guardadas neste aparelho e sobem quando você entrar de novo. Sair mesmo assim?", " change(s) haven't reached the cloud yet. They stay saved on this device and go up when you sign in again. Sign out anyway?"), tt("Sair", "Sign out")))) return false;
+      if (fundo.length && !(await confirmBox(tt("Ainda há trabalho em andamento", "There is still work in progress") + " (" + esc(fundo.map((t) => t.titulo).filter(Boolean).join(", ")) + "). " + tt("Se sair agora, ele para. Sair mesmo assim?", "If you sign out now, it stops. Sign out anyway?"), tt("Sair", "Sign out"), true))) return false;
+      if (this.saindo) return false;   /* outra saída começou enquanto a pessoa respondia */
+    }
+    this.saindo = true;
+    /* K28: o que os passos de baixo precisam fica guardado ANTES de limpar a tela e a sessão */
+    const uid = op.uid || Conta.uid(), gid = S.family && S.family.id, dev = op.apagar && gid && S.user ? Devices.myId() : "";
+    this.tela();
+    const ate = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise((r) => setTimeout(r, ms || 4000))]);
+    try {
+      await Cloud.logout(); Sess.end(); Vault.lock();
+      await ate(SolverCofre.trancar(), 2000);
+      /* um pedido de aparelho novo em espera (a tela já parou): recusado no banco (quem aprova deixa de ver) e esquecido daqui */
+      const ped = uid ? await IDB.get("kv", "pedido|" + uid).catch(() => null) : null;
+      if (ped) { if (Conta.on() && navigator.onLine) await ate(Sol.pedidoRecusar(ped.id)); Aparelhos.esquecer(ped); }
+      if (op.apagar && uid) {
+        const L = await Cofre.local(uid).catch(() => null);
+        /* tira este aparelho das duas listas: a da conta (sol_aparelhos) e a da família (omni_aparelhos) */
+        if (Conta.on() && navigator.onLine) {
+          if (L && L.ap) await ate(Sol.apTirar(L.ap));
+          if (dev) await ate(Conta.rest("PATCH", "omni_aparelhos?grupo_id=eq." + gid + "&id=eq." + encodeURIComponent(dev), { desconectado: true }, "return=minimal"));
+        }
+        await Cofre.apagarDoAparelho(uid, gid);
+        try { const ps = SolverCofre.pessoas(); if (ps.length && ps.every((q) => q === uid)) await SolverCofre.apagarCofre(); else await SolverCofre.esquecerPessoa(uid); } catch (e) {}
+        /* K7: o número antigo deste aparelho ficou "desconectado" na família; com um novo, entrar de novo aqui não sai em laço */
+        try { localStorage.removeItem(Devices.KEY); } catch (e) {}
+        /* o que esta aba guardava da pessoa (só as chaves do app, não o sessionStorage inteiro) */
+        try { Object.keys(sessionStorage).filter((k) => k.startsWith("omnilife.")).forEach((k) => sessionStorage.removeItem(k)); } catch (e) {}
+      }
+      if (Conta.on()) await Conta.sair(true, true);
+    } catch (e) { console.warn("sair", e); }
+    lsDel(LS.mode); lsDel(LS.localMe); ssSet("omnilife.adclosed", "");
+    if (op.motivo) ssSet("omnilife.saiu", op.motivo);
+    this.recarregar();
+    return true;
+  },
+  /* K28: nada da pessoa na tela a partir daqui — janelas, faixas, abas, cabeçalho e o que estava na memória */
+  tela() {
+    closeModals(); Aparelhos.parar();
+    S.meId = S.role = null; S.user = S.family = null; S.data = {}; S.unlocked = false;
+    setGate("loading", tt("Saindo…", "Signing out…"));
+  },
+  /* sem "#": o boot cai na tela de entrar; replace: o endereço com dados não fica no histórico */
+  recarregar() { location.replace(location.pathname); },
+  texto(m) {
+    return { tirado: Pin.explicar({ erro: "tirado" }), desconectado: tt("Este aparelho foi tirado da família por um responsável.", "This device was removed from the family by a guardian."),
+      sessao: tt("Sua sessão terminou: entre de novo.", "Your session ended: sign in again."),
+      bloqueada: "⛔ " + tt("Esta conta está bloqueada. As Senhas da casa foram apagadas deste aparelho.", "This account is blocked. The vault was erased from this device."),
+      este: "✓ " + tt("Pronto: este " + apN() + " saiu da conta.", "Done: this " + apN() + " left the account.") }[m] || "";
+  },
+  /* na tela de entrar, uma vez: por que saiu (a conta encerrada mostra o aviso inteiro, com o contato) */
+  aviso() {
+    const m = ssGet("omnilife.saiu"); if (!m) return;
+    try { sessionStorage.removeItem("omnilife.saiu"); } catch (e) {}
+    if (m === "encerrada") return Conta.avisoEncerrada();
+    if (this.texto(m)) toast(this.texto(m), 8000);
+  },
+  /* "Tirar este aparelho da conta" (Avançado): sai e apaga daqui o cadeado, a cópia das Senhas da casa e as chaves de IA */
+  async tirarEste() {
+    /* o que ainda está na fila das Senhas da casa tenta subir antes (elas ficam na internet; só a cópia deste aparelho sai) */
+    if (navigator.onLine) { try { await CloudDriver.flush(true); } catch (e) {} }
+    const pend = [...CloudDriver.fila.keys()].filter((k) => k.startsWith("vault|")).length;
+    if (!(await confirmBox(tt("Tirar este " + apN() + " da conta? Ele sai da conta e as Senhas da casa e as chaves de IA saem daqui (na internet as Senhas da casa continuam). Para usar de novo aqui, entre e peça a aprovação.", "Remove this " + apN() + " from the account? It signs out and the home passwords and AI keys leave this " + apN() + " (the home passwords stay online). To use it here again, sign in and ask for approval.") +
+      (pend ? "<br><br>⚠️ " + pend + tt(" mudança(s) nas Senhas da casa ainda não foram para a internet e vão se perder. Se puder, ligue a internet antes.", " vault change(s) haven't gone online yet and will be lost. If you can, turn on the internet first.") : ""), tt("Tirar este " + apN(), "Remove this " + apN()), true))) return false;
+    if (S.family && navigator.onLine) { try { await Cloud.audit("aparelho.tirado", Devices.label() + " · " + Cloud.myName()); } catch (e) {} }
+    return this.sair({ apagar: true, semPerguntar: true, motivo: "este" });
+  }
+};
 async function signOut() {
-  if (S.mode === "cloud" && CloudDriver.fila.size && !(await confirmBox(CloudDriver.fila.size + tt(" mudança(s) ainda não subiram para a nuvem. Elas ficam guardadas neste aparelho e sobem quando você entrar de novo. Sair mesmo assim?", " change(s) haven't reached the cloud yet. They stay saved on this device and go up when you sign in again. Sign out anyway?"), tt("Sair", "Sign out")))) return;
+  /* 2.26.0: quem entrou (nuvem ou "só neste aparelho") sai de verdade. Visitante e anunciante, e o "Entrar" de quem ainda não
+     entrou (o 👤 usa esta mesma função), continuam como antes: nada de tirar a conta conectada (K26) */
+  if (S.booted && (S.mode === "cloud" || S.mode === "local")) return Saida.sair();
   Sess.end();
-  if (S.mode === "cloud") return ACT["cloud.logout"]();
   Vault.lock(); SolverCofre.trancar().catch(() => {}); S.data = {}; S.meId = null; S.role = null; S.vaultKey = null; S.unlocked = false;
-  if (S.mode === "local") lsDel(LS.localMe);
   S.mode = null; lsDel(LS.mode); ssSet("omnilife.adclosed", ""); setGate("welcome");
 }
 function roleName(r) { return { admin: tt("Chefe da família", "Family head"), responsavel: tt("Responsável/tutor", "Guardian/tutor"), membro: tt("Membro adulto", "Adult member"), crianca: tt("Criança/Jovem", "Child/Teen") }[r] || ""; }
@@ -11093,7 +11178,7 @@ const FamilyViews = {
     return h;
   }
 };
-const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho desconectado", "📴 Device disconnected"), "aparelho.aprovado": tt("📱 Aparelho aprovado", "📱 Device approved"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
+const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 Invite created"), "convite.revogado": tt("⊘ Convite cancelado", "⊘ Invite revoked"), "entrada.aprovacao": tt("✅ Aprovação registrada", "✅ Approval recorded"), "entrada.aprovada": tt("🏠 Entrada aprovada", "🏠 Join approved"), "entrada.recusada": tt("✕ Entrada recusada", "✕ Join declined"), "papel.alterado": tt("🔁 Papel alterado", "🔁 Role changed"), "membro.removido": tt("🚫 Login removido", "🚫 Login removed"), "membro.saiu": tt("🚪 Saiu da família", "🚪 Left the family"), "criacao.transferida": tt("🏠 Criação transferida", "🏠 Ownership transferred"), "regras.alteradas": tt("⚙️ Regras de entrada alteradas", "⚙️ Joining rules changed"), "codigo.errado": tt("⚠️ Código de confirmação errado", "⚠️ Wrong confirmation code"), "familia.criada": tt("🏡 Família criada", "🏡 Family created"), "chefe.pedido": tt("🛡 Pedido sobre um chefe", "🛡 Request about a head"), "chefe.aprovado": tt("✅ Pedido sobre chefe aprovado", "✅ Head request approved"), "pedido.vetado": tt("✋ Pedido vetado", "✋ Request vetoed"), "pedido.cancelado": tt("⊘ Pedido cancelado", "⊘ Request cancelled"), "criacao.proposta": tt("🏠 Passagem da criação proposta", "🏠 Ownership handover proposed"), "criacao.recusada": tt("✕ Passagem da criação recusada", "✕ Ownership handover declined"), "emergencia.pedida": tt("🆘 Acesso de emergência pedido", "🆘 Emergency access requested"), "emergencia.liberada": tt("🆘 Acesso de emergência liberado", "🆘 Emergency access released"), "emergencia.codigo": tt("🔑 Código de emergência gerado", "🔑 Emergency code made"), "emergencia.usada": tt("🔓 Senhas da casa abertas com o código de emergência", "🔓 Vault opened with the emergency code"), "aparelho.desconectado": tt("📴 Aparelho desconectado", "📴 Device disconnected"), "aparelho.aprovado": tt("📱 Aparelho aprovado", "📱 Device approved"), "aparelho.tirado": tt("📴 Aparelho tirado da conta", "📴 Device removed from the account"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in") }[k] || k);
 ACT["person.new"] = () => editPerson(null);
 /* pet tem a ficha própria em 🐾 Pets (com a aba desligada, volta ao cadastro de pessoa) */
 ACT["person.edit"] = (d) => { const p = People.get(d.id); if (!p) return; if (p.role === "pet" && Rec.ok("pets") && canTab("pets")) return go("pets", "ficha", p.id); editPerson(JSON.parse(JSON.stringify(p))); };
@@ -11354,11 +11439,8 @@ const Devices = {
   /* lista vinda do banco (a cada 20 s); se ESTE aparelho foi desconectado, sai da conta aqui */
   setList(rows) {
     const eu = (rows || []).find((r) => r.id === this.myId());
-    if (eu && eu.desconectado) {
-      toast("📴 " + tt("Este aparelho foi desconectado da família por um responsável.", "This device was disconnected from the family by a guardian."), 8000);
-      try { sessionStorage.clear(); localStorage.removeItem(this.KEY); } catch (e) {}
-      Cofre.apagarDoAparelho().finally(() => { Conta.sair(true); ACT["cloud.logout"](); }); return;
-    }
+    /* 2.26.0: sai de verdade (o Saida apaga daqui o cadeado e o número deste aparelho, e só as chaves do app desta aba) */
+    if (eu && eu.desconectado) { Saida.sair({ apagar: true, semPerguntar: true, motivo: "desconectado" }); return; }
     this.list = (rows || []).filter((r) => !r.desconectado).map((r) => ({ id: r.id, uid: r.user_id, name: r.nome || "", kind: r.tipo, lastAt: r.ultimo_em, firstAt: r.primeiro_em }));
   },
   async revoke(id) {
@@ -14858,7 +14940,16 @@ async function boot() {
   /* registro de acesso que ficou para trás (falha de rede ou página fechada sem keepalive) */
   if (Conta.on()) setTimeout(() => Conta.retomarAcessos(), 2500);
   window.addEventListener("pagehide", () => { Conta._saindo = true; });
-  window.addEventListener("pageshow", (e) => { if (e.persisted) Conta._saindo = false; });
+  /* 2.26.0: a página voltou da memória do navegador (Voltar) depois de sair: recarrega na tela de entrar. No "só neste aparelho"
+     e no visitante (que não guarda o modo), voltar de outra página não recarrega (K29) */
+  window.addEventListener("pageshow", (e) => {
+    if (!e.persisted) return;
+    Conta._saindo = false;
+    const modo = lsGet(LS.mode, null);
+    if ((!modo && S.mode !== "visitor") || (modo === "cloud" && !Conta.on())) location.reload();
+  });
+  /* 2.26.0: saiu da conta em outra aba (a sessão é a mesma em todos os apps da SolverONE neste endereço): esta sai também (K27) */
+  window.addEventListener("storage", (e) => { if (e.key === Conta.K && !e.newValue && S.booted && S.mode === "cloud" && !Conta.on()) Saida.sair({ semPerguntar: true, motivo: "sessao" }); });
   window.addEventListener("online", () => { Conta.retomarAcessos(); Conta.revalidar(); });
   Trava.iniciar();
   if (S.contaRetorno === "confirmar") setTimeout(() => Conta.confirmarPendente(), 900);

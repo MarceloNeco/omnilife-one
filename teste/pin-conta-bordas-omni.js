@@ -8,7 +8,8 @@
          some de novo; com as Senhas da casa abertas (só confirmar), o campo não aparece (a conferência é só daqui)
      K12 sem o SQL do PIN da conta (Sol.ligadoPin false), um aparelho que JÁ passou para o PIN da conta não troca só o PIN daqui
      tirado: um aparelho que saiu da lista da conta e tenta criar ou trocar o PIN da conta sai da conta (antes dizia "Sem conexão")
-     conta bloqueada: a renovação da sessão que acontece no meio do registro do aparelho apaga o cadeado e não trava o app
+     conta bloqueada: a renovação da sessão que acontece no meio do registro do aparelho apaga o cadeado e não trava o app; e a que
+         acontece DENTRO da trava do cadeado também não (2.26.0: a saída da conta bloqueada é o Saida, que ninguém espera dentro da trava)
      nada de PIN no console; sem erro de script, sem diálogo nativo, nada fora do banco de mentira
    Pessoas, senhas, PINs e chaves de mentira. Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/pin-conta-bordas-omni.js */
 const crypto = require('crypto');
@@ -154,16 +155,36 @@ async function janelaPin(p) {
   await cadeadoAntigo(k, ANA, PIN_K2);
   L = await local(k);
   M.banidas[ANA] = true;
+  /* 2.26.0: a conta bloqueada sai de verdade (Saida), que no fim recarrega a página: aqui o recarregar só fica anotado, para
+     conferir o que aconteceu na mesma página; depois a página recarrega de verdade e a tela de entrar diz o motivo */
   const ban = await k.evaluate(async (u) => {
-    Cloud.stopPoll();
+    Cloud.stopPoll(); window.__recarregou = 0; Saida.recarregar = () => { window.__recarregou = 1; };
     const s = JSON.parse(localStorage.getItem('solverone.sessao.v1')); s.expira = 0; localStorage.setItem('solverone.sessao.v1', JSON.stringify(s));
     const fim = await Promise.race([Aparelhos.registrar().then(() => 'acabou', () => 'acabou'), new Promise((r) => setTimeout(() => r('travou'), 8000))]);
     const pin = await Promise.race([Cofre._pinRaw('000000').then(() => 'respondeu'), new Promise((r) => setTimeout(() => r('travou'), 4000))]);
-    return { fim, pin, L: !!(await IDB.get('kv', 'cofre|' + u)), conta: Conta.on() };
+    for (let i = 0; i < 80 && !window.__recarregou; i++) await new Promise((r) => setTimeout(r, 100));
+    return { fim, pin, saiu: window.__recarregou === 1, motivo: sessionStorage.getItem('omnilife.saiu'), L: !!(await IDB.get('kv', 'cofre|' + u)), conta: Conta.on() };
   }, ANA);
   delete M.banidas[ANA];
-  conferir(!L.ap && ban.fim === 'acabou' && ban.pin === 'respondeu' && !ban.L && !ban.conta && /bloqueada/.test(await toasts(k)),
-    'conta bloqueada: o registro termina, o cadeado deste aparelho é apagado, a conta sai e o PIN continua respondendo (nada travado)');
+  await k.reload();
+  const entrada = await k.waitForFunction(() => typeof S !== 'undefined' && S.gate === 'welcome', null, { timeout: 15000 }).then(() => true, () => false);
+  conferir(!L.ap && ban.fim === 'acabou' && ban.pin === 'respondeu' && ban.saiu && ban.motivo === 'bloqueada' && !ban.L && !ban.conta && entrada && /bloqueada/.test(await toasts(k)),
+    'conta bloqueada: o registro termina, o cadeado deste aparelho é apagado, a conta sai (tela de entrar com "Esta conta está bloqueada…") e o PIN continua respondendo (nada travado)');
+  /* P2 (revisão 1): a renovação que acontece DENTRO da trava do cadeado (quem grava e fala com o banco ao mesmo tempo): a saída da
+     conta bloqueada não é esperada por quem está com a trava — senão o apagar (que espera a trava) e ele esperariam um pelo outro */
+  await entrarOmni(k, ANA);
+  await cadeadoAntigo(k, ANA, PIN_K2);
+  M.banidas[ANA] = true;
+  const ban2 = await k.evaluate(async (u) => {
+    Cloud.stopPoll(); window.__recarregou = 0; Saida.recarregar = () => { window.__recarregou = 1; };
+    const s = JSON.parse(localStorage.getItem('solverone.sessao.v1')); s.expira = 0; localStorage.setItem('solverone.sessao.v1', JSON.stringify(s));
+    const fim = await Promise.race([Cofre.mudarLocal(null, async () => { await Conta.token(); }).then(() => 'acabou', () => 'acabou'), new Promise((r) => setTimeout(() => r('travou'), 8000))]);
+    for (let i = 0; i < 80 && !window.__recarregou; i++) await new Promise((r) => setTimeout(r, 100));
+    return { fim, saiu: window.__recarregou === 1, L: !!(await IDB.get('kv', 'cofre|' + u)), conta: Conta.on() };
+  }, ANA);
+  delete M.banidas[ANA];
+  conferir(ban2.fim === 'acabou' && ban2.saiu && !ban2.L && !ban2.conta, 'conta bloqueada (P2): a renovação dentro da trava do cadeado não trava — quem está com a trava termina e o cadeado é apagado depois');
+  await k.reload(); await k.waitForFunction(() => typeof S !== 'undefined' && S.gate === 'welcome', null, { timeout: 15000 });
 
   /* ---------- nada de PIN no console; nada fora do banco de mentira ---------- */
   const temPin = (t) => PINS.some((pin) => new RegExp('(^|[^0-9])' + pin + '([^0-9]|$)').test(t));

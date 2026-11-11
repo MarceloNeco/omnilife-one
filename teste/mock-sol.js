@@ -18,7 +18,9 @@
    Controles para o teste (objeto M): relogio (hora do banco; somar minutos faz o pedido vencer), ataque ("troca",
    "troca-sem-compromisso", "troca-depois"), semPin / semAp (as funções do PIN / dos aparelhos "não existem" no banco),
    semDelete (o GRANT de hoje: apagar omni_chave_privada dá 403 42501), banidas ({uid: true}: a renovação da sessão
-   responde "user_banned", como o Supabase para conta bloqueada), log (toda chamada recebida) e acessos.
+   responde "user_banned", como o Supabase para conta bloqueada), atrasoLogout (ms: o logout demora a responder; a hora da
+   resposta fica em logoutRespondido — para conferir que o "Sair" espera o servidor antes de recarregar), log (toda chamada
+   recebida) e acessos.
    PESSOAS, SENHAS, CÓDIGOS E CHAVES: TUDO FICTÍCIO, feito só para teste (nada de dado de gente de verdade).
    ===================================================================== */
 'use strict';
@@ -48,7 +50,7 @@ const PESSOAS = {
    pode adiantar (M.relogio += 11 * 60e3) para um pedido vencer. */
 const M = {
   _desvio: 0, get relogio() { return Date.now() + this._desvio; }, set relogio(v) { this._desvio = v - Date.now(); },
-  ataque: null, ATACANTE: null, semPin: false, semAp: false, semDelete: false, banidas: {}, log: [], acessos: [] };
+  ataque: null, ATACANTE: null, semPin: false, semAp: false, semDelete: false, banidas: {}, atrasoLogout: 0, logoutRespondido: 0, log: [], acessos: [] };
 let _ultimo = 0;
 /* hora do banco em texto; sempre crescente (o cursor do omni_docs depende da ordem de atualizado_em) */
 const agora = () => { _ultimo = Math.max(M.relogio, _ultimo + 1); return new Date(_ultimo).toISOString(); };
@@ -366,7 +368,9 @@ async function supabase(route) {
   if (p === '/auth/v1/logout') {
     const t = lerToken(req); if (!t || !PESSOAS[t.sub]) return json(401, { code: 401, msg: 'invalid JWT' });
     Object.values(SESSOES).forEach((s) => { if (s.id === t.session_id) s.saiu = true; });
-    return route.fulfill({ status: 204, headers: cab, body: '' });
+    if (M.atrasoLogout) await new Promise((r) => setTimeout(r, M.atrasoLogout));
+    /* a página pode ter ido embora no meio (o navegador cortou o pedido): então não há a quem responder */
+    return route.fulfill({ status: 204, headers: cab, body: '' }).then(() => { M.logoutRespondido = Date.now(); }, () => {});
   }
   if (p === '/auth/v1/user') return me ? json(200, usuario(me)) : json(401, { code: 401, msg: 'invalid JWT' });
   if (p.startsWith('/auth/v1/')) return json(200, {});

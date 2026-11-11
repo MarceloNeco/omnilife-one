@@ -103,7 +103,8 @@ const guardouSegredo = (lixos) => lixos.some((l) => l.console.some((t) => PINS.s
 const espere = (ms) => new Promise((r) => setTimeout(r, ms));
 const toasts = (p) => p.evaluate(() => document.querySelector('#toasts').textContent);
 /* quem abriu a família neste aparelho (para provar que NADA abriu) */
-const vigiarAbertura = (p) => p.evaluate(() => { window.__abriu = 0; const o = Cofre.usarChave; Cofre.usarChave = function () { window.__abriu++; return o.apply(this, arguments); }; });
+/* (2.26.0: o aparelho tirado sai e a página recarrega — a conta fica no sessionStorage da aba, fora das chaves "omnilife." que a saída limpa) */
+const vigiarAbertura = (p) => p.evaluate(() => { sessionStorage.setItem('teste.abriu', '0'); const o = Cofre.usarChave; Cofre.usarChave = function () { sessionStorage.setItem('teste.abriu', String(+sessionStorage.getItem('teste.abriu') + 1)); return o.apply(this, arguments); }; });
 /* pergunta pelos pedidos agora (sem esperar os 20 s do Cloud.poll); limpar = esquece os dispensados nesta aba. Devolve o texto da faixa */
 const olhar = (p, limpar) => p.evaluate(async (limpar) => {
   for (let i = 0; i < 80 && Aparelhos._olhando; i++) await new Promise((r) => setTimeout(r, 100));
@@ -803,7 +804,7 @@ const fechouSas = (p) => p.waitForSelector('.modal #apSas', { state: 'detached',
   await senhasDaCasa(b6); await b6.waitForSelector('#cfpin', { timeout: 10000 });
   await b6.fill('#cfpin', PIN_X); await b6.click('[data-act="cofre.pin"]');
   const saiu11 = await saiuDaConta(b6);
-  const fim11 = await b6.evaluate(async (u) => ({ abriu: window.__abriu, conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), ANA);
+  const fim11 = await b6.evaluate(async (u) => ({ abriu: +sessionStorage.getItem('teste.abriu'), conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), ANA);
   conferir(saiu11 && fim11.abriu === 0 && !fim11.conta && !fim11.L && M.log.slice(n11).some((x) => /sol_pin_conferir/.test(x.caminho)) && !linhasDe(ANA).some((x) => x.id === LB5.ap),
     'A11. tirado pelo computador: o PIN certo não abre nada no celular (o banco diz "aparelho"; não cai para o PIN deste aparelho), o cadeado sai e a conta sai dali');
 

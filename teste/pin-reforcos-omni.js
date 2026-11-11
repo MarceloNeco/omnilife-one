@@ -232,8 +232,9 @@ async function guardarChave(p, pin) {
   await p.evaluate(async () => { window.__guia = null; DGO.ia.guia = () => { window.__guia = SolverCofre.aberto(); }; await ACT['cofre.tela'](); });
   conferir(await p.evaluate(() => window.__guia) === false, '15. sem o PIN único, "Abrir a tela do cofre" tranca as chaves antes de abrir a tela');
   await p.evaluate((pin) => SolverCofre.abrir(pin), PIN_ANTIGO);
-  await p.evaluate(() => signOut());
-  conferir(await p.waitForFunction(() => !SolverCofre.aberto(), null, { timeout: 3000 }).then(() => true, () => false), '7. sair no "só neste aparelho" tranca as chaves de IA');
+  /* 2.26.0: o "Sair" recarrega a página (Saida): espera a tela de entrar; lá as chaves continuam trancadas (nada as reabre sem o PIN) */
+  await p.evaluate(() => { signOut(); });
+  conferir(await p.waitForFunction(() => typeof S !== 'undefined' && S.gate === 'welcome' && SolverCofre.existe() && !SolverCofre.aberto(), null, { timeout: 10000 }).then(() => true, () => false), '7. sair no "só neste aparelho" tranca as chaves de IA (e a página recarregada não as reabre)');
   await ctx.close();
 
   /* ---------- 8. "Começar" com as chaves abertas por outro PIN ---------- */
