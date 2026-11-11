@@ -14,7 +14,7 @@
 const crypto = require('crypto');
 const { BASE, criarConferir, iniciar, terminar } = require('./_base');
 const { M, db, rpcs, prepararChaves, PESSOAS, ANA, b64u } = require('./mock-sol');
-const { aparelho, entrarOmni, senhasDaCasa, semRede } = require('./_nuvem');
+const { aparelho, entrarOmni, senhasDaCasa, semRede, cadeado225 } = require('./_nuvem');
 
 const PIN_K = '736251', PIN_CONTA = '590317', PIN_NOVO = '638291', PIN_K2 = '482915';
 const PINS = [PIN_K, PIN_CONTA, PIN_NOVO, PIN_K2];
@@ -27,16 +27,13 @@ const mudar = (p, campos) => p.evaluate((c) => Cofre.mudarLocal(null, (L) => { O
 const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofre.trancar(); });
 const toasts = (p) => p.evaluate(() => document.querySelector('#toasts').textContent);
 const naTela = (p, sel) => p.evaluate((s) => !!document.querySelector(s), sel);
-/* o "Usar neste …" da 2.25: o código do papel e um PIN só deste aparelho, com o SQL novo "desligado" no preparo */
+/* o cadeado de um aparelho de antes (como a 2.25 gravava: o código do papel e um PIN só deste aparelho; ver cadeado225 no
+   _nuvem.js), com o SQL novo "desligado" no preparo */
 async function cadeadoAntigo(p, uid, pin) {
-  await p.evaluate(() => { Sol.ligadoAp = false; Sol.ligadoPin = false; });
+  /* o "Olá" e as dicas do AssistONE abrem sozinhos (1,4 s depois de desenhar, sem janela aberta) e cobririam os botões */
+  await p.evaluate(() => { Sol.ligadoAp = false; Sol.ligadoPin = false; AOne.save({ hello: 1, tour: 1, tips: Object.assign({}, AOne.cfg().tips, { home: 1, settings: 1, house: 1 }) }); if (AOne.view) AOne.close(); });
   await senhasDaCasa(p);
-  await p.click('[data-act="cofre.comecar"]');
-  await p.click('.modal [data-o="codigo"]');
-  await p.waitForSelector('.modal #askv'); await p.fill('.modal #askv', PESSOAS[uid].codigo); await p.click('.modal:has(#askv) [data-ok]');
-  await p.waitForSelector('.modal #np1', { timeout: 20000 }); await p.fill('#np1', pin); await p.fill('#np2', pin); await p.click('.modal:has(#np1) [data-ok]');
-  await p.waitForFunction(() => Cofre.aberto(), null, { timeout: 30000 });
-  if (await p.waitForSelector('.modal [data-yes]', { timeout: 1500 }).then(() => true, () => false)) await p.click('.modal [data-no]');
+  await cadeado225(p, uid, pin);
   await p.waitForFunction(() => Cofre.status && Cofre.status.fase === 'aberto' && !document.querySelector('.modal'), null, { timeout: 20000 });
   await p.evaluate(() => { Sol.ligadoAp = null; Sol.ligadoPin = null; });
 }
@@ -123,9 +120,9 @@ async function janelaPin(p) {
   console.log('K12. Sem o SQL do PIN da conta, um aparelho já no PIN da conta não troca o PIN só daqui');
   const ok12 = await k.evaluate(async (pin) => { const r = await Cofre.destrancarPin(pin); return r.ok === true; }, PIN_CONTA);
   L = await local(k); const ctAntes = L.ct;
-  await k.evaluate(() => { document.querySelector('#toasts').innerHTML = ''; Sol.ligadoPin = false; window.__novo = 0; Cofre.pedirNovoPin = async () => { window.__novo++; return '615048'; }; window.__troca = TelaConta.trocarPin(); });
+  await k.evaluate(() => { document.querySelector('#toasts').innerHTML = ''; Sol.ligadoPin = false; window.__novo = 0; const f = TelaConta.formPin; TelaConta.formPin = function (op) { window.__novo++; return f.call(this, op); }; window.__troca = TelaConta.trocarPin(); });
   await k.waitForTimeout(1500);
-  const k12 = await k.evaluate(async () => ({ prova: !!document.querySelector('.modal #ppin'), form: !!document.querySelector('.modal #pcAtual'), novo: window.__novo }));
+  const k12 = await k.evaluate(async () => ({ prova: !!document.querySelector('.modal #ppin'), form: !!document.querySelector('.modal #pcAtual, .modal #pcP1'), novo: window.__novo }));
   await k.evaluate(() => closeModals());
   const r12 = await k.evaluate(() => window.__troca);
   L = await local(k);

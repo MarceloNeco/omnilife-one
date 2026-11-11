@@ -1,22 +1,91 @@
 /* Aparelhos da conta (2.26.0, Parte A): aprovar um aparelho novo pelo outro aparelho, OmniLifeONE ↔ OmniLifeONE, no
    "Supabase de mentira" (teste/mock-sol.js): cada aparelho é um contexto do navegador e todos falam com o mesmo banco,
    que mora neste processo. Nada vai para a internet nem para o Supabase de verdade.
-   Por enquanto (etapa 2 da construção) só a fumaça, duas rodadas seguidas (cada uma um aparelho novo):
+   A fumaça, duas rodadas seguidas (cada uma um aparelho novo):
      - Ana entra pela janela da conta (e-mail e senha) no banco de mentira; o registro de acesso "login" chega
      - a família abre (Família Teste, Ana chefe, 4 pessoas); o app cria a pessoa dela e registra o aparelho na família
-     - Casa → Senhas da casa: a Jornada lê o estado de verdade ("primeira vez" neste aparelho) e a tela ainda é a de hoje
-       (2.25): passo a passo e "Pegue o papel com o código de recuperação" + "Usar neste …"
+     - Casa → Senhas da casa: a Jornada lê o estado de verdade ("primeira vez" neste aparelho): passo a passo e, sem papel nem
+       código, "aprove pelo outro aparelho seu" + "Usar neste …"
      - nenhuma requisição sai do site local e do banco de mentira; nenhum erro de script nem diálogo nativo
+   Etapa 5 (o aparelho novo pede e entra; a conta nova sem código), com o outro aparelho feito no Node (as funções do banco de
+   mentira e as mesmas contas do SolProto):
+     A1  "Primeira vez": aprovar pelo outro aparelho, pela família (há a Bia), sem a digital (sem leitor); o código só no link
+     A1b ninguém para aprovar (K21): só a explicação e onde fica o "Começar do zero"; nunca par novo
+     A2  o pedido (app "omnilife", compromisso, o par com a privada não extraível) · A6b Cancelar/✕ recusa no banco (K18), 4×
+         sem "muitos pedidos" · A7b venceu sem resposta · A5b aprovado e vencido · A8b o banco troca pub_a/n_a depois (K1)
+     K3  a chave de outra família não abre · K19 nenhuma linha órfã na lista (venceu, não abriu, desistiu do PIN, kit cancelado)
+     B aprovado "à mão" (pela família e pelo outro aparelho): "Digite o PIN da sua conta"; "Esqueci o PIN" (o cadeado de antes
+         só sai no fim); "Não lembro" (PIN novo sem o atual); o código antigo entra como "kit"; K15 "Falta liberar" já no PIN da conta
+     A12 conta nova (Cris): "Crie o PIN da sua conta", sem código; a pública uma vez, kit desligado, "primeiro", PIN v1,
+         "Falta liberar" até a Ana abrir; a pública intacta (com e sem o kit) em todos os caminhos
    E o banco de mentira faz o que o SQL faz (as próximas etapas dependem dele): pedidos de membro de qualquer papel, os
    ataques "troca", "troca-sem-compromisso" e "troca-depois", o dono recusa o próprio pedido, PIN da conta, passkey,
    404 das tabelas novas por REST e o DELETE da omni_chave_privada (403 42501 com M.semDelete).
    Pessoas, senhas e chaves de mentira. Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/aparelhos-omni.js */
+const crypto = require('crypto');
 const { BASE, criarConferir, iniciar, terminar } = require('./_base');
-const { M, db, rpcs, prepararChaves, compromisso, cf, PESSOAS, ANA, BIA, CRIS, DAVI, GID } = require('./mock-sol');
+const { M, db, rpcs, prepararChaves, compromisso, cf, agora, normCode, b64u, PESSOAS, ANA, BIA, CRIS, DAVI, GID } = require('./mock-sol');
 const { aparelho, entrarOmni, senhasDaCasa } = require('./_nuvem');
 
 /* espera uma condição do lado do banco (Node) */
 async function ate(fn, ms) { const fim = Date.now() + (ms || 8000); while (Date.now() < fim) { if (fn()) return true; await new Promise((r) => setTimeout(r, 100)); } return !!fn(); }
+
+/* ---- etapa 5: PINs de mentira e o "outro aparelho" (A) feito aqui no Node ---- */
+const PIN_CONTA = '590317', PIN_NOVO = '482915', PIN_X = '615048', PIN_CRIS = '903726', PINS = [PIN_CONTA, PIN_NOVO, PIN_X, PIN_CRIS];
+const OUTRA = '33333333-3333-3333-3333-333333333333';   /* uma família que não é a do pedido */
+const subtle = crypto.webcrypto.subtle, utf8 = (t) => new TextEncoder().encode(t), b64n = (b) => Buffer.from(b).toString('base64');
+const vNode = (pin, sal) => b64u(crypto.pbkdf2Sync(Buffer.from(String(pin), 'utf8'), Buffer.from(sal, 'base64url'), 600000, 32, 'sha256'));
+/* a chave pessoal da pessoa, aberta pelo código do papel (como o app faz): a carga "pessoal" que o computador manda */
+async function privadaDe(uid) {
+  const r = db.omni_chave_privada.find((x) => x.user_id === uid), o = JSON.parse(r.privada_cifrado);
+  const base = await subtle.importKey('raw', utf8(normCode(PESSOAS[uid].codigo)), 'PBKDF2', false, ['deriveKey']);
+  const k = await subtle.deriveKey({ name: 'PBKDF2', salt: Buffer.from(r.sal, 'base64'), iterations: r.iteracoes, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  return new Uint8Array(await subtle.decrypt({ name: 'AES-GCM', iv: Buffer.from(o.iv, 'base64') }, k, Buffer.from(o.ct, 'base64')));
+}
+/* as mesmas contas do SolProto (teste/gerar-vetores-sol.js), do lado de quem aprova */
+const ladoA = {
+  async par() { const k = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']), j = await subtle.exportKey('jwk', k.publicKey); return { priv: k.privateKey, pub: { kty: 'EC', crv: 'P-256', x: j.x, y: j.y } }; },
+  async sas(id, pubA, pubB, nA, nB) {
+    const h = new Uint8Array(await subtle.digest('SHA-256', utf8(['sol-ap-v2', id, pubA.x + '.' + pubA.y, pubB.x + '.' + pubB.y, nA, nB].join('|'))));
+    return String((((h[0] << 24) >>> 0) + (h[1] << 16) + (h[2] << 8) + h[3]) % 1000000).padStart(6, '0');
+  },
+  async chave(priv, pubOutro, id, uid, nA, nB) {
+    const pk = await subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: pubOutro.x, y: pubOutro.y, ext: true }, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const base = await subtle.importKey('raw', await subtle.deriveBits({ name: 'ECDH', public: pk }, priv, 256), 'HKDF', false, ['deriveKey']);
+    return subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: utf8(['sol-ap-v2', id, uid, nA, nB].join('|')) }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  },
+  async fechar(key, id, carga) { const iv = crypto.randomBytes(12); return { v: 2, iv: b64n(iv), ct: b64n(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: utf8(id) }, key, utf8(JSON.stringify(carga)))) }; }
+};
+/* A desafia o pedido, espera o B revelar o nB e confere o compromisso. Devolve os 6 números, resposta(carga) (fechada para
+   o B) e aprovar(resposta) — síncrono, para o teste poder mexer no relógio no mesmo passo */
+async function aprovarNoNode(quem, id, meuAp) {
+  const A = await ladoA.par(), nA = b64u(crypto.randomBytes(32));
+  if (!rpcs.sol_pedido_desafio(quem, { p_id: id, p_pub_a: A.pub, p_n_a: nA })) throw new Error('desafio recusado');
+  const p = db.sol_acesso_pedidos.find((x) => x.id === id);
+  if (!(await ate(() => !!p.n_b, 20000))) throw new Error('o aparelho novo não revelou o nB');
+  return { okC: compromisso(p.pub, p.n_b) === p.compromisso, sas: await ladoA.sas(id, A.pub, p.pub, nA, p.n_b),
+    resposta: async (carga) => ladoA.fechar(await ladoA.chave(A.priv, p.pub, id, p.user_id, nA, p.n_b), id, carga),
+    aprovar: (resp) => rpcs.sol_pedido_aprovar(quem, { p_id: id, p_resposta: resp, p_meu_ap: meuAp || null }) };
+}
+const pedidoAberto = () => db.sol_acesso_pedidos.filter((x) => x.user_id === ANA && x.estado === 'aberto').slice(-1)[0];
+const linhasAna = () => db.sol_aparelhos.filter((a) => a.user_id === ANA && !a.removido_em);
+const pinDaConta = (uid) => db.sol_pin_conta.find((x) => x.user_id === uid);
+const cadeado = (p) => p.evaluate(async () => { const L = await Cofre.local(); return L ? { ap: L.ap || null, como: L.como || null, srv: !!L.srv, pinVersao: L.pinVersao || 0, sk: !!L.sk, fam: Object.keys(L.fam || {}), ct: L.pin && L.pin.ct } : null; });
+const janela = (p, re, ms) => p.waitForFunction((re) => [...document.querySelectorAll('.modal h3')].some((h) => new RegExp(re).test(h.textContent)), re.source, { timeout: ms || 10000 }).then(() => true, () => false);
+const temJanela = (p, re) => p.evaluate((re) => [...document.querySelectorAll('.modal h3')].some((h) => new RegExp(re).test(h.textContent)), re.source);
+const textoJanelas = (p) => p.evaluate(() => [...document.querySelectorAll('.modal')].map((m) => m.innerText).join(' | '));
+const semFila = (p) => p.evaluate(() => SolverJanela.esperando() === 0);   /* nenhuma janela esperando atrás de outra (K31) */
+const naTela = (p, sel) => p.evaluate((s) => !!document.querySelector(s), sel);
+const erroEm = (p, re) => p.waitForFunction((re) => new RegExp(re).test((document.querySelector('.modal #pcErr') || {}).textContent || ''), re, { timeout: 15000 }).then(() => true, () => false);
+const sasNaTela = (p) => p.waitForSelector('.modal #apSas', { timeout: 20000 }).then(() => p.evaluate(() => document.querySelector('.modal #apSas').textContent.replace(/\s/g, '')), () => '');
+const temPedido = (p) => p.evaluate(async () => !!(await IDB.get('kv', 'pedido|' + Conta.uid())));
+const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofre.trancar(); });
+async function abrirPrimeiraVez(p) { await p.evaluate(() => closeModals()); await p.click('#screen [data-act="cofre.comecar"]'); await janela(p, /Primeira vez neste/); }
+/* o "Olá" e as dicas do AssistONE abrem sozinhos e cobririam os botões */
+const quieto = (p) => p.evaluate(() => { AOne.save({ hello: 1, tour: 1, tips: Object.assign({}, AOne.cfg().tips, { home: 1, settings: 1, house: 1 }) }); if (AOne.view) AOne.close(); });
+/* conta quantas vezes um par RSA novo é feito nesta página (com a pública na conta: nunca) */
+const vigiarPares = (p) => p.evaluate(() => { window.__pares = 0; const f = Cofre.novoPar; Cofre.novoPar = function () { window.__pares++; return f.apply(this, arguments); }; });
+const guardouSegredo = (lixos) => lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x))));
 
 (async () => {
   const browser = await iniciar();
@@ -41,10 +110,11 @@ async function ate(fn, ms) { const fim = Date.now() + (ms || 8000); while (Date.
 
     const sc = await senhasDaCasa(p);
     conferir(sc.guia === true, rodada + ': Casa → Senhas da casa: o passo a passo abre sozinho na primeira vez neste aparelho');
-    conferir(sc.status.fase === 'novo' && sc.status.caso === 'primeiraVez' && sc.status.rede && sc.status.temPub && sc.status.temKit && !sc.status.tem && sc.status.familiaPode && sc.status.jaTem === true,
+    conferir(sc.status.fase === 'novo' && sc.status.caso === 'primeiraVez' && sc.status.rede && sc.status.temPub && sc.status.temKit && !sc.status.tem && sc.status.familiaPode && !('jaTem' in sc.status),
       rodada + ': a Jornada lê o estado de verdade: sem cadeado neste aparelho, "primeira vez" (a conta já tem as chaves e a cópia pelo código; sem PIN da conta; a Bia pode aprovar)');
-    conferir(/Pegue o papel com o código de recuperação/.test(sc.texto) && await p.evaluate(() => /Usar neste/.test((document.querySelector('[data-act="cofre.comecar"]') || {}).textContent || '')),
-      rodada + ': a tela pede o papel com o código e oferece "🔑 Usar neste …" (como na 2.25)');
+    conferir(/Você já usa as Senhas da casa em outro aparelho/.test(sc.texto) && /Aprove pelo outro aparelho seu/.test(sc.texto) && !/código de recuperação|papel com/i.test(sc.texto) &&
+      await p.evaluate(() => /Usar neste/.test((document.querySelector('[data-act="cofre.comecar"]') || {}).textContent || '')),
+      rodada + ': a tela diz como usar aqui (aprovar pelo outro aparelho ou pela família), sem papel nem código, e oferece "🔑 Usar neste …"');
     conferir(!(await p.$('.modal')), rodada + ': nenhuma janela ficou aberta');
     if (rodada === 1) {
       /* as chaves de mentira estão no formato de hoje: o código do papel abre a chave pessoal e ela abre a CF da família */
@@ -142,5 +212,274 @@ async function ate(fn, ms) { const fim = Date.now() + (ms || 8000); while (Date.
   await dv.ctx.close();
   for (const t of Object.keys(db)) db[t].splice(0, db[t].length, ...antes[t]);
 
-  await terminar(falhas, browser, 'fumaça do banco de mentira — a Ana entra pela conta, a família abre e as Senhas da casa mostram o estado de hoje, duas vezes, sem nada sair para a internet.');
+  /* ===================== Etapa 5: o aparelho novo (B) pede e entra; a conta nova sem código =====================
+     O outro aparelho (A, quem aprova) é feito aqui no Node, pelas funções do banco de mentira e com as mesmas contas do
+     SolProto (as do teste/gerar-vetores-sol.js): desafia, espera o B revelar o nB, confere o compromisso, mostra os 6 números
+     e fecha a chave para o B. A tela de quem aprova é da etapa 6. */
+  console.log('Etapa 5. O aparelho novo da Ana: Primeira vez, pedir, a espera, aprovado "à mão" e o PIN da conta');
+  const pubAna = JSON.stringify(db.sol_chave_publica.find((k) => k.user_id === ANA)), kitAna = JSON.stringify(db.omni_chave_privada.find((k) => k.user_id === ANA));
+  const apA = rpcs.sol_aparelho_registrar(ANA, { p_nome: 'Windows · Chrome', p_app: 'omnilife', p_como: 'primeiro' });   /* o "computador" da Ana */
+  const salA = b64u(crypto.randomBytes(16));
+  conferir(rpcs.sol_pin_definir(ANA, { p_v_novo: vNode(PIN_CONTA, salA), p_sal_novo: salA, p_v_atual: null, p_ap: apA }).versao === 1, 'preparo: o computador da Ana na lista da conta e o PIN da conta (versão 1)');
+  const pkAna = await privadaDe(ANA), cargaAna = { v: 2, tipo: 'pessoal', sk: b64n(pkAna) };
+  const lixosB = [];
+  const B = await aparelho(browser, { nome: 'Ana celular', vp: 'celular', base: BASE }), b = B.p; lixosB.push(B.lixo);
+  await entrarOmni(b, ANA);
+  await quieto(b);
+  await vigiarPares(b);
+  const sc5 = await senhasDaCasa(b);
+  conferir(sc5.status.caso === 'primeiraVez' && !/código de recuperação/.test(sc5.texto), 'A1. sem cadeado neste celular: "primeira vez" e nenhum "código de recuperação" na tela');
+  await b.click('[data-act="cofre.comecar"]');
+  conferir(await janela(b, /Primeira vez neste/) && await semFila(b), 'A1. "Usar neste …" abre "Primeira vez neste …" (nada esperando atrás de outra janela)');
+  const a1 = await b.evaluate(() => {
+    const m = document.querySelector('.modal:has(#apOutro)'), t = m.cloneNode(true), c = t.querySelector('#apCodigo'), link = c ? c.textContent : '';
+    if (c) c.remove();
+    return { outro: !!m.querySelector('#apOutro'), fam: !!m.querySelector('#apFamilia'), pk: !!m.querySelector('#apPasskey'), link, texto: t.textContent };
+  });
+  conferir(a1.outro && a1.fam && !a1.pk && /Tenho o código de recuperação antigo/.test(a1.link) && !/código de recuperação|papel com/i.test(a1.texto),
+    'A1. "📱 Aprovar pelo outro aparelho", "👪 Pedir para alguém da família" (há a Bia), sem a digital (sem leitor); o código só no link discreto (a conta tem a cópia)');
+
+  /* A2: o pedido */
+  await b.click('.modal #apOutro');
+  conferir(await b.waitForSelector('.modal #apEsperando', { timeout: 10000 }).then(() => true, () => false) && await semFila(b), 'A2. a espera: "Esperando o outro aparelho abrir o pedido…"');
+  const pd2 = pedidoAberto();
+  const kv2 = await b.evaluate(async () => { const x = await IDB.get('kv', 'pedido|' + Conta.uid()); return x && { id: x.id, cripto: x.priv instanceof CryptoKey, extraivel: x.priv && x.priv.extractable, nB: (x.nB || '').length, modo: x.modo }; });
+  conferir(pd2 && pd2.app === 'omnilife' && pd2.compromisso.length === 43 && !pd2.n_b && !pd2.pub_a && !pd2.grupo_id && pd2.nome === 'Linux · Chrome' &&
+    kv2 && kv2.id === pd2.id && kv2.cripto && kv2.extraivel === false && kv2.nB === 43 && kv2.modo === 'pessoal',
+    'A2. pedido aberto no banco (app "omnilife", compromisso de 43, sem n_b) e o par guardado aqui com a privada NÃO extraível');
+
+  /* A6b (K18): Cancelar recusa no banco; 4× pedir e cancelar não dá "muitos pedidos"; fechar no ✕ também recusa */
+  await b.click('.modal #apCancelar');
+  conferir(await ate(() => pd2.estado === 'recusado' && pd2.respondido_por === ANA) && await janela(b, /Primeira vez neste/) && !(await temPedido(b)),
+    'A6b. Cancelar: o pedido é recusado no banco (quem aprova deixa de ver), o par sai daqui e volta a Primeira vez');
+  for (let i = 0; i < 4; i++) {
+    await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+    await b.click('.modal #apCancelar'); await janela(b, /Primeira vez neste/);
+  }
+  await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  await b.click('.modal:has(#apEsperando) .xbtn');
+  await b.waitForSelector('.modal #apEsperando', { state: 'detached', timeout: 5000 });
+  const meus6 = () => db.sol_acesso_pedidos.filter((x) => x.user_id === ANA);
+  conferir(await ate(() => meus6().length === 6 && meus6().every((x) => x.estado === 'recusado')) && !(await temJanela(b, /Não deu para pedir/)) && !(await temPedido(b)),
+    'A6b. 4× pedir e cancelar seguidos: nenhum "muitos pedidos em aberto"; fechar a espera no ✕ também recusa (6 pedidos, todos recusados)');
+
+  /* A7b: ninguém aprovou em 10 min */
+  await abrirPrimeiraVez(b);
+  await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const n7 = db.sol_aparelhos.filter((a) => a.user_id === ANA).length;
+  M.relogio += 11 * 60e3;
+  conferir(await janela(b, /O pedido venceu/, 15000) && await naTela(b, '.modal #apDeNovo') && db.sol_aparelhos.filter((a) => a.user_id === ANA).length === n7 && !(await temPedido(b)),
+    'A7b. venceu sem ninguém aprovar: "O pedido venceu" (com "Pedir de novo") e nenhuma linha nova na lista');
+
+  /* A8b (K1): o banco mostra a B o pub_a de verdade (os 6 números batem) e, depois de aprovado, troca pub_a/n_a e a resposta */
+  await b.click('.modal #apDeNovo'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const a8 = await aprovarNoNode(ANA, pedidoAberto().id, apA);
+  const sas8 = await sasNaTela(b);
+  conferir(a8.okC && sas8 === a8.sas, 'A8b. os dois mostram os mesmos 6 números (' + a8.sas + ') e o compromisso confere');
+  const n8 = linhasAna().length;
+  M.ataque = 'troca-depois';
+  a8.aprovar(await a8.resposta(cargaAna));
+  const viu8 = await janela(b, /Não abriu/, 15000), txt8 = await textoJanelas(b), pin8 = await temJanela(b, /Digite o PIN da sua conta/);
+  M.ataque = null;
+  conferir(viu8 && /não confere com os 6 números/.test(txt8) && !pin8, 'A8b. o banco troca o pub_a/n_a e a resposta depois de aprovado: não abre ("A resposta não confere com os 6 números. Nada foi usado.")');
+  conferir(await cadeado(b) === null && await ate(() => linhasAna().length === n8) && db.sol_aparelhos.some((a) => a.user_id === ANA && a.removido_em && a.como === 'aparelho'),
+    'A8b. nada foi montado (nenhum cadeado aqui) e a linha que o banco criou saiu da lista');
+
+  /* A5b (K19): aprovado, mas a resposta venceu antes de chegar */
+  await b.click('.modal #apDeNovo'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const a5 = await aprovarNoNode(ANA, pedidoAberto().id, apA); await sasNaTela(b);
+  const r5 = await a5.resposta(cargaAna), n5 = linhasAna().length;
+  a5.aprovar(r5); M.relogio += 11 * 60e3;   /* no mesmo passo: o aparelho novo só busca depois que venceu */
+  conferir(await janela(b, /O pedido venceu/, 15000) && await ate(() => linhasAna().length === n5) && await cadeado(b) === null,
+    'A5b. aprovado mas vencido antes de chegar (a resposta sumiu): "O pedido venceu" e a linha que o banco criou saiu da lista');
+
+  /* K3: a chave da família vem para OUTRA família (gid diferente do pedido): não abre */
+  await b.click('.modal #apVoltar'); await janela(b, /Primeira vez neste/);
+  await b.click('.modal #apFamilia'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const pd3 = pedidoAberto();
+  conferir(pd3.grupo_id === GID && await b.evaluate(() => /Família Teste/.test(document.querySelector('.modal:has(#apEsperando)').textContent)), 'K3. preparo: "Pedir para alguém da família" (a família no texto e no pedido)');
+  const a3 = await aprovarNoNode(BIA, pd3.id, null); await sasNaTela(b);
+  const n3 = linhasAna().length;
+  a3.aprovar(await a3.resposta({ v: 2, tipo: 'familia', gid: OUTRA, kv: 1, fk: 'fk-teste', cf: b64n(cf()) }));
+  conferir(await janela(b, /Não abriu/, 15000) && !(await temJanela(b, /Digite o PIN da sua conta/)) && await ate(() => linhasAna().length === n3) && await cadeado(b) === null,
+    'K3. a chave de OUTRA família: "Não abriu", nada montado e a linha nova sai da lista');
+
+  /* K19: aprovado de verdade, mas a pessoa desiste do "Digite o PIN da sua conta" */
+  await b.click('.modal #apDeNovo'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const a9 = await aprovarNoNode(BIA, pedidoAberto().id, null); await sasNaTela(b);
+  const n9 = linhasAna().length;
+  a9.aprovar(await a9.resposta({ v: 2, tipo: 'familia', gid: GID, kv: 1, fk: 'fk-teste', cf: b64n(cf()) }));
+  conferir(await janela(b, /Digite o PIN da sua conta/, 15000) && await semFila(b) && await naTela(b, '.modal #pcNaoLembro'), 'aprovado pela família: "Digite o PIN da sua conta" (com "Não lembro…")');
+  await b.click('.modal:has(#pcPin) .mf [data-x]');
+  conferir(await ate(() => linhasAna().length === n9) && await cadeado(b) === null && !(await temPedido(b)), 'K19. desistiu do PIN: a linha nova sai da lista e nada é montado');
+
+  /* aprovado pela família (Bia) e o PIN da conta */
+  await abrirPrimeiraVez(b);
+  await b.click('.modal #apFamilia'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const pdF = pedidoAberto(), aF = await aprovarNoNode(BIA, pdF.id, null); await sasNaTela(b);
+  aF.aprovar(await aF.resposta({ v: 2, tipo: 'familia', gid: GID, kv: 1, fk: 'fk-teste', cf: b64n(cf()) }));
+  await janela(b, /Digite o PIN da sua conta/, 15000);
+  await b.fill('.modal #pcPin', '000000'); await b.click('.modal #pcOk');
+  conferir(await erroEm(b, 'PIN errado') && await cadeado(b) === null, 'B aprovado à mão: o PIN da conta errado avisa ("PIN errado") e nada é montado');
+  await b.fill('.modal #pcPin', PIN_CONTA); await b.click('.modal #pcOk');
+  conferir(await b.waitForFunction(() => Cofre.aberto() && Cofre.status && Cofre.status.fase === 'aberto' && !document.querySelector('.modal'), null, { timeout: 30000 }).then(() => true, () => false), 'B aprovado à mão (pela família): "Digite o PIN da sua conta" → abre as Senhas da casa');
+  let LB = await cadeado(b);
+  const lF = db.sol_aparelhos.find((a) => a.id === LB.ap);
+  conferir(!LB.sk && LB.fam.join() === GID && LB.como === 'familia' && LB.srv && LB.pinVersao === 1 && lF && lF.como === 'familia' && lF.aprovado_por === BIA && pdF.estado === 'usado' && pdF.resposta === null &&
+    await b.evaluate((cf) => b64FromBuf(Cofre.vfRaw) === cf, b64n(cf())) && !(await temPedido(b)),
+    'pela família: só a chave da família (sem a chave pessoal), "familia", o PIN da conta neste aparelho (L.srv, versão 1); a mesma chave da família; o pedido "usado" e o par apagado');
+
+  /* "Esqueci o PIN": nada muda até o cadeado novo estar pronto */
+  await tranca(b); await senhasDaCasa(b);
+  await b.click('#screen [data-act="cofre.esqueci"]');
+  conferir(await janela(b, /Abrir sem o PIN/) && await naTela(b, '.modal #apVolta') && await naTela(b, '.modal #apCodigo') && await semFila(b), '"Esqueci o PIN": "Abrir sem o PIN" (com "Voltar" e o link do código antigo)');
+  await b.click('.modal #apVolta');
+  conferir(JSON.stringify(await cadeado(b)) === JSON.stringify(LB), '"Voltar": o cadeado deste aparelho continua o mesmo');
+  await b.click('#screen [data-act="cofre.esqueci"]'); await janela(b, /Abrir sem o PIN/);
+  await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const aE = await aprovarNoNode(ANA, pedidoAberto().id, apA); await sasNaTela(b);
+  const nE = linhasAna().length;
+  aE.aprovar(await aE.resposta(cargaAna));
+  await janela(b, /Digite o PIN da sua conta/, 15000);
+  await b.click('.modal:has(#pcPin) .mf [data-x]');
+  conferir(await ate(() => linhasAna().length === nE) && JSON.stringify(await cadeado(b)) === JSON.stringify(LB) && linhasAna().some((a) => a.id === LB.ap),
+    'o L antigo só é trocado no fim: aprovado, mas desistiu do PIN → o cadeado de antes continua inteiro (e o lugar dele na lista), a linha nova sai');
+
+  /* aprovado pelo outro aparelho (pessoal): A4 do lado do aparelho novo */
+  await b.click('#screen [data-act="cofre.esqueci"]'); await janela(b, /Abrir sem o PIN/);
+  await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const pdP = pedidoAberto(), aP = await aprovarNoNode(ANA, pdP.id, apA); await sasNaTela(b);
+  aP.aprovar(await aP.resposta(cargaAna));
+  await janela(b, /Digite o PIN da sua conta/, 15000);
+  const t0 = pinDaConta(ANA).tentativas;
+  await b.fill('.modal #pcPin', PIN_CONTA); await b.click('.modal #pcOk');
+  conferir(await b.waitForFunction(() => Cofre.aberto() && Cofre.status && Cofre.status.fase === 'aberto' && !document.querySelector('.modal'), null, { timeout: 30000 }).then(() => true, () => false), 'B aprovado à mão (pelo outro aparelho): "Digite o PIN da sua conta" → abre as Senhas da casa');
+  const LP = await cadeado(b), lP = db.sol_aparelhos.find((a) => a.id === LP.ap);
+  conferir(LP.sk && LP.fam.join() === GID && LP.como === 'aparelho' && LP.srv && LP.pinVersao === 1 && lP && lP.como === 'aparelho' && lP.aprovado_por === ANA && lP.aprovado_por_ap === apA &&
+    pdP.estado === 'usado' && pdP.resposta === null && !(await temPedido(b)) && pinDaConta(ANA).tentativas === t0 && await b.evaluate((cf) => b64FromBuf(Cofre.vfRaw) === cf, b64n(cf())),
+    'A4 (lado B): a chave pessoal e a da família, "aparelho", L.srv e versão 1; na lista aprovado pela Ana, pelo computador dela; o pedido "usado"; o par apagado; a mesma chave da família');
+  conferir(await ate(() => !linhasAna().some((a) => a.id === LB.ap)) && linhasAna().some((a) => a.id === LP.ap), '"Esqueci o PIN": o lugar antigo deste celular na lista sai, fica só o novo');
+  conferir(await b.evaluate(async () => { const pk = await Cofre.decifrar(await Cofre.aes(Cofre.dukRaw), (await Cofre.local()).sk); return b64FromBuf(pk); }) === b64n(pkAna),
+    'a chave pessoal que chegou é a mesma da conta (o vínculo do PIN único não muda)');
+
+  /* "Não lembro o PIN da conta": um PIN novo sem o atual (aprovado pelo outro aparelho há menos de 10 min) */
+  await tranca(b); await senhasDaCasa(b);
+  await b.click('#screen [data-act="cofre.esqueci"]'); await janela(b, /Abrir sem o PIN/);
+  await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const aN = await aprovarNoNode(ANA, pedidoAberto().id, apA); await sasNaTela(b);
+  aN.aprovar(await aN.resposta(cargaAna));
+  await janela(b, /Digite o PIN da sua conta/, 15000);
+  await b.click('.modal #pcNaoLembro');
+  await b.waitForSelector('.modal #pcP1', { timeout: 8000 });
+  conferir(await semFila(b) && !(await naTela(b, '.modal #pcPin')), '"Não lembro…": o formulário do PIN novo no lugar da janela (nada esperando, uma janela por vez)');
+  await b.click('.modal:has(#pcP1) .mf [data-x]');
+  conferir(await janela(b, /Digite o PIN da sua conta/) && await naTela(b, '.modal #pcPin'), '"Não lembro…": desistir do PIN novo volta para "Digite o PIN da sua conta"');
+  await b.click('.modal #pcNaoLembro'); await b.waitForSelector('.modal #pcP1', { timeout: 8000 });
+  await b.fill('.modal #pcP1', PIN_NOVO); await b.fill('.modal #pcP2', PIN_NOVO); await b.click('.modal #pcOk');
+  conferir(await b.waitForFunction(() => Cofre.aberto() && !document.querySelector('.modal #pcPin'), null, { timeout: 30000 }).then(() => true, () => false) && pinDaConta(ANA).versao === 2 && (await cadeado(b)).pinVersao === 2,
+    '"Não lembro o PIN da conta": o PIN novo vale (versão 2) e o cadeado abre com ele');
+  const rN = await b.evaluate(async (a) => { Cofre.trancar(); const x = await Cofre.destrancarPin(a.velho); Cofre.trancar(); const y = await Cofre.destrancarPin(a.novo); return [x.erro || 'abriu', y.ok === true]; }, { velho: PIN_CONTA, novo: PIN_NOVO });
+  conferir(rN[0] !== 'abriu' && rN[1], '"Não lembro": o PIN velho não abre mais; o novo abre');
+
+  /* o código antigo (kit): errado avisa; desistir do PIN tira a linha "kit"; certo entra como "kit" */
+  await tranca(b); await senhasDaCasa(b);
+  const LK0 = await cadeado(b);
+  await b.click('#screen [data-act="cofre.esqueci"]'); await janela(b, /Abrir sem o PIN/);
+  await b.click('.modal #apCodigo'); await b.waitForSelector('.modal #apCod', { timeout: 8000 });
+  await b.fill('.modal #apCod', 'AAAAA-BBBBB-CCCCC-DDDDD'); await b.click('.modal #apCodOk');
+  conferir(await erroEm(b, 'Esse código não confere') && !db.sol_aparelhos.some((a) => a.user_id === ANA && a.como === 'kit'), 'código antigo errado: "Esse código não confere" e nada entra na lista');
+  await b.fill('.modal #apCod', PESSOAS[ANA].codigo); await b.click('.modal #apCodOk');
+  await janela(b, /Digite o PIN da sua conta/, 20000);
+  const kit1 = db.sol_aparelhos.find((a) => a.user_id === ANA && a.como === 'kit' && !a.removido_em);
+  await b.click('.modal:has(#pcPin) .mf [data-x]');
+  conferir(kit1 && await ate(() => !!kit1.removido_em) && JSON.stringify(await cadeado(b)) === JSON.stringify(LK0), 'código antigo certo, mas desistiu do PIN: a linha "kit" sai da lista e o cadeado de antes fica');
+  await b.click('#screen [data-act="cofre.esqueci"]'); await janela(b, /Abrir sem o PIN/);
+  await b.click('.modal #apCodigo'); await b.waitForSelector('.modal #apCod', { timeout: 8000 });
+  await b.fill('.modal #apCod', PESSOAS[ANA].codigo); await b.click('.modal #apCodOk');
+  await janela(b, /Digite o PIN da sua conta/, 20000);
+  await b.fill('.modal #pcPin', PIN_NOVO); await b.click('.modal #pcOk');
+  conferir(await b.waitForFunction(() => Cofre.aberto() && Cofre.status && Cofre.status.fase === 'aberto' && !document.querySelector('.modal'), null, { timeout: 30000 }).then(() => true, () => false), 'código antigo: "Digite o PIN da sua conta" → abre');
+  const LK = await cadeado(b), lK = db.sol_aparelhos.find((a) => a.id === LK.ap);
+  conferir(LK.como === 'kit' && LK.sk && LK.srv && LK.pinVersao === 2 && lK && lK.como === 'kit' && await ate(() => !linhasAna().some((a) => a.id === LK0.ap)), 'código antigo: entrou como "kit" (o lugar de antes saiu da lista)');
+
+  /* K15: aprovado, mas a família ainda não liberou a chave dela para esta pessoa: "Falta liberar" — e mesmo assim o cadeado
+     novo já fica no PIN da conta (L.srv, versão, o lugar na lista) e o lugar antigo sai (senão, na próxima vez, "Falta só um passo") */
+  const embAna = db.sol_grupo_chaves.filter((k) => k.user_id === ANA);
+  db.sol_grupo_chaves.splice(0, db.sol_grupo_chaves.length, ...db.sol_grupo_chaves.filter((k) => k.user_id !== ANA));
+  await tranca(b); await senhasDaCasa(b);
+  await b.click('#screen [data-act="cofre.esqueci"]'); await janela(b, /Abrir sem o PIN/);
+  await b.click('.modal #apOutro'); await b.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const a15 = await aprovarNoNode(ANA, pedidoAberto().id, apA); await sasNaTela(b);
+  a15.aprovar(await a15.resposta(cargaAna));
+  await janela(b, /Digite o PIN da sua conta/, 15000);
+  await b.fill('.modal #pcPin', PIN_NOVO); await b.click('.modal #pcOk');
+  conferir(await janela(b, /Falta liberar/, 30000), 'K15. aprovado, mas a família ainda não liberou para esta chave: "Falta liberar"');
+  const L15 = await cadeado(b);
+  conferir(L15.sk && !L15.fam.length && L15.como === 'aparelho' && L15.srv && L15.pinVersao === 2 && linhasAna().some((a) => a.id === L15.ap) && await ate(() => !linhasAna().some((a) => a.id === LK.ap)),
+    'K15. mesmo em "Falta liberar": o cadeado novo já está no PIN da conta (L.srv, versão 2, o lugar novo na lista) e o lugar antigo saiu');
+  await b.click('.modal #apEntendi');
+  db.sol_grupo_chaves.push(...embAna);
+  const r15 = await b.evaluate(async (pin) => { Cofre.trancar(); const r = await Cofre.destrancarPin(pin); return r.ok === true && Cofre.aberto(); }, PIN_NOVO);
+  conferir(r15, 'K15. liberado: abre com o PIN da conta, sem "Falta só um passo"');
+
+  /* com a pública na conta, NUNCA um par novo (com e sem o kit): nenhum caminho tocou a sol_chave_publica */
+  const cc = await b.evaluate((pin) => Cofre.criarConta(pin), PIN_X);
+  conferir(cc.erro === 'temPub' && JSON.stringify(db.sol_chave_publica.find((k) => k.user_id === ANA)) === pubAna && JSON.stringify(db.omni_chave_privada.find((k) => k.user_id === ANA)) === kitAna &&
+    await b.evaluate(() => window.__pares) === 0, 'pública intacta (com o kit): nenhum caminho fez par novo; criar a conta com a pública na conta é recusado');
+  conferir(!B.lixo.erros.length && !B.lixo.nativos.length && !B.lixo.fora.some((u) => /supabase/i.test(u)), 'celular da Ana: sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (B.lixo.erros.length ? ': ' + B.lixo.erros.join(' | ') : ''));
+
+  /* A12: a conta nova (Cris): o PIN da conta, sem código; "Falta liberar" até alguém da família abrir; depois abre com o PIN */
+  console.log('A12. A conta nova (Cris): "Crie o PIN da sua conta SolverONE", sem código para anotar');
+  const C = await aparelho(browser, { nome: 'Cris', vp: 'celular', base: BASE }), c = C.p;
+  await entrarOmni(c, CRIS); await quieto(c); await vigiarPares(c);
+  const s12 = await senhasDaCasa(c);
+  conferir(s12.status.caso === 'contaNova' && !/código de recuperação|papel com/i.test(s12.texto) && /Não tem código para anotar/.test(s12.texto), 'A12. conta nova: a tela diz que não tem código para anotar');
+  await c.click('[data-act="cofre.comecar"]');
+  conferir(await janela(c, /Crie o PIN da sua conta SolverONE/) && await semFila(c) && !/código de recuperação|anote|papel/i.test(await textoJanelas(c)), 'A12. "Crie o PIN da sua conta SolverONE" (sem código, sem papel)');
+  await c.fill('.modal #pcP1', '111111'); await c.fill('.modal #pcP2', '111111'); await c.click('.modal #pcOk');
+  conferir(await erroEm(c, 'fácil de adivinhar') && !db.sol_chave_publica.some((k) => k.user_id === CRIS), 'A12. PIN fácil recusado (nada criado)');
+  await c.fill('.modal #pcP1', PIN_CRIS); await c.fill('.modal #pcP2', PIN_CRIS); await c.click('.modal #pcOk');
+  conferir(await janela(c, /Falta liberar/, 40000), 'A12. a família já tem a chave e ninguém liberou ainda: "Falta liberar"');
+  const pubC = db.sol_chave_publica.filter((k) => k.user_id === CRIS), lC = db.sol_aparelhos.filter((a) => a.user_id === CRIS && !a.removido_em), LC = await cadeado(c);
+  conferir(pubC.length === 1 && !db.omni_chave_privada.some((k) => k.user_id === CRIS) && lC.length === 1 && lC[0].como === 'primeiro' && pinDaConta(CRIS) && pinDaConta(CRIS).versao === 1 &&
+    LC.sk && !LC.fam.length && LC.ap === lC[0].id && LC.como === 'primeiro' && LC.srv && LC.pinVersao === 1 && await c.evaluate(() => window.__pares) === 1,
+    'A12. a pública criada UMA vez; nada em omni_chave_privada (kit desligado); a lista com "primeiro"; o PIN da conta versão 1; o cadeado com a chave pessoal (e sem a da família ainda)');
+  await c.click('.modal #apEntendi');
+  /* a Ana com as Senhas da casa abertas (no celular dela): o app libera para a Cris sozinho */
+  await b.evaluate(async (pin) => { if (!Cofre.aberto()) await Cofre.destrancarPin(pin); await Cofre.distribuir(true); }, PIN_NOVO);
+  conferir(await ate(() => db.sol_grupo_chaves.some((k) => k.user_id === CRIS)), 'A12. a Ana com as Senhas da casa abertas libera para a Cris');
+  const r12 = await c.evaluate(async (pin) => { Cofre.trancar(); const r = await Cofre.destrancarPin(pin); return r.ok === true && Cofre.aberto(); }, PIN_CRIS);
+  conferir(r12 && await c.evaluate((cf) => b64FromBuf(Cofre.vfRaw) === cf, b64n(cf())), 'A12. a Cris abre com o PIN da conta e tem a mesma chave da família');
+  const cc2 = await c.evaluate((pin) => Cofre.criarConta(pin), PIN_X);
+  conferir(cc2.erro === 'temPub' && db.sol_chave_publica.filter((k) => k.user_id === CRIS).length === 1 && db.sol_chave_publica.find((k) => k.user_id === CRIS).chave_publica.kid === pubC[0].chave_publica.kid && await c.evaluate(() => window.__pares) === 1,
+    'A12. de novo: com a pública na conta, criar é recusado (a mesma pública, nenhum par novo)');
+  conferir(!C.lixo.erros.length && !C.lixo.nativos.length && !C.lixo.fora.some((u) => /supabase/i.test(u)), 'Cris: sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (C.lixo.erros.length ? ': ' + C.lixo.erros.join(' | ') : ''));
+  await C.ctx.close();
+
+  /* A1b (K21): sem outro aparelho, sem kit, sem passkey e sem outro chefe/responsável: só a explicação (nunca par novo) */
+  console.log('A1b. Primeira vez sem ninguém para aprovar');
+  const kitLinha = db.omni_chave_privada.find((k) => k.user_id === ANA), papeis = {};
+  db.omni_chave_privada.splice(db.omni_chave_privada.indexOf(kitLinha), 1);
+  linhasAna().forEach((a) => { a.removido_em = agora(); a.removido_por = ANA; });
+  for (const u of [BIA, CRIS]) { const m = db.sol_grupo_membros.find((x) => x.grupo_id === GID && x.user_id === u); papeis[u] = m.papel; m.papel = 'membro'; }
+  const D = await aparelho(browser, { nome: 'Ana tablet', vp: 'celular', base: BASE }), d1 = D.p;
+  await entrarOmni(d1, ANA); await quieto(d1); await vigiarPares(d1);
+  await senhasDaCasa(d1);
+  await d1.click('[data-act="cofre.comecar"]');
+  await janela(d1, /Primeira vez neste/);
+  const t1b = await textoJanelas(d1);
+  conferir(/Não há outro aparelho seu para aprovar/.test(t1b) && /Segurança e aparelhos → Avançado/.test(t1b) && !(await naTela(d1, '.modal #apOutro')) && !(await naTela(d1, '.modal #apFamilia')) && !(await naTela(d1, '.modal #apCodigo')),
+    'A1b. ninguém para aprovar: só a explicação e onde fica o "Começar do zero" (Segurança e aparelhos → Avançado); sem botões de pedir nem código');
+  const cc3 = await d1.evaluate((pin) => Cofre.criarConta(pin), PIN_X);
+  conferir(cc3.erro === 'temPub' && JSON.stringify(db.sol_chave_publica.find((k) => k.user_id === ANA)) === pubAna && await d1.evaluate(() => window.__pares) === 0 && !db.omni_chave_privada.some((k) => k.user_id === ANA),
+    'pública intacta (sem o kit): nenhum par novo, nem chamando a criação da conta');
+  conferir(!D.lixo.erros.length && !D.lixo.nativos.length, 'A1b: sem erro de script e sem diálogo nativo' + (D.lixo.erros.length ? ': ' + D.lixo.erros.join(' | ') : ''));
+  await D.ctx.close();
+  db.omni_chave_privada.push(kitLinha);
+  for (const u of [BIA, CRIS]) db.sol_grupo_membros.find((x) => x.grupo_id === GID && x.user_id === u).papel = papeis[u];
+  conferir(JSON.stringify(db.omni_chave_privada.find((k) => k.user_id === ANA)) === kitAna, 'no fim: a cópia pelo código da Ana é a mesma do começo (nada apagou nem regravou o kit)');
+  conferir(!guardouSegredo(lixosB.concat([C.lixo, D.lixo])), 'nenhum PIN no console');
+  await B.ctx.close();
+
+  await terminar(falhas, browser, 'aparelhos da conta — a fumaça do banco de mentira; o aparelho novo pede e entra sem código (os 6 números fixados, Cancelar recusa, nenhuma linha órfã, "Esqueci o PIN" sem perder o cadeado, o código antigo como "kit") e a conta nova sem código, sem par novo quando a conta já tem a pública.');
 })().catch((e) => { console.error('Erro no teste:', e.message); process.exit(1); });

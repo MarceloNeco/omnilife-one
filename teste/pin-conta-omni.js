@@ -1,7 +1,7 @@
 /* PIN da conta SolverONE no OmniLifeONE (2.26.0, Parte B) — a rede, o PIN da conta e as telas dele.
    No "Supabase de mentira" (teste/mock-sol.js): cada aparelho é um contexto do navegador e todos falam com o mesmo banco,
    que mora neste processo. Nada vai para a internet nem para o Supabase de verdade. Confere:
-     1. aparelho de antes (o cadeado da 2.25, feito pelo "Usar neste …" com o código do papel, sem lugar na lista da conta):
+     1. aparelho de antes (o cadeado como a 2.25 gravava pelo "Usar neste …" com o código do papel, sem lugar na lista da conta):
         abre com o PIN dele e entra na lista como "primeiro"; a conta sem PIN CONTINUA sem PIN; sem internet abre pelo PIN de
         sempre (e o erro conta neste aparelho)
      2. com a conta já no MoneyTRIO (de mentira): a Jornada diz "outroApp" e o aparelho de antes entra na lista como "kit"
@@ -31,7 +31,7 @@
 const crypto = require('crypto');
 const { BASE, criarConferir, iniciar, terminar } = require('./_base');
 const { M, db, rpcs, prepararChaves, PESSOAS, ANA, BIA, CRIS, DAVI, GID, b64u } = require('./mock-sol');
-const { aparelho, entrarOmni, senhasDaCasa, semRede } = require('./_nuvem');
+const { aparelho, entrarOmni, senhasDaCasa, semRede, cadeado225 } = require('./_nuvem');
 
 const PIN_ANA = '736251', PIN_BIA = '284613', PIN_CONTA = '590317', PIN_NOVO = '482915', PIN_X = '615048', PIN_Y = '903726';
 /* Parte B (a Ana de novo, com a conta zerada no banco): o PIN antigo de cada aparelho e as versões do PIN da conta */
@@ -54,18 +54,13 @@ function trocarNoBanco(uid, atual, novo) {
 const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofre.trancar(); });
 const local = (p) => p.evaluate(async () => { const L = await Cofre.local(); return L && { ap: L.ap || null, como: L.como || null, srv: !!L.srv, pinVersao: L.pinVersao || 0, avisosAte: L.avisosAte || null, prf: !!L.prf, sk: !!L.sk, fam: Object.keys(L.fam || {}), erros: L.erros || 0 }; });
 const abrir = (p, pin) => p.evaluate(async (pin) => { Cofre.trancar(); const r = await Cofre.destrancarPin(pin); return { ok: r.ok === true, erro: r.erro || null, conta: !!r.conta, criarPin: !!r.criarPin, aberto: Cofre.aberto(), texto: Pin.explicar(r) }; }, pin);
-/* o "Usar neste …" da 2.25: o código do papel e um PIN só deste aparelho. O SQL novo "desligado" no preparo (o cadeado
-   nasce como na 2.25, fora da lista da conta). digital: aceita a oferta da digital no fim (autenticador virtual) */
+/* o cadeado de um aparelho de antes (como a 2.25 gravava pelo "Usar neste …": o código do papel e um PIN só deste aparelho;
+   ver cadeado225 no _nuvem.js). O SQL novo "desligado" no preparo (fora da lista da conta). digital: liga a digital no fim */
 async function cadeadoAntigo(p, uid, pin, digital) {
-  await p.evaluate(() => { Sol.ligadoAp = false; Sol.ligadoPin = false; });
+  /* o "Olá" e as dicas do AssistONE abrem sozinhos (1,4 s depois de desenhar, sem janela aberta) e cobririam os botões */
+  await p.evaluate(() => { Sol.ligadoAp = false; Sol.ligadoPin = false; AOne.save({ hello: 1, tour: 1, tips: Object.assign({}, AOne.cfg().tips, { home: 1, settings: 1, house: 1 }) }); if (AOne.view) AOne.close(); });
   await senhasDaCasa(p);
-  await p.click('[data-act="cofre.comecar"]');
-  await p.click('.modal [data-o="codigo"]');
-  await p.waitForSelector('.modal #askv'); await p.fill('.modal #askv', PESSOAS[uid].codigo); await p.click('.modal:has(#askv) [data-ok]');
-  await p.waitForSelector('.modal #np1', { timeout: 20000 }); await p.fill('#np1', pin); await p.fill('#np2', pin); await p.click('.modal:has(#np1) [data-ok]');
-  await p.waitForFunction(() => Cofre.aberto(), null, { timeout: 30000 });
-  if (await p.waitForSelector('.modal [data-yes]', { timeout: digital ? 20000 : 1500 }).then(() => true, () => false)) await p.click(digital ? '.modal [data-yes]' : '.modal [data-no]');
-  if (digital) await p.waitForFunction(async () => !!((await Cofre.local()) || {}).prf, null, { timeout: 20000 });
+  await cadeado225(p, uid, pin, digital);
   await p.waitForFunction(() => Cofre.status && Cofre.status.fase === 'aberto' && !document.querySelector('.modal'), null, { timeout: 20000 });
   await p.evaluate(() => { Sol.ligadoAp = null; Sol.ligadoPin = null; });
 }

@@ -83,8 +83,10 @@ const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofr
   /* 6. trocar o PIN das Senhas da casa */
   /* desde os reforços, trocar o PIN pede antes o PIN de agora (ver pin-reforcos-omni.js). 2.26.0: sem o banco, a troca só deste
      aparelho existe quando o SQL do PIN da conta falta (Sol.ligadoPin false) e o aparelho nunca passou para o PIN da conta */
-  const trocando6 = p.evaluate(async (novo) => { Sol.ligadoPin = false; Cofre.pedirNovoPin = async () => novo; await Cofre.trocarPin(); }, PIN_NOVO);
+  const trocando6 = p.evaluate(async () => { Sol.ligadoPin = false; await Cofre.trocarPin(); });
   await p.waitForSelector('.modal #ppin', { timeout: 6000 }); await p.fill('.modal #ppin', PIN); await p.click('.modal:has(#ppin) [data-ok]');
+  /* o PIN novo pelo formulário do PIN novo (o mesmo do PIN da conta: só números, 6 ou mais) */
+  await p.waitForSelector('.modal #pcP1', { timeout: 6000 }); await p.fill('.modal #pcP1', PIN_NOVO); await p.fill('.modal #pcP2', PIN_NOVO); await p.click('.modal #pcOk');
   await trocando6;
   await p.waitForTimeout(300);
   await tranca(p);

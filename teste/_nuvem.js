@@ -87,4 +87,26 @@ async function senhasDaCasa(p, op) {
 /* liga ou desliga a internet deste aparelho (navigator.onLine e os eventos online/offline) */
 const semRede = (ctx, sim) => ctx.setOffline(!!sim);
 
-module.exports = { VP, servir, aparelho, entrarOmni, entrarMoney, senhasDaCasa, semRede };
+/* o cadeado como a 2.25 gravava (o "Usar neste …" com o código do papel e um PIN só deste aparelho): chave pessoal e a da
+   família, SEM lugar na lista da conta e sem o PIN da conta. Esse caminho saiu do app na 2.26.0 (o código antigo agora entra
+   como "kit", na lista); os aparelhos que já existem continuam assim, e os testes da mudança para o PIN da conta partem dele.
+   Feito com as peças do próprio Cofre, na mesma ordem da 2.25: o cadeado, a família aberta e o PIN das chaves de IA junto.
+   digital: liga a digital das Senhas da casa no fim (autenticador virtual), como a oferta da 2.25 fazia. */
+async function cadeado225(p, uid, pin, digital) {
+  await p.evaluate(async (a) => {
+    const pv = await Cofre.privadaPeloCodigo(a.codigo); if (!pv) throw new Error('cadeado225: o código não abriu');
+    const r = await Cofre.buscarMinha(await Cofre.importarSk(pv.pkcs8)); if (!r) throw new Error('cadeado225: a família não liberou');
+    const dukRaw = Cofre.rnd(32), duk = await Cofre.aes(dukRaw), sal = b64FromBuf(Cofre.rnd(16));
+    const L = { v: 1, uid: Conta.uid(), pin: Object.assign({ sal, iter: COFRE_ITER }, await Cofre.cifrar(await Cofre.kdf(a.pin, sal, COFRE_ITER), dukRaw)), prf: null,
+      sk: await Cofre.cifrar(duk, pv.pkcs8), fam: { [S.family.id]: Object.assign({ kv: r.kv, fk: r.fk }, await Cofre.cifrar(duk, r.raw)) }, erros: 0, ate: 0, bloqueado: false };
+    await Cofre.mudarLocal(null, () => L);
+    Cofre.dukRaw = dukRaw; await Cofre.usarChave(r.raw, r.kv, r.fk);
+    if (SolverCofre.aberto()) await SolverCofre.trancar();
+    if (SolverCofre.pessoas().includes(Conta.uid())) await PinUnico.trocou(a.pin); else PinUnico.junto(a.pin);
+    if (a.digital) await Cofre.ligarDigital(true);
+    await Cofre.atualizar(); render();
+  }, { codigo: PESSOAS[uid].codigo, pin, digital: !!digital });
+  if (digital) await p.waitForFunction(async () => !!((await Cofre.local()) || {}).prf, null, { timeout: 20000 });
+}
+
+module.exports = { VP, servir, aparelho, entrarOmni, entrarMoney, senhasDaCasa, semRede, cadeado225 };
