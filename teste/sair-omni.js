@@ -17,6 +17,12 @@
      D7  com mudanças na fila: "Sair" pergunta antes; "Cancelar" não sai; a fila fica guardada
      D8  visitante e anunciante: "Entrar"/"Sair" como antes (não tiram a conta conectada, não recarregam — K26)
      D9  duas abas: "Sair" numa → a outra cai na tela de entrar em menos de 2 s
+     D7b com um trabalho no Fundo: a pergunta diz qual trabalho para; confirmando, ele para e a página vai para a tela de entrar sem o
+         aviso do navegador ("sair do site?") por cima — nada preso em "Saindo…" (revisão 2.26.0)
+     D10 antes de entrar na família (tela "Quase lá!"): o 👤 "Entrar" volta à tela de entrar como antes e a espera para (aprovado depois,
+         nada abre por trás); o "Sair" das 4 telas antes da família sai da conta de verdade (revisão 2.26.0)
+     D11 "Tirar este aparelho da conta": confirma, sai, apaga daqui o cadeado e as chaves de IA, tira das duas listas, fica no histórico
+     D12 conta encerrada: tela de entrar com o aviso inteiro; o cadeado e as chaves de IA saem; os dados da família ficam
      sem erro de script, sem diálogo nativo, nada fora do banco de mentira, nenhum PIN no console
    Pessoas, senhas, PINs e chaves de mentira. Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/sair-omni.js */
 const { BASE, criarConferir, iniciar, terminar } = require('./_base');
@@ -286,6 +292,13 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   await g.goBack(); const v6 = await naEntrada(g);
   conferir(r6 && v6 && !(await g.evaluate(() => /Família Local|Pessoa Local/.test(document.body.innerText))), 'D6. recarregar e Voltar continuam na tela de entrar, sem dado');
   conferir(await g.evaluate(async () => (await IDB.entries('docs')).length) === docsG && docsG > 0, 'D6. os dados locais continuam guardados neste aparelho (IDB docs: ' + docsG + ')');
+  /* na escolha de perfil (ainda sem entrar), o 👤 "Entrar" volta à tela de entrar como antes: a pessoa escolhida não fica lembrada */
+  await g.evaluate(() => ACT['gate.local']()); await g.waitForFunction(() => S.gate === 'profiles', null, { timeout: 10000 });
+  await g.evaluate(() => ACT['gate.pick']({ id: People.list('humans')[0].id })); await g.waitForFunction(() => S.booted && S.mode === 'local', null, { timeout: 10000 });
+  await quieto(g); await g.evaluate(() => { closeModals(); setGate('profiles'); });
+  await menu(g, 'pri');
+  const s6b = await g.waitForFunction(() => S.gate === 'welcome', null, { timeout: 10000 }).then(() => true, () => false);
+  conferir(s6b && !(await g.evaluate(() => localStorage.getItem('omnilife.local.me'))), 'D6. na escolha de perfil, 👤 → "Entrar" volta à tela de entrar e esquece a pessoa escolhida (como antes)');
   await G.ctx.close();
 
   /* ================= D7: mudanças na fila ================= */
@@ -318,6 +331,10 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   await menu(v, 'danger');
   const s8b = await v.waitForFunction(() => S.gate === 'welcome', null, { timeout: 10000 }).then(() => true, () => false);
   conferir(s8b && await marcada(v) && await v.evaluate(() => Conta.on()), 'D8. anunciante: 👤 → "Sair" como antes (sem recarregar e sem tirar a conta)');
+  /* a tela de entrar com a conta conectada: o "Sair da conta" de lá sai de verdade */
+  await v.click('#screen .gate [data-act="conta.sair"]');
+  const s8c = await naEntrada(v); await espere(500);
+  conferir(s8c && !(await v.evaluate(() => Conta.on())) && !(await continuarComo(v)), 'D8. na tela de entrar, "Sair da conta" tira a conta deste aparelho (sem "Continuar como" depois)');
   await V.ctx.close();
 
   /* ================= D9: duas abas ================= */
@@ -332,6 +349,84 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   const s9b = await naEntrada(w2, 2000);
   conferir(s9a && s9b && !(await dadosDaFamilia(w2)) && !(await continuarComo(w2)), 'D9. "Sair" numa aba: a outra cai na tela de entrar em menos de 2 s (K27), sem dado e sem "Continuar como"');
   await W.ctx.close();
+
+  /* ================= D7b: trabalho no Fundo (revisão 2.26.0) ================= */
+  console.log('D7b. "Sair" com um trabalho em andamento (Fundo)');
+  const K = await preparar(browser, lixos, 'Ana-fundo', ANA), k = K.p;
+  await k.evaluate(() => { DGO.fundo.iniciar({ tipo: 'ocr', titulo: 'Lendo o comprovante de teste', executar: () => new Promise(() => {}), podeCancelar: true }).catch((e) => { if (e && e.cancelado) sessionStorage.setItem('teste.cancelou', '1'); }); });
+  conferir(await k.evaluate(() => DGO.fundo.ativas().length === 1), 'preparo: um trabalho rodando no Fundo');
+  await menu(k, 'danger');
+  const perg7b = await k.waitForSelector('.modal [data-yes]', { timeout: 8000 }).then(() => k.evaluate(() => document.querySelector('.modal').innerText), () => '');
+  conferir(/Ainda há trabalho em andamento \(Lendo o comprovante de teste\)/.test(perg7b), 'D7b. "Sair" pergunta antes e diz qual trabalho vai parar ("Ainda há trabalho em andamento (Lendo o comprovante de teste)…")');
+  await k.click('.modal [data-yes]');
+  const s7b = await naEntrada(k, 15000);
+  conferir(s7b && !K.lixo.nativos.length && await k.evaluate(() => sessionStorage.getItem('teste.cancelou') === '1') && !(await k.evaluate(() => Conta.on())),
+    'D7b. confirmando, o trabalho para e a página vai para a tela de entrar, sem o aviso do navegador ("sair do site?") por cima — nada preso em "Saindo…"' + (K.lixo.nativos.length ? ' (' + K.lixo.nativos.join(', ') + ')' : ''));
+  await K.ctx.close();
+
+  /* ================= D10: antes de entrar na família (as telas de entrada da nuvem) ================= */
+  console.log('D10. Na tela "Quase lá!" (pedido de entrada esperando): o 👤 "Entrar" e o "Sair"');
+  const P = await preparar(browser, lixos, 'Ana-portao', ANA), q = P.p;
+  /* a tela de quem abriu um convite e espera a aprovação (a espera pergunta ao banco a cada 5 s) */
+  const pedE = { grupo_id: GID, user_id: ANA, status: 'pendente', aprovacoes: {}, convidado_por_nome: 'Bia Teste' };
+  db.omni_pedidos_entrada.push(pedE);
+  const quaseLa = async () => { await q.evaluate((gid) => { Cloud.logout(); S.data = {}; S.mode = 'cloud'; Cloud.setUser(); Cloud.waitApproval(gid, 'Família Teste'); }, GID); return q.waitForFunction(() => S.gate === 'waiting' && !!Cloud.waitT && !!document.querySelector('#screen .gate'), null, { timeout: 8000 }).then(() => true, () => false); };
+  conferir(await quaseLa(), 'preparo: a tela "Quase lá!" com a espera da aprovação');
+  await marcar(q);
+  await menu(q, 'pri');
+  const e10 = await q.waitForFunction(() => S.gate === 'welcome', null, { timeout: 8000 }).then(() => true, () => false);
+  const w10 = await q.evaluate(() => !!Cloud.waitT);
+  pedE.status = 'aprovado';
+  await espere(6500);
+  const abriu10 = await q.evaluate(() => S.booted || S.gate !== 'welcome');
+  pedE.status = 'pendente';
+  conferir(e10 && !w10 && !abriu10 && await marcada(q) && await continuarComo(q),
+    'D10. 👤 → "Entrar" na tela "Quase lá!": volta à tela de entrar como antes (a conta continua) e a espera para — aprovado depois, a família não abre sozinha por trás');
+  const portoes = await q.evaluate(() => ['create', 'waiting', 'invbad', 'offline'].map((g) => GATES[g].html(g === 'waiting' ? { name: 'x' } : g === 'invbad' ? 'expired' : null)).join(''));
+  conferir(!/data-act="cloud\.logout"/.test(portoes) && (portoes.match(/data-act="conta\.sair"/g) || []).length === 4,
+    'D10. o "Sair" das 4 telas antes da família (criar família, "Quase lá!", convite que não vale, sem conexão) é o "Sair" de verdade');
+  conferir(await quaseLa(), 'preparo: de novo a tela "Quase lá!"');
+  await q.click('#screen .gate button:text-is("Sair")');
+  const s10b = await naEntrada(q);
+  await espere(800);
+  conferir(s10b && !(await q.evaluate(() => Conta.on())) && !(await continuarComo(q)) && !(await q.evaluate(() => !!Cloud.waitT)),
+    'D10. "Sair" na tela "Quase lá!" sai da conta de verdade (tela de entrar sem "Continuar como")');
+  db.omni_pedidos_entrada.splice(db.omni_pedidos_entrada.indexOf(pedE), 1);
+  await P.ctx.close();
+
+  /* ================= D11: "Tirar este aparelho da conta" ================= */
+  console.log('D11. "Tirar este aparelho da conta" (Casa → Senhas da casa → Opções)');
+  const R = await preparar(browser, lixos, 'Ana-tirar', ANA, { cadeado: true }), t = R.p;
+  const nuvR = await nuvemDaFamilia(t), devR = await t.evaluate(() => Devices.myId()), idR = await t.evaluate(() => localStorage.getItem('omnilife.deviceId'));
+  const apR = await t.evaluate(async () => (await Cofre.local()).ap), h11 = db.omni_historico.length;
+  await t.evaluate(() => go('house', 'vault'));
+  await t.waitForSelector('#screen details:has([data-act="cofre.desconectar"]) summary', { timeout: 10000 });
+  await t.click('#screen details:has([data-act="cofre.desconectar"]) summary'); await t.click('#screen [data-act="cofre.desconectar"]');
+  const perg11 = await t.waitForSelector('.modal [data-yes]', { timeout: 8000 }).then(() => t.evaluate(() => document.querySelector('.modal').innerText), () => '');
+  await t.click('.modal [data-yes]');
+  const s11 = await naEntrada(t), e11 = await estado(t, ANA), rowR = db.omni_aparelhos.find((r) => r.id === devR);
+  conferir(/Tirar este .* da conta\?/.test(perg11) && s11 && /Pronto: este .* saiu da conta/.test(await toasts(t)) && !e11.conta && !(await continuarComo(t)),
+    'D11. confirma antes; depois, tela de entrar com "✓ Pronto: este … saiu da conta." (sem "Continuar como")');
+  conferir(!e11.L && !e11.chaveAp && !e11.ia && e11.dev !== idR && !linhasDe(ANA).some((x) => x.id === apR) && !!rowR && rowR.desconectado === true,
+    'D11. o cadeado e as chaves de IA (todas da Ana) saem; este aparelho sai da lista da conta e da família, e o número dele é esquecido (K7)');
+  conferir(db.omni_historico.slice(h11).some((x) => x.acao === 'aparelho.tirado') && await nuvemDaFamilia(t) === nuvR && nuvR > 0, 'D11. fica no histórico da família ("aparelho.tirado"); os dados da família neste aparelho ficam');
+  await R.ctx.close();
+
+  /* ================= D12: conta encerrada ================= */
+  console.log('D12. A conta foi encerrada (o servidor diz ao conferir a sessão), com uma janela aberta');
+  const X = await preparar(browser, lixos, 'Ana-encerrada', ANA, { cadeado: true }), x = X.p;
+  const nuvX = await nuvemDaFamilia(x), encerrada0 = rpcs.minha_conta_encerrada;
+  await x.evaluate(() => modal({ title: 'Uma janela aberta', body: '<p>dados da família</p>' }));
+  rpcs.minha_conta_encerrada = () => true;
+  await x.evaluate(() => { Conta._revalidando = false; Conta.revalidar(); });
+  const s12 = await naEntrada(x);
+  rpcs.minha_conta_encerrada = encerrada0;
+  const e12 = await estado(x, ANA);
+  const aviso12 = await x.waitForFunction(() => [...document.querySelectorAll('.modal h3')].some((h) => /Sua conta SolverONE foi encerrada/.test(h.textContent)), null, { timeout: 8000 }).then(() => x.evaluate(() => document.querySelector('.modal').innerText), () => '');
+  conferir(s12 && /Sua conta SolverONE foi encerrada/.test(aviso12) && /privacidade@/.test(aviso12) && !e12.conta && !(await continuarComo(x)),
+    'D12. encerrada: tela de entrar com o aviso inteiro ("Sua conta SolverONE foi encerrada", com o contato) e a conta saiu deste aparelho');
+  conferir(!e12.L && !e12.chaveAp && !e12.ia && await nuvemDaFamilia(x) === nuvX && nuvX > 0, 'D12. encerrada: o cadeado e as chaves de IA saem deste aparelho; os dados da família ficam');
+  await X.ctx.close();
 
   /* ================= limpeza ================= */
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
