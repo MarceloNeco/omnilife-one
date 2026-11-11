@@ -3959,12 +3959,14 @@ const Aparelhos = {
   /* K2: o banco só confere o papel de quem APROVA; um pedido "para a família" só vale se quem pede é chefe ou responsável
      DESTA família (as Senhas da casa são só deles) */
   podeFamilia(p) { return !!S.family && p.grupo_id === S.family.id && ["admin", "responsavel"].includes(((S.family.members || {})[p.quem] || {}).role); },
-  /* 1) o desafio: o par efêmero deste aparelho, uma vez por pedido. null = outro aparelho já desafiou (ou venceu) */
+  /* 1) o desafio: o par efêmero deste aparelho, uma vez por pedido. null = outro aparelho já desafiou (ou venceu).
+     A pública e o compromisso que o aparelho novo publicou ficam fixados AQUI, antes do meu desafio: depois dele o banco não
+     troca (com uma pública dele e um nB escolhido depois de ver o meu nA, acertaria os 6 números) */
   async desafiar(p) {
     if (this._apr[p.id]) return this._apr[p.id];
     const par = await SolProto.novoPar(), nA = SolProto.b64u(SolProto.rnd(32));
     if (!(await Sol.pedidoDesafio(p.id, par.pub, nA))) return null;
-    return (this._apr[p.id] = { priv: par.priv, pub: par.pub, nA });
+    return (this._apr[p.id] = { priv: par.priv, pub: par.pub, nA, pubB: { x: p.pub && p.pub.x, y: p.pub && p.pub.y }, c: p.compromisso });
   },
   /* 2) espera o aparelho novo revelar o nB (a cada 1,5 s, até 300 vezes). null = o pedido não está mais aberto (ou parou) */
   async esperarNb(p, parou) {
@@ -3977,8 +3979,12 @@ const Aparelhos = {
     }
     return q.n_b ? q : null;
   },
-  /* 3) o que o aparelho novo publicou confere com o compromisso dele (feito ANTES de ele ver o meu): senão foi alterado */
-  async confere(q) { return SolProto.pubOk(q.pub) && SolProto.nonceOk(q.n_b) && (await SolProto.compromisso(q.pub, q.n_b)) === q.compromisso; },
+  /* 3) o que o aparelho novo publicou confere com o compromisso dele (feito ANTES de ele ver o meu) e é o mesmo de antes do
+     desafio (eu = o que o desafiar fixou): senão foi alterado */
+  async confere(q, eu) {
+    return SolProto.pubOk(q.pub) && SolProto.nonceOk(q.n_b) && q.pub.x === eu.pubB.x && q.pub.y === eu.pubB.y && q.compromisso === eu.c &&
+      (await SolProto.compromisso(q.pub, q.n_b)) === q.compromisso;
+  },
   /* K3: a carga pelo TIPO que o banco deu (o meu próprio pedido "para a família" vem como pessoal), nunca pelo grupo */
   async carga(p, L, raw) {
     const duk = await Cofre.aes(raw);
@@ -4062,7 +4068,7 @@ const Aparelhos = {
      K19: a linha que o banco cria ao entregar a resposta sai em todo fim que não monta o cadeado. */
   esperar(ped) {
     if (this._esperando) this._esperando.parar();
-    let fim = false;
+    let fim = false, revelou = false;
     const esta = { parar: () => { fim = true; tela.fechar(); } };
     this._esperando = esta;
     const sair = () => { fim = true; if (this._esperando === esta) this._esperando = null; };
@@ -4090,13 +4096,20 @@ const Aparelhos = {
       if (!r || r.estado === "vencido" || (r.estado === "usado" && !r.resposta)) return acabar("venceu");
       if (r.estado === "recusado") return acabar("recusado");
       if (r.estado === "aprovado" && !r.resposta) return acabar("venceu", r.aparelho);
-      if (r.estado === "aberto" && r.pub_a && r.n_a && !ped.pubA) {
-        if (!SolProto.pubOk(r.pub_a) || !SolProto.nonceOk(r.n_a)) { Sol.pedidoRecusar(ped.id).catch(() => {}); return acabar("naoAbriu"); }
-        ped.pubA = { kty: "EC", crv: "P-256", x: r.pub_a.x, y: r.pub_a.y }; ped.nA = r.n_a;
-        try { await IDB.set("kv", "pedido|" + ped.uid, ped); } catch (e) {}
+      if (r.estado === "aberto" && r.pub_a && r.n_a) {
+        const novo = !ped.pubA;
+        if (novo) {
+          if (!SolProto.pubOk(r.pub_a) || !SolProto.nonceOk(r.n_a)) { Sol.pedidoRecusar(ped.id).catch(() => {}); return acabar("naoAbriu"); }
+          ped.pubA = { kty: "EC", crv: "P-256", x: r.pub_a.x, y: r.pub_a.y }; ped.nA = r.n_a;
+          /* sem o fixado guardado, uma recarga aceitaria outro pub_a com o nB já revelado: então não revela */
+          try { await IDB.set("kv", "pedido|" + ped.uid, ped); } catch (e) { Sol.pedidoRecusar(ped.id).catch(() => {}); return acabar("naoAbriu"); }
+          if (fim) return;
+        }
+        /* o nB vai só para o pub_a/n_a fixados; de novo na volta seguinte se a vez anterior falhou (rede) ou a página recarregou
+           no meio (o banco aceita uma vez só: repetir não muda nada) — senão quem aprova esperaria até o pedido vencer */
+        if (!revelou && r.pub_a.x === ped.pubA.x && r.pub_a.y === ped.pubA.y && r.n_a === ped.nA) { try { await Sol.pedidoRevelar(ped.id, ped.nB); revelou = true; } catch (e) {} }
         if (fim) return;
-        try { await Sol.pedidoRevelar(ped.id, ped.nB); } catch (e) {}
-        await numeros();
+        if (novo) await numeros();
       }
       if (r.estado === "aprovado") {
         sair();
@@ -4454,7 +4467,7 @@ const TelaConta = {
     const st = await Jornada.ler(true), ap = apN(), esqueci = !!op.esqueci && st.L;
     if (st.L && !esqueci) { await Cofre.atualizar(); return scheduleRender(); }   /* este aparelho já tem o cadeado */
     if (st.caso === "contaNova") return this.contaNova();
-    const outro = st.outrosApps[0] || "MoneyTRIO";
+    const outro = esc(st.outrosApps[0] || "MoneyTRIO");   /* vem do banco: como texto */
     const beco = st.rede && !st.outros && !st.temKit && !st.temPasskey && !st.familiaPode;
     const texto = st.caso === "outroApp" ? tt("Você já usa o " + outro + ". Para entrar aqui, aprove por um aparelho seu (pode ser o " + outro + " neste mesmo " + ap + ") e use o mesmo PIN da sua conta.", "You already use " + outro + ". To get in here, approve from a device of yours (it can be " + outro + " on this same " + ap + ") and use the same account PIN.") +
         (st.tem ? "" : " " + tt("O PIN que você escolher agora passa a valer também no " + outro + ".", "The PIN you choose now will also work in " + outro + "."))
@@ -4668,6 +4681,8 @@ const TelaConta = {
     const sair = (msg) => { fim = true; m.drop(); if (msg) toast(msg, 6000); };
     $("#apRecusar", m.el).onclick = () => { sair(); Aparelhos.recusar(p); };
     const pare = (id, txt) => { delete Aparelhos._apr[p.id]; etapa.innerHTML = '<p class="note bad" id="' + id + '">⚠️ ' + txt + "</p>"; };
+    /* o banco diz o tipo: um pedido "pessoal" que não é desta conta levaria a chave pessoal para outra pessoa */
+    if (!fam && p.quem !== Conta.uid()) return pare("apNaoSeu", tt("Este pedido não é da sua conta: a sua chave não vai para outra pessoa. Recuse este pedido.", "This request is not from your account: your key does not go to someone else. Decline this request."));
     if (fam && !Aparelhos.podeFamilia(p)) return pare("apNaoPode", tt("<b>" + quem + "</b> não é chefe nem responsável desta família: as Senhas da casa são só deles. Recuse este pedido.", "<b>" + quem + "</b> is not a head or guardian of this family: the home passwords are only theirs. Decline this request."));
     try {
       const eu = await Aparelhos.desafiar(p);
@@ -4676,7 +4691,7 @@ const TelaConta = {
       const q = await Aparelhos.esperarNb(p, () => fim);
       if (fim) return;
       if (!q) { delete Aparelhos._apr[p.id]; Aparelhos.tirarDaLista(p.id); return sair(tt("O pedido não está mais aberto.", "The request is no longer open.")); }
-      if (!(await Aparelhos.confere(q))) return pare("apAlterado", tt("Este pedido foi alterado no caminho. Não aprove: recuse e peça de novo no outro aparelho.", "This request was altered on the way. Do not approve: decline and ask again on the other device."));
+      if (!(await Aparelhos.confere(q, eu))) return pare("apAlterado", tt("Este pedido foi alterado no caminho. Não aprove: recuse e peça de novo no outro aparelho.", "This request was altered on the way. Do not approve: decline and ask again on the other device."));
       const sas = await SolProto.sas(p.id, eu.pub, q.pub, eu.nA, q.n_b), L = await Cofre.local();
       if (fim) return;
       etapa.innerHTML = '<div class="vcode" id="apSas" style="font-size:1.6rem;letter-spacing:.12em;text-align:center" aria-label="' + esc(SolProto.sasFalado(sas)) + '">' + SolProto.sasTela(sas) + "</div>" +

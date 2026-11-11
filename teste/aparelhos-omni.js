@@ -30,6 +30,9 @@
      A10 o tirado sai ao abrir · A11 tirado, o PIN certo não abre · K9 tirado, a digital não aprova
      B5  24 h de espera → "Esqueci o PIN" → aprovado → "Não lembro" · A3b PIN trocado em outro aparelho (G1 nas chaves de IA)
      D1  o cartão "🔐 Falta um passo para as Senhas da casa neste …" no Início
+   Revisão 2 (segurança): R1 quem aprova fixa a pública e o compromisso de antes do desafio ("troca-tarde" → "alterado") ·
+     R5 pedido de outra pessoa como "pessoal" não é aprovado · R2 sem o pub_a fixado guardado, o nB não é revelado · R3 a
+     revelação que falhou é repetida · R4 o nome de outro app vindo do banco é texto
    E o banco de mentira faz o que o SQL faz (as próximas etapas dependem dele): pedidos de membro de qualquer papel, os
    ataques "troca", "troca-sem-compromisso" e "troca-depois", o dono recusa o próprio pedido, PIN da conta, passkey,
    404 das tabelas novas por REST e o DELETE da omni_chave_privada (403 42501 com M.semDelete).
@@ -120,6 +123,16 @@ const saiuDaConta = (p) => p.waitForFunction(() => S.gate === 'welcome', null, {
 /* o passo a passo das Senhas da casa já visto (sob carga ele abre depois da espera do senhasDaCasa e cobriria os botões) */
 const quieto6 = async (p) => { await quieto(p); await p.evaluate(() => lsSet(GuiaCofre.K, Date.now())); };
 const fechouSas = (p) => p.waitForSelector('.modal #apSas', { state: 'detached', timeout: 30000 }).then(() => true, () => false);
+/* revisão 2: o banco mal-intencionado procura um nB que dê, com a pública dele, os 6 números que quer (≈ 1 milhão de tentativas,
+   alguns segundos; o banco de mentira continua respondendo no meio) */
+async function acertar(id, pubA, pubB, nA, alvo) {
+  const pre = ['sol-ap-v2', id, pubA.x + '.' + pubA.y, pubB.x + '.' + pubB.y, nA, ''].join('|'), base = crypto.randomBytes(32);
+  for (let i = 1; ; i++) {
+    base.writeUInt32BE(i, 0); const n = base.toString('base64url'), h = crypto.createHash('sha256').update(pre + n, 'utf8').digest();
+    if (String((((h[0] << 24) >>> 0) + (h[1] << 16) + (h[2] << 8) + h[3]) % 1000000).padStart(6, '0') === alvo) return n;
+    if (i % 20000 === 0) await new Promise((r) => setImmediate(r));
+  }
+}
 
 (async () => {
   const browser = await iniciar();
@@ -507,6 +520,16 @@ const fechouSas = (p) => p.waitForSelector('.modal #apSas', { state: 'detached',
   const cc3 = await d1.evaluate((pin) => Cofre.criarConta(pin), PIN_X);
   conferir(cc3.erro === 'temPub' && JSON.stringify(db.sol_chave_publica.find((k) => k.user_id === ANA)) === pubAna && await d1.evaluate(() => window.__pares) === 0 && !db.omni_chave_privada.some((k) => k.user_id === ANA),
     'pública intacta (sem o kit): nenhum par novo, nem chamando a criação da conta');
+  /* R4 (revisão 2): o nome do outro app vem do banco (sol_aparelhos_meus). O SQL só aceita letras minúsculas, mas um banco
+     mal-intencionado não pode pôr HTML na tela (ele leria a chave da família quando ela abrisse) */
+  const app4 = { id: crypto.randomUUID(), user_id: ANA, nome: 'Android · Chrome', app: 'x<img src=x onerror="window.__xss=1">', como: 'primeiro', aprovado_por: ANA, aprovado_por_ap: null,
+    criado_em: agora(), visto_em: agora(), removido_em: null, removido_por: null };
+  db.sol_aparelhos.push(app4);
+  await d1.evaluate(() => { closeModals(); Jornada.limpar(); });
+  await d1.click('#screen [data-act="cofre.comecar"]'); await janela(d1, /Primeira vez neste/); await espere(300);
+  const x4 = await d1.evaluate(() => ({ xss: !!window.__xss, img: !!document.querySelector('.modal img'), texto: [...document.querySelectorAll('.modal')].map((m) => m.innerText).join(' ') }));
+  conferir(!x4.xss && !x4.img && x4.texto.includes('Você já usa o x<img'), 'R4. o nome de outro app que veio do banco aparece como texto na "Primeira vez" (nada de HTML do banco na tela)');
+  db.sol_aparelhos.splice(db.sol_aparelhos.indexOf(app4), 1);
   conferir(!D.lixo.erros.length && !D.lixo.nativos.length, 'A1b: sem erro de script e sem diálogo nativo' + (D.lixo.erros.length ? ': ' + D.lixo.erros.join(' | ') : ''));
   await D.ctx.close();
   db.omni_chave_privada.push(kitLinha);
@@ -823,6 +846,74 @@ const fechouSas = (p) => p.waitForSelector('.modal #apSas', { state: 'detached',
   const fimD = await d6.evaluate(async (u) => ({ conta: Conta.on(), L: await IDB.get('kv', 'cofre|' + u) }), BIA);
   conferir(saiuD && !fimD.conta && !fimD.L && p9k.estado === 'aberto' && !p9k.respondido_por, 'K9. a digital confirmou, mas o aparelho foi tirado: nada foi aprovado, o cadeado sai e a conta sai deste celular');
   await e6.click('.modal #apCancelar');
+
+  /* ===================== Revisão 2 (segurança) ===================== */
+  /* R1: quem aprova fixa a pública e o compromisso que o aparelho novo publicou ANTES do desafio. Se lesse de novo depois do nB
+     revelado, um banco mal-intencionado mostraria outra pública, um nB escolhido (os 6 números iguais) e um compromisso novo que
+     confere com eles: a chave pessoal (ou a da família) iria fechada para ele */
+  console.log('R1. O banco troca a pública e o compromisso depois do desafio: quem aprova vê "alterado"');
+  await ate(() => p9k.estado !== 'aberto');
+  const bR = await ladoA.par(), nBR = b64u(crypto.randomBytes(32));
+  const idR = rpcs.sol_pedido_criar(ANA, { p_nome: 'Android · Chrome', p_app: 'omnilife', p_pub: bR.pub, p_compromisso: compromisso(bR.pub, nBR), p_grupo: null });
+  const pR = db.sol_acesso_pedidos.find((x) => x.id === idR);
+  conferir(/Pedido de acesso: Android · Chrome/.test(await olhar(a)), 'R1. preparo: o computador vê o pedido de um celular novo da Ana');
+  await verPedido(a);
+  await ate(() => !!pR.pub_a, 10000);
+  const sasR = await ladoA.sas(idR, pR.pub_a, bR.pub, pR.n_a, nBR);   /* o que o celular de verdade mostra */
+  const nT = await acertar(idR, pR.pub_a, M.ATACANTE.pub, pR.n_a, sasR);
+  conferir(await ladoA.sas(idR, pR.pub_a, M.ATACANTE.pub, pR.n_a, nT) === sasR && compromisso(M.ATACANTE.pub, nT) !== pR.compromisso,
+    'R1. preparo: com a pública do banco e o nB que ele escolheu, os 6 números seriam os mesmos (' + sasR + ')');
+  M.TARDE = { pub: M.ATACANTE.pub, c: compromisso(M.ATACANTE.pub, nT), n: nT }; M.ataque = 'troca-tarde';
+  rpcs.sol_pedido_revelar(ANA, { p_id: idR, p_n_b: nBR });
+  const altR = await a.waitForSelector('.modal #apAlterado, .modal #apSas', { timeout: 20000 }).then(() => a.evaluate(() => !!document.querySelector('.modal #apAlterado')), () => false);
+  const telaR = { ok: await naTela(a, '.modal #apOk'), dig: await naTela(a, '.modal #apDig'), sas: await naTela(a, '.modal #apSas') };
+  M.ataque = null; M.TARDE = null;
+  conferir(altR && !telaR.ok && !telaR.dig && !telaR.sas && pR.estado === 'aberto', 'R1. "⚠️ Este pedido foi alterado no caminho…": sem os 6 números e sem como aprovar (nada foi fechado para a pública trocada)');
+  await a.click('.modal #apRecusar');
+  conferir(await ate(() => pR.estado === 'recusado'), 'R1. "Recusar" recusa o pedido');
+
+  /* R5: o banco diz o tipo do pedido. O pedido "para a família" do Davi chega à Ana como "pessoal": a chave pessoal dela iria
+     fechada para o aparelho do Davi. Quem aprova confere que um pedido pessoal é desta conta (antes do desafio) */
+  console.log('R5. O pedido de outra pessoa chega como "pessoal": a Ana não aprova');
+  const dv5 = await ladoA.par(), nB5 = b64u(crypto.randomBytes(32));
+  const id5 = rpcs.sol_pedido_criar(DAVI, { p_nome: 'Android · Chrome', p_app: 'omnilife', p_pub: dv5.pub, p_compromisso: compromisso(dv5.pub, nB5), p_grupo: GID });
+  const p5 = db.sol_acesso_pedidos.find((x) => x.id === id5);
+  M.ataque = 'tipo-pessoal';
+  conferir(/Pedido de acesso: Android · Chrome/.test(await olhar(a)), 'R5. preparo: a faixa do computador mostra o pedido do Davi como se fosse da Ana');
+  await verPedido(a);
+  const revelou5 = ate(() => !!p5.pub_a, 4000).then((sim) => sim && rpcs.sol_pedido_revelar(DAVI, { p_id: id5, p_n_b: nB5 }));   /* o "aparelho do Davi" revelaria */
+  const naoSeu = await a.waitForSelector('.modal #apNaoSeu', { timeout: 6000 }).then(() => a.evaluate(() => document.querySelector('.modal #apNaoSeu').textContent), () => '');
+  await revelou5; await espere(2000);
+  const tela5 = { ok: await naTela(a, '.modal #apOk'), dig: await naTela(a, '.modal #apDig'), sas: await naTela(a, '.modal #apSas') };
+  M.ataque = null;
+  conferir(/não é da sua conta/.test(naoSeu) && !tela5.ok && !tela5.dig && !tela5.sas && !p5.pub_a && await naTela(a, '.modal #apRecusar'),
+    'R5. "⚠️ Este pedido não é da sua conta…": sem desafio, sem os 6 números e sem como aprovar; só "Recusar" e "Agora não"');
+  await a.click('.modal #apRecusar');
+  conferir(await ate(() => p5.estado === 'recusado'), 'R5. "Recusar" recusa o pedido do Davi');
+
+  /* R3: a 1ª revelação do nB falha (a rede caiu no meio): o celular revela de novo na volta seguinte (senão quem aprova esperaria
+     até o pedido vencer) — só para o pub_a/n_a fixados */
+  console.log('R3. A 1ª revelação do nB falha: o celular revela de novo');
+  await janela(e6, /Abrir sem o PIN/);
+  M.falhar.sol_pedido_revelar = 1;
+  await e6.click('.modal #apOutro'); await e6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const pR3 = pedidoDe(ANA);
+  let aR3 = null; try { aR3 = await aprovarNoNode(ANA, pR3.id); } catch (e) {}
+  const sR3 = aR3 ? await sasNaTela(e6) : '';
+  conferir(!!aR3 && M.falhar.sol_pedido_revelar === 0 && aR3.okC && sR3 === aR3.sas, 'R3. a 1ª revelação falhou e o celular revelou de novo: o compromisso confere e os 6 números são iguais (' + (aR3 && aR3.sas) + ')');
+  M.falhar = {};
+  await e6.click('.modal #apCancelar');
+
+  /* R2: o pub_a/n_a fixado não coube no IndexedDB: sem ele guardado, uma recarga aceitaria outro (K1). Então o nB não é revelado */
+  console.log('R2. Não deu para guardar o pub_a fixado: o celular não revela o nB');
+  await janela(e6, /Abrir sem o PIN/);
+  await e6.evaluate(() => { const s = IDB.set; window.__idbSet = s; IDB.set = function (st, k, v) { return st === 'kv' && /^pedido\|/.test(k) && v && v.pubA ? Promise.reject(new Error('armazenamento cheio (de mentira)')) : s.apply(this, arguments); }; });
+  await e6.click('.modal #apOutro'); await e6.waitForSelector('.modal #apEsperando', { timeout: 10000 });
+  const pR2 = pedidoDe(ANA);
+  rpcs.sol_pedido_desafio(ANA, { p_id: pR2.id, p_pub_a: (await ladoA.par()).pub, p_n_a: b64u(crypto.randomBytes(32)) });
+  const fim2 = await janela(e6, /Não abriu/, 15000);
+  await e6.evaluate(() => { IDB.set = window.__idbSet; });
+  conferir(fim2 && !pR2.n_b && pR2.estado === 'recusado' && !(await temPedido(e6)), 'R2. o pub_a fixado não foi guardado: o nB não é revelado, o pedido é recusado e o celular diz "Não abriu"');
 
   const sujos = lixos6.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'etapa 6: sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));

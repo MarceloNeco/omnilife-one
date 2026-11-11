@@ -16,7 +16,8 @@
    (supabase/2026-11-07-sol-aparelhos.sql e 2026-11-11-sol-pin-conta.sql). As tabelas novas da plataforma (sol_aparelhos,
    sol_acesso_pedidos, sol_passkeys, sol_pin_conta, sol_aparelho_pin) dão 404 por REST: só pelas funções, como no banco.
    Controles para o teste (objeto M): relogio (hora do banco; somar minutos faz o pedido vencer), ataque ("troca",
-   "troca-sem-compromisso", "troca-depois"), semPin / semAp (as funções do PIN / dos aparelhos "não existem" no banco),
+   "troca-sem-compromisso", "troca-depois", "troca-tarde" com TARDE = {pub, c, n}, "tipo-pessoal"), falhar ({nome da função: quantas vezes}
+   ela responde 503, como uma queda da rede no meio), semPin / semAp (as funções do PIN / dos aparelhos "não existem" no banco),
    semDelete (o GRANT de hoje: apagar omni_chave_privada dá 403 42501), banidas ({uid: true}: a renovação da sessão
    responde "user_banned", como o Supabase para conta bloqueada), atrasoLogout (ms: o logout demora a responder; a hora da
    resposta fica em logoutRespondido — para conferir que o "Sair" espera o servidor antes de recarregar), log (toda chamada
@@ -50,7 +51,7 @@ const PESSOAS = {
    pode adiantar (M.relogio += 11 * 60e3) para um pedido vencer. */
 const M = {
   _desvio: 0, get relogio() { return Date.now() + this._desvio; }, set relogio(v) { this._desvio = v - Date.now(); },
-  ataque: null, ATACANTE: null, semPin: false, semAp: false, semDelete: false, banidas: {}, atrasoLogout: 0, logoutRespondido: 0, log: [], acessos: [] };
+  ataque: null, ATACANTE: null, TARDE: null, falhar: {}, semPin: false, semAp: false, semDelete: false, banidas: {}, atrasoLogout: 0, logoutRespondido: 0, log: [], acessos: [] };
 let _ultimo = 0;
 /* hora do banco em texto; sempre crescente (o cursor do omni_docs depende da ordem de atualizado_em) */
 const agora = () => { _ultimo = Math.max(M.relogio, _ultimo + 1); return new Date(_ultimo).toISOString(); };
@@ -258,6 +259,11 @@ const rpcs = {
         o.pub = M.ATACANTE.pub;
         if (M.ataque === 'troca') { o.compromisso = compromisso(M.ATACANTE.pub, M.ATACANTE.n); if (o.n_b) o.n_b = M.ATACANTE.n; }
       }
+      /* "troca-tarde": só DEPOIS que o aparelho novo revela o nB, o banco mostra a quem aprova outra pública, outro nB e um
+         compromisso novo que confere com eles (escolhidos depois de ver o desafio: dá para acertar os 6 números) */
+      if (M.ataque === 'troca-tarde' && o.n_b && M.TARDE) { o.pub = M.TARDE.pub; o.compromisso = M.TARDE.c; o.n_b = M.TARDE.n; }
+      /* "tipo-pessoal": o pedido de OUTRA pessoa chega a quem aprova como se fosse dele mesmo (a chave pessoal iria para ela) */
+      if (M.ataque === 'tipo-pessoal' && p.user_id !== me) o.tipo = 'pessoal';
       return o;
     });
   },
@@ -387,6 +393,7 @@ async function supabase(route) {
     const nome = rpc[1], desligada = (M.semPin && /^sol_pin_/.test(nome)) || (M.semAp && /^sol_(pedido|aparelho|passkey)/.test(nome));
     const f = desligada ? null : rpcs[nome];
     if (!f) return json(404, { code: 'PGRST202', message: 'Could not find the function public.' + nome + ' in the schema cache' });
+    if (M.falhar[nome] > 0) { M.falhar[nome]--; return json(503, { message: 'falha de mentira (a rede caiu no meio)' }); }
     try { const r = await f(me, corpo || {}); return json(200, r === undefined ? null : r); }
     catch (e) { return e && e.st ? json(e.st, e.o) : json(500, { message: String(e) }); }
   }
