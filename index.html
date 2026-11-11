@@ -3738,17 +3738,8 @@ const Cofre = {
   },
   /* 2.26.0: trocar o PIN é o do PIN da conta (TelaConta.trocarPin); fica esta porta para quem já chamava */
   trocarPin() { return TelaConta.trocarPin(); },
-  async novoCodigo() {
-    if (!this.aberto() || !this.dukRaw) return toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
-    if (!navigator.onLine) return toast(tt("Conecte à internet.", "Connect to the internet."));
-    /* um código novo, com "Esqueci o PIN", vira PIN novo da casa e das chaves de IA: casa aberta não prova quem está com o aparelho */
-    if (!(await this.provarAgora("📝 " + tt("Código de recuperação novo", "New recovery code"), tt("Para fazer um código novo, primeiro digite o PIN de agora (ou use a digital).", "To make a new code, first type your current PIN (or use your fingerprint)."), true))) return;
-    const L = await this.local(); if (!L || !L.sk) return;
-    const pkcs8 = await this.decifrar(await this.aes(this.dukRaw), L.sk), { pub } = await this.minhasNoBanco(); if (!pub) return;
-    const codigo = Restore.code(); if (!(await this.mostrarCodigo(codigo))) return;
-    await this.guardarKit(pkcs8, pub.kid, codigo);
-    toast("✓ " + tt("Código novo salvo. O antigo não vale mais.", "New code saved. The old one no longer works."), 5000);
-  },
+  /* 2.26.0: o código novo é o "Ligar" do kit de emergência (Kit.ligar); fica esta porta para quem já chamava */
+  novoCodigo() { return Kit.ligar(); },
   /* ---------- contato de emergência: envelope com a CF cifrada pelo código de emergência ---------- */
   async envelope() {
     if (!this.aberto()) return toast(tt("Abra as Senhas da casa primeiro (Casa → Senhas da casa).", "Open the vault first (Home → Vault)."));
@@ -4222,6 +4213,136 @@ const Aparelhos = {
     if (!f.r.ok) return TelaConta.faltaLiberar();   /* o resultado do montar (não o estado de agora: a pessoa pode já ter fechado) */
     TelaConta.oferecerDigital();
     if (Cofre.temLegado()) setTimeout(() => Cofre.trazerLegado(), 400);
+  },
+  /* ===== digital em todos os aparelhos (passkey, WebAuthn PRF; os formatos do MoneyTRIO, desenho 3.5) =====
+     A chave pessoal vai para o banco fechada com o segredo que a digital libera (sol_passkeys): só quem tem a digital (guardada
+     na conta do Google ou da Apple) abre, num aparelho novo, sem outro aparelho. K23: só em solverone.com.br (vale nos dois apps)
+     e no localhost dos testes — no endereço antigo ela nasceria presa a ele e nunca abriria no oficial */
+  pkAqui() { return SolProto.rpId(location.hostname) === "solverone.com.br" || location.hostname === "localhost"; },
+  /* o segredo da digital de uma das passkeys da conta: {cred, out} | null */
+  async prfDe(linhas) {
+    const ev = {}; linhas.forEach((k) => { ev[k.cred_id] = { first: SolProto.unb64u(k.sal) }; });
+    try {
+      const r = await navigator.credentials.get({ publicKey: { challenge: SolProto.rnd(32), rpId: SolProto.rpId(location.hostname), allowCredentials: linhas.map((k) => ({ type: "public-key", id: SolProto.unb64u(k.cred_id) })),
+        userVerification: "required", timeout: 60000, extensions: { prf: { evalByCredential: ev } } } });
+      const e = r && r.getClientExtensionResults ? r.getClientExtensionResults() : null, f = e && e.prf && e.prf.results && e.prf.results.first;
+      return f ? { cred: SolProto.b64u(new Uint8Array(r.rawId)), out: new Uint8Array(f) } : null;
+    } catch (e) { return null; }
+  },
+  /* ligar: só com as Senhas da casa abertas e a chave pessoal neste aparelho; a conta que já tem uma não ganha outra ("já ligada").
+     Ligar dá a quem tem a digital a chave pessoal num aparelho novo: casa aberta não prova quem está com o aparelho, então pede o
+     PIN de agora (ou a digital deste aparelho), como os reforços 2.21.2. {ok} | {erro} */
+  async criarPasskey() {
+    if (!this.pkAqui()) return { erro: "aqui" };
+    if (!Cofre.aberto() || !Cofre.dukRaw) return { erro: "fechado" };
+    if (!Sol.pode()) return { erro: "rede" };
+    const L = await Cofre.local(); if (!L || !L.sk) return { erro: "semchave" };
+    let ja; try { ja = await Sol.pksMinhas(); } catch (e) { return { erro: "rede" }; }
+    if (ja.length) { Jornada.limpar(); return { erro: "ja" }; }
+    if (!(await Cofre.provarAgora("👆 " + tt("Digital em todos os aparelhos", "Fingerprint on all devices"), tt("Para ligar a digital em todos os aparelhos, digite o seu PIN de agora (ou use a digital).", "To turn on the fingerprint on all devices, type your current PIN (or use your fingerprint)."), true))) return { erro: "naoProvou" };
+    const uid = Conta.uid(), email = Conta.email() || "", sal = SolProto.rnd(32);
+    let cred;
+    try {
+      cred = await navigator.credentials.create({ publicKey: { challenge: SolProto.rnd(32), rp: { id: SolProto.rpId(location.hostname), name: "SolverONE" },
+        user: { id: SolProto.utf8(uid).slice(0, 64), name: email || "solverone", displayName: "SolverONE · " + email },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }], authenticatorSelection: { residentKey: "required", userVerification: "required" },
+        extensions: { prf: { eval: { first: sal } } }, timeout: 60000 } });
+    } catch (e) { return { erro: "cancelou" }; }
+    const ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {}, f = ext.prf && ext.prf.results && ext.prf.results.first;
+    const id = SolProto.b64u(new Uint8Array(cred.rawId));
+    let out = f ? new Uint8Array(f) : null;
+    /* o leitor que não devolve o segredo na criação devolve na primeira leitura (como o MoneyTRIO) */
+    if (!out && !(ext.prf && ext.prf.enabled === false)) { const r = await this.prfDe([{ cred_id: id, sal: SolProto.b64u(sal) }]); out = r && r.out; }
+    if (!out) return { erro: "semprf" };
+    const L2 = await Cofre.local();
+    if (!Cofre.dukRaw || !L2 || !L2.sk) { out.fill(0); return { erro: "fechado" }; }   /* fechou no meio */
+    const sk = await Cofre.decifrar(await Cofre.aes(Cofre.dukRaw), L2.sk), fechada = await Cofre.cifrar(await SolProto.hkdf(out, SolProto.PK_INFO), sk);
+    sk.fill(0); out.fill(0);
+    try { await Sol.pkGuardar(id, SolProto.b64u(sal), fechada); } catch (e) { return { erro: "rede" }; }
+    Jornada.limpar();
+    return { ok: true };
+  },
+  /* aparelho novo, pela digital em todos os aparelhos: a digital abre a chave pessoal que veio fechada do banco; este aparelho
+     entra na lista como "passkey" e segue como o código antigo (receber: o PIN da conta e o cadeado novo). antes() fecha a janela
+     de quem chamou. Quem desiste do PIN não fica com a linha na lista (K19, no receber). {ok} | {erro} */
+  async entrarPasskey(antes) {
+    if (!this.pkAqui()) return { erro: "aqui" };
+    if (!Sol.pode()) return { erro: "rede" };
+    let linhas; try { linhas = await Sol.pksMinhas(); } catch (e) { return { erro: "rede" }; }
+    const r = linhas.length ? await this.prfDe(linhas) : null, k = r && linhas.find((x) => x.cred_id === r.cred);
+    if (!k) { if (r) r.out.fill(0); return { erro: "digital" }; }
+    let sk; try { sk = await Cofre.decifrar(await SolProto.hkdf(r.out, SolProto.PK_INFO), k.fechada); } catch (e) { return { erro: "digital" }; } finally { r.out.fill(0); }
+    let ap = null;
+    try { ap = await Sol.apRegistrar("passkey"); } catch (e) { if (Sol.ligadoAp !== false) { sk.fill(0); return { erro: "rede", e }; } }
+    if (antes) antes();
+    this.receber({ tipo: "pessoal", sk }, ap, "passkey");
+    return { ok: true };
+  },
+  /* desligar: tira todas as passkeys da conta do banco (vale também no MoneyTRIO: é a mesma conta). {ok} | {erro: "rede"} */
+  async tirarPasskeys() {
+    if (!Sol.pode()) return { erro: "rede" };
+    let linhas; try { linhas = await Sol.pksMinhas(); } catch (e) { return { erro: "rede" }; }
+    let ok = true;
+    for (const k of linhas) { try { if (!(await Sol.pkTirar(k.cred_id))) ok = false; } catch (e) { ok = false; } }
+    Jornada.limpar();
+    return ok ? { ok: true } : { erro: "rede" };
+  }
+};
+
+/* Kit de emergência (⚙ → Segurança e aparelhos → Avançado): a chave pessoal fechada por um código que só a pessoa tem, no
+   formato de hoje (omni_chave_privada, Cofre.guardarKit: o MoneyTRIO lê assim). Conta nova: desligado (a criação não grava a
+   linha); conta que já tem a linha: ligado, até a pessoa desligar (D2). Ligar faz um código novo: o papel antigo deixa de valer,
+   aqui e no MoneyTRIO (K25). Desligar apaga a linha; enquanto o banco não deixa (o GRANT de hoje é só SELECT/INSERT/UPDATE —
+   supabase/2026-11-11-omni-chave-privada-delete.sql, que o dono aplica), avisa e nada muda. */
+const Kit = {
+  /* o banco recusou o apagar por permissão (falta o GRANT): não é falta de internet */
+  semPermissao(e) { return !!e && (e.status === 401 || e.status === 403 || e.code === "42501" || /permission denied/i.test(String(e.message))); },
+  async ligar() {
+    if (!Cofre.aberto() || !Cofre.dukRaw) return toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
+    if (!navigator.onLine) return toast(tt("Conecte à internet.", "Connect to the internet."));
+    /* um código novo, com "Esqueci o PIN", vira PIN novo da casa e das chaves de IA: casa aberta não prova quem está com o aparelho */
+    if (!(await Cofre.provarAgora("📝 " + tt("Código de recuperação novo", "New recovery code"), tt("Para fazer um código novo, primeiro digite o PIN de agora (ou use a digital).", "To make a new code, first type your current PIN (or use your fingerprint)."), true))) return false;
+    const L = await Cofre.local(); if (!L || !L.sk || !Cofre.dukRaw) return false;
+    let nb; try { nb = await Cofre.minhasNoBanco(); } catch (e) { toast(Pin.explicar({ erro: "rede" }), 5000); return false; }
+    const { pub, bk } = nb; if (!pub) return false;
+    /* K25: já há um papel — o código novo o substitui, aqui e no MoneyTRIO (é a mesma linha) */
+    if (bk && !(await confirmBox("📝 " + tt("Fazer um código novo? O papel antigo deixa de valer, aqui e no MoneyTRIO: só o código novo abre a sua chave.", "Make a new code? The old paper stops working, here and in MoneyTRIO: only the new code opens your key."), tt("Fazer o código novo", "Make the new code")))) return false;
+    const pkcs8 = await Cofre.decifrar(await Cofre.aes(Cofre.dukRaw), L.sk);
+    try {
+      const codigo = Restore.code(); if (!(await Cofre.mostrarCodigo(codigo))) return false;
+      try { await Cofre.guardarKit(pkcs8, pub.kid, codigo); } catch (e) { toast(Pin.explicar({ erro: "rede" }), 5000); return false; }
+    } finally { pkcs8.fill(0); }
+    Cloud.audit("kit.ligado", Cloud.myName());
+    toast("✓ " + (bk ? tt("Código novo salvo. O antigo não vale mais (aqui e no MoneyTRIO).", "New code saved. The old one no longer works (here and in MoneyTRIO).")
+      : tt("Kit de emergência ligado: guarde o papel em casa.", "Emergency kit on: keep the paper at home.")), 5000);
+    render();
+    return true;
+  },
+  async desligar() {
+    if (!Sol.pode()) return toast(tt("Para isso, ligue a internet.", "For this, connect to the internet."), 4000);
+    if (!(await confirmBox("🧰 " + tt("Desligar o kit de emergência? Apaga a cópia da sua chave: o código de recuperação deixa de valer, aqui e no MoneyTRIO.", "Turn off the emergency kit? It erases the copy of your key: the recovery code stops working, here and in MoneyTRIO."), tt("Desligar", "Turn off"), true))) return false;
+    /* K25: sem outro aparelho com a chave pessoal (na lista da conta, em qualquer app; o que a família aprovou não tem) e sem a
+       digital em todos os aparelhos, o kit é o único jeito de voltar se este aparelho se perder. Sem a lista: pergunta também */
+    const L = await Cofre.local(), lig = Sol.ligadoAp !== false;
+    const [aps, pks] = await Promise.all([lig ? Sol.apsMeus().catch(() => null) : null, lig ? Sol.pksMinhas().catch(() => null) : null]);
+    const outro = (aps || []).some((a) => (!L || a.id !== L.ap) && a.como !== "familia");
+    if (!outro && !(pks && pks.length) && !(await confirmBox("⚠️ " + tt("Este é o único jeito de voltar se você perder este " + apN() + ": não há outro aparelho seu com a sua chave, nem a digital em todos os aparelhos. Sem o kit, só alguém da família consegue liberar de novo para você. Desligar mesmo assim?", "This is the only way back if you lose this " + apN() + ": there is no other device of yours with your key, nor the fingerprint on all devices. Without the kit, only someone in the family can release it to you again. Turn it off anyway?"), tt("Desligar mesmo assim", "Turn off anyway"), true))) return false;
+    try { await Conta.rest("DELETE", "omni_chave_privada?user_id=eq." + Conta.uid(), undefined, "return=minimal"); }
+    catch (e) { if (this.semPermissao(e)) return this.falta(); toast(Pin.explicar({ erro: "rede" }), 5000); return false; }
+    Jornada.limpar();
+    /* o banco pode não apagar nada sem dizer (a linha fora do alcance): confere antes de dizer que desligou */
+    const depois = await Cofre.minhasNoBanco().catch(() => null);
+    if (depois && depois.bk) return this.falta();
+    Cloud.audit("kit.desligado", Cloud.myName());
+    toast("✓ " + tt("Kit de emergência desligado: o código de recuperação não vale mais (aqui e no MoneyTRIO).", "Emergency kit off: the recovery code no longer works (here and in MoneyTRIO)."), 5000);
+    render();
+    return true;
+  },
+  /* D2: o servidor ainda não deixa apagar a linha — nada mudou */
+  async falta() {
+    await TelaConta.aviso("🧰 " + tt("Kit de emergência", "Emergency kit"), tt("Ainda não dá para desligar: falta um ajuste no servidor.", "Can't turn it off yet: the server still needs an adjustment.") + " " +
+      tt("O kit continua ligado e o código continua valendo.", "The kit stays on and the code still works."), [["kitEntendi", tt("Entendi", "Got it"), true]]);
+    return false;
   }
 };
 
@@ -4546,7 +4667,10 @@ const TelaConta = {
         '<p class="small muted">' + tt("Se não houver mesmo nenhum jeito, existe “Começar do zero” em ⚙ → Segurança e aparelhos → Avançado. Nesse caso, as Senhas da casa antigas só voltam pelo código de emergência da família ou se outro responsável liberar.", "If there is really no other way, there is “Start from scratch” in ⚙ → Security and devices → Advanced. In that case, the old home passwords only come back with the family emergency code or if another guardian releases them.") + "</p>" +
         '<button type="button" class="btn ghost sm" id="apAvancado">⚙️ ' + tt("Abrir Segurança e aparelhos → Avançado", "Open Security and devices → Advanced") + "</button>"
       : "<p>" + texto + '</p><div class="stack"><button class="btn big block" id="apOutro">📱 ' + tt("Aprovar pelo outro aparelho", "Approve from my other device") + "</button>" +
-        (st.familiaPode ? '<button class="btn ghost big block" id="apFamilia">👪 ' + tt("Pedir para alguém da família aprovar", "Ask someone in the family to approve") + "</button>" : "") + "</div>" +
+        (st.familiaPode ? '<button class="btn ghost big block" id="apFamilia">👪 ' + tt("Pedir para alguém da família aprovar", "Ask someone in the family to approve") + "</button>" : "") +
+        /* a digital em todos os aparelhos: só com uma na conta, leitor aqui (temPasskey) e o endereço certo (K23) */
+        (st.temPasskey && Aparelhos.pkAqui() ? '<button class="btn ghost big block" id="apPasskey">👆 ' + tt("Usar a digital", "Use the fingerprint") + '</button><p class="tiny faint" style="margin:0">' +
+          tt("Funciona se você ligou a digital em todos os aparelhos.", "Works if you turned on the fingerprint for all devices.") + "</p>" : "") + "</div>" +
         '<p class="tiny faint">' + tt("Funciona com outro aparelho onde você já entra (celular ou computador), no OmniLifeONE ou no MoneyTRIO.", "Works with another device where you are already in (phone or computer), in OmniLifeONE or MoneyTRIO.") + "</p>" +
         (st.temKit ? '<button type="button" class="linkbtn tiny" id="apCodigo">' + tt("Tenho o código de recuperação antigo", "I have the old recovery code") + "</button>" : "");
     const m = this.janela({ title: "🔐 " + (esqueci ? tt("Abrir sem o PIN", "Open without the PIN") : tt("Primeira vez neste " + ap, "First time on this " + ap)), campo: false, body: corpo + this.ERRO,
@@ -4555,6 +4679,15 @@ const TelaConta = {
     const pedir = (modo) => { if (!Sol.pode()) { err.textContent = tt("Para isso, ligue a internet.", "For this, connect to the internet."); return; } m.drop(); Aparelhos.pedir(modo, op2); };
     if (q("#apOutro")) q("#apOutro").onclick = () => pedir("pessoal");
     if (q("#apFamilia")) q("#apFamilia").onclick = () => pedir("familia");
+    if (q("#apPasskey")) q("#apPasskey").onclick = async () => {
+      if (!Sol.pode()) { err.textContent = tt("Para isso, ligue a internet.", "For this, connect to the internet."); return; }
+      const bt = q("#apPasskey"); bt.disabled = true; err.textContent = "";
+      try {
+        const r = await Aparelhos.entrarPasskey(() => m.drop());
+        if (r.erro) err.textContent = r.erro === "rede" ? (r.e ? Conta.explicar(r.e) : Pin.explicar(r))
+          : tt("A digital não abriu neste aparelho. Use a aprovação pelo outro aparelho.", "The fingerprint did not open on this device. Use approval from another device.");
+      } finally { bt.disabled = false; }
+    };
     if (q("#apCodigo")) q("#apCodigo").onclick = () => { m.drop(); this.codigoAntigo(op2); };
     if (q("#apVolta")) q("#apVolta").onclick = () => m.close();
     if (q("#apAvancado")) q("#apAvancado").onclick = () => { m.drop(); this._avAberto = true; go("settings", "conta"); };   /* D4: o atalho */
@@ -4900,21 +5033,25 @@ const TelaConta = {
       (S.role === "admin" ? '<button type="button" class="linkbtn tiny" data-act="go" data-tab="family">' + tt("Aparelhos de toda a família: Família → Aparelhos da família", "Devices of the whole family: Family → Family devices") + "</button>" : "");
   },
   /* Avançado: cada item com uma frase curta. Aqui ficam as palavras técnicas (e o que só vale para quem sabe o que está fazendo).
-     O kit e a digital em todos os aparelhos ganham os botões de ligar/desligar na etapa 9 */
+     Kit: Ligar (ou "Fazer um código novo") precisa da chave pessoal aqui; Desligar, só da internet. Digital em todos os aparelhos:
+     só com leitor, a chave pessoal aqui e o endereço certo (K23) */
   avHtml(st, L, leitor) {
     const ap = apN(), guard = isGuardian();
     const item = (id, tit, txt, bt) => '<div class="segav" id="' + id + '"><b>' + tit + '</b><p class="tiny faint">' + txt + "</p>" + (bt || "") + "</div>";
     const b = (act, t, cls) => '<button type="button" class="btn sm ' + (cls || "ghost") + '" data-act="' + act + '">' + t + "</button>";
-    const pk = guard && leitor && L && L.sk && (SolProto.rpId(location.hostname) === "solverone.com.br" || location.hostname === "localhost");   /* K23 */
+    const pk = guard && leitor && L && L.sk && Aparelhos.pkAqui();   /* K23 */
     return item("segTirarEste", "📴 " + tt("Tirar este aparelho da conta", "Remove this device from the account"), tt("Sai da conta e apaga daqui as Senhas da casa e o PIN guardado. Na internet continua tudo. Para usar de novo aqui, entre e peça a aprovação.", "Signs out and erases the home passwords and the saved PIN from here. Everything stays online. To use it here again, sign in and ask for approval."),
         b("conta.ap.este", "📴 " + tt("Tirar este " + ap, "Remove this " + ap), "danger")) +
       (guard ? item("segKit", "🧰 " + tt("Kit de emergência (código de recuperação)", "Emergency kit (recovery code)"),
         st.temKit ? tt("Ligado: há uma cópia da sua chave fechada por um código que só você tem.", "On: there is a copy of your key locked by a code only you have.")
           : tt("Desligado. Se perder todos os aparelhos, só alguém da família consegue liberar de novo para você.", "Off. If you lose all your devices, only someone in the family can release it to you again.") +
             " " + tt("Ligado, o app mostra um código para você guardar num papel. Com ele, você entra num aparelho novo mesmo sem outro aparelho.", "When on, the app shows a code for you to keep on paper. With it, you get in on a new device even without another device."),
-        L && L.sk && st.rede ? b("conta.kit.ligar", st.temKit ? "📝 " + tt("Fazer um código novo", "Make a new code") : "🧰 " + tt("Ligar", "Turn on")) : "") : "") +
+        (L && L.sk && st.rede ? b("conta.kit.ligar", st.temKit ? "📝 " + tt("Fazer um código novo", "Make a new code") : "🧰 " + tt("Ligar", "Turn on")) : "") +
+        (st.temKit && st.rede ? b("conta.kit.desligar", tt("Desligar", "Turn off")) + '<p class="tiny faint">' + tt("Desligar apaga a cópia: o código deixa de valer aqui e no MoneyTRIO.", "Turning off erases the copy: the code stops working here and in MoneyTRIO.") + "</p>" : "")) : "") +
       (pk ? item("segPasskey", "👆 " + tt("Digital em todos os aparelhos (passkey)", "Fingerprint on all devices (passkey)"), tt("A digital fica salva na sua conta do Google ou da Apple e abre num aparelho novo sem precisar de outro aparelho.", "The fingerprint is saved in your Google or Apple account and opens on a new device without needing another device.") +
-        " " + (st.temPasskey ? tt("Ligada.", "On.") : tt("Desligada.", "Off."))) : "") +
+        " " + (st.temPasskey ? tt("Ligada.", "On.") : tt("Desligada.", "Off.")),
+        st.rede ? (st.temPasskey ? b("conta.pk.desligar", tt("Desligar", "Turn off")) + '<p class="tiny faint">' + tt("Desligar vale também no MoneyTRIO (é a mesma conta).", "Turning off also applies in MoneyTRIO (it is the same account).") + "</p>"
+          : b("conta.pk.ligar", "👆 " + tt("Ligar", "Turn on"))) : "") : "") +
       (window.SolverCofre && SolverCofre.digitalAtiva && SolverCofre.digitalAtiva() ? item("segDigChaves", "👆 " + tt("Digital antiga das chaves de IA", "Old fingerprint of the AI keys"), tt("Quem ligou antes a digital no cofre das chaves de IA pode desligar aqui. As chaves continuam abrindo com o PIN ou com a digital das Senhas da casa.", "If you turned on the fingerprint in the AI key vault before, you can turn it off here. The keys keep opening with the PIN or the home passwords fingerprint."),
         b("conta.dig.chaves", "👆 " + tt("Parar de usar a digital antiga", "Stop using the old fingerprint"))) : "") +
       item("segComoGuarda", "🔒 " + tt("Como as Senhas da casa ficam guardadas", "How the home passwords are kept"), tt("Elas vão para a internet embaralhadas aqui no aparelho (criptografia de ponta a ponta, com a chave da família): nem a SolverONE lê. Quem abre são os chefes e responsáveis, cada um com a chave dele.", "They go online scrambled here on the device (end-to-end encryption, with the family key): not even SolverONE can read them. Heads and guardians open them, each with their own key.")) +
@@ -4991,7 +5128,27 @@ ACT["conta.pin.esqueci"] = () => TelaConta.primeiraVez({ esqueci: true });
 ACT["conta.dig.ligar"] = () => Cofre.ligarDigital();
 ACT["conta.dig.desligar"] = () => Cofre.desligarDigital();
 ACT["conta.dig.chaves"] = () => ACT["cofre.semdigitalchaves"]();
-ACT["conta.kit.ligar"] = () => Cofre.novoCodigo();
+ACT["conta.kit.ligar"] = () => Kit.ligar();
+ACT["conta.kit.desligar"] = () => Kit.desligar();
+/* digital em todos os aparelhos: ligar (com o PIN de agora) e desligar (vale também no MoneyTRIO: é a mesma conta) */
+ACT["conta.pk.ligar"] = async () => {
+  const r = await Aparelhos.criarPasskey();
+  if (r.erro === "naoProvou") return;
+  toast(r.ok ? "✓ " + tt("Pronto: num aparelho novo, a digital abre as Senhas da casa sem precisar de outro aparelho (também no MoneyTRIO).", "Done: on a new device, the fingerprint opens the home passwords without another device (also in MoneyTRIO).")
+    : { fechado: tt("Abra as Senhas da casa primeiro (com o PIN ou a digital).", "Unlock the home passwords first (PIN or fingerprint)."),
+      semchave: tt("Este aparelho entrou pela família e não guarda a sua chave pessoal: ligue pelo outro aparelho seu.", "This device joined through the family and does not keep your personal key: turn it on from your other device."),
+      ja: tt("A digital em todos os aparelhos já está ligada.", "The fingerprint on all devices is already on."),
+      semprf: tt("Este aparelho ou navegador ainda não oferece isso. Use a aprovação pelo outro aparelho.", "This device or browser does not offer this yet. Use approval from another device."),
+      cancelou: tt("A digital não foi ligada.", "The fingerprint was not turned on."),
+      aqui: tt("Isso só funciona no endereço solverone.com.br.", "This only works at solverone.com.br.") }[r.erro] || Pin.explicar({ erro: "rede" }), 6000);
+  render();
+};
+ACT["conta.pk.desligar"] = async () => {
+  if (!(await confirmBox("👆 " + tt("Desligar a digital em todos os aparelhos? Vale também no MoneyTRIO: num aparelho novo, a digital deixa de abrir as Senhas da casa, e aí você aprova pelo outro aparelho seu.", "Turn off the fingerprint on all devices? It also applies in MoneyTRIO: on a new device, the fingerprint no longer opens the home passwords, so you approve from your other device."), tt("Desligar", "Turn off"), true))) return;
+  const r = await Aparelhos.tirarPasskeys();
+  toast(r.ok ? "✓ " + tt("Digital em todos os aparelhos desligada (aqui e no MoneyTRIO).", "Fingerprint on all devices turned off (here and in MoneyTRIO).") : Pin.explicar(r), 5000);
+  render();
+};
 ACT["conta.zero"] = () => TelaConta.comecarDoZero();
 
 /* o cartão do Início (D1): a tela certa para o passo que falta */
