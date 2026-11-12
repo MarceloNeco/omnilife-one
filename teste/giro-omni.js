@@ -42,6 +42,24 @@
      G9   B edita sem internet com a velha; a troca acontece; ao voltar, a edição sobe com a nova e sem item duplicado (só mudou o
           cadeado: mesmoConteudo); um conflito de verdade guarda as duas, as duas com a nova; nada chega ao banco com a velha (C2).
           G9c: C, fechado, não manda nada (espera); ao abrir pelo PIN, sobe uma vez com a nova
+   Etapa E5 (a troca em si, sem a tela: Giro.executar chamado por page.evaluate; a tela e o Fundo são da E6/E9):
+     G0   só abrir o app (recarregar, abrir pelo PIN, as voltas do Cloud.poll, a liberação), sem tocar no botão: o cadeado dos dois
+          aparelhos, os anexos, omni_docs, sol_grupo_chaves e as chaves pessoais ficam iguais, byte a byte
+     G1   a troca: nasce "preparado" com a nova embrulhada para cada chefe; a nova chega a cada chefe e responsável ANTES da primeira
+          linha (C5) e já está no prox; as linhas vivas na nova nas duas camadas, cada uma com CAS próprio (nunca pela fila);
+          o código de emergência deixa de valer (o refeito com o código é da E7); a apagada fica (D-E6); o registro, as entregas,
+          "feito" sem envelopes, o histórico; o aparelho e os anexos dele na nova; o outro aparelho adota; G5 com ela
+     G1c  uma linha gravada com a de antes no meio (um aparelho atrasado): a conferência troca de novo
+     C11  itens que já não abriam não travam: a lista antes (Giro.pode) e no fim (estranhas, semInterna)
+     F0   Giro.pode: só chefe, só da chave do registro, nada na fila, o SQL da plataforma (C6), o MoneyTRIO, sem segunda chave;
+          troca em curso: "Já está trocando no …" (sem HTML) ou "Continuar"
+     G7a  recarregar no meio: "Continuar" termina com a mesma nova, só o que faltava, sem entregar de novo nem duplicar
+     G7t  as Senhas fecham no meio: para ("Parou porque as Senhas fecharam") e continua depois
+     D1   "Desistir" só no "preparado" (antes da entrega); a próxima nasce por cima com a versão seguinte
+     G8b  C1: dois aparelhos confirmam juntos — uma troca só, o outro "Já está trocando", ninguém grava outra chave por cima
+     G8c  C1: outra troca ficou com a vez — para antes de tocar nas linhas; a nova dele vai para as de antes (não se perde)
+     G8d  C1: a vez passou para outro aparelho no meio — a próxima anotação relê e para, sem gravar por cima
+     AN   o app fecha no meio de um anexo (antes ou depois do arquivo novo): o anexo continua abrindo; "Continuar" termina
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -242,6 +260,52 @@ const subir = (p, agora, chave) => p.evaluate(async ([agora, chave]) => {
 }, [!!agora, chave || null]);
 /* Cofre.distribuir(true) e espera terminar (e a fila subir, respeitando o que está adiado) */
 const distribuirJa = async (p) => { await p.evaluate(async () => { for (let i = 0; i < 100 && Cofre._distP; i++) await new Promise((r) => setTimeout(r, 100)); await Cofre.distribuir(true); }); await subir(p); };
+
+/* ---------------- etapa E5: a troca de verdade, sem a tela (a tela é a E9) ---------------- */
+/* Giro.executar(andamento, {}, op) no aparelho (op padrão: começar uma). {ok, r, passos: [textos do andamento]} | {erro, motivo, passos} */
+const girar = (p, op) => p.evaluate(async (op) => {
+  const passos = [];
+  try { const r = await Giro.executar((v, t) => { if (t && passos[passos.length - 1] !== t) passos.push(t); }, {}, op); return { ok: true, r: JSON.parse(JSON.stringify(r)), passos }; }
+  catch (e) { return { erro: e.message, motivo: e.giro || null, passos }; }
+}, op === undefined ? { novo: true } : op);
+/* a CF que está com a pessoa (a versão mais alta dela em sol_grupo_chaves), aberta em Node com M.PKCS8: {raw, kv, fk} | null */
+async function chaveDaPessoa(uid) {
+  const c = db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === uid).sort((a, b) => b.versao - a.versao)[0];
+  return c ? desembrulhar(uid, c.chave_embrulhada) : null;
+}
+/* anexos de mentira guardados neste aparelho, fechados como o app fecha: "familia" (a chave da família, com enc.fk), "semfk" (a
+   mesma chave, como antes da 2.27.0) e "outro" (uma chave que não é da família, como a da senha principal) */
+const anexar = (p, lista) => p.evaluate(async (lista) => {
+  for (const [id, como] of lista) {
+    const k = como === 'outro' ? await Cofre.aes(Cofre.rnd(32)) : Cofre.vf;
+    const r = await Vault.encryptBlob(new Blob([new TextEncoder().encode('anexo ' + id)], { type: 'text/plain' }), k);
+    const meta = { id, name: id + '.txt', type: 'application/octet-stream', size: r.blob.size, vis: 'restrito', enc: Object.assign({ iv: r.iv, type: 'text/plain' }, como === 'familia' ? { fk: Cofre.fk } : {}), chunks: 1 };
+    await DB.driver.putFile(id, r.blob, meta); await DB.put('files', meta, true);
+  }
+}, lista);
+/* os anexos deste aparelho: {id: {enc, txt (aberto como a tela abre), bytes (o arquivo guardado, para abrir em Node)}} */
+const anexosDe = (p, ids) => p.evaluate(async (ids) => {
+  const out = {};
+  for (const id of ids) {
+    const m = Files.meta(id), b = await DB.driver.getFile(id, m); let txt = null; try { txt = await (await Files.blob(id)).text(); } catch (e) {}
+    out[id] = { enc: m && m.enc, txt, bytes: b ? [...new Uint8Array(await b.arrayBuffer())] : null };
+  }
+  return out;
+}, ids);
+const abreBlob = async (raw, iv, bytes) => { try { await subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await aes(raw), new Uint8Array(bytes)); return true; } catch (e) { return false; } };
+/* o app aberto de novo (recarregar = fechar e abrir), até a família e as Senhas da casa */
+async function reabrir(p) {
+  await p.reload();
+  await p.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family && typeof Cofre !== 'undefined', null, { timeout: 30000 });
+  await quieto(p); await senhasDaCasa(p);
+}
+/* as linhas vivas (menos o código de emergência) fechadas com o fk dado */
+const comFk = (fk) => vivasVault().filter((x) => { if (x.id === '_em') return false; try { return JSON.parse(x.dados_cifrado).fk === fk; } catch (e) { return false; } });
+const idsVault = () => db.omni_docs.filter((d) => d.grupo_id === GID && d.colecao === 'vault').map((d) => d.id).sort().join();
+/* a linha de um item de mentira fechada com uma chave qualquer (a parte interna com outra, se dada) */
+async function linhaCom(raw, kv, fk, titulo, rawInterna) {
+  return selar(raw, kv, fk, { kind: 'senha', enc: await cifrar(rawInterna || raw, utf8(JSON.stringify({ title: titulo }))), files: [], vis: 'restrito', updatedAt: agora() });
+}
 
 (async () => {
   const browser = await iniciar();
@@ -1050,8 +1114,343 @@ const distribuirJa = async (p) => { await p.evaluate(async () => { for (let i = 
       'G9c. C abre pelo PIN: adota a nova e a edição sobe uma vez, com a nova, sem item duplicado');
   });
 
+  /* ================= G0 (etapa E5): só abrir o app não muda nada guardado ================= */
+  await parte('G0', 'Só abrir o app 2.27.0 (sem tocar no botão): o cadeado, as Senhas da casa e o registro no banco e as chaves entregues ficam iguais', async (novo) => {
+    const A = await novo('G0-ana', { vp: 'celular' }), a = A.p;
+    const C = await novo('G0-bia', { vp: 'computador' }), c = C.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(c, BIA, PIN_B);
+    await anexar(a, [['fG0', 'familia']]);
+    await espere(500);
+    const banco = () => JSON.stringify({ docs: db.omni_docs.filter((d) => d.grupo_id === GID), chaves: db.sol_grupo_chaves, priv: db.omni_chave_privada, pub: db.sol_chave_publica });
+    const cadeado = (p) => p.evaluate(async () => JSON.stringify(await Cofre.local()));
+    const L0a = await cadeado(a), L0c = await cadeado(c), an0 = await anexosDe(a, ['fG0']), b0 = banco(), marca = M.log.length;
+    /* fechar e abrir o app de novo nos dois, abrir as Senhas pelo PIN e deixar o app trabalhar (as voltas do Cloud.poll e a liberação) */
+    for (const [p, pin] of [[a, PIN_A], [c, PIN_B]]) {
+      await reabrir(p);
+      const r = await abrirPeloPin(p, pin);
+      conferir(r && r.ok, 'G0. reaberto, abre pelo PIN (' + JSON.stringify(r) + ')');
+      await p.evaluate(() => Cloud.poll()); await distribuirJa(p); await espere(1500); await p.evaluate(() => Cloud.poll()); await espere(500);
+    }
+    const tA = await titulos(a), an1 = await anexosDe(a, ['fG0']);
+    conferir(ITENS.every((x, i) => tA['v' + i] === x[1]) && an1.fG0.txt === 'anexo fG0', 'G0. tudo aparece como antes (os 6 itens e o anexo)');
+    conferir((await cadeado(a)) === L0a && (await cadeado(c)) === L0c, 'G0. o cadeado dos dois aparelhos igual byte a byte');
+    conferir(JSON.stringify(an1.fG0.enc) === JSON.stringify(an0.fG0.enc) && JSON.stringify(an1.fG0.bytes) === JSON.stringify(an0.fG0.bytes), 'G0. o anexo guardado neste aparelho igual (a ficha e o arquivo)');
+    conferir(banco() === b0 && !linha('settings', 'giro'), 'G0. no banco: as Senhas da casa (vivas e apagadas), o registro, as chaves entregues e as chaves pessoais iguais; nenhuma troca começou');
+    const grav = M.log.slice(marca).filter((l) => ['PATCH', 'POST', 'DELETE'].includes(l.metodo) && /omni_docs|sol_guardar_chave_grupo|omni_chave_privada|sol_publicar_minha_chave/.test(l.caminho));
+    conferir(!grav.length, 'G0. nenhuma gravação nas Senhas da casa, no registro nem nas chaves (' + grav.map((l) => l.metodo + ' ' + l.caminho).join(' | ') + ')');
+  });
+
+  /* ================= G1 + G5 (etapa E5): a troca de verdade, sem a tela ================= */
+  await parte('G1', 'A troca de verdade, sem a tela (Giro.executar): a nova chega à família antes da primeira linha, toda linha viva e os anexos na nova (as duas camadas), o registro, o histórico; a de antes não abre nada (G5)', async (novo) => {
+    const A = await novo('G1-ana', { vp: 'computador' }), a = A.p;
+    const B = await novo('G1-ana-celular', { vp: 'celular' }), b = B.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(b, ANA, PIN_A);
+    await anexar(a, [['fG1fam', 'familia'], ['fG1semfk', 'semfk'], ['fG1local', 'outro']]);
+    const an0 = await anexosDe(a, ['fG1fam', 'fG1semfk', 'fG1local']), ids0 = idsVault(), apagado0 = JSON.stringify(linha('vault', 'vApagado')), davi0 = versoes(DAVI), cris0 = versoes(CRIS);
+    /* quando a primeira linha é trocada, a nova já está guardada neste aparelho (prox) */
+    await a.evaluate(() => { const o = Giro.trocarLinha; window.__prox = null; Giro.trocarLinha = async function (row, ctx) { if (window.__prox === null) { const L = await Cofre.local(), f = L.fam[S.family.id]; window.__prox = !!(f.prox && f.prox.fk === ctx.para.fk && ctx.para.fk !== f.fk); } return o.apply(this, arguments); }; });
+    /* logo antes de virar (as linhas já na nova, este aparelho ainda fechando com a de antes): a tela mostra tudo */
+    await a.evaluate(() => { const o = Giro.virar; window.__antesDeVirar = null; Giro.virar = async function () { const t = []; for (const v of DB.all('vault')) { try { t.push((await Vault.decObj(v.enc)).title); } catch (e) {} } window.__antesDeVirar = { fk: Cofre.fk, t }; return o.apply(this, arguments); }; });
+    const marca = M.log.length;
+    const r = await girar(a);
+    const g = linha('settings', 'giro'), gd = (g && g.dados) || {}, fkN = gd.para && gd.para.fk, n = await chaveDaPessoa(ANA), nb = await chaveDaPessoa(BIA);
+    conferir(r.ok && gd.estado === 'feito' && fkN && fkN !== FK0 && n && n.fk === fkN && n.kv === 2 && nb && igual(nb.raw, n.raw) && !igual(n.raw, VELHA), 'G1. a troca termina ("feito") com uma chave nova, kv 2 (' + JSON.stringify([r.erro || r.r, gd.estado, fkN]) + ')');
+    conferir(r.ok && r.passos.indexOf('Avisando a família') >= 0 && r.passos.indexOf('Avisando a família') < r.passos.findIndex((t) => /^Senhas: /.test(t)) && r.passos.includes('Senhas: 6 de 6') && r.passos.includes('Conferindo se está tudo certo'),
+      'G1. o andamento para leigo: "Avisando a família" antes de "Senhas: 1 de 6" … "6 de 6", e "Conferindo" (' + (r.passos || []).join(' › ') + ')');
+    /* C5: a nova chega a sol_grupo_chaves ANTES da primeira linha trocada; a troca e a nova guardadas antes de tudo */
+    const log = M.log.slice(marca);
+    const iGiro = log.findIndex((l) => l.metodo === 'POST' && l.corpo && l.corpo.id === 'giro'), iEnt = log.findIndex((l) => /sol_guardar_chave_grupo/.test(l.caminho));
+    const iLinha = log.findIndex((l) => l.metodo === 'PATCH' && /colecao=eq\.vault/.test(l.caminho)), iReg = log.findIndex((l) => l.metodo === 'PATCH' && /colecao=eq\.settings&id=eq\.cofre/.test(l.caminho));
+    const iUltEnt = log.map((l) => /sol_guardar_chave_grupo/.test(l.caminho)).lastIndexOf(true);
+    conferir(iGiro >= 0 && iGiro < iEnt && iUltEnt < iLinha && iLinha < iReg, 'C5. a ordem: a troca → a nova entregue à família (todas as entregas) → a primeira linha → o registro (' + [iGiro, iEnt, iUltEnt, iLinha, iReg].join(',') + ')');
+    conferir(await a.evaluate(() => window.__prox) === true, 'C5. a nova já estava guardada neste aparelho (L.fam[gid].prox, fechada pela chave dele) quando a primeira linha foi trocada');
+    const env = log[iGiro] && log[iGiro].corpo.dados.envelopes, ke = env && env[ANA] ? await desembrulhar(ANA, env[ANA]) : null;
+    conferir(env && Object.keys(env).join() === ANA && ke && ke.fk === fkN && ke.kv === 2 && igual(ke.raw, n.raw) && log[iGiro].corpo.vis === 'restrito' && log[iGiro].corpo.dados.estado === 'preparado',
+      'C5. a troca nasce "preparado", restrita, com a nova embrulhada para cada chefe (a Ana: o caminho de volta por outro aparelho dela)');
+    /* as Senhas da casa no banco */
+    let okL = 0;
+    for (const x of vivasVault().filter((y) => y.id !== '_em')) {
+      const o = JSON.parse(x.dados_cifrado); let d = null; try { d = await abrirLinha(n.raw, x.dados_cifrado); } catch (e) {}
+      if (o.fk === fkN && o.kv === 2 && Object.keys(o).sort().join() === 'c,ct,fk,iv,kv' && d && (await tituloDe(n.raw, x.dados_cifrado)) === ITENS[+x.id.slice(1)][1] && !(await abre(() => decifrar(VELHA, d.enc))) && !(await abre(() => abrirLinha(VELHA, x.dados_cifrado)))) okL++;
+    }
+    conferir(vivasVault().filter((y) => y.id !== '_em').length === 6 && okL === 6, 'G1. as 6 linhas vivas: fk novo e kv 2, no formato de sempre; as DUAS camadas abrem com a nova (e não com a de antes); os títulos iguais (' + okL + ')');
+    conferir(idsVault() === ids0, 'G1. nenhum item novo e nenhum apagado (os mesmos ids)');
+    const em = linha('vault', '_em');
+    conferir(em.apagado_em && em.dados_cifrado === null && r.ok && r.r.em === 'invalidado' && gd.em === 'invalidado', 'G1. o código de emergência (sem o código de agora): deixa de valer, apagado e sem o conteúdo (refeito com o código: etapa E7)');
+    conferir(JSON.stringify(linha('vault', 'vApagado')) === apagado0, 'D-E6. a linha já apagada ficou exatamente como estava (não entra na troca)');
+    /* cada linha com CAS próprio, nunca pela fila */
+    const pv = log.filter((l) => l.metodo === 'PATCH' && /colecao=eq\.vault/.test(l.caminho));
+    const casOk = pv.every((l) => /versao=eq\.\d+/.test(l.caminho) && (/id=eq\._em/.test(l.caminho) ? Object.keys(l.corpo).sort().join() === 'apagado_em,dados_cifrado' : /apagado_em=is\.null/.test(l.caminho) && Object.keys(l.corpo).join() === 'dados_cifrado'));
+    conferir(pv.length === 7 && casOk && !log.some((l) => l.metodo === 'POST' && l.corpo && l.corpo.colecao === 'vault') && log[iReg] && /versao=eq\.\d+/.test(log[iReg].caminho),
+      'G1. cada linha trocada uma vez, com a versão dela e só o texto (nunca "apagado_em: null", nenhuma pela fila, nenhuma criada); o registro também com a versão (' + pv.length + ')');
+    /* o registro, as entregas, a troca, o histórico */
+    const rg = regBanco();
+    conferir(rg.fk === fkN && rg.kv === 2 && rg.giradoPor === ANA && !!rg.giradoEm && Object.keys(rg.membros).sort().join() === [ANA, BIA].sort().join() && Object.values(rg.membros).every((m) => m.fk === fkN && m.seq === 2),
+      'G1. o registro: a nova (kv 2), quem trocou e quando, e quem tem a nova (Ana e Bia, versão 2) (' + JSON.stringify(rg) + ')');
+    const e = await entregas(marca);
+    conferir(versoes(ANA) === '1,2' && versoes(BIA) === '1,2' && versoes(DAVI) === davi0 && versoes(CRIS) === cris0 && e.length === 2 && e.every((x) => x.fk === fkN && x.kv === 2 && x.seq === 2),
+      'G1. a nova entregue (versão + 1) a cada chefe e responsável com chave (Ana, Bia), uma vez; o Davi (membro) e a Cris (sem chave) não; nada entregue com a de antes (' + JSON.stringify(e) + ')');
+    conferir(g.vis === 'restrito' && JSON.stringify(gd.envelopes) === '{}' && gd.de.fk === FK0 && gd.de.kv === 1 && gd.para.kv === 2 && gd.por === ANA && gd.total === 6 && gd.feitos === 6 && gd.estranhas === 0 && gd.voltas === 0 && !!gd.fim &&
+      Object.keys(gd.entregues).sort().join() === [ANA, BIA].sort().join(), 'G1. a troca no banco: "feito", restrita, de → para, os envelopes esvaziados, 6 de 6, nenhuma volta (' + JSON.stringify(Object.assign({}, gd, { envelopes: Object.keys(gd.envelopes || {}) })) + ')');
+    const hist = db.omni_historico.filter((h) => h.grupo_id === GID).map((h) => h.acao);
+    conferir(['cofre.giro', 'emergencia.invalidada', 'cofre.girado'].every((x) => hist.includes(x)), 'G1. o histórico: a troca começou, o código de emergência deixou de valer, a chave foi trocada (' + hist.join() + ')');
+    /* este aparelho */
+    const famA = await famDe(a), chA = await a.evaluate(() => ({ fk: Cofre.fk, kv: Cofre.kv, outras: Cofre.outras.map((o) => o.fk), rodando: Giro.rodando })), tA = await titulos(a);
+    conferir(famA.fk === fkN && famA.kv === 2 && JSON.stringify(famA.velhas) === JSON.stringify([FK0]) && famA.prox === null && chA.fk === fkN && chA.kv === 2 && JSON.stringify(chA.outras) === JSON.stringify([FK0]) && !chA.rodando,
+      'G1. este aparelho: o cadeado com a nova, a de antes só para abrir, sem o prox; a troca não está mais rodando (' + JSON.stringify([famA, chA]) + ')');
+    conferir(ITENS.every((x, i) => tA['v' + i] === x[1]), 'G1. este aparelho mostra os 6 itens');
+    const av = await a.evaluate(() => window.__antesDeVirar);
+    conferir(av && av.fk === FK0 && ITENS.every((x) => av.t.includes(x[1])), 'G1. durante a troca (antes de virar, ainda com a de antes), este aparelho continua mostrando os 6 (a nova também abre aqui) (' + JSON.stringify(av) + ')');
+    const an = await anexosDe(a, ['fG1fam', 'fG1semfk', 'fG1local']);
+    let anOk = 0;
+    for (const id of ['fG1fam', 'fG1semfk']) if (an[id].enc.fk === fkN && !an[id].enc.antes && an[id].txt === 'anexo ' + id && (await abreBlob(n.raw, an[id].enc.iv, an[id].bytes)) && !(await abreBlob(VELHA, an[id].enc.iv, an[id].bytes))) anOk++;
+    conferir(anOk === 2 && r.ok && r.r.anexos && r.r.anexos.feitos === 2 && r.r.anexos.pulados === 1, 'G1. os anexos da família neste aparelho (com e sem enc.fk) fechados de novo com a nova: abrem, e a de antes não abre (' + JSON.stringify(r.r && r.r.anexos) + ')');
+    conferir(JSON.stringify(an.fG1local) === JSON.stringify(an0.fG1local), 'G1. o anexo que não é da família ficou como estava');
+    conferir(r.ok && r.r.estranhas.length === 0 && r.r.semInterna.length === 0, 'G1. nenhum item "que já não abria"');
+    /* G5 com a troca de verdade (não conta como prova, C15: a prova é o fk/kv novo e as duas camadas abrindo com a nova) */
+    const s = situacao();
+    conferir(!vivasVault().some((x) => { try { return JSON.parse(x.dados_cifrado).fk === FK0; } catch (er) { return false; } }) && s.vault_fora === 0 && s.giro_ok === true && s.falta_entregar === 0,
+      'G5. nenhuma linha viva com a de antes; sol_giro_situacao: vault_fora 0, falta_entregar 0, a troca conferida (' + JSON.stringify(s) + ')');
+    /* o outro aparelho (aberto durante a troca) adota a nova na próxima volta do Cloud.poll */
+    await b.evaluate(() => Cloud.poll());
+    const adotou = await esperar(b, (fk) => Cofre.fk === fk && !Cofre._conf, fkN, 20000), tB = await titulos(b);
+    conferir(adotou && ITENS.every((x, i) => tB['v' + i] === x[1]), 'G1. o outro aparelho da Ana (aberto) adota a nova e mostra os 6 itens');
+    /* nenhum segredo guardado fora do lugar */
+    const nb64 = b64(n.raw), vazou = [];
+    for (const p of [a, b]) {
+      const st = await p.evaluate(() => { const o = []; for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) o.push(s.key(i) + '=' + s.getItem(s.key(i))); return o.join('\n'); });
+      if (st.includes(nb64) || st.includes(b64(VELHA))) vazou.push(p.nome);
+    }
+    if ([A, B].some((x) => x.lixo.console.some((t) => t.includes(nb64) || t.includes(b64(VELHA))))) vazou.push('console');
+    if (db.omni_historico.some((h) => String(h.detalhe || '').includes(nb64))) vazou.push('histórico');
+    conferir(!vazou.length, 'G1. a chave nova e a de antes nunca em localStorage, sessionStorage, console nem no histórico (' + vazou.join() + ')');
+  });
+
+  /* ================= G1c (etapa E5): uma linha gravada com a de antes no meio (aparelho atrasado) ================= */
+  await parte('G1c', 'Um aparelho atrasado grava uma linha com a de antes depois de ela ter sido trocada: a conferência acha e troca de novo (uma volta), sem perder a mudança', async (novo) => {
+    const A = await novo('G1c-ana', { vp: 'computador' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const tarde = await linhaCom(VELHA, 1, FK0, 'Banco mudado por um aparelho atrasado');
+    /* depois do 7º PATCH em vault (as 6 linhas e o código de emergência), "um aparelho 2.26" grava o v1 com a de antes */
+    M.depoisDe = { 'PATCH vault': 7, acao: () => gravarDoc('vault', 'v1', { dados_cifrado: tarde }, BIA) };
+    const r = await girar(a);
+    const gd = linha('settings', 'giro').dados, n = await chaveDaPessoa(ANA), o1 = JSON.parse(linha('vault', 'v1').dados_cifrado);
+    conferir(r.ok && gd.estado === 'feito' && gd.voltas === 1 && o1.fk === gd.para.fk && (await tituloDe(n.raw, linha('vault', 'v1').dados_cifrado)) === 'Banco mudado por um aparelho atrasado' && !comFk(FK0).length,
+      'G1c. a conferência achou a linha gravada com a de antes, trocou de novo (1 volta) e a mudança do aparelho atrasado ficou (' + JSON.stringify([r.erro || 'ok', gd.voltas, o1.fk === (gd.para || {}).fk]) + ')');
+    conferir(situacao().vault_fora === 0 && situacao().giro_ok === true, 'G1c. no fim, nada com a de antes (vault_fora 0)');
+  });
+
+  /* ================= C11 (etapa E5): itens que já não abriam não travam a troca ================= */
+  await parte('C11', 'Itens que já não abriam (o selo, ou só a parte interna): a troca termina, conta à parte e devolve a lista; nada some', async (novo) => {
+    const A = await novo('C11-ana', { vp: 'computador' }), a = A.p;
+    gravarDoc('vault', 'vQuebrada', { dados_cifrado: JSON.stringify({ c: 1, kv: 1, fk: FK0, iv: b64(crypto.randomBytes(12)), ct: b64(crypto.randomBytes(40)) }) });
+    gravarDoc('vault', 'vInterna', { dados_cifrado: await linhaCom(VELHA, 1, FK0, 'Parte interna de outra chave', new Uint8Array(crypto.randomBytes(32))) });
+    await abertoComVelha(a, ANA, PIN_A);
+    const quebrada0 = JSON.stringify(linha('vault', 'vQuebrada'));
+    const p = await a.evaluate(async () => { const r = await Giro.pode(); return { ok: r.ok, motivo: r.motivo, naoAbrem: r.naoAbrem }; });
+    conferir(p.ok && JSON.stringify(p.naoAbrem) === JSON.stringify(['vInterna', 'vQuebrada']), 'C11. antes de começar, a lista dos itens que não abrem (para a tela mostrar e oferecer apagar); eles não impedem a troca (' + JSON.stringify(p) + ')');
+    const r = await girar(a);
+    const gd = linha('settings', 'giro').dados, n = await chaveDaPessoa(ANA), oi = JSON.parse(linha('vault', 'vInterna').dados_cifrado);
+    conferir(r.ok && gd.estado === 'feito' && JSON.stringify(r.r.estranhas) === '["vQuebrada"]' && JSON.stringify(r.r.semInterna) === '["vInterna"]' && gd.estranhas === 1,
+      'C11. a troca termina e devolve a lista: o que não abre fica como está, o de parte interna que não abre conta à parte (' + JSON.stringify(r.r || r.erro) + ')');
+    conferir(JSON.stringify(linha('vault', 'vQuebrada')) === quebrada0 && oi.fk === gd.para.fk && !!(await abrirLinha(n.raw, linha('vault', 'vInterna').dados_cifrado).catch(() => null)) && comFk(gd.para.fk).length === 7,
+      'C11. a que não abre não foi tocada; a de parte interna estranha trocou só o selo; as outras 6 na nova');
+  });
+
+  /* ================= F0 (etapa E5): dá para começar? ================= */
+  await parte('F0', 'Antes de começar (Giro.pode): só chefe, só da chave do registro, sem nada esperando para subir, com o SQL da plataforma e o MoneyTRIO pronto; troca em curso = continuar ou "já está trocando"', async (novo) => {
+    const A = await novo('F0-ana', { vp: 'computador' }), a = A.p;
+    const C = await novo('F0-bia', { vp: 'celular' }), c = C.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(c, BIA, PIN_B);
+    const pode = (p) => p.evaluate(async () => { const r = await Giro.pode(); return { ok: !!r.ok, motivo: r.motivo || null, texto: r.texto || null }; });
+    const nada = () => !linha('settings', 'giro') && comFk(FK0).length === 6 && versoes(ANA) === '1';
+    const rc = await pode(c), gc = await girar(c);
+    conferir(rc.motivo === 'chefe' && gc.motivo === 'chefe' && /Só um chefe/.test(gc.erro) && nada(), 'F0. a Bia (responsável) não troca: "Só um chefe da família pode fazer isso." e nada muda (' + JSON.stringify([rc, gc.erro]) + ')');
+    M.semGiroSql = true;
+    const r1 = await pode(a), g1 = await girar(a);
+    conferir(r1.motivo === 'semSql' && r1.texto === 'Ainda não dá: falta uma atualização do SolverONE.' && g1.motivo === 'semSql' && nada(), 'F0. sem a sol_giro_situacao no banco (C6/D-E9): "Ainda não dá: falta uma atualização do SolverONE." — nenhum caminho manual (' + JSON.stringify(r1) + ')');
+    M.semGiroSql = false;
+    db.money_docs.push({ grupo_id: GID, colecao: 'money_lanc', id: 'm1', dados_cifrado: JSON.stringify({ c: 1, kv: 1, fk: FK0, iv: 'AA', ct: 'AA' }), apagado_em: null });
+    const r2 = await pode(a), g2 = await girar(a);
+    conferir(r2.motivo === 'money' && g2.motivo === 'money' && nada(), 'F0. o MoneyTRIO ainda com dados na chave da família: não troca (' + JSON.stringify(r2) + ')');
+    db.money_docs.splice(0, db.money_docs.length);
+    gravarDoc('vault', 'vOutra', { dados_cifrado: await linhaCom(new Uint8Array(crypto.randomBytes(32)), 1, 'fk-outra', 'De outra chave') });
+    const r3 = await pode(a);
+    conferir(r3.motivo === 'estranho' && /Peça ajuda/.test(r3.texto), 'F0. uma linha viva fora da chave do registro (uma segunda chave): não troca, pede ajuda (' + JSON.stringify(r3) + ')');
+    db.omni_docs.splice(db.omni_docs.indexOf(linha('vault', 'vOutra')), 1);
+    const r4 = await a.evaluate(async () => { CloudDriver.fila.set('vault|v0', { op: 'put', t: Date.now() }); CloudDriver.adiado.set('vault|v0', Date.now() + 120000); try { const r = await Giro.pode(); return { motivo: r.motivo }; } finally { CloudDriver.fila.delete('vault|v0'); CloudDriver.adiado.delete('vault|v0'); } });
+    conferir(r4.motivo === 'fila', 'F0. uma mudança das Senhas da casa esperando para subir: não troca (' + JSON.stringify(r4) + ')');
+    /* uma troca em curso de outro aparelho (o nome dele vem do banco: nada que vire HTML) e uma deste */
+    const giro = (ap, apNome) => gravarDoc('settings', 'giro', { vis: 'restrito', dados: { v: 1, vis: 'restrito', estado: 'recifrando', por: ANA, ap, apNome, de: { kv: 1, fk: FK0 }, para: { kv: 2, fk: 'fk-de-outra-troca' }, envelopes: {}, entregues: {} } }, ANA);
+    giro('outro-aparelho', '<img src=x onerror=alert(1)>Celular');
+    const r5 = await pode(a), g5 = await girar(a);
+    conferir(r5.motivo === 'trocando' && /^Já está trocando no img src=x onerror=alert\(1\)Celular\. Espere terminar\.$/.test(r5.texto) && g5.motivo === 'trocando' && !comFk('fk-de-outra-troca').length && comFk(FK0).length === 6,
+      'F0. troca em curso em outro aparelho: "Já está trocando no …" (sem HTML), e nada é tocado (' + JSON.stringify([r5, g5.erro]) + ')');
+    const ap = await a.evaluate(async () => Giro.meuAp(await Cofre.local()));
+    giro(ap, 'Este');
+    const r6 = await pode(a);
+    conferir(r6.motivo === 'continuar' && /pela metade/.test(r6.texto), 'F0. troca deste aparelho pela metade: "Continuar de onde parou?" (' + JSON.stringify(r6) + ')');
+    const g6 = await girar(a, {});
+    conferir(g6.motivo === 'outroAp' && comFk(FK0).length === 6, 'F0. continuar sem ter a nova daqui (nem no cadeado, nem no envelope, nem na família): "Continue no aparelho onde começou", nada tocado (' + JSON.stringify(g6) + ')');
+    db.omni_docs.splice(db.omni_docs.indexOf(linha('settings', 'giro')), 1);
+    const g7 = await girar(a, {});
+    conferir(g7.motivo === 'nada' && !linha('settings', 'giro'), 'F0. "continuar" sem troca nenhuma não começa uma (' + JSON.stringify(g7) + ')');
+    /* depois de uma troca feita (à mão), este aparelho ficou com a de antes (sem adotar: como antes da volta do poll que adota) */
+    await a.evaluate(() => { Cofre.conferirAoVivo = async () => false; });
+    await trocaAMao();
+    const r8 = await pode(a);
+    conferir(r8.motivo === 'velho', 'F0. este aparelho com a chave de antes do registro: não troca (' + JSON.stringify(r8) + ')');
+  });
+
+  /* ================= G7a (etapa E5): cair no meio e retomar ================= */
+  await parte('G7a', 'O app recarrega com parte das linhas trocadas: ao abrir pelo PIN, "Continuar" termina com a MESMA chave nova, sem trocar de novo o que já estava e sem item duplicado', async (novo) => {
+    const A = await novo('G7a-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const ids0 = idsVault(), apagado0 = JSON.stringify(linha('vault', 'vApagado'));
+    let naHora = -1, recarregou = null;
+    M.depoisDe = { 'PATCH vault': 3, acao: () => { naHora = 6 - comFk(FK0).length; recarregou = a.reload().catch(() => {}); } };
+    const r1 = await girar(a).catch((e) => ({ morreu: String(e).split('\n')[0] }));
+    await ate(() => recarregou, 10000); await recarregou;
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    await espere(800);
+    const gd1 = JSON.parse(JSON.stringify(linha('settings', 'giro').dados)), fkN = gd1.para.fk, n = await chaveDaPessoa(ANA), antes = comFk(fkN).length;
+    conferir(!r1.ok && gd1.estado === 'recifrando' && naHora === 3 && antes >= 3 && antes < 6 && regBanco().fk === FK0 && n && n.fk === fkN,
+      'G7a. recarregou no meio: a troca parada em "recifrando", ' + antes + ' das 6 linhas na nova, o registro ainda o de antes, a nova já com a família (' + JSON.stringify([r1.erro || r1.morreu, gd1.estado, naHora, antes]) + ')');
+    await quieto(a); await senhasDaCasa(a);
+    const ra = await abrirPeloPin(a, PIN_A), fam = await famDe(a);
+    conferir(ra.ok && fam.fk === FK0 && fam.prox === fkN && await a.evaluate(() => Cofre.fk) === FK0, 'G7a. abre pelo PIN com a de antes; a nova continua guardada neste aparelho (prox) depois de recarregar');
+    conferir(await a.evaluate(() => Giro.desistir()) === false && linha('settings', 'giro').dados.estado === 'recifrando', 'C5. depois de a nova sair para a família, "Desistir" não vale mais (só continuar)');
+    const marca = M.log.length;
+    const r2 = await girar(a, {});
+    const gd = linha('settings', 'giro').dados, pv = M.log.slice(marca).filter((l) => l.metodo === 'PATCH' && /colecao=eq\.vault/.test(l.caminho));
+    conferir(r2.ok && gd.estado === 'feito' && gd.para.fk === fkN && gd.para.kv === 2 && regBanco().fk === fkN && comFk(fkN).length === 6 && !comFk(FK0).length,
+      'G7a. "Continuar" termina com a MESMA chave nova (nenhuma segunda chave), kv 2 (' + JSON.stringify(r2.erro || r2.r) + ')');
+    conferir(pv.length === 6 - antes + 1, 'G7a. só o que faltava foi trocado: ' + (6 - antes) + ' linhas e o código de emergência (' + pv.length + ' PATCH)');
+    const e = await entregas(marca);
+    conferir(!e.length && versoes(ANA) === '1,2' && versoes(BIA) === '1,2', 'G7a. a família não recebeu de novo (as entregas de antes ficaram anotadas na troca)');
+    let t = 0; for (const x of comFk(fkN)) if ((await tituloDe(n.raw, x.dados_cifrado)) === ITENS[+x.id.slice(1)][1]) t++;
+    conferir(idsVault() === ids0 && t === 6 && JSON.stringify(linha('vault', 'vApagado')) === apagado0, 'G7a. os mesmos ids (nenhum "v…" a mais), todos os títulos iguais aos de antes, a apagada como estava');
+    const tA = await titulos(a), fam2 = await famDe(a);
+    conferir(ITENS.every((x, i) => tA['v' + i] === x[1]) && fam2.fk === fkN && fam2.prox === null && JSON.stringify(fam2.velhas) === JSON.stringify([FK0]), 'G7a. o aparelho mostra os 6 e fica com a nova (a de antes só para abrir)');
+  });
+
+  /* ================= G7t (etapa E5): as Senhas fecham no meio ================= */
+  await parte('G7t', 'As Senhas da casa fecham no meio da troca: ela para logo ("Parou porque as Senhas fecharam"), e ao abrir de novo "Continuar" termina', async (novo) => {
+    const A = await novo('G7t-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    let naHora = -1;
+    M.depoisDe = { 'PATCH vault': 2, acao: () => { naHora = 6 - comFk(FK0).length; a.evaluate(() => Cofre.trancar()).catch(() => {}); } };
+    await a.evaluate(() => { Giro.PAUSA_MS = 300; });
+    const r1 = await girar(a);
+    await espere(500);
+    const fkN = linha('settings', 'giro').dados.para.fk, antes = comFk(fkN).length;
+    conferir(!r1.ok && r1.motivo === 'trancou' && r1.erro === 'Parou porque as Senhas fecharam. Abra e toque em Continuar.' && antes <= naHora + 1 && antes < 6 && await a.evaluate(() => !Giro.rodando),
+      'G7t. trancou: a troca para na linha seguinte, com o texto para leigo (' + JSON.stringify([r1.erro, naHora, antes]) + ')');
+    await a.evaluate(() => { Giro.PAUSA_MS = 0; });
+    const ra = await abrirPeloPin(a, PIN_A), r2 = await girar(a, {});
+    conferir(ra.ok && r2.ok && linha('settings', 'giro').dados.estado === 'feito' && comFk(fkN).length === 6 && regBanco().fk === fkN, 'G7t. abre pelo PIN e "Continuar" termina, com a mesma chave nova');
+  });
+
+  /* ================= D1 (etapa E5): desistir antes da entrega ================= */
+  await parte('D1', '"Desistir" só antes de a nova sair para a família: a troca vira "desistiu", a nova sai do aparelho e nada mais muda; a próxima troca nasce por cima, com outra chave e a versão seguinte', async (novo) => {
+    const A = await novo('D1-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    /* o app fecha logo depois de a troca nascer, antes de guardar a nova aqui */
+    await a.evaluate(() => { Giro.guardarProx = () => new Promise(() => {}); });
+    girar(a).catch(() => null);
+    await ate(() => linha('settings', 'giro'), 15000); await espere(300);
+    await a.reload().catch(() => {});
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    await espere(800);
+    const g1 = JSON.parse(JSON.stringify(linha('settings', 'giro').dados));
+    conferir(g1.estado === 'preparado' && versoes(ANA) === '1' && comFk(FK0).length === 6, 'D1. recarregou logo depois de a troca nascer: "preparado", nada entregue, nenhuma linha mexida (' + g1.estado + ')');
+    await quieto(a); await senhasDaCasa(a);
+    const ra = await abrirPeloPin(a, PIN_A), d = await a.evaluate(() => Giro.desistir()), fam = await famDe(a), g2 = linha('settings', 'giro').dados;
+    conferir(ra.ok && d === true && g2.estado === 'desistiu' && JSON.stringify(g2.envelopes) === '{}' && fam.prox === null && fam.fk === FK0 && versoes(ANA) === '1' && comFk(FK0).length === 6 && regBanco().fk === FK0,
+      'D1. "Desistir": a troca "desistiu", sem envelopes, a nova sai deste aparelho, e nada mais mudou');
+    const r = await girar(a), g3 = linha('settings', 'giro').dados;
+    conferir(r.ok && g3.estado === 'feito' && g3.para.fk !== g1.para.fk && g3.para.kv === 3 && regBanco().kv === 3 && comFk(g3.para.fk).length === 6,
+      'D1. a próxima troca nasce por cima da que desistiu (com a versão lida), com outra chave e a versão seguinte (nunca duas chaves com a mesma versão) (' + JSON.stringify([r.erro, g3.para]) + ')');
+  });
+
+  /* ================= G8b (etapa E5, C1): dois aparelhos começam juntos ================= */
+  await parte('G8b', 'Dois aparelhos da Ana confirmam ao mesmo tempo (C1): o banco aceita uma troca só; o outro diz "Já está trocando" e nunca grava a chave dele por cima', async (novo) => {
+    const A = await novo('G8b-ana-celular', { vp: 'celular' }), a = A.p;
+    const B = await novo('G8b-ana-computador', { vp: 'computador' }), b = B.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(b, ANA, PIN_A);
+    /* os dois passam pela conferência antes e só gravam a troca quando os dois chegaram lá */
+    const segurar = (p) => p.evaluate(() => { const o = Giro.gravarDoc; window.__parado = false; window.__vai = false; Giro.gravarDoc = async function (row, d) { if (d.estado === 'preparado' && !window.__passou) { window.__parado = true; while (!window.__vai) await new Promise((r) => setTimeout(r, 30)); window.__passou = true; } return o.apply(this, arguments); }; });
+    await segurar(a); await segurar(b);
+    await a.evaluate(() => { Giro.PAUSA_MS = 200; }); await b.evaluate(() => { Giro.PAUSA_MS = 200; });
+    const marca = M.log.length, pa = girar(a), pb = girar(b);
+    const chegaram = await esperar(a, () => window.__parado, null, 20000) && await esperar(b, () => window.__parado, null, 20000);
+    await a.evaluate(() => { window.__vai = true; }); await b.evaluate(() => { window.__vai = true; });
+    const [ra, rb] = await Promise.all([pa, pb]);
+    const gd = linha('settings', 'giro').dados, fkN = gd.para.fk, um = [ra, rb].filter((x) => x.ok), outro = [ra, rb].find((x) => !x.ok);
+    conferir(chegaram && um.length === 1 && outro && outro.motivo === 'trocando' && /^Já está trocando no /.test(outro.erro), 'G8b. uma troca só: a outra para com "Já está trocando no …" (' + JSON.stringify([ra.erro || 'ok', rb.erro || 'ok']) + ')');
+    const fks = [...new Set(vivasVault().filter((x) => x.id !== '_em').map((x) => JSON.parse(x.dados_cifrado).fk))];
+    conferir(gd.estado === 'feito' && JSON.stringify(fks) === JSON.stringify([fkN]) && regBanco().fk === fkN && um.length === 1 && um[0].r.estranhas.length === 0,
+      'G8b. todas as linhas com UMA chave nova (a da troca que ficou), nenhum item "que não abre" (' + JSON.stringify(fks) + ')');
+    const posts = M.log.slice(marca).filter((l) => l.metodo === 'POST' && l.corpo && l.corpo.colecao === 'settings' && l.corpo.id === 'giro'), patches = M.log.slice(marca).filter((l) => l.metodo === 'PATCH' && /id=eq\.giro/.test(l.caminho) && l.corpo && l.corpo.dados && l.corpo.dados.para && l.corpo.dados.para.fk !== fkN);
+    conferir(posts.length === 2 && !patches.length, 'G8b. os dois tentaram criar (o banco recusou o segundo) e nenhum gravou outra chave por cima (' + posts.length + ' POST, ' + patches.length + ' PATCH de outra chave)');
+    const perdeu = ra.ok ? b : a, famP = await famDe(perdeu);
+    conferir(famP.prox === null && [fkN, FK0].includes(famP.fk) && famP.velhas.every((v) => [FK0, fkN].includes(v)), 'G8b. o aparelho que não ficou com a troca não guardou nenhuma chave nova dele (' + JSON.stringify(famP) + ')');
+  });
+
+  /* ================= G8c (etapa E5, C1): outra troca venceu no meio ================= */
+  await parte('G8c', 'Outra troca ficou com a vez no meio (C1): uma linha de chave desconhecida e versão maior faz este aparelho parar ("Continuou em outro aparelho seu"), e a nova dele vai para as de antes, sem se perder', async (novo) => {
+    const A = await novo('G8c-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const intrusa = await linhaCom(new Uint8Array(crypto.randomBytes(32)), 3, 'fk-da-outra-troca', 'Da outra troca');
+    /* depois do 4º PATCH do settings (entregando, as duas entregas, recifrando): a troca passa a ser de outro aparelho */
+    M.depoisDe = { 'PATCH settings': 4, acao: () => {
+      const g = linha('settings', 'giro');
+      gravarDoc('settings', 'giro', { dados: Object.assign({}, g.dados, { ap: 'outro-aparelho', apNome: 'Outro', para: { kv: 3, fk: 'fk-da-outra-troca' } }) }, ANA);
+      gravarDoc('vault', 'a0', { dados_cifrado: intrusa }, ANA);
+    } };
+    const marca = M.log.length;
+    const r = await girar(a);
+    const minha = (M.log.slice(marca).find((l) => l.metodo === 'POST' && l.corpo && l.corpo.id === 'giro') || { corpo: { dados: { para: {} } } }).corpo.dados.para.fk, fam = await famDe(a);
+    conferir(!r.ok && r.motivo === 'assumiram' && r.erro === 'Continuou em outro aparelho seu.' && !comFk(minha).length && comFk(FK0).length === 6,
+      'G8c. parou na linha da outra troca, antes de tocar em qualquer linha (' + JSON.stringify([r.erro, comFk(minha).length]) + ')');
+    conferir(minha && fam.prox === null && fam.velhas.includes(minha) && fam.fk === FK0, 'G8c. a nova deste aparelho não se perdeu: foi para as de antes, só para abrir (' + JSON.stringify(fam) + ')');
+  });
+
+  /* ================= G8d (etapa E5, C1): a vez passou para outro aparelho no meio, sem linha nenhuma dele ================= */
+  await parte('G8d', 'A troca passou a ser de outro aparelho no meio (C1): a próxima anotação deste encontra outra versão, relê e para ("Continuou em outro aparelho seu"), sem gravar por cima', async (novo) => {
+    const A = await novo('G8d-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    let outra = null;
+    M.depoisDe = { 'PATCH settings': 4, acao: () => { const g = linha('settings', 'giro'); outra = Object.assign({}, g.dados, { ap: 'outro-aparelho', apNome: 'Outro' }); gravarDoc('settings', 'giro', { dados: outra }, ANA); } };
+    const marca = M.log.length, r = await girar(a), g = linha('settings', 'giro').dados, fam = await famDe(a);
+    const minha = (M.log.slice(marca).find((l) => l.metodo === 'POST' && l.corpo && l.corpo.id === 'giro') || { corpo: { dados: { para: {} } } }).corpo.dados.para.fk;
+    conferir(!r.ok && r.motivo === 'assumiram' && g.ap === 'outro-aparelho' && g.estado === 'recifrando' && regBanco().fk === FK0,
+      'G8d. parou com "Continuou em outro aparelho seu." e a troca no banco continua a do outro aparelho (nada gravado por cima) (' + JSON.stringify([r.erro, g.ap, g.estado]) + ')');
+    conferir(fam.fk === FK0 && fam.prox === minha && g.para.fk === minha, 'G8d. a mesma troca (a mesma nova): o prox fica, para o outro aparelho continuar com ela (' + JSON.stringify(fam) + ')');
+  });
+
+  /* ================= AN (etapa E5): o app fecha no meio de um anexo ================= */
+  await parte('AN', 'O app fecha no meio de um anexo (antes e depois de gravar o arquivo novo): o anexo continua abrindo, e "Continuar" termina com ele na nova', async (novo) => {
+    const A = await novo('AN-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await anexar(a, [['fANantes', 'familia'], ['fANdepois', 'familia']]);
+    /* "o app morre": antes de gravar o arquivo novo de um, e logo depois de gravar o do outro */
+    await a.evaluate(() => { const o = DB.driver.putFile.bind(DB.driver); DB.driver.putFile = async function (id, blob, meta) { if (id === 'fANantes' && !window.__a) { window.__a = 1; throw new Error('o app fechou'); } const r = await o(id, blob, meta); if (id === 'fANdepois' && !window.__d) { window.__d = 1; throw new Error('o app fechou'); } return r; }; });
+    const r1 = await girar(a), m1 = await anexosDe(a, ['fANantes', 'fANdepois']);
+    conferir(!r1.ok && m1.fANantes.txt === 'anexo fANantes' && !!m1.fANantes.enc.antes, 'AN. parou antes do arquivo novo: a ficha diz as duas, e o anexo abre (' + JSON.stringify([r1.erro, m1.fANantes.enc]) + ')');
+    const r2 = await girar(a, {}), m2 = await anexosDe(a, ['fANantes', 'fANdepois']);
+    conferir(!r2.ok && m2.fANdepois.txt === 'anexo fANdepois' && !!m2.fANdepois.enc.antes, 'AN. parou logo depois do arquivo novo: o anexo abre (a ficha ainda diz as duas) (' + JSON.stringify([r2.erro, m2.fANdepois.enc]) + ')');
+    const r3 = await girar(a, {}), m3 = await anexosDe(a, ['fANantes', 'fANdepois']), fkN = linha('settings', 'giro').dados.para.fk, n = await chaveDaPessoa(ANA);
+    let ok = 0; for (const id of ['fANantes', 'fANdepois']) if (m3[id].txt === 'anexo ' + id && m3[id].enc.fk === fkN && !m3[id].enc.antes && (await abreBlob(n.raw, m3[id].enc.iv, m3[id].bytes))) ok++;
+    conferir(r3.ok && ok === 2, '"Continuar" termina: os dois anexos na nova, a ficha só com ela, e abrem (' + JSON.stringify([r3.erro || 'ok', m3.fANantes.enc, m3.fANdepois.enc]) + ')');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E4 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E5 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN)');
 })().catch((e) => { console.error(e); process.exit(1); });

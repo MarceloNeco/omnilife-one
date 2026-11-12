@@ -1637,7 +1637,9 @@ const Files = {
       /* 2.27.0, o chaveiro: a chave que o anexo diz (enc.fk); senão (ou se ela falhar) a de agora e depois as de antes da troca
          (um anexo sem enc.fk é de antes da 2.27.0) — o anexo não some enquanto é fechado de novo com a de agora */
       const ks = [m.enc.fk && Cofre.chaveDe(m.enc.fk), S.vaultKey].concat(Cofre.outras.map((o) => o.vf)).filter((k, i, a) => k && a.indexOf(k) === i);
-      let erro; for (const k of ks) { try { return await Vault.decryptBlob(b, m.enc.iv, m.enc.type, k); } catch (e) { erro = e; } }
+      /* enc.antes: a troca fechava este anexo de novo quando o app fechou (Cofre.recifrarAnexos): o arquivo ainda pode ser o de antes */
+      const ivs = [m.enc.iv].concat(m.enc.antes && m.enc.antes.iv ? [m.enc.antes.iv] : []);
+      let erro; for (const iv of ivs) for (const k of ks) { try { return await Vault.decryptBlob(b, iv, m.enc.type, k); } catch (e) { erro = e; } }
       throw erro;
     }
     return b;
@@ -3483,11 +3485,12 @@ const Cofre = {
   registro() { return DB.col("settings").get("cofre") || null; },   /* { fk, kv, membros: { uid: { kid, seq, fk } } } — sem segredo */
   /* 2.27.0: o registro e a troca como estão NO BANCO (C13: quem entrega a chave da família decide por ele; a cópia daqui fica para
      trás quando há uma mudança dela esperando na fila). Sem resposta do banco, lança erro: aí não se entrega nada.
-     {reg: dados do registro (mesmo apagado: ele ainda diz qual é a chave) | null, giro: a linha da troca | null} */
+     {reg: dados do registro (mesmo apagado: ele ainda diz qual é a chave) | null, giro: a linha da troca | null, cofre: a linha do
+     registro (a troca grava por cima com a versão dela) | null} */
   async noBanco(prazo) {
     const rows = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.settings&id=in.(cofre,giro)&select=id,vis,dados,versao,atualizado_em,apagado_em", undefined, undefined, prazo || 8000);
     const de = (id) => (rows || []).find((r) => r.id === id) || null, c = de("cofre");
-    return { reg: c && c.dados && c.dados.fk ? c.dados : null, giro: de("giro") };
+    return { reg: c && c.dados && c.dados.fk ? c.dados : null, giro: de("giro"), cofre: c };
   },
   /* (b) a chave {kv, fk} é a do registro? Sem registro (família nova), é. Uma de outro fk, ou mais velha, nunca é entregue nem fecha */
   ehAtual(reg, kv, fk) { return !reg || !reg.fk || (reg.fk === fk && (+reg.kv || 0) <= (+kv || 0)); },
@@ -3839,6 +3842,37 @@ const Cofre = {
     };
     try { const x = await ler(a), y = await ler(b); return x !== null && x === y; } catch (e) { return false; }
   },
+  /* 2.27.0 (troca): os anexos guardados SÓ neste aparelho passam para a chave nova (para = {fk, vf}). Abre com o chaveiro (e com a
+     de antes, de = {fk, vf}); o que não abre com nenhuma não é da família (fica como está). Três gravações para nada se perder se o
+     app fechar no meio: a ficha com as duas (enc.antes = o arquivo de agora), o arquivo novo, a ficha só com a nova.
+     andamento(i, n); para no meio se as Senhas fecharem ou o sinal for cortado. {feitos, total, pulados, parou} */
+  async recifrarAnexos(de, para, andamento, sinal) {
+    const lista = DB.raw("files").filter((f) => f.enc && (f.enc.fk !== para.fk || f.enc.antes));
+    const out = { feitos: 0, total: lista.length, pulados: 0, parou: false };
+    const gravar = async (m) => { DB.col("files").set(m.id, m); await DB.driver.put("files", m); };
+    for (let i = 0; i < lista.length; i++) {
+      if (!this.aberto() || (sinal && sinal.aborted)) { out.parou = true; break; }
+      if (andamento) andamento(i + 1, lista.length);
+      const fm = lista[i], e = fm.enc, b = await DB.driver.getFile(fm.id, fm);
+      if (!b) { out.pulados++; continue; }
+      const ks = [{ k: this.vf, fk: this.fk }].concat(this.outras.map((o) => ({ k: o.vf, fk: o.fk })), de ? [{ k: de.vf, fk: de.fk }] : [], [{ k: para.vf, fk: para.fk }]).filter((x, j, a) => x.k && a.findIndex((y) => y.k === x.k) === j);
+      let pt = null, usado = null;
+      for (const iv of [e.iv].concat(e.antes && e.antes.iv ? [e.antes.iv] : [])) {
+        for (const x of ks) { try { pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bufFromB64(iv) }, x.k, await b.arrayBuffer()); usado = { iv, fk: x.fk }; break; } catch (er) {} }
+        if (pt) break;
+      }
+      if (!pt) { out.pulados++; continue; }
+      const enc = { iv: usado.iv, type: e.type, fk: para.fk };
+      if (usado.fk !== para.fk) {   /* (já na nova = só sobrou a ficha do meio do caminho) */
+        const r = await Vault.encryptBlob(new Blob([pt], { type: e.type }), para.vf); enc.iv = r.iv;
+        await gravar(Object.assign({}, fm, { enc: Object.assign({}, enc, { antes: usado }) }));
+        await DB.driver.putFile(fm.id, r.blob, fm);
+      }
+      await gravar(Object.assign({}, fm, { enc }));
+      out.feitos++;
+    }
+    return out;
+  },
   T() {
     const ap = apN();
     return {
@@ -4187,12 +4221,16 @@ ACT["cofre.digital"] = async () => TelaConta.abrirCasa(await Cofre.destrancarDig
 
 /* =====================================================================
    TROCAR A CHAVE DE SEGURANÇA DA FAMÍLIA (2.27.0, Parte E). O estado da troca é settings/giro em omni_docs: em claro, sem
-   segredo, gravado só por REST com a versão conferida (nunca pela fila). Por enquanto, só o que as guardas usam ("durante a
-   troca, só a troca entrega a chave e ninguém muda as Senhas da casa").
+   segredo, gravado só por REST com a versão conferida (nunca pela fila). Durante a troca, só ela entrega a chave e ninguém muda
+   as Senhas da casa. A troca em si (executar): cada passo grava onde parou, e retomar refaz só o que falta (cada linha diz em
+   claro com que chave foi fechada). Ordem (C5: a nova chega à família ANTES da primeira linha trocada):
+   preparado (a troca e a nova neste aparelho) → entregando (sol_grupo_chaves) → recifrando (as linhas vivas e os anexos daqui)
+   → emergencia (o código) → virando (o registro e este aparelho) → conferindo → feito. A tela e o Fundo vêm depois (E6/E9).
    ===================================================================== */
 const Giro = {
   PARADO_MS: 3 * 60e3,   /* sem notícia há mais que isso = a troca parou (gancho dos testes) */
-  rodando: false,        /* este aparelho está fazendo a troca agora (E5): aí só ela muda a chave daqui */
+  PAUSA_MS: 0,           /* espera entre uma senha e outra (gancho dos testes: deixa a troca no meio de propósito) */
+  rodando: false,        /* este aparelho está fazendo a troca agora: aí só ela muda a chave daqui */
   /* os dados da troca de uma linha do banco ({vis, dados, atualizado_em, apagado_em}). Só vale a "restrito" (C9: um adulto
      comum cria settings como "publico"; uma troca falsa não pode travar a família) */
   dados(row) { return row && !row.apagado_em && row.vis === "restrito" && row.dados && row.dados.v === 1 ? row.dados : null; },
@@ -4202,6 +4240,397 @@ const Giro = {
   emCurso(row) { const g = this.dados(row === undefined ? this.local() : row); return !!(g && g.estado && !["feito", "desistiu"].includes(g.estado)); },
   /* em curso e com notícia recente (parada, mudar com a chave de antes é seguro: quem continuar troca depois) */
   vivo(row) { row = row === undefined ? this.local() : row; return this.emCurso(row) && Date.now() - (Date.parse(row.atualizado_em) || 0) < this.PARADO_MS; },
+  /* ---------- a troca em si (sem tela: a tela e o Fundo chamam executar) ---------- */
+  /* a troca e o registro como estão NO BANCO: {giro, g (os dados que valem), cofre, reg} — as linhas trazem a versão para o CAS */
+  async ler() { const b = await Cofre.noBanco(); return { giro: b.giro, g: this.dados(b.giro), cofre: b.cofre, reg: b.reg }; },
+  /* este aparelho: o lugar dele na lista da conta (ou, no cadeado de antes da lista, o número deste navegador). A troca é daqui
+     por qualquer um dos dois (o cadeado de antes ganha o lugar na lista ao abrir pelo PIN, no meio da troca) */
+  meuAp(L) { return (L && L.ap) || Devices.myId(); },
+  ehDaqui(g, L) { return !!g && g.por === Conta.uid() && (g.ap === this.meuAp(L) || g.ap === Devices.myId()); },
+  erro(texto, motivo) { const e = new Error(texto); e.giro = motivo || "erro"; return e; },
+  /* o nome do aparelho vem do banco: sem nada que vire HTML */
+  jaTrocando(g) { const ap = String((g && g.apNome) || apN()).replace(/[<>&"']/g, "").slice(0, 60); return tt("Já está trocando no " + ap + ". Espere terminar.", "It's already changing on " + ap + ". Wait for it to finish."); },
+  /* grava settings/giro SÓ por REST e com a versão lida (CAS): row = a linha lida (null = ainda não existe → POST, e o banco recusa
+     a segunda). A linha nova | null (outro aparelho gravou antes: quem chama relê e decide; nunca grava por cima sem reler) */
+  async gravarDoc(row, dados) {
+    const corpo = { vis: "restrito", dados: Object.assign({}, dados, { v: 1, vis: "restrito", batida: new Date().toISOString() }) };
+    let r;
+    if (row) r = await Conta.rest("PATCH", CloudDriver.url("settings", "giro") + "&versao=eq." + row.versao, Object.assign({ apagado_em: null }, corpo), "return=representation");
+    else { try { r = await Conta.rest("POST", "omni_docs", Object.assign({ grupo_id: S.family.id, colecao: "settings", id: "giro" }, corpo), "return=representation"); } catch (e) { if (e.status === 409) return null; throw e; } }
+    const l = r && r[0]; if (!l) return null;
+    await CloudDriver.aceitar("settings", "giro", l, true);
+    return l;
+  },
+  /* o mínimo para fazer (ou continuar) a troca neste aparelho: {motivo, texto} | null */
+  basico(L) {
+    const T = this.T;
+    if (S.role !== "admin") return { motivo: "chefe", texto: T.soChefe };
+    if (!navigator.onLine) return { motivo: "rede", texto: T.semRede };
+    if (!Cofre.aberto() || !Cofre.dukRaw) return { motivo: "fechado", texto: T.fechado };
+    if (!L || !L.sk) return { motivo: "semChave", texto: T.semSk };
+    return null;
+  },
+  /* F0 (3.1): dá para começar agora? {ok, b, ponte, naoAbrem, temEm} | {motivo, texto}. motivo "continuar" = há uma troca deste
+     aparelho pela metade (b junto). Sem a sol_giro_situacao no banco, não começa (C6: nenhum caminho manual) */
+  async pode() {
+    const T = this.T, L = await Cofre.local(), b0 = this.basico(L); if (b0) return b0;
+    /* o que este aparelho mudou nas Senhas da casa (e no registro) sobe antes: nada fechado com a de antes fica esperando */
+    try { await CloudDriver.flush(); for (let i = 0; i < 100 && CloudDriver._flushing; i++) await sleep(100); } catch (e) {}
+    if ([...CloudDriver.fila.keys()].some((k) => k.startsWith("vault|") || k === "settings|cofre")) return { motivo: "fila", texto: T.fila };
+    let b; try { b = await this.ler(); } catch (e) { return { motivo: "rede", texto: T.semRede }; }
+    if (this.emCurso(b.giro)) return this.ehDaqui(b.g, L) ? { motivo: "continuar", texto: T.continuar, b } : { motivo: "trocando", texto: this.jaTrocando(b.g), b };
+    /* só a partir da chave do registro (um aparelho que ficou para trás não troca) */
+    if (!b.reg || !b.cofre || b.cofre.apagado_em || b.reg.fk !== Cofre.fk || +b.reg.kv !== +Cofre.kv) return { motivo: "velho", texto: T.velho };
+    let s; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: S.family.id }); }
+    catch (e) { return e.status === 404 || e.code === "PGRST202" ? { motivo: "semSql", texto: T.semSql } : { motivo: "rede", texto: T.semRede }; }
+    if (!s || s.money_migrado === false || +s.money_cf > 0) return { motivo: "money", texto: T.moneyFalta };
+    /* linha viva fora da chave do registro = existe uma segunda chave, ou lixo: não troca (R12) */
+    if (+s.vault_fora > 0) return { motivo: "estranho", texto: T.estranho };
+    return { ok: true, b, ponte: +s.ponte_pendentes || 0, naoAbrem: await this.naoAbrem(), temEm: !!DB.col("vault").get("_em") };
+  },
+  /* as linhas vivas das Senhas da casa no banco (sem as apagadas: D-E6, ninguém mexe no que já está apagado) */
+  async linhasVault() {
+    let out = [];
+    for (let off = 0; ; off += 1000) {
+      const r = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.vault&apagado_em=is.null&select=id,dados_cifrado,versao,apagado_em&order=id.asc&limit=1000&offset=" + off);
+      out = out.concat(r || []); if (!r || r.length < 1000) return out;
+    }
+  },
+  /* C11: os itens que já não abrem com a chave de agora (o selo ou a parte interna). Não impedem a troca (ficam como estão e a troca
+     conta à parte); a tela mostra quantos e oferece apagar. [ids] */
+  async naoAbrem() {
+    const out = [];
+    for (const r of await this.linhasVault()) {
+      if (r.id === "_em") continue;
+      let ok = false;
+      try {
+        const o = JSON.parse(r.dados_cifrado), k = o && o.c ? (o.fk ? Cofre.chaveDe(o.fk) : Cofre.vf) : null;
+        if (k) { const d = JSON.parse(new TextDecoder().decode(await Cofre.decifrar(k, o))); if (d.enc) await Vault.decStr(d.enc, k); ok = true; }
+      } catch (e) {}
+      if (!ok) out.push(r.id);
+    }
+    return out;
+  },
+  /* a troca (o "executar" do Fundo). op.novo = começar uma (depois da confirmação da tela); sem ele, só continua a deste aparelho.
+     andamento(0..1, texto); c = {sinal} do Fundo. Resultado {em, estranhas: [ids], semInterna: [ids], anexos} para o fim.
+     Os bytes da nova só vivem na memória daqui e zeram no fim (ela fica guardada fechada: prox, envelopes, sol_grupo_chaves) */
+  async executar(andamento, c, op) {
+    if (this.rodando) throw this.erro(this.T.outraAba, "rodando");
+    this.rodando = true;
+    const ctx = { gid: S.family.id, uid: Conta.uid(), andamento: andamento || (() => {}), c: c || {}, op: op || {}, para: null, de: null, sk: null };
+    try { return await this._executar(ctx); }
+    catch (e) {
+      if (e.giro) throw e;
+      console.warn("troca:", e && e.message);
+      throw this.erro(!navigator.onLine || !e.status ? this.T.erroRede : this.T.erroConferir, !navigator.onLine || !e.status ? "rede" : "banco");
+    } finally { this.rodando = false; if (ctx.para && ctx.para.raw) ctx.para.raw.fill(0); ctx.sk = null; ctx.duk = null; }
+  },
+  async _executar(ctx) {
+    const T = this.T, L = await Cofre.local(), b0 = this.basico(L);
+    if (b0) throw this.erro(b0.texto, b0.motivo);
+    ctx.ap = this.meuAp(L); ctx.duk = await Cofre.aes(Cofre.dukRaw);
+    const pk = await Cofre.decifrar(ctx.duk, L.sk); try { ctx.sk = await Cofre.importarSk(pk); } finally { pk.fill(0); }
+    ctx.andamento(0, T.preparando);
+    const b = await this.ler();
+    if (this.emCurso(b.giro)) await this.retomar(ctx, b);
+    else {
+      if (!ctx.op.novo) throw this.erro(T.nada, "nada");
+      const p = await this.pode();
+      if (p.motivo === "continuar") await this.retomar(ctx, p.b);
+      else if (!p.ok) throw this.erro(p.texto, p.motivo);
+      else await this.preparar(ctx, p.b);
+    }
+    /* do começo até virar, este aparelho também abre o que já foi fechado com a nova (a de antes continua a que fecha) */
+    if (Cofre.fk !== ctx.para.fk && !Cofre.chaveDe(ctx.para.fk)) { Cofre.outras = Cofre.outras.concat([{ kv: ctx.para.kv, fk: ctx.para.fk, vf: ctx.para.vf }]); await CloudDriver.abrirCofre(true); }
+    for (let n = 0; n < 12; n++) {
+      this.parar(ctx);
+      const e = ctx.g.estado;
+      if (e === "preparado") { if (!(await this.guardarProx(ctx))) throw this.erro(T.erroConferir, "prox"); await this.gravar(ctx, { estado: "entregando" }); }
+      else if (e === "entregando") { await this.entregar(ctx); await this.gravar(ctx, { estado: "recifrando" }); }
+      else if (e === "recifrando") { const r = await this.recifrar(ctx); await this.gravar(ctx, Object.assign({ estado: "emergencia" }, r)); }
+      else if (e === "emergencia") { const em = await this.emergencia(ctx); await this.gravar(ctx, { estado: "virando", em }); }
+      else if (e === "virando") { await this.virar(ctx); await this.gravar(ctx, { estado: "conferindo" }); }
+      else if (e === "conferindo") return this.terminar(ctx, await this.conferirAte(ctx));
+      else break;
+    }
+    throw this.erro(T.erroConferir, "estado");
+  },
+  /* as Senhas fecharam (5 min sem toque, app escondido, Bloquear) ou o Fundo cortou: para aqui, e continua depois de onde parou */
+  parar(ctx) {
+    if (!Cofre.aberto() || Cofre.gid !== ctx.gid) throw this.erro(this.T.erroTrancou, "trancou");
+    if (ctx.c.sinal && ctx.c.sinal.aborted) throw this.erro(this.T.erroPausou, "pausa");
+  },
+  async chave(raw, o) { return { kv: o.kv, fk: o.fk, raw, vf: await Cofre.aes(raw) }; },
+  /* F1: a nova nasce UMA vez e fica na troca (uma chave por versão). C1: o banco aceita uma troca só — sem linha, POST (o segundo
+     recebe 409); sobre uma terminada (ou que não vale, C9), por cima com a versão lida. Outro aparelho chegou antes = relê e para:
+     nunca grava a nova DESTE por cima de uma troca em curso. Depois, a nova também fica neste aparelho (prox, fechada pela chave
+     dele). Só segue com as duas gravações confirmadas; nenhuma linha mexida aqui */
+  async preparar(ctx, b) {
+    const T = this.T, kvs = [+(b.reg && b.reg.kv) || 0, +Cofre.kv || 0, +(b.g && b.g.para && b.g.para.kv) || 0];
+    const minhas = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: ctx.gid });
+    for (const r of Array.isArray(minhas) ? minhas : []) {
+      try { const k = await Cofre.desembrulhar(ctx.sk, r.chave_embrulhada); kvs.push(+k.kv || 0); k.raw.fill(0); } catch (e) {}
+    }
+    const para = { kv: Math.max(...kvs) + 1, fk: Cofre.id() };
+    ctx.para = await this.chave(Cofre.rnd(32), para);
+    ctx.de = { kv: Cofre.kv, fk: Cofre.fk, vf: Cofre.vf };
+    /* a nova também vai, fechada, para cada chefe: quem continuar em outro aparelho dele acha ela aqui */
+    const envelopes = {};
+    for (const p of (await Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: ctx.gid })) || []) {
+      if (p.papel === "chefe" && p.chave_publica && p.chave_publica.kid) envelopes[p.user_id] = await Cofre.embrulhar(p.chave_publica, ctx.para.raw, para.kv, para.fk);
+    }
+    let minha = null; try { minha = envelopes[ctx.uid] ? await Cofre.desembrulhar(ctx.sk, envelopes[ctx.uid]) : null; } catch (e) {}
+    const abre = !!(minha && minha.fk === para.fk); if (minha) minha.raw.fill(0);
+    if (!abre) throw this.erro(T.estranho, "estranho");   /* a chave pessoal deste aparelho não é a da conta: o caminho de volta não existiria */
+    const agora = new Date().toISOString();
+    const g = { v: 1, vis: "restrito", estado: "preparado", por: ctx.uid, ap: ctx.ap, apNome: Devices.label(), de: { kv: Cofre.kv, fk: Cofre.fk }, para,
+      inicio: agora, batida: agora, total: 0, feitos: 0, voltas: 0, estranhas: 0, em: null, envelopes, entregues: {}, fim: null, erro: null };
+    const l = this.emCurso(b.giro) ? null : await this.gravarDoc(b.giro, g);
+    if (!l) { const b2 = await this.ler(); throw this.erro(this.emCurso(b2.giro) ? this.jaTrocando(b2.g) : T.erroConferir, "trocando"); }
+    ctx.row = l; ctx.g = this.dados(l); ctx.cofre = b.cofre;
+    if (!(await this.guardarProx(ctx))) throw this.erro(T.erroConferir, "prox");
+    Cloud.audit("cofre.giro", Cloud.myName());
+  },
+  /* a nova neste aparelho (L.fam[gid].prox), fechada pela chave dele: volta depois de recarregar. true = está lá */
+  async guardarProx(ctx) {
+    const para = ctx.para, prox = Object.assign({ kv: para.kv, fk: para.fk }, await Cofre.cifrar(ctx.duk, para.raw));
+    const L = await Cofre.mudarLocal(null, (X) => {
+      const f = X && X.fam && X.fam[ctx.gid];
+      if (!f || f.fk === para.fk || (f.prox && f.prox.fk === para.fk)) return;
+      /* um prox de outra troca (que não terminou) não some: vai para as velhas, só para abrir */
+      const velhas = f.prox ? [f.prox].concat((f.velhas || []).filter((v) => v.fk !== f.prox.fk)) : f.velhas;
+      X.fam = Object.assign({}, X.fam, { [ctx.gid]: Object.assign({}, f, { prox }, velhas ? { velhas } : {}) });
+      return X;
+    });
+    const f = ((L || (await Cofre.local())) || {}).fam; const a = f && f[ctx.gid];
+    return !!(a && (a.fk === para.fk || (a.prox && a.prox.fk === para.fk)));
+  },
+  /* continuar a troca deste aparelho: a nova vem do prox, do cadeado (já virou), do envelope da troca ou da família (sol_grupo_chaves,
+     C5); a de antes, do chaveiro. Outro aparelho (ou outro chefe) = não é aqui (assumir é da tela) */
+  async retomar(ctx, b) {
+    const T = this.T, g = b.g, L = await Cofre.local(), f = L && L.fam && L.fam[ctx.gid];
+    if (!this.ehDaqui(g, L)) throw this.erro(this.jaTrocando(g), "trocando");
+    ctx.row = b.giro; ctx.g = JSON.parse(JSON.stringify(g)); ctx.cofre = b.cofre; ctx.ap = g.ap;
+    const daqui = async (x) => { try { return x && x.fk === g.para.fk ? await Cofre.decifrar(ctx.duk, x) : null; } catch (e) { return null; } };
+    let raw = (await daqui(f && f.prox)) || (await daqui(f));
+    if (!raw && g.envelopes && g.envelopes[ctx.uid]) {
+      try { const k = await Cofre.desembrulhar(ctx.sk, g.envelopes[ctx.uid]); if (k.fk === g.para.fk && +k.kv === +g.para.kv) raw = k.raw; else k.raw.fill(0); } catch (e) {}
+    }
+    if (!raw) { const r = await Cofre.buscarMinha(ctx.sk, { fk: g.para.fk, kv: g.para.kv }); if (r && +r.kv === +g.para.kv) raw = r.raw; else if (r) r.raw.fill(0); }
+    if (!raw) throw this.erro(T.erroOutroAp, "outroAp");
+    ctx.para = await this.chave(raw, { kv: +g.para.kv, fk: g.para.fk });
+    const vf = g.de && Cofre.chaveDe(g.de.fk);
+    ctx.de = vf ? { kv: g.de.kv, fk: g.de.fk, vf } : null;
+    if (!ctx.de && ["preparado", "entregando", "recifrando", "emergencia"].includes(g.estado)) throw this.erro(T.erroVelha, "velha");
+  },
+  /* uma gravação da troca (fase, andamento, entregues), sempre com a versão lida. 0 linhas: relê — é a minha mesma (a resposta de
+     antes se perdeu) → de novo por cima; é de outro aparelho → perdeu (C1) */
+  async gravar(ctx, campos) {
+    for (let vez = 0; vez < 3; vez++) {
+      const g = Object.assign({}, ctx.g, campos), l = await this.gravarDoc(ctx.row, g);
+      if (l) { ctx.row = l; ctx.g = this.dados(l) || g; return; }
+      const b = await this.ler(), minha = b.g && b.g.por === ctx.uid && b.g.ap === ctx.ap && b.g.para && b.g.para.fk === ctx.para.fk;
+      if (minha && !this.emCurso(b.giro) && b.g.estado === campos.estado) { ctx.row = b.giro; ctx.g = b.g; return; }   /* o "feito" já tinha chegado */
+      if (!minha || !this.emCurso(b.giro)) return this.perdeu(ctx, b);
+      ctx.row = b.giro;
+    }
+    throw this.erro(this.T.erroConferir, "gravar");
+  },
+  /* C1: outro aparelho ficou com a troca. A nova DESTE (se for outra chave) não se perde: vai para as de antes deste aparelho, só
+     para abrir — o que ela já fechou continua abrindo até a troca que ficou passar tudo para a dela */
+  async perdeu(ctx, b) {
+    b = b || (await this.ler());
+    if (!(b.g && b.g.para && b.g.para.fk === ctx.para.fk)) {
+      await Cofre.mudarLocal(null, (X) => {
+        const f = X && X.fam && X.fam[ctx.gid]; if (!f || !f.prox || f.prox.fk !== ctx.para.fk) return;
+        const novo = Object.assign({}, f, { velhas: [f.prox].concat((f.velhas || []).filter((v) => v.fk !== f.prox.fk)) }); delete novo.prox;
+        X.fam = Object.assign({}, X.fam, { [ctx.gid]: novo }); return X;
+      });
+    }
+    throw this.erro(this.T.erroAssumiram, "assumiram");
+  },
+  /* entregar (C5: ANTES da primeira linha trocada): a nova embrulhada para cada chefe e responsável com chave pública (D-E1), com a
+     versão seguinte à maior que a pessoa tem. Quem já recebeu (mesma chave pessoal) pula; cada entrega fica anotada na troca */
+  async entregar(ctx) {
+    ctx.andamento(0.05, this.T.avisando);
+    const reg = (ctx.cofre && ctx.cofre.dados) || {}, todas = () => Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: ctx.gid });
+    for (const p0 of (await todas()) || []) {
+      if (!["chefe", "responsavel"].includes(p0.papel) || !p0.chave_publica || !p0.chave_publica.kid) continue;
+      const ja = (ctx.g.entregues || {})[p0.user_id]; if (ja && ja.kid === p0.chave_publica.kid) continue;
+      this.parar(ctx);
+      let p = p0, seq = 0, ok = false;
+      for (let vez = 0; vez < 3 && !ok && p && p.chave_publica; vez++) {
+        const m = (reg.membros || {})[p.user_id];
+        seq = Math.max(+p.ultima_versao || 0, (m && +m.seq) || 0, (ja && +ja.seq) || 0, seq) + 1;
+        ok = (await Conta.rpc("sol_guardar_chave_grupo", { p_grupo: ctx.gid, p_user: p.user_id, p_versao: seq, p_chave_embrulhada: await Cofre.embrulhar(p.chave_publica, ctx.para.raw, ctx.para.kv, ctx.para.fk) })) !== false;
+        if (!ok) p = ((await todas()) || []).find((x) => x.user_id === p.user_id);   /* essa versão já existe: relê a maior */
+      }
+      if (!ok) throw this.erro(this.T.erroConferir, "entregar");
+      await this.gravar(ctx, { entregues: Object.assign({}, ctx.g.entregues, { [p.user_id]: { kid: p.chave_publica.kid, seq } }) });
+    }
+  },
+  /* as linhas vivas (menos o código de emergência) e os anexos deste aparelho passam para a nova. {total, feitos, estranhas} */
+  async recifrar(ctx) {
+    const T = this.T, rows = (await this.linhasVault()).filter((r) => r.id !== "_em");
+    let feitos = 0, est = 0, t = Date.now();
+    for (let i = 0; i < rows.length; i++) {
+      this.parar(ctx);
+      ctx.andamento(0.1 + 0.7 * i / rows.length, T.senhas(i + 1, rows.length));
+      const r = await this.trocarLinha(rows[i], ctx);
+      if (r === "estranha") est++; else if (r !== "apagada") feitos++;
+      if ((i + 1) % 10 === 0 || Date.now() - t > 15000) { t = Date.now(); await this.gravar(ctx, { total: rows.length, feitos, estranhas: est }); }
+      if (this.PAUSA_MS) await sleep(this.PAUSA_MS);
+    }
+    ctx.anexos = await Cofre.recifrarAnexos(ctx.de, ctx.para, (i, n) => ctx.andamento(0.8 + 0.08 * i / n, T.anexos(i, n)), ctx.c.sinal);
+    this.parar(ctx);
+    return { total: rows.length, feitos, estranhas: est };
+  },
+  /* uma linha do cofre (3.4), com a versão dela (CAS próprio: nunca pela fila nem pelo enviarCofre, que duplicaria ou traria de
+     volta um item apagado). As duas camadas juntas. "feito" | "ja" (já na nova) | "apagada" | "estranha" (não abre: fica como está) */
+  async trocarLinha(row, ctx) {
+    const de = ctx.de, para = ctx.para;
+    for (let vez = 0; vez < 4; vez++) {
+      if (!row || row.apagado_em) return "apagada";
+      let o = null; try { o = JSON.parse(row.dados_cifrado); } catch (e) {}
+      if (!o || !o.c) return "estranha";   /* o código de emergência é do passo dele; o que não é uma linha fechada não se mexe */
+      if (o.fk === para.fk) return "ja";
+      const k = de && (o.fk === de.fk || !o.fk) ? de.vf : Cofre.chaveDe(o.fk);
+      if (!k) {
+        /* C1: chave que este aparelho não conhece, de versão igual ou mais nova que esta = outra troca venceu? Relê e para */
+        if ((+o.kv || 0) >= para.kv) { const b = await this.ler(); if (!(b.g && b.g.para && b.g.para.fk === para.fk && b.g.ap === ctx.ap)) return this.perdeu(ctx, b); }
+        return "estranha";
+      }
+      let doc; try { doc = JSON.parse(new TextDecoder().decode(await Cofre.decifrar(k, o))); } catch (e) { return "estranha"; }
+      /* C11: uma parte interna que já não abria não para a troca: muda só o selo, e o item conta à parte */
+      if (doc.enc) { try { doc.enc = await Vault.encStr(await Vault.decStr(doc.enc, k), para.vf); } catch (e) { (ctx.semInterna || (ctx.semInterna = new Set())).add(row.id); } }
+      const novo = JSON.stringify(Object.assign({ c: 1, kv: para.kv, fk: para.fk }, await Cofre.cifrar(para.vf, new TextEncoder().encode(JSON.stringify(doc)))));
+      const r = await Conta.rest("PATCH", CloudDriver.url("vault", row.id) + "&versao=eq." + row.versao + "&apagado_em=is.null", { dados_cifrado: novo }, "return=representation");
+      /* uma mudança deste aparelho esperando na fila fica a valer (ela sobe por cima, com a versão nova) */
+      if (r && r[0]) { await CloudDriver.aceitarCofre(row.id, r[0], !CloudDriver.fila.has("vault|" + row.id)); return "feito"; }
+      row = await CloudDriver.linha("vault", row.id);   /* mudou no meio: relê e tenta de novo */
+    }
+    throw this.erro(this.T.erroConferir, "linha");
+  },
+  /* o código de emergência: refeito com a nova (com o código de agora — etapa E7) ou deixa de valer (apagado e sem o conteúdo: no
+     fim o chefe faz um novo). "sem" | "refeito" | "invalidado" */
+  async emergencia(ctx) {
+    ctx.andamento(0.9, this.T.codigo);
+    for (let vez = 0; vez < 4; vez++) {
+      const l = await CloudDriver.linha("vault", "_em");
+      if (!l) return "sem";
+      if (l.apagado_em) return l.dados_cifrado ? "sem" : "invalidado";   /* apagado antes da troca: fica como está (D-E6) */
+      let em = null; try { em = JSON.parse(l.dados_cifrado).d.em; } catch (e) {}
+      if (em && em.fk === ctx.para.fk && +em.kv === +ctx.para.kv) return "refeito";
+      const r = await Conta.rest("PATCH", CloudDriver.url("vault", "_em") + "&versao=eq." + l.versao, { apagado_em: new Date().toISOString(), dados_cifrado: null }, "return=representation");
+      if (r && r[0]) { await CloudDriver.receberCofre(r[0]); Cloud.audit("emergencia.invalidada", Cloud.myName()); return "invalidado"; }
+    }
+    throw this.erro(this.T.erroConferir, "emergencia");
+  },
+  /* virar: o registro passa a dizer a nova (CAS; quem recebeu = os entregues) e só então este aparelho fica com ela (a de antes só
+     abre). Já virado (o app fechou no meio) → só o que falta. Outra chave no registro → para */
+  async virar(ctx) {
+    const para = ctx.para, membros = {};
+    for (const [u, e] of Object.entries(ctx.g.entregues || {})) membros[u] = { kid: e.kid, seq: e.seq, fk: para.fk };
+    for (let vez = 0; ; vez++) {
+      const l = await CloudDriver.linha("settings", "cofre"), d = (l && l.dados) || {};
+      const pronto = d.fk === para.fk && +d.kv === para.kv && Object.keys(membros).every((u) => JSON.stringify((d.membros || {})[u]) === JSON.stringify(membros[u]));
+      if (pronto) { await CloudDriver.aceitar("settings", "cofre", l, true); break; }
+      if (!l || vez > 3 || (d.fk !== para.fk && d.fk !== ctx.g.de.fk)) throw this.erro(this.T.estranho, "registro");
+      const dados = Object.assign({}, d, { fk: para.fk, kv: para.kv, membros: Object.assign({}, d.fk === para.fk ? d.membros : {}, membros) }, d.fk === para.fk ? {} : { giradoEm: new Date().toISOString(), giradoPor: ctx.uid });
+      const r = await Conta.rest("PATCH", CloudDriver.url("settings", "cofre") + "&versao=eq." + l.versao, { vis: "restrito", dados }, "return=representation");
+      if (r && r[0]) { await CloudDriver.aceitar("settings", "cofre", r[0], true); break; }
+    }
+    /* neste aparelho, pela porta única: a nova vira a do cadeado e a de antes vai para as velhas (o prox sai) */
+    await Cofre.adotar(ctx.gid, { raw: para.raw, kv: para.kv, fk: para.fk }, ctx.duk);
+    const L = await Cofre.local(), f = L && L.fam && L.fam[ctx.gid];
+    if (!f || f.fk !== para.fk) throw this.erro(this.T.erroConferir, "cadeado");
+    if (Cofre.fk !== para.fk) {
+      const outras = [];
+      for (const v of f.velhas || []) { try { outras.push({ kv: v.kv, fk: v.fk, raw: await Cofre.decifrar(ctx.duk, v) }); } catch (e) {} }
+      await Cofre.usarChave(para.raw, para.kv, para.fk, outras);
+    }
+  },
+  /* F6 (3.7), relido do banco: nenhuma linha viva abre com a de antes. O que ainda está com ela (um aparelho gravou no meio) volta a
+     ser trocado, até 3 voltas. As que já não abriam (C11) não travam: vão na lista. As apagadas ficam fora da conta (D-E6) */
+  async conferirAte(ctx) {
+    let r = await this.conferir(ctx);
+    while (!r.ok) {
+      if ((+ctx.g.voltas || 0) >= 3) throw this.erro(this.T.erroConferir, "conferir");
+      await this.gravar(ctx, { voltas: (+ctx.g.voltas || 0) + 1 });
+      for (const row of r.tardias) await this.trocarLinha(row, ctx);
+      if (r.emVelho) await this.emergencia(ctx);
+      if (r.anexos) ctx.anexos = await Cofre.recifrarAnexos(ctx.de, ctx.para, null, ctx.c.sinal);
+      if (r.falta) { await this.entregar(ctx); await this.virar(ctx); }
+      this.parar(ctx);
+      r = await this.conferir(ctx);
+    }
+    return r;
+  },
+  async conferir(ctx) {
+    ctx.andamento(0.92, this.T.conferindo);
+    const para = ctx.para, de = ctx.de, out = { ok: true, tardias: [], estranhas: [], semInterna: [], emVelho: false, anexos: false, falta: false };
+    const abre = async (k, o) => { try { return k && JSON.parse(new TextDecoder().decode(await Cofre.decifrar(k, o))); } catch (e) { return null; } };
+    for (const row of await this.linhasVault()) {
+      let o = null; try { o = JSON.parse(row.dados_cifrado); } catch (e) {}
+      if (row.id === "_em") { const em = o && o.d && o.d.em; if (!em || em.fk !== para.fk || +em.kv !== para.kv) { out.ok = false; out.emVelho = true; } continue; }
+      if (o && o.c && o.fk === para.fk && +o.kv === para.kv) {
+        const d = await abre(para.vf, o);
+        if (!d) { out.estranhas.push(row.id); continue; }
+        if (de && (await abre(de.vf, o))) { out.ok = false; out.tardias.push(row); continue; }
+        if (d.enc) {
+          let nova = false; try { await Vault.decStr(d.enc, para.vf); nova = true; } catch (e) {}
+          let velha = false; if (de) { try { await Vault.decStr(d.enc, de.vf); velha = true; } catch (e) {} }
+          if (velha) { out.ok = false; out.tardias.push(row); } else if (!nova) out.semInterna.push(row.id);
+        }
+        continue;
+      }
+      /* fora da nova: se alguma chave daqui abre, foi gravada no meio (troca de novo); senão já não abria antes */
+      const k = o && o.c ? (de && o.fk === de.fk ? de.vf : Cofre.chaveDe(o.fk)) : null;
+      if (k && (await abre(k, o))) { out.ok = false; out.tardias.push(row); } else out.estranhas.push(row.id);
+    }
+    /* o registro, e a nova embrulhada para mim nele, são a nova (os bytes iguais) */
+    const l = await CloudDriver.linha("settings", "cofre"), reg = (l && l.dados) || {};
+    if (reg.fk !== para.fk || +reg.kv !== para.kv || !Object.values(reg.membros || {}).every((m) => m.fk === para.fk)) throw this.erro(this.T.estranho, "registro");
+    const minha = await Cofre.buscarMinha(ctx.sk, reg);
+    const igual = !!(minha && minha.fk === para.fk && +minha.kv === para.kv && minha.raw.length === para.raw.length && minha.raw.every((x, i) => x === para.raw[i]));
+    if (minha) minha.raw.fill(0);
+    if (!igual) { out.ok = false; out.falta = true; }
+    /* o banco confere igual (sem a função ainda, as contas de cima valem sozinhas) */
+    let s = null; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: ctx.gid }); } catch (e) { if (!(e.status === 404 || e.code === "PGRST202")) throw e; }
+    if (s && +s.falta_entregar > 0) { out.ok = false; out.falta = true; }
+    if (s && +s.vault_fora > out.estranhas.length + out.tardias.length + (out.emVelho ? 1 : 0)) out.ok = false;   /* o banco vê mais: confere de novo */
+    /* os anexos deste aparelho: nenhum que ainda abra com a de antes */
+    if (de) {
+      for (const fm of DB.raw("files").filter((f) => f.enc && (f.enc.fk !== para.fk || f.enc.antes))) {
+        const b = await DB.driver.getFile(fm.id, fm); if (!b) continue;
+        for (const iv of [fm.enc.iv].concat(fm.enc.antes && fm.enc.antes.iv ? [fm.enc.antes.iv] : [])) { try { await Vault.decryptBlob(b, iv, fm.enc.type, de.vf); out.ok = false; out.anexos = true; } catch (e) {} }
+      }
+    }
+    if (ctx.semInterna) for (const id of ctx.semInterna) if (!out.semInterna.includes(id)) out.semInterna.push(id);
+    return out;
+  },
+  /* fim: a troca "feito" (os envelopes saem: a nova já está com cada um) e o histórico. E8 (C10): antes do "feito", as mensagens
+     velhas da Saúde para o MoneyTRIO; depois, o reenvio com a nova */
+  async terminar(ctx, r) {
+    await this.gravar(ctx, { estado: "feito", envelopes: {}, fim: new Date().toISOString(), erro: null, estranhas: r.estranhas.length });
+    Cloud.audit("cofre.girado", Cloud.myName());
+    ctx.andamento(1, "");
+    return { em: ctx.g.em || null, estranhas: r.estranhas, semInterna: r.semInterna, anexos: ctx.anexos || null };
+  },
+  /* "Desistir": só quem começou, e só antes de a nova sair para a família (estado "preparado", C5: depois, o MoneyTRIO pode já estar
+     com ela, e só vale continuar). A nova deste aparelho sai. true = desistiu */
+  async desistir() {
+    if (this.rodando) return false;
+    const b = await this.ler(), g = b.g;
+    if (!g || g.estado !== "preparado" || g.por !== Conta.uid()) return false;
+    if (!(await this.gravarDoc(b.giro, Object.assign({}, g, { estado: "desistiu", envelopes: {}, fim: new Date().toISOString() })))) return false;
+    await Cofre.mudarLocal(null, (X) => {
+      const f = X && X.fam && X.fam[S.family.id]; if (!f || !f.prox || f.prox.fk !== g.para.fk) return;
+      const n = Object.assign({}, f); delete n.prox; X.fam = Object.assign({}, X.fam, { [S.family.id]: n }); return X;
+    });
+    Cofre.outras = Cofre.outras.filter((o) => o.fk !== g.para.fk);
+    return true;
+  },
   get T() {
     return {
       aprovarEspere: tt("Espere a troca de segurança terminar para aprovar (alguns minutos).", "Wait for the security change to finish before approving (a few minutes)."),
@@ -4210,7 +4639,34 @@ const Giro = {
       aprovarRede: tt("Sem internet para conferir as Senhas da casa. Ligue a internet e tente de novo.", "No internet to check the vault. Turn on the internet and try again."),
       recebeuVelha: tt("O aparelho que aprovou estava com a versão antiga. Peça de novo, aprovando por um aparelho atualizado.", "The approving device had the old version. Ask again, approving from an updated device."),
       mudarEspere: tt("Espere a troca de segurança terminar para mudar as senhas (alguns minutos).", "Wait for the security change to finish before changing passwords (a few minutes)."),
-      mudarVelho: tt("Este aparelho precisa da atualização das Senhas da casa. Abra pelo PIN com internet.", "This device needs the vault update. Open it with the PIN, online.")
+      mudarVelho: tt("Este aparelho precisa da atualização das Senhas da casa. Abra pelo PIN com internet.", "This device needs the vault update. Open it with the PIN, online."),
+      /* a troca (8.1, 8.2, 8.4) */
+      soChefe: tt("Só um chefe da família pode fazer isso.", "Only a family head can do this."),
+      semSk: tt("Faça isso num aparelho que entrou pela sua conta (não pela aprovação da família).", "Do this on a device that joined with your account (not by family approval)."),
+      velho: tt("Este aparelho ainda não tem a versão mais nova das Senhas da casa. Abra pelo PIN com internet e tente de novo.", "This device doesn't have the latest version of the vault yet. Open it with the PIN, online, and try again."),
+      fila: tt("Ainda há mudanças nas Senhas da casa esperando para subir. Ligue a internet e espere um pouco.", "There are vault changes still waiting to go up. Turn on the internet and wait a bit."),
+      semRede: tt("Para trocar, ligue a internet.", "To change it, turn on the internet."),
+      fechado: tt("Abra as Senhas da casa para continuar a troca.", "Open the vault to continue the change."),
+      outraAba: tt("Já está trocando em outra janela deste aparelho.", "It's already changing in another window on this device."),
+      estranho: tt("Algo nas Senhas da casa não confere. Peça ajuda pelo 💬 antes de trocar.", "Something in the vault doesn't check out. Ask for help with 💬 before changing."),
+      semSql: tt("Ainda não dá: falta uma atualização do SolverONE.", "Not yet: a SolverONE update is missing."),
+      moneyFalta: tt("O MoneyTRIO ainda não terminou a preparação da família. Termine lá primeiro.", "MoneyTRIO hasn't finished preparing the family yet. Finish there first."),
+      continuar: tt("A troca ficou pela metade. Continuar de onde parou?", "The change stopped halfway. Continue where it stopped?"),
+      nada: tt("Não há troca para continuar.", "There is no change to continue."),
+      pilula: tt("Deixando a família mais segura", "Making the family safer"),
+      preparando: tt("Preparando…", "Getting ready…"),
+      senhas: (i, n) => tt("Senhas: " + i + " de " + n, "Passwords: " + i + " of " + n),
+      anexos: (i, n) => tt("Anexos deste aparelho: " + i + " de " + n, "Attachments on this device: " + i + " of " + n),
+      codigo: tt("Código de emergência", "Emergency code"),
+      avisando: tt("Avisando a família", "Letting the family know"),
+      conferindo: tt("Conferindo se está tudo certo", "Checking everything is right"),
+      erroRede: tt("Parou sem internet. Toque em Tentar de novo: continua de onde parou.", "Stopped without internet. Tap Try again: it picks up where it stopped."),
+      erroTrancou: tt("Parou porque as Senhas fecharam. Abra e toque em Continuar.", "Stopped because the vault locked. Open it and tap Continue."),
+      erroPausou: tt("A troca parou no meio. Ela continua de onde parou.", "The change stopped halfway. It picks up where it stopped."),
+      erroAssumiram: tt("Continuou em outro aparelho seu.", "It continued on another device of yours."),
+      erroOutroAp: tt("Continue no aparelho onde começou.", "Continue on the device where it started."),
+      erroVelha: tt("Este aparelho não tem a versão de antes. Use o aparelho onde começou.", "This device lacks the previous version. Use the device where it started."),
+      erroConferir: tt("Algo não conferiu. Toque em Tentar de novo.", "Something didn't check out. Tap Try again.")
     };
   }
 };
