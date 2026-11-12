@@ -22,6 +22,12 @@
      C12  a cópia (backupJSON) não leva o registro nem a troca, e restaurar uma cópia não mexe neles
      N1   o montar com novaCF não cria uma SEGUNDA CF quando a leitura do registro falha por rede, nem com o registro apagado
           (6.1, C4); o criarConta devolve "rede" sem deixar linha na lista
+   Etapa E3 (o chaveiro: a atual é a única que FECHA; as de antes só ABREM):
+     CH   com metade das linhas ainda fechada com a de antes: todas abrem (a linha diz o fk) e a parte interna passa para a atual
+          só na memória (o item aparece e o antigo() diz false); selar e editar fecham sempre com a atual (as duas camadas);
+          anexos com enc.fk de uma de antes, sem enc.fk (de antes da 2.27.0) e novos (enc.fk = a atual) abrem; trancar zera
+          tudo; um aparelho que já adotou a nova (L.fam[gid].velhas) abre pelo PIN e continua lendo o que é de antes, sem gravar
+          nada; nada muda no formato das linhas
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -588,8 +594,128 @@ const distribuirJa = async (p) => { await p.evaluate(async () => { for (let i = 
       'N1. com o registro apagado no banco: "Falta liberar" (o cadeado sem a chave da família), nenhuma chave nova (' + JSON.stringify(r3) + ')');
   });
 
+  /* ================= CH (etapa E3): o chaveiro ================= */
+  await parte('CH', 'O chaveiro: a atual fecha, as de antes só abrem (linhas, parte interna, anexos); trancar zera tudo', async (novo) => {
+    const A = await novo('CH-ana', { vp: 'computador' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    /* a troca pela metade: v0, v1 e v5 ainda com a de antes; o registro já diz a nova */
+    const nova = await trocaAMao({ pular: ['v0', 'v1', 'v5'] });
+    await a.evaluate(async () => { await CloudDriver.pull(); });
+    const IDS = ITENS.map((x, i) => 'v' + i), TITULOS = ITENS.map((x) => x[1]);
+    /* o que o aparelho mostra de cada item: o fk da linha, o título (pela chave de agora, como a tela), o antigo() e a parte interna */
+    const ver = (ids) => a.evaluate(async (ids) => {
+      const out = {};
+      for (const id of ids) {
+        const v = DB.col('vault').get(id), rec = CloudDriver.recs.get('vault|' + id); let titulo = null, interna = false;
+        try { titulo = (await Vault.decObj(v.enc)).title; } catch (e) {}
+        try { await Vault.decStr(v.enc, Cofre.vf); interna = true; } catch (e) {}
+        out[id] = { fk: rec && JSON.parse(rec.cif).fk, titulo, antigo: v ? await Cofre.antigo(v) : null, interna };
+      }
+      return out;
+    }, ids);
+    /* a nova como atual e a de antes no chaveiro (como fica depois de adotar) */
+    const r1 = await a.evaluate(async (o) => {
+      Cofre.trancar();
+      const velha = new Uint8Array(o.velha);
+      await Cofre.usarChave(new Uint8Array(o.nova), 2, o.fkn, [{ raw: velha, kv: 1, fk: o.fk0 }]);
+      return { zerou: velha.every((b) => b === 0), fk: Cofre.fk, kv: Cofre.kv, outras: Cofre.outras.map((x) => ({ kv: x.kv, fk: x.fk, ext: x.vf.extractable, tipo: x.vf.type })),
+        velha: !!Cofre.chaveDe(o.fk0) && Cofre.chaveDe(o.fk0) !== Cofre.vf, atual: Cofre.chaveDe(o.fkn) === Cofre.vf, nenhuma: Cofre.chaveDe('fk-que-nao-existe') };
+    }, { nova: [...nova], velha: [...VELHA], fkn: FKN, fk0: FK0 });
+    conferir(r1.zerou && r1.fk === FKN && r1.kv === 2 && JSON.stringify(r1.outras) === JSON.stringify([{ kv: 1, fk: FK0, ext: false, tipo: 'secret' }]) && r1.velha && r1.atual && r1.nenhuma === null,
+      'CH. usarChave(nova, …, [de antes]): a de antes entra no chaveiro como chave do navegador (não extraível) e os bytes dela zeram; chaveDe acha cada uma (' + JSON.stringify(r1) + ')');
+    const v1 = await ver(IDS);
+    const mix = ['v0', 'v1', 'v5'].every((id) => v1[id].fk === FK0) && ['v2', 'v3', 'v4'].every((id) => v1[id].fk === FKN);
+    conferir(mix && IDS.every((id, i) => v1[id].titulo === TITULOS[i]), 'CH. as 6 aparecem: 3 fechadas com a nova e 3 ainda com a de antes (a linha diz o fk) (' + JSON.stringify(v1) + ')');
+    conferir(IDS.every((id) => v1[id].interna && v1[id].antigo === false), 'CH. a parte interna das que vieram com a de antes passou para a atual (na memória): o antigo() diz false em todas');
+    /* o que não é do chaveiro continua fora */
+    const r2 = await a.evaluate(async (o) => {
+      const estranha = await Cofre.aes(Cofre.rnd(32)), sel = async (k, fk) => JSON.stringify(Object.assign({ c: 1, kv: 1, fk }, await Cofre.cifrar(k, new TextEncoder().encode(JSON.stringify({ kind: 'senha', vis: 'restrito' })))));
+      return { fkEstranho: await Cofre.abrir('x1', await sel(estranha, 'fk-estranha')), fkMentiroso: await Cofre.abrir('x2', await sel(estranha, o.fk0)),
+        antigo: await Cofre.antigo({ id: 'x3', kind: 'senha', enc: await Vault.encStr('{}', estranha) }) };
+    }, { fk0: FK0 });
+    conferir(r2.fkEstranho === null && r2.fkMentiroso === null && r2.antigo === true, 'CH. uma linha de fk que o chaveiro não tem (ou que mente o fk) não abre; uma parte interna de outra chave continua "antiga"');
+    /* selar e editar: sempre a atual, as duas camadas */
+    const s1 = await a.evaluate(async () => Cofre.selar({ id: 'x4', kind: 'senha', enc: await Vault.encObj({ title: 'novo' }), vis: 'restrito' }));
+    const o1 = JSON.parse(s1);
+    conferir(o1.c === 1 && o1.fk === FKN && o1.kv === 2 && Object.keys(o1).sort().join() === 'c,ct,fk,iv,kv' && (await abre(() => abrirLinha(nova, s1))) && !(await abre(() => abrirLinha(VELHA, s1))),
+      'CH. o selar fecha com a atual (fk-nova, kv 2), no formato de sempre {c, kv, fk, iv, ct}; a de antes não abre');
+    let marca = M.log.length;
+    await a.evaluate(async () => { const v = DB.col('vault').get('v0'); await DB.put('vault', Object.assign({}, v, { updatedAt: '2026-11-12T10:00:00.000Z' }), true); });
+    await subir(a, true, 'vault|v0');
+    const l0 = linha('vault', 'v0'), o0 = JSON.parse(l0.dados_cifrado);
+    let d0 = null; try { d0 = await abrirLinha(nova, l0.dados_cifrado); } catch (e) {}
+    let t0 = null; try { t0 = JSON.parse(new TextDecoder().decode(await decifrar(nova, d0.enc))).title; } catch (e) {}
+    conferir(o0.fk === FKN && o0.kv === 2 && Object.keys(o0).sort().join() === 'c,ct,fk,iv,kv' && t0 === TITULOS[0] && !(await abre(() => decifrar(VELHA, d0.enc))) && !l0.apagado_em && vivasVault().length === 7,
+      'CH. editar um item que veio com a de antes: sobe com a atual nas DUAS camadas (o mesmo item, nenhum novo)');
+    conferir(!M.log.slice(marca).some((l) => /sol_guardar_chave_grupo/.test(l.caminho)), 'CH. nada entregue a ninguém ao editar');
+    /* anexos: com enc.fk de uma de antes, sem enc.fk (de antes da 2.27.0), novos (enc.fk = a atual) */
+    const r3 = await a.evaluate(async (o) => {
+      const blob = () => new Blob([new TextEncoder().encode('anexo de mentira')], { type: 'text/plain' });
+      const guardar = async (id, k, fk) => {
+        const r = await Vault.encryptBlob(blob(), k), meta = { id, name: id + '.txt', type: 'application/octet-stream', size: r.blob.size, vis: 'restrito', enc: Object.assign({ iv: r.iv, type: 'text/plain' }, fk ? { fk } : {}), chunks: 1 };
+        await DB.driver.putFile(id, r.blob, meta); await DB.put('files', meta, true);
+      };
+      await guardar('fCHvelho', Cofre.chaveDe(o.fk0), o.fk0);
+      await guardar('fCHsemfk', Cofre.chaveDe(o.fk0), null);
+      await guardar('fCHestranho', await Cofre.aes(Cofre.rnd(32)), 'fk-estranha');
+      const id = await Files.save(new File([blob()], 'novo.txt', { type: 'text/plain' }), { encrypt: true, vis: 'restrito', raw: true });
+      const m = Files.meta(id), b = await DB.driver.getFile(id, m);
+      const abre = async (k) => { try { await Vault.decryptBlob(b, m.enc.iv, m.enc.type, k); return true; } catch (e) { return false; } };
+      const txt = async (id) => { try { return await (await Files.blob(id)).text(); } catch (e) { return 'erro'; } };
+      return { velho: await txt('fCHvelho'), semfk: await txt('fCHsemfk'), estranho: await txt('fCHestranho'), novo: await txt(id), id, enc: Object.keys(m.enc).sort().join(), fk: m.enc.fk,
+        novoAtual: await abre(Cofre.vf), novoVelha: await abre(Cofre.chaveDe(o.fk0)) };
+    }, { fk0: FK0 });
+    conferir(r3.velho === 'anexo de mentira' && r3.semfk === 'anexo de mentira' && r3.estranho === 'erro', 'CH. anexos: o de enc.fk de antes abre, o sem enc.fk (de antes da 2.27.0) abre, o de outra chave não (' + JSON.stringify(r3) + ')');
+    conferir(r3.novo === 'anexo de mentira' && r3.fk === FKN && r3.enc === 'fk,iv,type' && r3.novoAtual && !r3.novoVelha, 'CH. o anexo novo (Files.save) fecha com a atual e diz o fk dela (enc = {iv, type, fk})');
+    /* trancar zera tudo */
+    const r4 = await a.evaluate(async (o) => {
+      const raw = Cofre.vfRaw; Cofre.trancar();
+      let blob = 'abriu'; try { await Files.blob('fCHvelho'); } catch (e) { blob = e.message; }
+      return { raw: raw.every((b) => b === 0), outras: Cofre.outras.length, vf: Cofre.vf, vfRaw: Cofre.vfRaw, fk: Cofre.fk, chave: S.vaultKey, velha: Cofre.chaveDe(o.fk0), nova: Cofre.chaveDe(o.fkn),
+        abre: await Cofre.abrir('v1', CloudDriver.recs.get('vault|v1').cif), blob, itens: DB.all('vault').map((v) => v.id).join() };
+    }, { fk0: FK0, fkn: FKN });
+    conferir(r4.raw && r4.outras === 0 && r4.vf === null && r4.vfRaw === null && r4.fk === '' && r4.chave === null && r4.velha === null && r4.nova === null && r4.abre === null && r4.blob === 'vault-locked' && r4.itens === '_em',
+      'CH. trancar zera tudo: a atual (os bytes também), as de antes, nenhuma linha nem anexo abre, só o código de emergência fica na tela (' + JSON.stringify(r4) + ')');
+    /* sem a chave da família (a chave da senha principal, como no "só neste aparelho"): o anexo não ganha enc.fk e abre como antes */
+    const r4b = await a.evaluate(async () => {
+      S.vaultKey = await Vault.derive('senha-de-mentira', b64FromBuf(Cofre.rnd(16)), 1000);
+      try {
+        const id = await Files.save(new File([new TextEncoder().encode('anexo local')], 'local.txt', { type: 'text/plain' }), { encrypt: true, vis: 'restrito', raw: true });
+        const m = Files.meta(id); let t = 'erro'; try { t = await (await Files.blob(id)).text(); } catch (e) {}
+        return { enc: Object.keys(m.enc).sort().join(), t };
+      } finally { S.vaultKey = null; }
+    });
+    conferir(r4b.enc === 'iv,type' && r4b.t === 'anexo local', 'CH. com a chave da senha principal (sem a da família), o anexo fica como antes ({iv, type}) e abre (' + JSON.stringify(r4b) + ')');
+    /* um aparelho que já adotou a nova: L.fam[gid] = a nova, e a de antes em velhas (fechada pela chave do aparelho). Uma velha que
+       não abre fica de fora */
+    const fam0 = await a.evaluate(async (o) => {
+      const d = await Cofre._pinRaw(o.pin), duk = await Cofre.aes(d.raw); d.raw.fill(0);
+      await Cofre.mudarLocal(null, async (L) => {
+        const f = L.fam[S.family.id];
+        L.fam[S.family.id] = Object.assign({ kv: 2, fk: o.fkn }, await Cofre.cifrar(duk, new Uint8Array(o.nova)), { velhas: [{ kv: f.kv, fk: f.fk, iv: f.iv, ct: f.ct }, { kv: 0, fk: 'fk-quebrada', iv: f.iv, ct: 'AAAA' }] });
+        return L;
+      });
+      return JSON.stringify(await Cofre.local());
+    }, { pin: PIN_A, nova: [...nova], fkn: FKN });
+    marca = M.log.length;
+    const r5 = await a.evaluate(async (pin) => {
+      const d = await Cofre._pinRaw(pin), r = await Cofre.comChaveDoAparelho(await Cofre.local(), d.raw);
+      for (let i = 0; i < 100 && Cofre._distP; i++) await new Promise((x) => setTimeout(x, 100));
+      return { r, fk: Cofre.fk, kv: Cofre.kv, outras: Cofre.outras.map((x) => x.fk) };
+    }, PIN_A);
+    const v5 = await ver(IDS);
+    const r6 = await a.evaluate(async () => { const txt = async (id) => { try { return await (await Files.blob(id)).text(); } catch (e) { return 'erro'; } }; return { velho: await txt('fCHvelho'), semfk: await txt('fCHsemfk') }; });
+    await espere(300);
+    const fam1 = await a.evaluate(async () => JSON.stringify(await Cofre.local()));
+    conferir(r5.r.ok && r5.fk === FKN && r5.kv === 2 && JSON.stringify(r5.outras) === JSON.stringify([FK0]), 'CH. velhas: o aparelho abre pelo PIN com a nova e a de antes (a quebrada fica de fora) (' + JSON.stringify(r5) + ')');
+    conferir(IDS.every((id, i) => v5[id].titulo === TITULOS[i] && v5[id].antigo === false) && ['v1', 'v5'].every((id) => v5[id].fk === FK0) && r6.velho === 'anexo de mentira' && r6.semfk === 'anexo de mentira',
+      'CH. velhas: continua lendo as linhas e os anexos de antes (' + JSON.stringify(v5) + ')');
+    conferir(fam1 === fam0 && !M.log.slice(marca).some((l) => ['PATCH', 'POST'].includes(l.metodo) && /omni_docs|sol_guardar_chave_grupo/.test(l.caminho)),
+      'CH. abrir com o chaveiro não grava nada: nem no cadeado deste aparelho, nem nas Senhas da casa, nem no registro');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E2 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E3 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH)');
 })().catch((e) => { console.error(e); process.exit(1); });

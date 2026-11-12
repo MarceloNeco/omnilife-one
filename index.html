@@ -1616,7 +1616,11 @@ const Files = {
     if (isChild() && !opt.kid) { toast(tt("Peça para um responsável anexar arquivos 🙂", "Ask a guardian to attach files 🙂")); return null; }
     let f = opt.raw ? file : await this.compress(file, opt.max);
     let enc = null;
-    if (opt.encrypt) { const r = await Vault.encryptBlob(f); f = r.blob; enc = { iv: r.iv, type: file.type || "application/octet-stream" }; }
+    if (opt.encrypt) {
+      /* 2.27.0: fechado com a chave da família de agora, o anexo guarda o fk dela (o chaveiro sabe com qual abrir depois da troca) */
+      const k = S.vaultKey, fk = Cofre.aberto() && k === Cofre.vf ? Cofre.fk : null;
+      const r = await Vault.encryptBlob(f, k); f = r.blob; enc = { iv: r.iv, type: file.type || "application/octet-stream" }; if (fk) enc.fk = fk;
+    }
     if (f.size > 12 * 1024 * 1024) { toast(tt("Arquivo grande demais (máx. 12 MB).", "File too large (max 12 MB).")); return null; }
     const id = uid("f");
     const meta = { id, name: file.name || "arquivo", type: enc ? "application/octet-stream" : (f.type || file.type || "application/octet-stream"), size: f.size, vis: opt.vis || "familia", enc, chunks: Math.max(1, Math.ceil((f.size * 4 / 3) / 700000)) };
@@ -1628,7 +1632,14 @@ const Files = {
   async blob(id) {
     const m = this.meta(id); let b = await DB.driver.getFile(id, m);
     if (!b) return null;
-    if (m && m.enc) { if (!S.vaultKey) throw new Error("vault-locked"); b = await Vault.decryptBlob(b, m.enc.iv, m.enc.type); }
+    if (m && m.enc) {
+      if (!S.vaultKey) throw new Error("vault-locked");
+      /* 2.27.0, o chaveiro: a chave que o anexo diz (enc.fk); senão (ou se ela falhar) a de agora e depois as de antes da troca
+         (um anexo sem enc.fk é de antes da 2.27.0) — o anexo não some enquanto é fechado de novo com a de agora */
+      const ks = [m.enc.fk && Cofre.chaveDe(m.enc.fk), S.vaultKey].concat(Cofre.outras.map((o) => o.vf)).filter((k, i, a) => k && a.indexOf(k) === i);
+      let erro; for (const k of ks) { try { return await Vault.decryptBlob(b, m.enc.iv, m.enc.type, k); } catch (e) { erro = e; } }
+      throw erro;
+    }
     return b;
   },
   async url(id) {
@@ -2938,8 +2949,9 @@ const Vault = {
   async decStr(o, key) { key = key || S.vaultKey; const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bufFromB64(o.iv) }, key, bufFromB64(o.ct)); return new TextDecoder().decode(pt); },
   async encObj(obj) { return this.encStr(JSON.stringify(obj)); },
   async decObj(o) { return JSON.parse(await this.decStr(o)); },
-  async encryptBlob(blob) { if (!S.vaultKey) throw new Error("vault-locked"); const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, S.vaultKey, await blob.arrayBuffer()); return { blob: new Blob([ct], { type: "application/octet-stream" }), iv: b64FromBuf(iv) }; },
-  async decryptBlob(blob, iv, type) { const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bufFromB64(iv) }, S.vaultKey, await blob.arrayBuffer()); return new Blob([pt], { type: type || "application/octet-stream" }); },
+  /* key opcional (2.27.0: o chaveiro abre um anexo com a chave que ele diz); sem ela, a de agora */
+  async encryptBlob(blob, key) { key = key || S.vaultKey; if (!key) throw new Error("vault-locked"); const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, await blob.arrayBuffer()); return { blob: new Blob([ct], { type: "application/octet-stream" }), iv: b64FromBuf(iv) }; },
+  async decryptBlob(blob, iv, type, key) { const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bufFromB64(iv) }, key || S.vaultKey, await blob.arrayBuffer()); return new Blob([pt], { type: type || "application/octet-stream" }); },
   /* digital no cofre "só neste aparelho" (2.15.0): a senha mestra fica cifrada por um segredo que só a digital libera
      (WebAuthn PRF). Antes a chave do cofre ficava guardada no aparelho; isso saiu (diretriz do cofre). */
   async rememberBio() {
@@ -3406,6 +3418,8 @@ const COFRE_ITER = 600000;
 const Cofre = {
   /* só na memória, enquanto destrancado */
   vf: null, vfRaw: null, kv: 0, fk: "", gid: null, dukRaw: null, status: null,
+  /* 2.27.0, o chaveiro: chaves da família que só ABREM ([{kv, fk, vf}], a de antes da troca); a atual (vf) é a única que FECHA */
+  outras: [],
   usa() { return S.mode === "cloud" && !!S.family; },
   aberto() { return this.usa() && !!this.vf && this.gid === S.family.id; },
   K(uid) { return "cofre|" + (uid || Conta.uid()); },
@@ -3488,11 +3502,19 @@ const Cofre = {
     if (!doc.enc) return false;
     try { await Vault.decStr(doc.enc, this.vf); return false; } catch (e) { return true; }
   },
+  /* a chave do chaveiro que tem este fk (a atual ou uma das que só abrem) | null */
+  chaveDe(fk) { return fk === this.fk ? this.vf : (this.outras.find((o) => o.fk === fk) || {}).vf || null; },
   async abrir(id, cif) {
     let o; try { o = JSON.parse(cif); } catch (e) { return null; }
     if (o.em) return Object.assign({}, o.d, { id });
-    if (!this.aberto() || (o.fk && o.fk !== this.fk)) return null;
-    try { return Object.assign(JSON.parse(new TextDecoder().decode(await this.decifrar(this.vf, o))), { id }); } catch (e) { return null; }
+    if (!this.aberto()) return null;
+    /* a linha diz em claro com que chave foi fechada (sem fk: a atual, como antes) */
+    const vf = this.vf, k = o.fk ? this.chaveDe(o.fk) : vf; if (!k) return null;
+    let d; try { d = JSON.parse(new TextDecoder().decode(await this.decifrar(k, o))); } catch (e) { return null; }
+    /* fechada com uma chave de antes: a parte interna (a mesma chave) passa para a atual, só na memória — assim o item aparece
+       (Vault.decObj usa a atual) e o antigo() não o manda para "só neste aparelho" */
+    if (k !== vf && d.enc) { try { d.enc = await Vault.encStr(await Vault.decStr(d.enc, k), vf); } catch (e) {} }
+    return Object.assign(d, { id });
   },
   /* ---------- destrancar ---------- */
   ESPERAS: [0, 0, 0, 0, 30, 60, 300, 900, 1800, 3600],   /* segundos de espera depois do n-ésimo erro; no 10º bloqueia */
@@ -3577,7 +3599,14 @@ const Cofre = {
   async comChaveDoAparelho(L, raw) {
     if (!L) return { erro: "novo" };
     const duk = await this.aes(raw), gid = S.family.id, f = (L.fam || {})[gid];
-    if (f) { this.dukRaw = raw; await this.usarChave(await this.decifrar(duk, f), f.kv, f.fk); return { ok: true }; }
+    if (f) {
+      this.dukRaw = raw;
+      /* 2.27.0: as de antes da troca (L.fam[gid].velhas, fechadas pela chave deste aparelho) só abrem: o que ainda está fechado
+         com elas (linhas e anexos) continua aparecendo. Uma que não abre fica de fora (a atual abre do mesmo jeito) */
+      const atual = await this.decifrar(duk, f), outras = [];
+      for (const v of f.velhas || []) { try { outras.push({ kv: v.kv, fk: v.fk, raw: await this.decifrar(duk, v) }); } catch (e) {} }
+      await this.usarChave(atual, f.kv, f.fk, outras); return { ok: true };
+    }
     /* a chave desta família ainda não está neste aparelho: vem do banco, embrulhada para mim (precisa de internet) */
     if (!L.sk) return { erro: "aguardando" };
     if (!navigator.onLine) return { erro: "offline" };
@@ -3588,9 +3617,14 @@ const Cofre = {
     this.dukRaw = raw;
     await this.usarChave(r.raw, r.kv, r.fk); return { ok: true };
   },
-  async usarChave(raw, kv, fk) {
-    this.vfRaw = new Uint8Array(raw); this.kv = kv; this.fk = fk; this.gid = S.family.id;
-    this.vf = await this.aes(this.vfRaw); S.vaultKey = this.vf; Trava.tocar();
+  /* outras = [{raw, kv, fk}] (opcional): as que só abrem. Entram como chave do navegador (não dá para tirar os bytes dela) e os
+     bytes de quem chamou zeram aqui. Tudo importado ANTES de trocar: a chave e o fk mudam juntos (o abrir nunca vê um sem o outro) */
+  async usarChave(raw, kv, fk, outras) {
+    const ks = [];
+    for (const o of outras || []) { try { ks.push({ kv: o.kv, fk: o.fk, vf: await this.aes(o.raw) }); } finally { o.raw.fill(0); } }
+    const vfRaw = new Uint8Array(raw), vf = await this.aes(vfRaw);
+    this.vfRaw = vfRaw; this.kv = kv; this.fk = fk; this.gid = S.family.id; this.outras = ks;
+    this.vf = vf; S.vaultKey = this.vf; Trava.tocar();
     await CloudDriver.abrirCofre();
     this.distribuir().catch((e) => console.warn("cofre: liberar", e));
     setTimeout(() => SaudeMT.enviar().catch(() => {}), 1500);   /* Saúde → MoneyTRIO que ficou esperando a chave da família */
@@ -3598,7 +3632,7 @@ const Cofre = {
   trancar() {
     if (this.vfRaw) this.vfRaw.fill(0); if (this.dukRaw) this.dukRaw.fill(0);
     const estava = !!this.vf;
-    this.vf = null; this.vfRaw = null; this.dukRaw = null; this.kv = 0; this.fk = ""; this.gid = null;
+    this.vf = null; this.vfRaw = null; this.dukRaw = null; this.kv = 0; this.fk = ""; this.gid = null; this.outras = [];
     if (estava) { S.vaultKey = null; CloudDriver.fecharCofre(); }
   },
   /* ---------- digital/rosto (WebAuthn PRF): a digital libera um segredo que decifra a CA ---------- */
