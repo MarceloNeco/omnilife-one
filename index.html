@@ -3932,6 +3932,12 @@ const Cofre = {
     /* para quem falta: pelo registro do banco (o daqui só quando o banco ainda não tem nenhum) */
     const reg = JSON.parse(JSON.stringify(b.reg ? Object.assign({ id: "cofre", vis: "restrito" }, b.reg) : this.registro() || { id: "cofre", vis: "restrito", fk: this.fk, kv: this.kv, membros: {} }));
     reg.membros = reg.membros || {}; let mudou = !this.registro();
+    /* revisão S3: depois de "Terminar a troca", alguém marcado com OUTRA chave no registro = um aparelho com o app de antes (2.26, que
+       não acompanha a troca) entregou a chave antiga de novo — também a quem entrou depois. Abaixo a de agora vai de novo a essas
+       pessoas; o registro anota (o "Terminar a troca" volta, para apagar de novo o que ele entregou) e os chefes e responsáveis são
+       avisados pelo histórico */
+    const velha = Giro.descartado(reg) && Object.values(reg.membros).some((m) => m && m.fk && m.fk !== reg.fk);
+    if (velha) { reg.descarte = Object.assign({}, reg.descarte, { velha: new Date().toISOString() }); mudou = true; }
     /* D-E1: a chave da família só para chefe e responsável (o MoneyTRIO e as Integrações prometem isso) */
     for (const p of pubs || []) {
       if (!["chefe", "responsavel"].includes(p.papel) || !p.chave_publica || !p.chave_publica.kid) continue;
@@ -3943,7 +3949,10 @@ const Cofre = {
         reg.membros[p.user_id] = { kid: p.chave_publica.kid, seq, fk: this.fk }; mudou = true;
       } catch (e) { console.warn("cofre: liberar para", p.apelido, e); }
     }
-    if (mudou && (await banco())) await DB.put("settings", reg, true);   /* sobe pela fila (em instantes) */
+    if (mudou && (await banco())) {
+      await DB.put("settings", reg, true);   /* sobe pela fila (em instantes) */
+      if (velha) { Cloud.audit("cofre.velha", Cloud.myName()); toast(AUDIT_TXT("cofre.velha"), 9000); }
+    }
   },
   /* ---------- montar o cadeado deste aparelho (2.26.0: aprovado pelo outro aparelho, pela família, pelo código antigo, ou conta nova) ----------
      pkcs8: a chave pessoal (null quando a família aprovou: aí vem só a chave da família em fam = {raw, kv, fk}). conta = {segredo,
@@ -4273,6 +4282,7 @@ const Giro = {
   REDE_MS: 3000,         /* sem internet: depois que ela volta, espera isso antes de tentar de novo (gancho dos testes) */
   ASSUMIR_MS: 20e3,      /* assumir em outro aparelho: o tempo entre as duas leituras que provam que a troca está parada */
   ESQUECIDO_MS: 24 * 3600e3,   /* C16: "preparado" sem notícia há mais que isso = esquecido */
+  OUTRO_MS: 3600e3,      /* revisão S2: a troca de OUTRO chefe sem notícia há mais que isso, e que já mudou algo, outro chefe pode continuar */
   PRAZO_MS: 30e3,        /* cada chamada ao banco: sem resposta até lá = rede pendurada (vira "Parou sem internet…", com Tentar de novo) */
   rodando: false,        /* este aparelho está fazendo a troca agora: aí só ela muda a chave daqui */
   /* os dados da troca de uma linha do banco ({vis, dados, atualizado_em, apagado_em}). Só vale a "restrito" (C9: um adulto
@@ -4291,6 +4301,13 @@ const Giro = {
   },
   /* em curso e com notícia recente (parada, mudar com a chave de antes é seguro: quem continuar troca depois) */
   vivo(row) { row = row === undefined ? this.local() : row; return this.emCurso(row) && Date.now() - (Date.parse(row.atualizado_em) || 0) < this.PARADO_MS; },
+  /* revisão S2: a troca de OUTRO chefe que parou há mais de OUTRO_MS depois de mudar algo (a nova já saiu para a família e parte das
+     senhas já está nela): sem prazo para se desfazer, ela prenderia a família para sempre se o chefe que começou não voltar. Qualquer
+     chefe (D-E8) pode continuar (assumir). No "preparado" não: nada mudou, e ela se desfaz sozinha (C16) */
+  deOutroParada(row) {
+    const g = this.dados(row);
+    return !!g && g.por !== Conta.uid() && g.estado !== "preparado" && this.emCurso(row) && Date.now() - (Date.parse(row.atualizado_em) || 0) > this.OUTRO_MS;
+  },
   /* ---------- a troca em si (sem tela: a tela e o Fundo chamam executar) ---------- */
   /* a troca e o registro como estão NO BANCO: {giro, g (os dados que valem), cofre, reg} — as linhas trazem a versão para o CAS */
   async ler() { const b = await Cofre.noBanco(); return { giro: b.giro, g: this.dados(b.giro), cofre: b.cofre, reg: b.reg }; },
@@ -4377,16 +4394,20 @@ const Giro = {
     }
     return n;
   },
+  /* revisão S4: motivos que "Tentar de novo" não resolve (outro aparelho ou chefe, falta algo no banco, chave que não confere). Com
+     eles, o código de emergência digitado sai já do op (o Fundo guarda o op para o "Tentar de novo"); o "Continuar" pede de novo */
+  NAO_VOLTA: ["trocando", "assumiram", "rodando", "outraAba", "nada", "chefe", "semChave", "semSql", "money", "estranho", "velho", "velha", "outroAp", "registro"],
   /* a troca (o "executar" do Fundo). op.novo = começar uma (depois da confirmação da tela); sem ele, só continua a deste aparelho.
      andamento(0..1, texto); c = {sinal} do Fundo. Resultado {em, estranhas: [ids], semInterna: [ids], anexos} para o fim.
      Os bytes da nova só vivem na memória daqui e zeram no fim (ela fica guardada fechada: prox, envelopes, sol_grupo_chaves) */
   executar(andamento, c, op) {
-    if (this.rodando) return Promise.reject(this.erro(this.T.outraAba, "rodando"));
+    const esquecer = (e) => { if (op && e && this.NAO_VOLTA.includes(e.giro)) delete op.codigoEm; throw e; };
+    if (this.rodando) return Promise.reject(this.erro(this.T.outraAba, "rodando")).catch(esquecer);
     /* uma troca por navegador: outra aba (ou janela) deste aparelho com a troca rodando segura a trava (ela cai sozinha quando a
        aba fecha). A mesma aba já tem o "rodando" */
     const W = navigator.locks;
-    if (!W || !W.request) return this._rodar(andamento, c, op);
-    return W.request("omnilife-giro|" + ((S.family && S.family.id) || ""), { ifAvailable: true }, (trava) => (trava ? this._rodar(andamento, c, op) : Promise.reject(this.erro(this.T.outraAba, "outraAba"))));
+    if (!W || !W.request) return this._rodar(andamento, c, op).catch(esquecer);
+    return W.request("omnilife-giro|" + ((S.family && S.family.id) || ""), { ifAvailable: true }, (trava) => (trava ? this._rodar(andamento, c, op) : Promise.reject(this.erro(this.T.outraAba, "outraAba")))).catch(esquecer);
   },
   async _rodar(andamento, c, op) {
     if (this.rodando) throw this.erro(this.T.outraAba, "rodando");
@@ -4516,6 +4537,11 @@ const Giro = {
   async retomar(ctx, b) {
     const T = this.T, g = b.g, L = await Cofre.local(), f = L && L.fam && L.fam[ctx.gid];
     if (!this.ehDaqui(g, L)) throw this.erro(this.jaTrocando(g), "trocando");
+    /* C4 (revisão S1): uma troca só anda para a frente — sai da chave do registro (de = a dele) para uma versão MAIOR, ou já virou
+       (para = a dele). Uma que não é assim foi escrita por fora (a "vez" e o envelope se forjam): continuar fecharia as Senhas com
+       uma chave que nenhum chefe escolheu */
+    const reg = b.reg || {}, virou = !!g.para && reg.fk === g.para.fk && +reg.kv === +g.para.kv;
+    if (!g.de || !g.para || !(virou || (reg.fk === g.de.fk && +reg.kv === +g.de.kv && +g.para.kv > +reg.kv))) throw this.erro(T.estranho, "estranho");
     ctx.row = b.giro; ctx.g = JSON.parse(JSON.stringify(g)); ctx.cofre = b.cofre; ctx.ap = g.ap;
     const daqui = async (x) => { try { return x && x.fk === g.para.fk ? await Cofre.decifrar(ctx.duk, x) : null; } catch (e) { return null; } };
     let raw = (await daqui(f && f.prox)) || (await daqui(f));
@@ -4649,7 +4675,7 @@ const Giro = {
       const l = await CloudDriver.linha("settings", "cofre", this.PRAZO_MS), d = (l && l.dados) || {};
       const pronto = d.fk === para.fk && +d.kv === para.kv && Object.keys(membros).every((u) => JSON.stringify((d.membros || {})[u]) === JSON.stringify(membros[u]));
       if (pronto) { await CloudDriver.aceitar("settings", "cofre", l, true); break; }
-      if (!l || vez > 3 || (d.fk !== para.fk && d.fk !== ctx.g.de.fk)) throw this.erro(this.T.estranho, "registro");
+      if (!l || vez > 3 || (d.fk !== para.fk && (d.fk !== ctx.g.de.fk || !(para.kv > (+d.kv || 0))))) throw this.erro(this.T.estranho, "registro");   /* C4: a versão só sobe */
       const dados = Object.assign({}, d, { fk: para.fk, kv: para.kv, membros: Object.assign({}, d.fk === para.fk ? d.membros : {}, membros) }, d.fk === para.fk ? {} : { giradoEm: new Date().toISOString(), giradoPor: ctx.uid });
       const r = await Conta.rest("PATCH", CloudDriver.url("settings", "cofre") + "&versao=eq." + l.versao, { vis: "restrito", dados }, "return=representation", this.PRAZO_MS);
       if (r && r[0]) { await CloudDriver.aceitar("settings", "cofre", r[0], true); break; }
@@ -4842,12 +4868,13 @@ const Giro = {
     if (this.emCurso() && g && g.por === Conta.uid()) { if (this.pedeCodigo(g)) { toast(this.T.continuar, 5000); scheduleRender(true); } else this.iniciar({}).catch(() => {}); }
     else this.arrumarAparelho();
   },
-  /* outro aparelho do mesmo chefe continua uma troca parada (3.6): só depois de PARADO_MS sem notícia, e só se, lida duas vezes com
+  /* outro aparelho do mesmo chefe (ou outro chefe, depois de OUTRO_MS: revisão S2) continua uma troca parada (3.6): só depois de PARADO_MS sem notícia, e só se, lida duas vezes com
      ASSUMIR_MS entre elas, ela não andou (a mesma versão). A vez passa com essa versão (CAS): se dois tentarem juntos, um fica.
      Os dois usam a MESMA nova (do envelope ou da família): nenhuma segunda chave. {ok} | {motivo, texto} */
   async assumir() {
     const L = await Cofre.local(), b0 = this.basico(L); if (b0) return b0;
-    const parada = (x) => this.emCurso(x.giro) && x.g.por === Conta.uid() && Date.now() - (Date.parse(x.giro.atualizado_em) || 0) > this.PARADO_MS;
+    /* a minha (de outro aparelho meu) parada há PARADO_MS; a de outro chefe, só pelo deOutroParada (revisão S2) */
+    const parada = (x) => this.emCurso(x.giro) && (x.g.por === Conta.uid() ? Date.now() - (Date.parse(x.giro.atualizado_em) || 0) > this.PARADO_MS : this.deOutroParada(x.giro));
     let b; try { b = await this.ler(); } catch (e) { return { motivo: "rede", texto: this.T.semRede }; }
     if (!this.emCurso(b.giro)) return { motivo: "nada", texto: this.T.nada };
     if (this.ehDaqui(b.g, L)) return { ok: true };
@@ -4859,14 +4886,20 @@ const Giro = {
     if (!l) { const b3 = await this.ler().catch(() => b2); return { motivo: "trocando", texto: this.jaTrocando(b3.g || b2.g) }; }
     return { ok: true };
   },
-  /* o cartão da troca pela metade (nas Senhas da casa), só para o chefe que começou: neste aparelho, "Continuar" (e "Desistir"
+  /* o cartão da troca pela metade (nas Senhas da casa), para o chefe que começou (e, parada há muito, para outro chefe: revisão S2): neste aparelho, "Continuar" (e "Desistir"
      antes de a nova sair para a família); em outro aparelho dele, parada há mais de PARADO_MS, "Continuar neste aparelho"; viva lá,
      só o aviso. Some enquanto ela roda aqui (a pílula mostra) */
   cartao() {
     const row = this.local(), g = this.dados(row);
-    if (S.mode !== "cloud" || S.role !== "admin" || this.rodando || !this.emCurso(row) || !g || g.por !== Conta.uid()) return "";
+    if (S.mode !== "cloud" || S.role !== "admin" || this.rodando || !this.emCurso(row) || !g) return "";
     const T = this.T, aberto = Cofre.aberto(), st = Cofre.status || {}, daqui = g.ap === (st.ap || Devices.myId()) || g.ap === Devices.myId() || g.nav === Devices.myId();
     const card = (txt, bts) => '<div class="card warnc" id="giroCartao" role="status"><p class="small">🔄 ' + txt + "</p>" + (bts ? '<div class="row">' + bts + "</div>" : "") + "</div>";
+    /* revisão S2: a troca de OUTRO chefe, parada há muito depois de mudar algo: este chefe pode continuar (num aparelho que entrou
+       pela conta). Antes disso, nada aqui (o aviso diz que ela parou) */
+    if (g.por !== Conta.uid()) {
+      if (!this.deOutroParada(row) || st.como === "familia") return "";
+      return card(T.parouOutro(this.nomeAp(g)) + (aberto ? "" : " " + T.fechado), aberto ? this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.assumir">' + T.btAqui + "</button>" : "");
+    }
     if (daqui) {
       if (!aberto) return card(T.continuar + " " + T.fechado);
       return card(T.continuar, this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.continuar">' + T.btContinuar + "</button>" +
@@ -4913,7 +4946,7 @@ const Giro = {
      antes que ela se desfaz sozinha depois de 24 h sem notícia */
   aviso() {
     const row = this.local(), g = this.dados(row);
-    if (S.mode !== "cloud" || !isGuardian() || !g || g.por === Conta.uid() || !this.emCurso(row)) return "";
+    if (S.mode !== "cloud" || !isGuardian() || !g || g.por === Conta.uid() || !this.emCurso(row) || this.cartao()) return "";   /* o cartão de continuar (revisão S2) fica no lugar */
     const T = this.T, t = Date.parse(row.atualizado_em);
     const txt = this.vivo(row) ? T.outroTrocando : g.estado === "preparado" && S.role === "admin" && t ? T.esquecida(Math.max(1, Math.ceil((this.ESQUECIDO_MS - (Date.now() - t)) / 3600e3))) : T.outroParado;
     return '<div class="card warnc giro" id="giroAviso" role="status"><p class="small">🔄 ' + txt + "</p></div>";
@@ -5061,7 +5094,7 @@ const Giro = {
   /* a troca terminada é a do registro: a nova dela é a dele, e foi troca de verdade (a mesma conta do giro_ok do banco, C9) */
   giroDoRegistro(g, reg) { return !!(g && reg && g.estado === "feito" && g.para && g.para.fk === reg.fk && +g.para.kv === +reg.kv && g.de && g.de.fk && g.de.fk !== reg.fk); },
   /* o registro anota o descarte com a chave dele ({ate, em, fk}): numa troca nova (outra chave), o botão volta */
-  descartado(reg) { return !!(reg && reg.fk && reg.descarte && reg.descarte.fk === reg.fk); },
+  descartado(reg) { return !!(reg && reg.fk && reg.descarte && reg.descarte.fk === reg.fk && !reg.descarte.velha); },   /* velha: revisão S3 */
   /* o botão aparece (no fim e no Avançado): só chefe (D-E8: qualquer chefe), a última troca "feito" e as versões antigas ainda lá */
   podeDescartar() {
     if (S.mode !== "cloud" || S.role !== "admin" || this.rodando || this.emCurso()) return false;
@@ -5071,7 +5104,8 @@ const Giro = {
   terminarHtml(sql, id) {
     if (!this.podeDescartar()) return "";
     const T = this.T;
-    return '<div class="note" id="' + (id ? id + "N" : "giroTerminar") + '"><p class="small">' + T.depois + '</p><button type="button" class="btn" ' + (id ? 'id="' + id + '"' : 'data-act="conta.giro.descartar"') + (sql === false ? " disabled" : "") + ">" + T.btTerminar + '</button><p class="tiny faint">' + T.terminarTexto + "</p></div>";
+    const d = (Cofre.registro() || {}).descarte, velha = d && d.velha ? '<p class="small" id="' + (id ? id + "V" : "giroTerminarV") + '" role="status">⚠️ ' + T.velhaDepois + "</p>" : "";   /* revisão S3 */
+    return '<div class="note" id="' + (id ? id + "N" : "giroTerminar") + '">' + velha + '<p class="small">' + T.depois + '</p><button type="button" class="btn" ' + (id ? 'id="' + id + '"' : 'data-act="conta.giro.descartar"') + (sql === false ? " disabled" : "") + ">" + T.btTerminar + '</button><p class="tiny faint">' + T.terminarTexto + "</p></div>";
   },
   /* até qual versão apagar (3.10): a maior versão de quem está na família − 1. A versão em uso de cada pessoa (e as mais novas) o
      banco nunca apaga */
@@ -5307,6 +5341,7 @@ const Giro = {
       btContinuar: tt("Continuar", "Continue"),
       btDesistir: tt("Desistir", "Give up"),
       btAqui: tt("Continuar neste aparelho", "Continue on this device"),
+      parouOutro: (ap) => tt("Outro chefe da família começou a troca de segurança no " + ap + " e ela parou. Se ele não puder continuar, você (também chefe) pode continuar neste aparelho.", "Another family head started the security change on " + ap + " and it stopped. If they can't continue, you (also a head) can continue on this device."),
       parouEm: (ap, n) => tt("A troca começou no " + ap + " e parou há " + n + " min. Continuar neste aparelho?", "The change started on " + ap + " and stopped " + n + " min ago. Continue on this device?"),
       desistirPergunta: tt("Desistir da troca? Nada foi mudado ainda: tudo fica como estava.", "Give up the change? Nothing was changed yet: everything stays as it was."),
       desistiuOk: tt("Pronto: a troca foi desfeita. Nada mudou.", "Done: the change was undone. Nothing changed."),
@@ -5344,7 +5379,8 @@ const Giro = {
       ponteAntes: (n) => tt("Há " + n + (n > 1 ? " avisos" : " aviso") + " da Saúde esperando o MoneyTRIO. Abra o MoneyTRIO num aparelho seu (pelo PIN, com internet) e espere 1 minuto.", "There " + (n > 1 ? "are " + n + " Health updates" : "is 1 Health update") + " waiting for MoneyTRIO. Open MoneyTRIO on one of your devices (with the PIN, online) and wait 1 minute."),
       ponteOk: tt("Nenhum aviso da Saúde esperando o MoneyTRIO.", "No Health update waiting for MoneyTRIO."),
       btConferir: tt("Conferir de novo", "Check again"),
-      roteiroAps: tt("Todos os meus aparelhos abriram o OmniLifeONE depois da atualização.", "All my devices opened OmniLifeONE after the update."),
+      /* revisão S3: um aparelho de OUTRO chefe ou responsável com o app de antes devolve a chave antiga a todos: todos atualizados */
+      roteiroAps: tt("Todos os aparelhos da família (os meus e os dos outros chefes e responsáveis) abriram o OmniLifeONE depois da atualização.", "All family devices (mine and the other heads' and guardians') opened OmniLifeONE after the update."),
       roteiroRede: tt("Estou com internet (de preferência Wi-Fi) e o aparelho está na tomada.", "I'm online (Wi-Fi if possible) and the device is plugged in."),
       /* C5.2: sem outro caminho para a chave pessoal (outro aparelho da conta, a digital em todos os aparelhos, o kit) */
       semCaminho: tt("⚠️ Importante: só este aparelho consegue abrir as Senhas da casa por você. Você não tem outro aparelho seu que entrou pela sua conta, nem a digital em todos os aparelhos, nem o kit de emergência ligado. Se este aparelho quebrar, sumir ou for apagado no meio da troca, você pode ficar sem abrir as senhas. O mais seguro é antes ligar o kit de emergência (aqui em Avançado) ou entrar em outro aparelho seu.",
@@ -5373,7 +5409,8 @@ const Giro = {
       btTerminar: tt("🧹 Terminar a troca (apagar as versões antigas)", "🧹 Finish the change (delete the old versions)"),
       terminarTit: tt("🧹 Terminar a troca", "🧹 Finish the change"),
       terminarTexto: tt("Depois disso, nada antigo abre mais as senhas, nem cópias antigas. Faça antes de convidar alguém novo para a família.", "After this, nothing old opens the passwords anymore, not even old copies. Do it before inviting someone new to the family."),
-      depois: tt("Quando tiver aberto as Senhas da casa nos seus outros aparelhos e o MoneyTRIO, toque em “Terminar a troca”.", "Once you've opened the vault on your other devices and MoneyTRIO, tap “Finish the change”."),
+      depois: tt("Quando as Senhas da casa tiverem sido abertas nos seus outros aparelhos, nos dos outros chefes e responsáveis e no MoneyTRIO, toque em “Terminar a troca”.", "Once the vault has been opened on your other devices, on the other heads' and guardians' devices and in MoneyTRIO, tap “Finish the change”."),
+      velhaDepois: tt("Um aparelho da família com o OmniLifeONE desatualizado entregou a versão antiga de novo. Atualize o app em todos os aparelhos da família (ou tire o aparelho desatualizado) e toque de novo em “Terminar a troca”.", "A family device with an outdated OmniLifeONE handed out the old version again. Update the app on every family device (or remove the outdated one) and tap “Finish the change” again."),
       terminarCheck: tt("Entendi e quero terminar agora", "I understand and want to finish now"),
       faltaTerminar: tt("Marque o item acima e digite TROCAR para confirmar.", "Check the item above and type CHANGE to confirm."),
       btTerminarJa: tt("🧹 Terminar agora", "🧹 Finish now"),
@@ -13214,7 +13251,9 @@ const AUDIT_TXT = (k) => ({ "convite.criado": tt("💌 Convite criado", "💌 In
   "pin.criado": tt("🔢 PIN da conta criado", "🔢 Account PIN created"), "pin.trocado": tt("🔢 PIN da conta trocado", "🔢 Account PIN changed"), "kit.ligado": tt("🧰 Kit de emergência ligado", "🧰 Emergency kit turned on"), "kit.desligado": tt("🧰 Kit de emergência desligado", "🧰 Emergency kit turned off"), "cofre.criado": tt("🔐 Senhas da casa criadas", "🔐 Family vault created (end to end)"), "acesso.ajuda": tt("🔑 Ajuda para entrar de novo", "🔑 Help to get back in"),
   /* 2.27.0 (8.9): a troca de segurança */
   "cofre.giro": tt("🔄 Troca da chave de segurança começou", "🔄 Security key change started"), "cofre.girado": tt("🔄 Chave de segurança da família trocada", "🔄 Family security key changed"),
-  "cofre.descartado": tt("🧹 Versões antigas da chave de segurança apagadas", "🧹 Old security key versions deleted"), "emergencia.invalidada": tt("🆘 Código de emergência deixou de valer (troca de segurança)", "🆘 Emergency code stopped working (security change)") }[k] || k);
+  "cofre.descartado": tt("🧹 Versões antigas da chave de segurança apagadas", "🧹 Old security key versions deleted"), "emergencia.invalidada": tt("🆘 Código de emergência deixou de valer (troca de segurança)", "🆘 Emergency code stopped working (security change)"),
+  /* revisão S3: um aparelho com o app de antes entregou a chave antiga depois de "Terminar a troca" */
+  "cofre.velha": tt("⚠️ Um aparelho com o OmniLifeONE desatualizado entregou a chave de segurança antiga: atualize o app em todos os aparelhos da família; um chefe toca de novo em “Terminar a troca”", "⚠️ A device with an outdated OmniLifeONE handed out the old security key: update the app on every family device; a head taps “Finish the change” again") }[k] || k);
 ACT["person.new"] = () => editPerson(null);
 /* pet tem a ficha própria em 🐾 Pets (com a aba desligada, volta ao cadastro de pessoa) */
 ACT["person.edit"] = (d) => { const p = People.get(d.id); if (!p) return; if (p.role === "pet" && Rec.ok("pets") && canTab("pets")) return go("pets", "ficha", p.id); editPerson(JSON.parse(JSON.stringify(p))); };
@@ -13425,7 +13464,7 @@ const Gov = {
   }
 };
 const GOV_SENS = ["papel.alterado", "membro.removido", "regras.alteradas", "criacao.transferida", "chefe.pedido", "emergencia.pedida", "emergencia.liberada", "emergencia.usada", "aparelho.desconectado", "convite.criado",
-  "cofre.giro", "cofre.girado", "cofre.descartado", "emergencia.invalidada"];   /* 2.27.0 (8.9): a troca de segurança avisa os chefes e responsáveis */
+  "cofre.giro", "cofre.girado", "cofre.descartado", "emergencia.invalidada", "cofre.velha"];   /* 2.27.0 (8.9): a troca de segurança avisa os chefes e responsáveis (cofre.velha: revisão S3) */
 ACT["gov.ok"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g && await confirmBox(tt("Aprovar: ", "Approve: ") + Gov.txt(g) + "?", tt("Aprovar", "Approve"))) { try { await Gov.approve(g); } catch (e) { toast(Cloud.errMsg(e)); } } };
 ACT["gov.veto"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g && await confirmBox(tt("Vetar: ", "Veto: ") + Gov.txt(g) + "?", tt("Vetar", "Veto"), true)) { try { await Gov.veto(g); } catch (e) { toast(Cloud.errMsg(e)); } } };
 ACT["gov.cancel"] = async (d) => { const g = Gov.list.find((x) => x.id === d.id); if (g) { try { await Gov.cancel(g); } catch (e) { toast(Cloud.errMsg(e)); } } };
