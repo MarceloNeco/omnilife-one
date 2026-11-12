@@ -116,6 +116,13 @@
      G12g C9: a troca "feito" gravada por último por uma responsável — o app regrava (CAS) e termina
      G12v C11: o item que já não abria (ficou na de antes) impede; "Apagar os itens que não abrem" (com o PIN); uma linha de chave
           desconhecida nunca é oferecida para apagar
+   Etapa E11 (o fechamento: o que a cobertura C1–C16 / D-E1–D-E12 mostrou faltar):
+     G7e  C5: o aparelho que trocava se perde no meio (o contexto e o IndexedDB somem com o prox) e a reserva da troca (os
+          envelopes) não serve: outro aparelho da Ana, fechado durante a troca, abre pelo PIN e "Continuar neste aparelho" termina
+          com a MESMA nova, achada em sol_grupo_chaves (onde ela chegou antes da primeira linha)
+     D8   D-E8: qualquer chefe — a Bia, feita chefe (não criou a família), vê o botão e troca (a reserva vai para os dois chefes);
+          a Ana, o outro chefe, termina a troca
+   O G6 (o MoneyTRIO 3.66 de verdade acompanha a troca) é o teste/giro-moneytrio-omni.js (MONEYTRIO=<pasta>).
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -1770,6 +1777,46 @@ const outrasDe = (p) => p.evaluate(() => Cofre.outras.map((o) => o.fk));
     conferir(famB.fk === fkN && famB.velhas.includes(FK0) && famB.prox === null, 'G7b. o aparelho que continuou fica com a nova (a de antes só para abrir) (' + JSON.stringify(famB) + ')');
   });
 
+  /* ================= G7e (etapa E11, C5): o aparelho que trocava se perde, e a reserva da troca não serve ================= */
+  await parte('G7e', 'C5: o aparelho que trocava se perde no meio das linhas (o contexto e o IndexedDB dele somem, com o prox) e a reserva da troca (os envelopes) não serve; outro aparelho da Ana, fechado durante a troca, abre pelo PIN e "Continuar neste aparelho" termina com a MESMA nova — achada em sol_grupo_chaves, onde ela chegou ANTES da primeira linha', async (novo) => {
+    const A = await novo('G7e-ana-celular', { vp: 'celular' }), a = A.p;
+    const B = await novo('G7e-ana-computador', { vp: 'computador' }), b = B.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(b, ANA, PIN_A);
+    await b.evaluate(() => { Cofre.trancar(); render(); });   /* o computador fica guardado, com as Senhas fechadas, durante a troca */
+    const ids0 = idsVault();
+    let fechou = null;
+    M.depoisDe = { 'PATCH vault': 3, acao: () => { fechou = A.ctx.close().catch(() => {}); } };
+    girar(a).catch(() => null);
+    await ate(() => fechou, 20000); await fechou; await espere(300);
+    const g1 = JSON.parse(JSON.stringify(linha('settings', 'giro').dados)), fkN = g1.para.fk, entregues = versoes(ANA) + '/' + versoes(BIA);
+    const feitas = comFk(fkN).map((x) => x.id + ':' + x.versao).sort();
+    conferir(g1.estado === 'recifrando' && feitas.length >= 3 && feitas.length < 6 && entregues === '1,2/1,2' && !!(g1.envelopes || {})[ANA],
+      'G7e. o celular some no meio das linhas (' + feitas.length + ' de 6 na nova): a nova já estava com a família (Ana e Bia, versão 2) antes da primeira linha (C5)');
+    /* a reserva da troca não serve (os envelopes saem do banco): a nova só pode vir de sol_grupo_chaves */
+    gravarDoc('settings', 'giro', { dados: Object.assign({}, g1, { envelopes: {} }) }, ANA);
+    const ab = await abrirPeloPin(b, PIN_A);
+    await b.evaluate(() => { Giro.PARADO_MS = 1500; Giro.ASSUMIR_MS = 500; });
+    await espere(1700); await b.evaluate(async () => { await Cloud.poll(); go('house', 'vault'); render(); });
+    const c1 = await cartaoGiro(b);
+    conferir(!!(ab && ab.ok) && /A troca começou no .+ e parou há \d+ min\. Continuar neste aparelho\?/.test(c1) && !!(await b.$('#giroCartao [data-act="conta.giro.assumir"]')),
+      'G7e. o computador abre pelo PIN (ainda com a de antes) e oferece "Continuar neste aparelho" (' + c1 + ')');
+    const marca = M.log.length;
+    await b.click('#giroCartao [data-act="conta.giro.assumir"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 40000);
+    const gd = linha('settings', 'giro').dados, n = await chaveDaPessoa(ANA);
+    conferir(fim && gd.para.fk === fkN && gd.para.kv === 2 && gd.ap !== g1.ap && comFk(fkN).length === 6 && !comFk(FK0).length && regBanco().fk === fkN && regBanco().kv === 2,
+      'G7e. "Continuar neste aparelho" termina com a MESMA nova (kv 2): nenhuma segunda chave, nenhuma linha na de antes (' + JSON.stringify([gd.estado, gd.para]) + ')');
+    const buscou = M.log.slice(marca).some((l) => /rpc\/sol_minha_chave_grupo$/.test(l.caminho) && l.quem === ANA);
+    let tt = 0; for (const x of comFk(fkN)) if ((await tituloDe(n.raw, x.dados_cifrado)) === ITENS[+x.id.slice(1)][1]) tt++;
+    const posts = M.log.slice(marca).filter((l) => l.metodo === 'POST' && l.corpo && l.corpo.id === 'giro');
+    conferir(buscou && idsVault() === ids0 && tt === 6 && !posts.length && !(await entregas(marca)).length && versoes(ANA) + '/' + versoes(BIA) === entregues,
+      'G7e. a nova veio de sol_grupo_chaves (a família já a tinha); os mesmos ids, os títulos iguais, nenhuma troca nova e ninguém recebeu de novo');
+    conferir(feitas.every((x) => { const [id, v] = x.split(':'); return String(linha('vault', id).versao) === v; }), 'G7e. as linhas que o celular já tinha trocado não foram trocadas de novo');
+    const famB = await famDe(b);
+    conferir(famB.fk === fkN && famB.velhas.includes(FK0) && famB.prox === null, 'G7e. o computador fica com a nova (a de antes só para abrir) (' + JSON.stringify(famB) + ')');
+  });
+
   /* ================= G7c (etapa E6): sem internet no meio ================= */
   await parte('G7c', 'Sem internet no meio da troca: não erra de cara — "Esperando a internet…" — e continua sozinha quando a internet volta, com a mesma nova', async (novo) => {
     const A = await novo('G7c-ana', { vp: 'celular' }), a = A.p;
@@ -3023,8 +3070,31 @@ const outrasDe = (p) => p.evaluate(() => Cofre.outras.map((o) => o.fk));
     conferir(ok && versoes(ANA) === '2' && regBanco().descarte, 'G12v. termina');
   });
 
+  /* ================= D8 (etapa E11, D-E8): qualquer chefe troca e termina a troca ================= */
+  await parte('D8', 'D-E8: qualquer chefe troca e termina a troca — a Bia, feita chefe (quem criou a família é a Ana), vê o botão e troca; a nova vai embrulhada para os dois chefes; a Ana, o outro chefe, termina a troca', async (novo) => {
+    db.sol_grupo_membros.find((m) => m.grupo_id === GID && m.user_id === BIA).papel = 'chefe';
+    const C = await novo('D8-bia', { vp: 'celular' }), c = C.p;
+    const A = await novo('D8-ana', { vp: 'computador' }), a = A.p;
+    await abertoComVelha(c, BIA, PIN_B);
+    await abertoComVelha(a, ANA, PIN_A);
+    const dono = await c.evaluate(() => ({ role: S.role, dono: S.family.owner, eu: Conta.uid() }));
+    await avancado(c);
+    const bt = await botaoTrocar(c);
+    conferir(dono.role === 'admin' && dono.dono !== dono.eu && bt && !bt.disabled, 'D8. a Bia é chefe (não criou a família) e vê o botão "Trocar a chave de segurança da família" ligado (' + JSON.stringify([dono.role, dono.dono === ANA, bt && bt.disabled]) + ')');
+    const marca = M.log.length;
+    const r = await girar(c);
+    const gd = (linha('settings', 'giro') || {}).dados || {}, ini = M.log.slice(marca).find((l) => l.metodo === 'POST' && l.corpo && l.corpo.id === 'giro');
+    const env = (ini && ini.corpo.dados.envelopes) || {};
+    conferir(r.ok && gd.estado === 'feito' && gd.por === BIA && regBanco().giradoPor === BIA && regBanco().kv === 2 && Object.keys(env).sort().join() === [ANA, BIA].sort().join(),
+      'D8. a Bia troca: "feito", por ela, e a reserva da troca embrulhada para os DOIS chefes (' + JSON.stringify([r.erro || 'ok', gd.por === BIA, Object.keys(env).length]) + ')');
+    await a.evaluate(() => Cloud.poll());
+    await esperar(a, (fk) => Cofre.fk === fk, (gd.para || {}).fk || null, 20000);
+    const d = await descartarDireto(a);
+    conferir(d.n > 0 && versoes(ANA) === '2' && versoes(BIA) === '2' && regBanco().descarte && regBanco().descarte.fk === (gd.para || {}).fk, 'D8. a Ana (o outro chefe) termina a troca que a Bia fez: as versões antigas saem, o registro anota (' + JSON.stringify(d) + ')');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E10 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E11 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7e, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v, D8)');
 })().catch((e) => { console.error(e); process.exit(1); });
