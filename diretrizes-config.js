@@ -19,7 +19,7 @@ var OMNI_CHAVES = { 'wx:weatherapi': 'wx:weatherapi', 'wx:openweathermap': 'wx:o
 DGO.iniciar({
   app: 'omnilife-one',                      /* gaveta de dados: nunca mude */
   nome: { pt: 'OmniLifeONE', en: 'OmniLifeONE' },
-  versaoApp: '2.25.0',
+  versaoApp: '2.26.0',
   cor: '#8a6ff2',
   corFundoBarra: '#0e1016',
 

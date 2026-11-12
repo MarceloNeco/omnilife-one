@@ -51,7 +51,7 @@ sem framework: HTML, CSS e JavaScript puros.
   levar para a nuvem** (`Migrar.antesDeApagar()`, `Migrar.apagarAntiga()`) — regra do dono do projeto, 03/Out/2026. Sair da
   conta ou da família não apaga a cópia da nuvem do aparelho (saúde, documentos e arquivos só existem nela). Exceção da
   diretriz do cofre (2.15.0): a cópia **cifrada** do cofre da nuvem e a chave dele saem em "Desconectar este aparelho", conta
-  encerrada/banida, aparelho desconectado e saída da família (`Cofre.apagarDoAparelho`) — o cofre continua na nuvem; a fila do
+  encerrada/banida, aparelho desconectado e quando o `poll` vê que a pessoa foi tirada da família (`Cofre.apagarDoAparelho`; sair da família por conta própria, `Cloud.leave`, só sai da conta) — o cofre continua na nuvem; a fila do
   cofre tenta subir antes; o cofre antigo (senha mestra, só no aparelho) nunca é apagado por isso.
 
 ## Mapa do `index.html` (procure pelos nomes)
@@ -143,6 +143,57 @@ sem framework: HTML, CSS e JavaScript puros.
     (`_nb`, zerado em `publicarPar`) se a pessoa já tem chave guardada (`minhasNoBanco`) → `status.jaTem`. Com `jaTem`, a tela e o
     passo 4 do `GuiaCofre` avisam **antes** do botão que vai precisar do papel com o código (e o que fazer sem ele); sem `jaTem`,
     a tela lista os passos (anotar o código, PIN, outro responsável libera).
+- **Conta, PIN e aparelhos (2.26.0)** — o protocolo da plataforma, **igual ao MoneyTRIO** (`nuvem.js` 1.14.0, MoneyTRIO 3.66):
+  aparelho novo aprovado por outro sem papel, **um PIN por pessoa** (o mesmo em todos os aparelhos e apps), o estado real lido
+  antes de qualquer tela e "Sair" de verdade. O banco (funções `sol_*`) é da plataforma e já está aplicado: o Omni não tem tabela
+  própria para isso. Blocos, na ordem do arquivo (antes de `const COFRE_ITER`, depois das ações `cofre.*` e do `GuiaCofre`):
+  - `SolProto` — contas puras, sem rede e sem tela: ECDH P-256, compromisso `C = b64u(SHA-256("sol-ap-v2|c|x.y|nB"))`, os 6
+    números (`sas`), HKDF com `"sol-ap-v2|" + id + "|" + uid de quem pede + "|" + nA + "|" + nB`, AES-GCM com AAD = id do pedido
+    (`fechar`/`abrirResp`), as cargas `{v:2, tipo:"pessoal", sk}` e `{v:2, tipo:"familia", gid, kv, fk, cf}` (`lerCarga` ignora o
+    `mk` do MoneyTRIO) e o verificador do PIN da conta (`sol-pin-v1`, PBKDF2-SHA256 600 mil). **Byte a byte igual ao MoneyTRIO**:
+    mudar aqui sem mudar lá quebra a aprovação entre os apps (`teste/sol-proto-omni.js` confere os vetores fixos de
+    `teste/vetores-sol-v2.json`).
+  - `Sol` — a rede das funções `sol_*` (`pedido*`, `ap*`, `pk*`, `pin*`, por `Conta.rpc`). Sabe se o SQL existe (`ligadoAp`,
+    `ligadoPin`: 404/PGRST202 = desligado, e o app volta ao jeito da 2.25) e põe prazo no próprio pedido (`Sol.PRAZO`: 4 s, e 8 s no
+    `sol_pin_conferir`) nas chamadas que seguram abrir as Senhas da casa — com a rede pendurada o navegador acha que está online.
+  - `Pin` — o PIN da conta (estado, sem tela): `info`, `duk` (a tabela de decisão: o PIN da conta conferido no banco ou, sem ele,
+    o PIN deste aparelho; **nunca** converte o PIN antigo em PIN da conta em silêncio), `migrar` ("Agora o PIN é um só"), `criar`,
+    `trocar`, `naoLembro` (só para o aparelho aprovado por outro aparelho da pessoa, `como = "aparelho"`), os erros locais e da
+    conta (`explicar`, `tentativas`).
+  - `Jornada` — lê o estado real (conta, papel, cadeado deste aparelho, aparelhos da conta em todos os apps, pública, kit, digital
+    em todos os aparelhos, PIN da conta) antes de desenhar: `ler()` → `caso` (`semConta`, `naoGuardiao`, `aberto`, `trancado`,
+    `semRede`, `contaNova`, `outroApp`, `primeiraVez`) e os sinais `criarPin`, `migrar`, `pinTrocado`, `familiaPode`… Toda tela de
+    conta e do cadeado decide por ela; `limpar()` depois de mudar algo.
+  - `Aparelhos` — o protocolo. Quem pede: `pedir`, `esperar`, `receber`, `retomar` (o pedido em andamento sobrevive ao recarregar,
+    no IndexedDB `pedido|<conta>`). Quem aprova: `olharPedidos` (faixa), `desafiar` (fixa a pública e o compromisso de quem pede
+    ANTES do desafio), `aprovar` (os 6 números + o PIN deste aparelho ou a digital), `carga` (pessoal = a chave pessoal; família =
+    a CF, e só para chefe ou responsável — `podeFamilia`), `responder`, `recusar`. A lista: `lista`, `tirarGrupo`, `tirado` (o
+    aparelho tirado por outro sai sozinho). A digital em todos os aparelhos (passkey com PRF, HKDF `sol-passkey-v2`):
+    `criarPasskey`/`entrarPasskey`/`tirarPasskeys`, só em solverone.com.br (`pkAqui`).
+  - `Kit` — o código de emergência antigo (a cópia da chave pessoal em `omni_chave_privada`), em ⚙ → Segurança e aparelhos →
+    Avançado: `ligar`/`desligar`. Desligar apaga a linha e precisa de `supabase/2026-11-11-omni-chave-privada-delete.sql` (o dono
+    aplica); sem ele: "Ainda não dá para desligar: falta um ajuste no servidor."
+  - `TelaConta` — as telas: "Primeira vez neste {aparelho}" / "Abrir sem o PIN" (`primeiraVez`), a espera com os 6 números
+    (`esperando`), criar/digitar/trocar o PIN (`formPin`, `criarPin` — fora do "logo depois de abrir" pede o PIN de agora ou a
+    digital —, `digitePin`, `trocarPin`), quem aprova (`faixa`, `aprovar`), a página **🔐 Segurança e aparelhos** (`pagina`; rota
+    `#/settings/conta`, `SetViews.conta()`), "Começar do zero" (`comecarDoZero`: só em Avançado e só sem outro caminho, D4) e
+    "Bloquear agora". Ações `ACT["conta.*"]` (o prefixo `conta.` não some com os interruptores do `Rec`).
+  - `Saida` — a rotina única de sair (`signOut()` só chama `Saida.sair()`): pergunta se há mudança na fila ou trabalho no `Fundo`,
+    tranca as Senhas da casa e as chaves de IA, sai da conta neste aparelho (no máximo 5 s com a rede pendurada) e recarrega com
+    `location.replace` (o Voltar não mostra dados: `pageshow` com `persisted` recarrega). Com `apagar` (aparelho tirado da conta,
+    conta encerrada ou banida) apaga também o cadeado deste aparelho (`cofre|`, `chaveAp|`, `pedido|`, `digitalPerguntada|`).
+    **Nunca** toca `nuvem`, `fila`, `files` nem `docs`. "Sair da conta" na trava da digital desliga a trava do app (como na 2.25).
+  - **O cadeado deste aparelho** (`L`, IndexedDB `kv`, chave `cofre|<conta>`) ganhou `ap` (o lugar na lista `sol_aparelhos`), `como`
+    (`primeiro`, `aparelho`, `familia`, `kit`, `passkey`), `srv` (a chave do aparelho fechada também pelo segredo do PIN da conta),
+    `pinVersao` e `avisosAte`. Só `Cofre.montar` troca o `L` inteiro, no fim, por `Cofre.mudarLocal` (trava `navigator.locks` +
+    fila); `Cofre.criarConta(pin, zero)` faz a conta nova (o par novo só ali, nunca com a pública já na conta, fora o D4).
+  - **Nunca (2.26.0):** transformar em silêncio o PIN antigo do aparelho em PIN da conta; gerar par novo quando a conta já tem a
+    pública (só o "Começar do zero"); apagar `omni_chave_privada` sem a pessoa pedir ("Desligar" o kit); apagar o IndexedDB `nuvem`
+    no Sair; mudar o `SolProto` sem mudar junto o MoneyTRIO; mandar a CF para quem não é chefe nem responsável.
+  - Testes (todos no banco de mentira `teste/mock-sol.js`, um aparelho = um contexto do navegador): `sol-proto-omni.js`,
+    `aparelhos-omni.js`, `pin-conta-omni.js`, `pin-conta-bordas-omni.js`, `sair-omni.js`, `seguranca-aparelhos-omni.js`,
+    `kit-passkey-omni.js`, `revisao-final-omni.js` e o cruzado `aparelhos-cruzado-omni.js` (abre o MoneyTRIO de verdade quando
+    `MONEYTRIO=<pasta do investify-me>`; sem ela, "PULADO").
 - `Trava` (v2.15.0) — tranca o cofre (os dois modos): 5 min sem toque/tecla (`ocioso`), 30 s fora do app (3 min logo depois de
   escolher foto/arquivo, `Trava.escolhendo`), confere ao voltar (o celular congela o relógio em segundo plano) e no `pagehide`.
   Apaga a chave antiga que a "biometria" das versões até a 2.14.x guardava no aparelho (`kv vaultKey:*`).
@@ -154,7 +205,7 @@ sem framework: HTML, CSS e JavaScript puros.
   guardar?" (botões grandes com exemplo); depois só aparecem os campos do tipo, com nome e exemplo próprios (`aplicar` no
   `editVault`). Campo já preenchido num item antigo nunca some; campo fora do tipo e vazio não é salvo. **Linguagem para leigos**
   (prioridade do dono, 04/Out/2026): sem "cifrado", "criptografado", "ponta a ponta", "biometria", "chave da família" nas telas
-  do cofre — o teste `JARGAO` confere. **Nomes (2.15.2):** na tela o cofre se chama **"Senhas da casa"** (no código continua `Cofre`/`Vault`/coleção `vault`; não renomear o código). Tipos (`VT_KINDS`): `wifi`, `portao`, `senha`, `conta`, `seguro`, `outro`; os antigos `apolice`, `contrato` e `escritura` aparecem como `seguro` (`VT_ANTIGO`, `vtKind()`) e passam a ser salvos assim ao editar. A senha do modo "só neste aparelho" aparece como "senha principal". O "cofre de chaves" de IA (`KeyVault`) é outra coisa e continua com esse nome. **Um PIN só (2.21.0):** o PIN das Senhas da casa também abre as chaves de IA: `PinUnico` (perto de `Keys`) chama `SolverCofre.usarPinDaPessoa` — quem pergunta é a janela "🔐 Digite o seu PIN" (PIN ou digital das Senhas da casa), o segredo da pessoa é o SHA-256 da chave privada dela (o mesmo depois de trocar o PIN ou usar o código do papel), e o PIN das chaves vira o da pessoa (`Cofre.trocarPin` → `PinUnico.trocou`). Abrir as Senhas da casa pela tela delas abre as chaves junto (`PinUnico.junto`). Quem não usa as Senhas da casa continua com a janela do cofre. **Reforços (2.21.2):** casa aberta não prova quem está com o aparelho, então trocar o PIN, ligar a digital e fazer código de recuperação novo passam por `Cofre.provarAgora(titulo, texto, digital)` (PIN de agora ou digital; `conferirPin`/`conferirDigital` contam erros e não abrem nada); `PinUnico.trocou` só mexe nas chaves se a pessoa está em `SolverCofre.pessoas()`; `PinUnico.junto` tranca antes as chaves abertas que não são da pessoa; o "Começar" tranca as chaves; sair da conta (`cloud.logout`, `signOut`) e `cofre.lock` trancam as duas; com `PinUnico.casaPronta()` a tela comum (`cofre.tela`) não abre (lá "Mostrar" e "Ligar a digital" passam sem PIN no cofre.js 1.6.0 — pendência #59 no rootify-one) e ⚙ → IA oferece `cofre.semdigitalchaves` para desligar a digital antiga; trocar o endereço do Personalizado com chave guardada tranca e pede o PIN (`Keys.need(..., true, true)`); `Cofre.esqueci` fecha as janelas de baixo só depois do sim. Teste: `teste/pin-reforcos-omni.js`. **Permissão das chaves de IA:** `podeChavesIA()` — o chefe sempre; outra pessoa só com `chavesIA: true` no registro dela (campo no ✏️, só o chefe vê). Teste: `teste/pin-unico-omni.js`.
+  do cofre (não há teste automático só disso nas Senhas da casa; o `JARGAO_PT`/`JARGAO_EN` de `teste/seguranca-aparelhos-omni.js` confere a página Segurança e aparelhos). **Nomes (2.15.2):** na tela o cofre se chama **"Senhas da casa"** (no código continua `Cofre`/`Vault`/coleção `vault`; não renomear o código). Tipos (`VT_KINDS`): `wifi`, `portao`, `senha`, `conta`, `seguro`, `outro`; os antigos `apolice`, `contrato` e `escritura` aparecem como `seguro` (`VT_ANTIGO`, `vtKind()`) e passam a ser salvos assim ao editar. A senha do modo "só neste aparelho" aparece como "senha principal". O "cofre de chaves" de IA (`KeyVault`) é outra coisa e continua com esse nome. **Um PIN só (2.21.0):** o PIN das Senhas da casa também abre as chaves de IA: `PinUnico` (perto de `Keys`) chama `SolverCofre.usarPinDaPessoa` — quem pergunta é a janela "🔐 Digite o seu PIN" (PIN ou digital das Senhas da casa), o segredo da pessoa é o SHA-256 da chave privada dela (o mesmo depois de trocar o PIN ou usar o código do papel), e o PIN das chaves vira o da pessoa (`Cofre.trocarPin` → `PinUnico.trocou`). Abrir as Senhas da casa pela tela delas abre as chaves junto (`PinUnico.junto`). Quem não usa as Senhas da casa continua com a janela do cofre. **Reforços (2.21.2):** casa aberta não prova quem está com o aparelho, então trocar o PIN, ligar a digital e fazer código de recuperação novo passam por `Cofre.provarAgora(titulo, texto, digital)` (PIN de agora ou digital; `conferirPin`/`conferirDigital` contam erros e não abrem nada); `PinUnico.trocou` só mexe nas chaves se a pessoa está em `SolverCofre.pessoas()`; `PinUnico.junto` tranca antes as chaves abertas que não são da pessoa; o "Começar" tranca as chaves; sair da conta (`cloud.logout`, `signOut`) e `cofre.lock` trancam as duas; com `PinUnico.casaPronta()` a tela comum (`cofre.tela`) não abre (lá "Mostrar" e "Ligar a digital" passam sem PIN no cofre.js 1.6.0 — pendência #59 no rootify-one) e ⚙ → IA oferece `cofre.semdigitalchaves` para desligar a digital antiga; trocar o endereço do Personalizado com chave guardada tranca e pede o PIN (`Keys.need(..., true, true)`); `Cofre.esqueci` fecha as janelas de baixo só depois do sim. Teste: `teste/pin-reforcos-omni.js`. **Permissão das chaves de IA:** `podeChavesIA()` — o chefe sempre; outra pessoa só com `chavesIA: true` no registro dela (campo no ✏️, só o chefe vê). Teste: `teste/pin-unico-omni.js`.
 - `apN()` (2.15.3) — a palavra do aparelho nas mensagens: "computador" (`Voice.desktop()`), "tablet" (toque sem "Mobile" no
   navegador) ou "celular". Use em todo texto que diz "neste/este/do/o …" sobre **este** aparelho (as três palavras são
   masculinas); para o aparelho de outra pessoa, escreva "aparelho". Antes, o computador dizia "Usar neste celular".
@@ -440,5 +491,7 @@ sem framework: HTML, CSS e JavaScript puros.
 4. Se mudou algo de nuvem: novo arquivo `supabase/omnilife-one-vN.sql` (idempotente, regras do C10 em `PLATAFORMA-DADOS.md`), levar para revisão e só depois rodar no Supabase. O Firebase não é mais usado.
 7. Testes automáticos (Playwright, uma vez: `npm install -D playwright && npx playwright install chromium`): `node teste/rodar.js`
    (`teste/README.md`): mestres iguais, janelas em 390 px e no computador, cofre da Fase 3, veículos (2.20.0). Só valores de mentira.
+   Mexeu em conta, PIN ou aparelhos: rode também com o MoneyTRIO baixado ao lado, `MONEYTRIO=<pasta do investify-me> node teste/rodar.js`
+   (o teste cruzado `aparelhos-cruzado-omni.js` abre os dois apps no mesmo banco de mentira).
 6. Teste da nuvem: só contra um Supabase **local** com a base real + `supabase/omnilife-one-v1.sql` (nunca contas de teste na produção);
    o teste desvia as chamadas do endereço de produção para `http://127.0.0.1:54321`.
