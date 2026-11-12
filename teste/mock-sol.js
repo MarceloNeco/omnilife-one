@@ -10,7 +10,9 @@
      · os registros (omni_docs com versão e apagado_em, omni_combinados, omni_aparelhos, omni_governanca, omni_historico,
        omni_convite_info, omni_pedidos_entrada, omni_mudar_campos);
      · as Senhas da casa (sol_chave_publica, sol_chaves_publicas_do_grupo, sol_guardar_chave_grupo, sol_minha_chave_grupo,
-       sol_publicar_minha_chave, omni_chave_privada com DELETE) e a ponte (sol_ponte_enviar).
+       sol_publicar_minha_chave, omni_chave_privada com DELETE) e a ponte (sol_ponte_enviar);
+     · para o teste cruzado com o MoneyTRIO 3.66: money_docs, user_settings e as chaves próprias da família no MoneyTRIO
+       (money_chaves, money_visao, money_visao(), money_visoes() — prepararMoneyChaves).
    As regras seguem os SQL de verdade: omnilife-one-v1.sql e 2026-10-23-grants-explicitos.sql (GRANT e RLS, de forma
    simples), a base da plataforma (rootify-one) e, para aparelhos, pedidos, passkeys e PIN da conta, os do MoneyTRIO
    (supabase/2026-11-07-sol-aparelhos.sql e 2026-11-11-sol-pin-conta.sql). As tabelas novas da plataforma (sol_aparelhos,
@@ -70,15 +72,16 @@ const db = {
   omni_familia: [{ grupo_id: GID, dono: ANA, aprovacoes: 1, convite_horas: 72, em_espera_dias: 2, em_contatos: [], idade_adulto: 18, criado_por: ANA, criado_em: '2026-10-01T12:00:00.000Z', atualizado_em: '2026-10-01T12:00:00.000Z' }],
   omni_docs: [], omni_combinados: [], omni_historico: [], omni_governanca: [], omni_cofre_liberado: [], omni_aparelhos: [],
   omni_pedidos_entrada: [], omni_pedidos_verificacao: [], omni_convite_info: [], omni_chave_privada: [],
-  /* MoneyTRIO (o mesmo banco serve o teste cruzado) */
-  money_docs: [], user_settings: [] };
+  /* MoneyTRIO (o mesmo banco serve o teste cruzado). money_chaves e money_visao: as chaves próprias da família no MoneyTRIO
+     3.66 ("dois cofres", supabase/2026-11-12-moneytrio-escopos.sql do MoneyTRIO), só o que o MoneyTRIO lê ao abrir e ao aprovar */
+  money_docs: [], user_settings: [], money_chaves: [], money_visao: [] };
 /* não existem por REST (o app só chega nelas pelas funções), mesmo estando aqui para o teste conferir */
 const SO_FUNCOES = ['sol_aparelhos', 'sol_acesso_pedidos', 'sol_passkeys', 'sol_pin_conta', 'sol_aparelho_pin', 'sol_grupo_chaves', 'sol_ponte'];
 /* o que o papel "authenticated" pode fazer em cada tabela (2026-10-23-grants-explicitos.sql): G ler, P criar, U mudar, D apagar */
 const GRANT = { sol_grupos: 'G', sol_grupo_membros: 'G', sol_grupo_convites: 'G', sol_chave_publica: 'G',
   omni_familia: 'G', omni_docs: 'GPU', omni_combinados: 'GP', omni_historico: 'GP', omni_governanca: 'G', omni_cofre_liberado: 'G',
   omni_aparelhos: 'GPUD', omni_pedidos_entrada: 'G', omni_pedidos_verificacao: 'G', omni_convite_info: 'G', omni_chave_privada: 'GPUD',
-  money_docs: 'GPU', user_settings: 'GPU' };
+  money_docs: 'GPU', user_settings: 'GPU', money_chaves: 'G', money_visao: 'G' };
 /* chave primária de cada tabela (POST repetido: 409, ou junta com resolution=merge-duplicates) */
 const CHAVE = { omni_docs: ['grupo_id', 'colecao', 'id'], money_docs: ['grupo_id', 'colecao', 'id'], omni_combinados: ['grupo_id', 'id'], omni_aparelhos: ['grupo_id', 'id'],
   omni_chave_privada: ['user_id'], user_settings: ['user_id'], omni_familia: ['grupo_id'], omni_cofre_liberado: ['grupo_id', 'user_id'] };
@@ -90,6 +93,8 @@ const resp = (me, g) => ['chefe', 'responsavel'].includes(papel(me, g));
 const chefe = (me, g) => papel(me, g) === 'chefe';
 const adulto = (me, g) => !!papel(me, g) && papel(me, g) !== 'crianca';
 const liberado = (me, g) => db.omni_cofre_liberado.some((x) => x.grupo_id === g && x.user_id === me);
+/* MoneyTRIO 3.66: quem vê o quê (money_visao do SQL): o chefe 'tudo' sempre; qualquer outro só com a linha do chefe */
+const visaoMoney = (me, g) => chefe(me, g) ? 'tudo' : membro(me, g) ? ((db.money_visao.find((v) => v.grupo_id === g && v.user_id === me) || {}).visao || null) : null;
 const daCrianca = ['tasks', 'shop', 'items', 'msgs', 'reminders', 'files', 'checkins'];
 const docOk = (me, r) => membro(me, r.grupo_id) && (r.vis === 'publico' || resp(me, r.grupo_id)) &&
   (r.colecao === 'vault' ? resp(me, r.grupo_id) : r.colecao === 'requests' ? true : adulto(me, r.grupo_id) || daCrianca.includes(r.colecao));
@@ -111,7 +116,9 @@ const RLS = {
   omni_pedidos_entrada: { ver: (me, r) => r.user_id === me || resp(me, r.grupo_id) },
   omni_pedidos_verificacao: { ver: (me, r) => r.user_id === me },
   omni_convite_info: { ver: (me, r) => resp(me, r.grupo_id) },
-  omni_chave_privada: { ver: (me, r) => r.user_id === me, criar: (me, r) => r.user_id === me, mudar: (me, r) => r.user_id === me, apagar: (me, r) => r.user_id === me }
+  omni_chave_privada: { ver: (me, r) => r.user_id === me, criar: (me, r) => r.user_id === me, mudar: (me, r) => r.user_id === me, apagar: (me, r) => r.user_id === me },
+  money_chaves: { ver: (me, r) => r.user_id === me && ((r.escopo === 'casa' && !!visaoMoney(me, r.grupo_id)) || visaoMoney(me, r.grupo_id) === 'tudo') },
+  money_visao: { ver: (me, r) => r.user_id === me || visaoMoney(me, r.grupo_id) === 'tudo' }
 };
 const pode = (t, acao, me, r) => { const f = (RLS[t] || {})[acao]; return f ? !!f(me, r) : true; };
 
@@ -231,6 +238,10 @@ const rpcs = {
     const id = uuid(); db.sol_ponte.push({ id, de_app: c.p_de, para_app: c.p_para, tipo: c.p_tipo, grupo_id: c.p_grupo || null, user_id: me, dados: c.p_dados || {}, criado_em: agora(), lido_em: null }); return id;
   },
   sol_ponte_minha_caixa: () => [], sol_ponte_marcar_lido: () => true,
+  /* MoneyTRIO 3.66: a minha visão e a lista (só para quem vê tudo), como money_visao()/money_visoes() do SQL */
+  money_visao: (me, c) => visaoMoney(me, c.p_grupo),
+  money_visoes: (me, c) => visaoMoney(me, c.p_grupo) !== 'tudo' ? [] : db.sol_grupo_membros.filter((m) => m.grupo_id === c.p_grupo && m.status === 'ativo' && m.user_id)
+    .map((m) => ({ user_id: m.user_id, papel: m.papel, visao: m.papel === 'chefe' ? 'tudo' : ((db.money_visao.find((v) => v.grupo_id === c.p_grupo && v.user_id === m.user_id) || {}).visao || null) })),
   /* registro do app: junta só os campos mandados (omni_jsonb_mesclar: null tira o campo; objeto dentro de objeto junta) */
   omni_mudar_campos: (me, c) => {
     const r = db.omni_docs.find((d) => d.grupo_id === c.p_grupo && d.colecao === c.p_colecao && d.id === c.p_id && d.dados);
@@ -471,4 +482,24 @@ async function prepararChaves(op) {
 /* a CF da família de mentira (para o teste conferir que o aparelho aprovado recebeu a MESMA chave) */
 const cf = () => CF_RAW;
 
-module.exports = { SB, M, db, rpcs, supabase, prepararChaves, PESSOAS, ANA, BIA, CRIS, DAVI, GID, compromisso, agora, b64u, cf, normCode };
+/* MoneyTRIO 3.66 ("dois cofres"): a família com as chaves PRÓPRIAS do MoneyTRIO, como depois da preparação do chefe — a da
+   casa (CC) e a reservada (CR), versão 1, embrulhadas (o mesmo formato do Cifra.embrulhar do nuvem.js: "1." + RSA-OAEP de
+   {v:1, kv, fk, k}) para a pública de quem vê tudo; op.tudo = quem, além do chefe, o chefe marcou "Tudo" (money_visao).
+   Só o que o MoneyTRIO lê ao abrir (money_chaves) e ao aprovar um pedido "para a família" (money_visoes): nenhum registro é
+   refechado. Chamar depois do prepararChaves. Devolve {v, c, r} (bytes de mentira) para o teste conferir. */
+async function prepararMoneyChaves(op) {
+  op = op || {};
+  const mk = { v: 1, c: crypto.webcrypto.getRandomValues(new Uint8Array(32)), r: crypto.webcrypto.getRandomValues(new Uint8Array(32)) }, h = agora();
+  (op.tudo || []).forEach((u) => { if (!db.money_visao.some((v) => v.grupo_id === GID && v.user_id === u)) db.money_visao.push({ grupo_id: GID, user_id: u, visao: 'tudo', definido_por: ANA, definido_em: h }); });
+  for (const k of db.sol_chave_publica) {
+    if (visaoMoney(k.user_id, GID) !== 'tudo') continue;
+    const pub = await subtle.importKey('jwk', { kty: 'RSA', n: k.chave_publica.n, e: k.chave_publica.e, alg: 'RSA-OAEP-256', ext: true }, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['encrypt']);
+    for (const [escopo, raw, fk] of [['casa', mk.c, 'mt-casa'], ['reservado', mk.r, 'mt-reservado']]) {
+      const embrulhada = '1.' + b64(await subtle.encrypt({ name: 'RSA-OAEP' }, pub, utf8(JSON.stringify({ v: 1, kv: mk.v, fk, k: b64(raw) }))));
+      db.money_chaves.push({ grupo_id: GID, user_id: k.user_id, escopo, versao: mk.v, embrulhada, embrulhada_por: ANA, criado_em: h });
+    }
+  }
+  return mk;
+}
+
+module.exports = { SB, M, db, rpcs, supabase, prepararChaves, prepararMoneyChaves, PESSOAS, ANA, BIA, CRIS, DAVI, GID, compromisso, agora, b64u, cf, normCode };
