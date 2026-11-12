@@ -6,7 +6,8 @@
      K28 durante o "Saindo…" o cabeçalho e a memória já estão vazios (nem o nome da pessoa nem o da família)
      D2  depois de sair: recarregar e o Voltar (uma e duas vezes) continuam na tela de entrar, sem dado
      D3  ⚙ → Geral → "Sair", ⚙ → Segurança e aparelhos → "Sair" (o cartão da conta não tem mais sair) e o "Sair da conta" da trava
-         da digital (a digital continua ligada)
+         da digital (a trava do app desliga, como na 2.25: com a digital que deixou de funcionar, entrar de novo não cai na mesma
+         trava — revisão final 2.26.0, G1)
      K27 sem conta (sessão apagada em outro lugar): o Cloud.poll sai de verdade; e o "Sair" numa aba chega à outra (D9)
      K29 a página que volta da memória do navegador (pageshow persisted): na nuvem sem conta recarrega; no "só neste aparelho", não
      D4  saídas automáticas com uma janela aberta — aparelho tirado da conta, tirado da família, sessão recusada: a janela fecha, a
@@ -161,7 +162,7 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   await b.evaluate(() => { localStorage.removeItem('solverone.sessao.v1'); window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })); });
   const s29 = await naEntrada(b);
   conferir(s29 && !(await marcada(b)), 'K29. nuvem: a página volta da memória do navegador (pageshow persisted) sem a conta → recarrega na tela de entrar');
-  /* a trava da digital ("bioLock"): "Sair da conta" sai e a digital continua ligada */
+  /* a trava da digital ("bioLock"): "Sair da conta" sai e a trava do app desliga (a credencial da digital fica) */
   await entrarOmni(b, ANA); await quieto(b);
   await b.evaluate(() => { lsSet(LS.webauthn, { id: 'AAAAAAAAAAAAAAAAAAAAAA==' }); S.prefs.bioLock = true; savePrefs(); });
   await b.close();
@@ -173,8 +174,8 @@ const estado = (p, uid) => p.evaluate(async (u) => ({ conta: Conta.on(), sessao:
   conferir(trava, 'preparo: com a digital ligada para abrir o app, a trava aparece ao abrir');
   await b2.click('.lock #bo');
   const s3c = await naEntrada(b2), e3c = await estado(b2, ANA);
-  const bio = await b2.evaluate(() => (lsGet(LS.prefs, {}) || {}).bioLock === true && !!lsGet(LS.webauthn, null));
-  conferir(s3c && !e3c.conta && !(await continuarComo(b2)) && bio && !(await naTela(b2, '.lock')), 'D3. a trava da digital → "Sair da conta": sai de verdade e a digital continua ligada (S.prefs.bioLock)');
+  const bio = await b2.evaluate(() => (lsGet(LS.prefs, {}) || {}).bioLock === false && !!lsGet(LS.webauthn, null));
+  conferir(s3c && !e3c.conta && !(await continuarComo(b2)) && bio && !(await naTela(b2, '.lock')), 'D3. a trava da digital → "Sair da conta": sai de verdade e a trava do app desliga (S.prefs.bioLock, como na 2.25; a credencial da digital fica)');
   await B.ctx.close();
 
   /* ================= D4 + A10b: saídas automáticas com uma janela aberta ================= */

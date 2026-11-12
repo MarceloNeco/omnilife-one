@@ -356,7 +356,9 @@ async function acertar(id, pubA, pubB, nA, alvo) {
   const a9 = await aprovarNoNode(BIA, pedidoAberto().id, null); await sasNaTela(b);
   const n9 = linhasAna().length;
   a9.aprovar(await a9.resposta({ v: 2, tipo: 'familia', gid: GID, kv: 1, fk: 'fk-teste', cf: b64n(cf()) }));
-  conferir(await janela(b, /Digite o PIN da sua conta/, 15000) && await semFila(b) && await naTela(b, '.modal #pcNaoLembro'), 'aprovado pela família: "Digite o PIN da sua conta" (com "Não lembro…")');
+  /* revisão final (A5): o banco não troca o PIN da conta para quem a família aprovou: sem o "Não lembro", a frase que explica */
+  conferir(await janela(b, /Digite o PIN da sua conta/, 15000) && await semFila(b) && !(await naTela(b, '.modal #pcNaoLembro')) && /Ele só pode ser trocado quando outro aparelho seu aprova este/.test(await textoJanelas(b)),
+    'aprovado pela família: "Digite o PIN da sua conta" (sem "Não lembro…", que ali nunca funciona; no lugar, a frase que explica)');
   await b.click('.modal:has(#pcPin) .mf [data-x]');
   conferir(await ate(() => linhasAna().length === n9) && await cadeado(b) === null && !(await temPedido(b)), 'K19. desistiu do PIN: a linha nova sai da lista e nada é montado');
 
@@ -586,8 +588,8 @@ async function acertar(id, pubA, pubB, nA, alvo) {
   conferir(await erroEm(a, 'PIN errado') && p3.estado === 'aberto' && pinDaConta(ANA).tentativas === t3x && !M.log.slice(n3x).some((x) => /sol_pin_conferir/.test(x.caminho)) && (await a.evaluate(async () => (await Cofre.local()).erros)) === 1,
     'A3. PIN errado: não aprova e não gasta tentativa da conta (confere o PIN deste aparelho, sem ir ao banco — K11)');
   await a.fill('.modal #apPin', PIN_CONTA); await a.click('.modal #apOk');
-  conferir(await fechouSas(a) && /Aprovado. O outro aparelho já pode entrar com o PIN da sua conta/.test(await toasts(a)) && ['aprovado', 'usado'].includes(p3.estado),
-    'A3. PIN certo: "✓ Aprovado. O outro aparelho já pode entrar com o PIN da sua conta."');
+  conferir(await fechouSas(a) && /Aprovado\. Continue no outro aparelho/.test(await toasts(a)) && ['aprovado', 'usado'].includes(p3.estado),
+    'A3. PIN certo: "✓ Aprovado. Continue no outro aparelho." (revisão final A4: vale com e sem o PIN da conta)');
 
   /* A4 */
   conferir(await janela(b6, /Digite o PIN da sua conta/, 15000) && !(await temJanela(b6, /Crie o PIN/)), 'A4. o celular: "Digite o PIN da sua conta" (não pede para criar outro)');

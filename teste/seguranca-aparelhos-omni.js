@@ -169,7 +169,9 @@ const linhaFalsa = (nome, app, seg) => ({ id: crypto.randomUUID(), user_id: ANA,
   /* PIN da conta pela página: criar (então só "Trocar"), trocar; o histórico ganha "pin.criado" e "pin.trocado" (com rótulo, sem PIN) */
   await pagina(a);
   const h0 = db.omni_historico.length;
-  await a.click('#segPin [data-act="conta.pin.criar"]'); await a.waitForSelector('.modal #pcP1', { timeout: 8000 });
+  await a.click('#segPin [data-act="conta.pin.criar"]'); await a.waitForSelector('.modal #ppin', { timeout: 8000 });
+  /* revisão final (G2): antes do PIN novo, o PIN de agora (a casa aberta não prova quem está com o aparelho) */
+  await a.fill('.modal #ppin', PIN_225); await a.click('.modal:has(#ppin) [data-ok]'); await a.waitForSelector('.modal #pcP1', { timeout: 8000 });
   await a.fill('#pcP1', PIN_A); await a.fill('#pcP2', PIN_A); await a.click('.modal #pcOk');
   await a.waitForSelector('.modal #pcP1', { state: 'detached', timeout: 30000 });
   await a.waitForSelector('#segPin [data-act="conta.pin.trocar"]', { timeout: 15000 }).catch(() => {});

@@ -225,8 +225,8 @@ async function codigoMoney(p, uid, pin) {
   const [s4o, s4m] = await Promise.all([sasOmni(oa), sasMoney(mb)]);
   conferir(/^\d{6}$/.test(s4o) && s4o === s4m, 'C4. os mesmos 6 números (Omni ' + s4o + ' = MoneyTRIO ' + s4m + ')');
   await oa.fill('.modal #apPin', PIN_NOVO); await oa.click('.modal #apOk');
-  const apr4 = await oa.waitForFunction(() => /Aprovado\. O outro aparelho já pode entrar com o PIN da sua conta/.test(document.querySelector('#toasts').textContent), null, { timeout: 30000 }).then(() => true, () => false);
-  conferir(apr4, 'C4. Omni: "✓ Aprovado. O outro aparelho já pode entrar com o PIN da sua conta."');
+  const apr4 = await oa.waitForFunction(() => /Aprovado\. Continue no outro aparelho/.test(document.querySelector('#toasts').textContent), null, { timeout: 30000 }).then(() => true, () => false);
+  conferir(apr4, 'C4. Omni: "✓ Aprovado. Continue no outro aparelho." (revisão final A4)');
   await mb.waitForSelector('#nvPC', { timeout: 30000 }).catch(() => {});
   conferir(/Digite o PIN da sua conta/.test(await textoMoney(mb)) && !(await mb.$('#nvP1')), 'C4. MoneyTRIO: "Digite o PIN da sua conta" (o PIN trocado no Omni)');
   await mb.fill('#nvPC', PIN_NOVO); await mb.click('#nvPCOk');
