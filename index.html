@@ -3337,8 +3337,8 @@ const Jornada = {
       if (forcar || !c || c.uid !== uid || Date.now() - c.t > 20000) {
         const nada = () => undefined, leitor = Sol.ligadoAp !== false && (await Bio.available());
         const [info, aps, nb, pks] = await Promise.all([Pin.info(forcar), Sol.ligadoAp === false ? null : Sol.apsMeus().catch(nada),
-          Cofre.minhasNoBanco().catch(nada), leitor ? Sol.pksMinhas().catch(nada) : null]);
-        c = nb ? (this._c = { uid, t: Date.now(), info, aps, pub: nb.pub, bk: nb.bk, pks }) : null;   /* sem as chaves da conta = sem internet */
+          Cofre.minhasNoBanco().catch(nada), Sol.ligadoAp === false ? null : Sol.pksMinhas().catch(nada)]);
+        c = nb ? (this._c = { uid, t: Date.now(), info, aps, pub: nb.pub, bk: nb.bk, pks, leitor }) : null;   /* sem as chaves da conta = sem internet */
       }
     }
     const rede = guardiao ? !!c : conta && navigator.onLine, info = c && c.info, aps = (c && c.aps) || [], tem = !!(info && info.tem);
@@ -3355,7 +3355,8 @@ const Jornada = {
       tem, versao: (info && info.versao) || 0, espera_ate: info && info.espera_ate ? Date.parse(info.espera_ate) : 0, tentativas: (info && info.tentativas) || 0,
       criarPin: !!info && !tem && !!L, trocarPin: tem && !!L, migrar: !!L && !L.srv && tem, pinTrocado: !!L && !!pv && tem && info.versao !== pv,
       outrosApps, omniOutros, outros: aps.filter((a) => !L || a.id !== L.ap).length,   /* outros aparelhos da pessoa, em qualquer app */
-      temPub, temKit, temPasskey: !!(c && c.pks && c.pks.length),
+      temPub, temKit, temPasskey: !!(c && c.leitor && c.pks && c.pks.length),   /* a digital em todos os aparelhos usável AQUI (com leitor) */
+      pkConta: !!(c && c.pks && c.pks.length),   /* a conta tem uma: um aparelho com leitor entra por ela e aprova este (não é beco) */
       familiaPode: Object.keys(fam).some((u) => u !== uid && ["admin", "responsavel"].includes(fam[u].role))
     };
   }
@@ -3704,6 +3705,9 @@ const Cofre = {
           : c.erro === "espera" ? { erro: "espera", conta: true, ate: Date.parse(c.espera_ate), muitas: c.tentativas >= 10 } : { erro: c.erro === "aparelho" ? "tirado" : "rede" };
       }
       if (c) conta = { segredo: c.segredo, versao: c.versao };
+      /* o cadeado DESTE aparelho abre com este PIN: há caminho (é só abrir) — nada muda, senão a chave pessoal de agora e a
+         família daqui se perderiam à toa */
+      if (L0 && await this.abreComPin(L0, pin, conta)) { if (novo && ap) Sol.apTirar(ap).catch(() => {}); return { erro: "abre" }; }
     }
     const par = await this.novoPar();
     try { await this.publicarPub(par); } catch (e) { par.pkcs8.fill(0); if (zero && novo && ap) Sol.apTirar(ap).catch(() => {}); return { erro: "rede" }; }
@@ -3735,6 +3739,13 @@ const Cofre = {
       m.el.querySelector("[data-cp]").onclick = () => copiarSegredo(codigo);
       ok.onclick = () => { m.drop(); res(true); };
     });
+  },
+  /* D4: o cadeado L abre com este PIN (pelo PIN da conta guardado aqui ou pelo PIN deste aparelho)? Só confere: não conta
+     erro nem grava nada. Bloqueado neste aparelho, o PIN daqui não vale (como no abrir) */
+  async abreComPin(L, pin, conta) {
+    try { if (L.srv && conta) { (await Pin.abrirSrv(L.srv, conta.segredo)).fill(0); return true; } } catch (e) {}
+    try { if (L.pin && !L.bloqueado) { (await this.decifrar(await this.kdf(pin, L.pin.sal, L.pin.iter), L.pin)).fill(0); return true; } } catch (e) {}
+    return false;
   },
   /* 2.26.0: trocar o PIN é o do PIN da conta (TelaConta.trocarPin); fica esta porta para quem já chamava */
   trocarPin() { return TelaConta.trocarPin(); },
@@ -4952,10 +4963,10 @@ const TelaConta = {
   },
   /* K21/D4: ninguém para aprovar este aparelho — nenhum outro aparelho da pessoa (em nenhum app), nem o código antigo, nem a
      digital em todos os aparelhos, nem outro chefe/responsável. A mesma regra na "Primeira vez" e no "Começar do zero" */
-  beco(st) { return !!st && st.rede && !st.outros && !st.temKit && !st.temPasskey && !st.familiaPode; },
+  beco(st) { return !!st && st.rede && !st.outros && !st.temKit && !st.pkConta && !st.familiaPode; },
   /* o "Começar do zero" (Avançado) só no beco, para chefe/responsável, com a lista da conta funcionando e as Senhas da casa
      fechadas aqui (abertas, não falta nada) */
-  podeZero(st) { return this.beco(st) && st.guardiao && st.ligado && !Cofre.aberto(); },
+  podeZero(st) { return this.beco(st) && st.guardiao && st.ligado && !Cofre.aberto() && !(st.prf && !st.bloqueado); },   /* a digital daqui abre o cadeado daqui: há caminho */
   juntar(l) { return l.length < 2 ? l.join("") : l.slice(0, -1).join(", ") + tt(" e ", " and ") + l[l.length - 1]; },
   /* como este aparelho entrou na conta. K24: "kit" também é o aparelho de antes da 2.26.0 (entrou na lista sem código nenhum) */
   rotuloComo(como, quem) {
@@ -5072,7 +5083,7 @@ const TelaConta = {
     const acao = async (pin) => {
       if (!Sol.pode()) return tt("Para isso, ligue a internet.", "For this, connect to the internet.");
       r = await Cofre.criarConta(pin, true);
-      if (r.erro === "naoPode") return false;
+      if (r.erro === "naoPode" || r.erro === "abre") return false;
       return r.ok || r.erro === "aguardando" ? "" : Pin.explicar(r) || tt("Não deu certo. Tente de novo.", "It didn't work. Try again.");
     };
     const ocupado = "⏳ " + tt("Preparando este " + ap + "… (leva alguns segundos)", "Setting up this " + ap + "… (takes a few seconds)");
@@ -5081,7 +5092,11 @@ const TelaConta = {
       : { title: "🔢 " + tt("Crie o PIN da sua conta SolverONE", "Create your SolverONE account PIN"), okTxt: tt("Começar do zero", "Start from scratch"), ocupado, acao,
         texto: "<p>" + tt("Ele vale no OmniLifeONE, no MoneyTRIO e nos próximos apps. Escolha 6 números (ou mais) fáceis para você lembrar e difíceis para os outros — não use data de aniversário nem 123456.", "It works in OmniLifeONE, MoneyTRIO and the next apps. Choose 6 digits (or more) easy for you to remember and hard for others — not a birthday or 123456.") + "</p>" });
     await Cofre.atualizar(); render();
-    if (!ok) { if (r && r.erro === "naoPode") toast(tt("Há outro jeito de usar as Senhas da casa neste " + ap + ": Casa → Senhas da casa.", "There is another way to use the home passwords on this " + ap + ": Home → Home passwords."), 5000); return false; }
+    if (!ok) {
+      if (r && r.erro === "naoPode") toast(tt("Há outro jeito de usar as Senhas da casa neste " + ap + ": Casa → Senhas da casa.", "There is another way to use the home passwords on this " + ap + ": Home → Home passwords."), 5000);
+      else if (r && r.erro === "abre") toast(tt("Esse PIN abre as Senhas da casa neste " + ap + ": nada foi trocado. Abra em Casa → Senhas da casa.", "That PIN opens the home passwords on this " + ap + ": nothing was changed. Open them in Home → Home passwords."), 6000);
+      return false;
+    }
     if (r.erro === "aguardando") {
       const em = !!(DB.col("vault").get("_em") || {}).em;
       const v = await this.aviso("⏳ " + tt("Falta liberar", "Waiting for release"), tt("Pronto: este " + ap + " começou do zero. ", "Done: this " + ap + " started from scratch. ") + aviso,

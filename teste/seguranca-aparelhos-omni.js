@@ -15,6 +15,8 @@
      D3  desta página: "Sair" sai de verdade; Avançado → "Tirar este aparelho" confirma, sai e apaga o cadeado daqui
      D4  "Começar do zero" só quando não há outro caminho (K21), com duas confirmações e o aviso do código de emergência; cancelar
          ou PIN errado não muda nada; o par novo nasce SÓ por aqui (chamar direto fora do beco é recusado)
+     R3  (revisão 3) não é beco: a digital em todos os aparelhos na conta (mesmo sem leitor aqui) e a digital deste aparelho; com o
+         cadeado aqui, o PIN que o abre (pelo PIN da conta guardado aqui ou pelo PIN daqui) não troca nada no "Começar do zero"
      e: "🔒 Bloquear agora" em todos os lugares (Senhas da casa, emergência, chaves de IA, "só neste aparelho" com a senha principal),
         sem "Fechar"/"Trancar o cofre agora"; o cartão da conta limpo; ⚙ → Geral leva à página; "📱 Aparelhos da família" e "Tirar";
         a ajuda; a Saúde → MoneyTRIO sem "cifrado"; os rótulos do histórico (K33) e "pin.criado"/"pin.trocado" gravados
@@ -377,6 +379,60 @@ const linhaFalsa = (nome, app, seg) => ({ id: crypto.randomUUID(), user_id: ANA,
   conferir(!Z.lixo.erros.length && !Z.lixo.nativos.length, 'D4: sem erro de script e sem diálogo nativo' + (Z.lixo.erros.length ? ': ' + Z.lixo.erros.join(' | ') : ''));
   await Z.ctx.close();
   db.omni_chave_privada.push(kit);
+  for (const u of [BIA, CRIS]) db.sol_grupo_membros.find((x) => x.grupo_id === GID && x.user_id === u).papel = papeis[u];
+
+  /* ================= Revisão 3 (segurança): "Começar do zero" com um caminho que o beco não via ================= */
+  console.log('R3. "Começar do zero" quando há caminho: o cadeado deste aparelho, a digital daqui, a digital em todos os aparelhos');
+  const W = await aparelho(browser, { nome: 'Ana-portatil', vp: 'computador', base: BASE }), w = W.p; lixos.push(W.lixo);
+  await entrarOmni(w, ANA); await quieto(w);
+  /* um computador com o cadeado que abre a família (a chave pessoal do papel) e o PIN da conta guardado aqui (L.srv) */
+  await cadeado225(w, ANA, PIN_B);
+  await w.evaluate(async (pin) => { await Aparelhos.registrar(); Cofre.trancar(); await Pin.abrir(pin); }, PIN_B);
+  const cadW = () => w.evaluate(async () => { const L = await Cofre.local(); return L ? { sk: JSON.stringify(L.sk), ap: L.ap, srv: !!L.srv } : null; });
+  const Lw0 = await cadW();
+  conferir(!!Lw0 && !!Lw0.ap && Lw0.srv && await w.evaluate(() => Cofre.aberto()), 'R3 preparo: este computador com o cadeado (abre a família), na lista e no PIN da conta');
+  /* o beco, com este computador: sem kit, sem outro aparelho, sem outro chefe/responsável */
+  const kit3 = db.omni_chave_privada.find((k) => k.user_id === ANA);
+  db.omni_chave_privada.splice(db.omni_chave_privada.indexOf(kit3), 1);
+  linhasDe(ANA).filter((x) => x.id !== Lw0.ap).forEach((x) => { x.removido_em = agora(); x.removido_por = ANA; });
+  for (const u of [BIA, CRIS]) db.sol_grupo_membros.find((x) => x.grupo_id === GID && x.user_id === u).papel = 'membro';
+  await entrarOmni(w, ANA); await quieto(w); await vigiarPares(w);
+  await w.evaluate(() => ACT['conta.bloquear']());
+  const pub3 = pubDe(ANA), zeroDireto = (pin) => w.evaluate((p) => Cofre.criarConta(p, true), pin);
+  /* a digital em todos os aparelhos na conta: este computador não tem leitor, mas um celular com ela entra e aprova daqui */
+  const pk3 = { user_id: ANA, cred_id: b64u(crypto.randomBytes(16)), sal: b64u(crypto.randomBytes(32)), fechada: { iv: 'AAAAAAAAAAAAAAAA', ct: 'AAAAAAAAAAAAAAAAAAAAAA==' }, criado_em: agora(), removido_em: null };
+  db.sol_passkeys.push(pk3);
+  await pagina(w);
+  const zPk = await zeroDireto(PIN_B);
+  conferir(!(await naTela(w, '#segZero')) && zPk.erro === 'naoPode' && await w.evaluate(() => window.__pares) === 0 && pubDe(ANA) === pub3,
+    'R3. a conta tem a digital em todos os aparelhos (sem leitor aqui): não é beco — sem "Começar do zero" e chamar direto é recusado');
+  pk3.removido_em = agora();
+  /* a digital DESTE aparelho abre o cadeado daqui */
+  await w.evaluate(() => Cofre.mudarLocal(null, (L) => { L.prf = { cred: 'cred-de-mentira', sal: 'sal-de-mentira', iv: 'AAAAAAAAAAAAAAAA', ct: 'AAAAAAAAAAAAAAAAAAAAAA==' }; return L; }));
+  await pagina(w);
+  const zDig = await zeroDireto(PIN_X);
+  conferir(!(await naTela(w, '#segZero')) && zDig.erro === 'naoPode' && await w.evaluate(() => window.__pares) === 0 && pubDe(ANA) === pub3,
+    'R3. a digital deste aparelho abre o cadeado daqui: sem "Começar do zero" e chamar direto é recusado');
+  await w.evaluate(() => Cofre.mudarLocal(null, (L) => { L.prf = null; return L; }));
+  /* o cadeado daqui com o PIN certo: o "Começar do zero" continua (para quem esqueceu), mas o PIN que abre não troca nada */
+  await pagina(w); await w.evaluate(() => { document.querySelector('#segAvancado').open = true; });
+  conferir(await naTela(w, '#segZero [data-act="conta.zero"]'), 'R3. no beco com o cadeado aqui, o "Começar do zero" continua em Avançado (para quem esqueceu o PIN)');
+  await w.click('#segZero [data-act="conta.zero"]'); await w.waitForSelector('.modal [data-yes]', { timeout: 8000 }); await w.click('.modal [data-yes]');
+  await janela(w, /Tem certeza\?/); await w.click('.modal [data-yes]');
+  await w.waitForSelector('.modal #pcPin', { timeout: 10000 });
+  await w.fill('.modal #pcPin', PIN_B); await w.click('.modal #pcOk');
+  await w.waitForFunction(() => /Esse PIN abre/.test(document.querySelector('#toasts').textContent) || [...document.querySelectorAll('.modal')].some((m) => /Falta liberar|começaram do zero/.test(m.innerText)), null, { timeout: 60000 }).catch(() => {});
+  const Lw1 = await cadW(), tw = await toasts(w);
+  conferir(/Esse PIN abre as Senhas da casa neste/.test(tw) && await w.evaluate(() => window.__pares) === 0 && pubDe(ANA) === pub3 && !!Lw1 && Lw1.sk === Lw0.sk && Lw1.ap === Lw0.ap && linhasDe(ANA).length === 1 && !(await naTela(w, '.modal')),
+    'R3. o PIN da conta abre o cadeado deste computador: "Começar do zero" não troca nada (a mesma chave pessoal, a mesma pública, nenhum par novo) e diz que esse PIN abre');
+  conferir(await w.evaluate(async (pin) => { const r = await Pin.abrir(pin); return !!(r && r.ok) && Cofre.aberto(); }, PIN_B), 'R3. ... e o mesmo PIN abre as Senhas da casa daqui (a família continua)');
+  /* sem o PIN da conta guardado aqui (L.srv): o PIN deste aparelho que abre o cadeado também barra */
+  await w.evaluate(() => { Cofre.trancar(); return Cofre.mudarLocal(null, (L) => { delete L.srv; return L; }); });
+  const zLocal = await zeroDireto(PIN_B), Lw2 = await cadW();
+  conferir(zLocal.erro === 'abre' && await w.evaluate(() => window.__pares) === 0 && pubDe(ANA) === pub3 && !!Lw2 && Lw2.sk === Lw0.sk, 'R3. o PIN deste aparelho abre o cadeado daqui: chamar direto não troca nada ({erro: "abre"})');
+  conferir(!W.lixo.erros.length && !W.lixo.nativos.length, 'R3: sem erro de script e sem diálogo nativo' + (W.lixo.erros.length ? ': ' + W.lixo.erros.join(' | ') : ''));
+  await W.ctx.close();
+  db.omni_chave_privada.push(kit3);
   for (const u of [BIA, CRIS]) db.sol_grupo_membros.find((x) => x.grupo_id === GID && x.user_id === u).papel = papeis[u];
 
   conferir(!lixos.some((l) => l.fora.some((u) => /supabase/i.test(u))), 'nada foi para o Supabase de verdade (só o banco de mentira)');
