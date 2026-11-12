@@ -28,6 +28,20 @@
           anexos com enc.fk de uma de antes, sem enc.fk (de antes da 2.27.0) e novos (enc.fk = a atual) abrem; trancar zera
           tudo; um aparelho que já adotou a nova (L.fam[gid].velhas) abre pelo PIN e continua lendo o que é de antes, sem gravar
           nada; nada muda no formato das linhas
+   Etapa E4 (perceber a chave nova e o envio que não volta com a velha), com a troca feita à mão no banco:
+     G2   o outro aparelho com as Senhas abertas adota a nova no Cloud.poll, sem PIN (aviso), e mostra tudo; fechado, adota ao abrir
+          pelo PIN, antes do usarChave (chamado uma vez); L.fam[gid] = a nova e velhas = [a de antes]; o prox de outra troca fica
+          (C1.4); sem troca: uma GET só, sem RSA, e nada gravado; de volta à internet, nunca entrega a velha (G3)
+     G2b  abrir pelo PIN com o registro do banco demorando: abre já com a que tem (a rede não segura o abrir, revisão final F1) e
+          adota quando ele chega, sem esperar o Cloud.poll
+     G3D  o aparelho que entrou aprovado pela família (sem a chave pessoal): o cartão "precisa ser aprovado de novo" com o botão (o
+          pedido "para a família" sai), a carga recusa, os itens que não abrem saem da tela (C14), a placa do carro nem aparece
+          para mudar (C14); reaprovado com o mesmo PIN, as chaves de antes e o prox vêm junto (levarVelha, C8); com outro PIN, não
+     G3b  o registro volta para uma chave mais velha (C4): ninguém volta, o cartão "não confere"; entre duas de mesma kv, a do
+          registro (buscarMinha); sem a nova embrulhada para ela, a Bia vê "Falta um chefe abrir…" e adota quando ela chega
+     G9   B edita sem internet com a velha; a troca acontece; ao voltar, a edição sobe com a nova e sem item duplicado (só mudou o
+          cadeado: mesmoConteudo); um conflito de verdade guarda as duas, as duas com a nova; nada chega ao banco com a velha (C2).
+          G9c: C, fechado, não manda nada (espera); ao abrir pelo PIN, sobe uma vez com a nova
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -177,6 +191,44 @@ async function abertoComVelha(p, uid, pin) {
   /* a primeira liberação (o usarChave dispara) termina antes de o teste começar a contar */
   await p.evaluate(async () => { for (let i = 0; i < 100 && Cofre._distP; i++) await new Promise((r) => setTimeout(r, 100)); });
 }
+/* um aparelho da pessoa que entrou aprovado pela FAMÍLIA (sem a chave pessoal: L.sk null), aberto com a CF de antes */
+async function abertoPelaFamilia(p, uid, pin) {
+  await entrarOmni(p, uid); await quieto(p);
+  await p.evaluate(() => { Sol.ligadoAp = false; Sol.ligadoPin = false; });
+  await senhasDaCasa(p);
+  await p.evaluate(async (a) => {
+    const dukRaw = Cofre.rnd(32), duk = await Cofre.aes(dukRaw), sal = b64FromBuf(Cofre.rnd(16));
+    const L = { v: 1, uid: Conta.uid(), pin: Object.assign({ sal, iter: COFRE_ITER }, await Cofre.cifrar(await Cofre.kdf(a.pin, sal, COFRE_ITER), dukRaw)), prf: null, sk: null,
+      fam: { [S.family.id]: Object.assign({ kv: 1, fk: a.fk }, await Cofre.cifrar(duk, new Uint8Array(a.cf))) }, erros: 0, ate: 0, bloqueado: false, como: 'familia', ap: null };
+    await Cofre.mudarLocal(null, () => L);
+    Cofre.dukRaw = dukRaw; await Cofre.usarChave(new Uint8Array(a.cf), 1, a.fk);
+    await Cofre.atualizar(); render();
+  }, { pin, cf: [...M.cfVelha], fk: FK0 });
+  await p.waitForFunction(() => Cofre.status && Cofre.status.fase === 'aberto' && !document.querySelector('.modal'), null, { timeout: 20000 });
+  await p.evaluate(() => { Sol.ligadoAp = null; Sol.ligadoPin = null; });
+  await p.evaluate(async () => { for (let i = 0; i < 100 && Cofre._distP; i++) await new Promise((r) => setTimeout(r, 100)); });
+}
+/* abre as Senhas da casa pelo PIN (Pin.abrir → comChaveDoAparelho), sem o SQL do PIN da conta (o PIN deste aparelho) */
+const abrirPeloPin = (p, pin) => p.evaluate(async (pin) => {
+  Sol.ligadoAp = false; Sol.ligadoPin = false;
+  try { const r = await Cofre.destrancarPin(pin); await Cofre.atualizar(); render(); return r; } finally { Sol.ligadoAp = null; Sol.ligadoPin = null; }
+}, pin);
+/* o cadeado deste aparelho para a família de agora: {fk, kv, velhas: [fk…], prox: fk | null} */
+const famDe = (p) => p.evaluate(async () => { const L = await Cofre.local(), f = L && L.fam && L.fam[S.family.id]; return f ? { fk: f.fk, kv: f.kv, velhas: (f.velhas || []).map((v) => v.fk), prox: f.prox ? f.prox.fk : null } : null; });
+/* o que a tela das Senhas da casa tem: {id: título} (o código de emergência: true) */
+const titulos = (p) => p.evaluate(async () => {
+  const out = {};
+  for (const v of DB.all('vault')) { if (v.id === '_em') { out._em = !!v.em; continue; } try { out[v.id] = (await Vault.decObj(v.enc)).title; } catch (e) { out[v.id] = null; } }
+  return out;
+});
+/* conta as vezes que o usarChave é chamado (window.__usar) */
+const contarUsar = (p) => p.evaluate(() => { window.__usar = 0; const o = Cofre.usarChave; Cofre.usarChave = function () { window.__usar++; return o.apply(this, arguments); }; });
+/* espera uma condição assíncrona do lado do Node */
+async function ateA(fn, ms) { const fim = Date.now() + (ms || 10000); while (Date.now() < fim) { if (await fn()) return true; await espere(150); } return !!(await fn()); }
+/* o título (a parte interna) de uma linha do banco, aberta em Node com a chave raw (as duas camadas) | null */
+async function tituloDe(raw, cif) { try { const d = await abrirLinha(raw, cif); return JSON.parse(new TextDecoder().decode(await decifrar(raw, d.enc))).title; } catch (e) { return null; } }
+/* as gravações no vault (PATCH/POST) desde marca com o texto fechado com o fk dado */
+const subiuCom = (marca, fk) => M.log.slice(marca).filter((l) => ['PATCH', 'POST'].includes(l.metodo) && /omni_docs/.test(l.caminho) && l.corpo && l.corpo.dados_cifrado && (() => { try { return JSON.parse(l.corpo.dados_cifrado).fk === fk; } catch (e) { return false; } })());
 /* a fila deste aparelho sobe até o fim (agora: também o que está adiado), sem cair no "já está enviando" do flush. O DB.put e o
    DB.del da nuvem não esperam a fila (o aparelho segue na hora): chave = espera ela entrar na fila antes */
 const subir = (p, agora, chave) => p.evaluate(async ([agora, chave]) => {
@@ -414,6 +466,10 @@ const distribuirJa = async (p) => { await p.evaluate(async () => { for (let i = 
   await parte('G3', 'Aparelho velho não devolve a CF antiga; as guardas da carga, do mudar e da cópia', async (novo) => {
     const A = await novo('G3-ana-velho', { vp: 'computador' }), a = A.p;
     await abertoComVelha(a, ANA, PIN_A);
+    /* desde a E4 o aparelho acompanha a troca sozinho (Cofre.conferirAoVivo, no Cloud.poll e no envio): aqui ele fica com a velha
+       de propósito — como uma 2.26 aberta, ou antes da volta do poll que adota — para provar que as guardas valem sozinhas.
+       O caminho de verdade (volta, adota e nunca entrega a velha) é o G2/G3 da E4 */
+    await a.evaluate(() => { Cofre.conferirAoVivo = async () => false; });
     const n0 = db.sol_grupo_chaves.length;
     conferir(await a.evaluate(() => Cofre.aberto() && Cofre.fk) === FK0 && n0 === 2, 'preparo: a Ana abre as Senhas da casa com a CF de antes (fk-teste); 2 linhas em sol_grupo_chaves');
     /* positivo, antes da troca: com a chave atual, a carga "família" sai (para a Bia, responsável) */
@@ -714,8 +770,288 @@ const distribuirJa = async (p) => { await p.evaluate(async () => { for (let i = 
       'CH. abrir com o chaveiro não grava nada: nem no cadeado deste aparelho, nem nas Senhas da casa, nem no registro');
   });
 
+  /* ================= G2 (etapa E4): o outro aparelho percebe a chave nova e abre ================= */
+  await parte('G2', 'O outro aparelho percebe a chave nova: aberto, adota no Cloud.poll sem PIN; fechado, ao abrir pelo PIN; nunca entrega a velha', async (novo) => {
+    const B = await novo('G2-ana-computador', { vp: 'computador' }), b = B.p;
+    const C = await novo('G2-ana-celular', { vp: 'celular' }), c = C.p;
+    await abertoComVelha(b, ANA, PIN_A);
+    await abertoComVelha(c, ANA, PIN_A);
+    /* sem troca: só abrir (pelo PIN) e conferir não grava nada e não faz RSA */
+    await c.evaluate(() => Cofre.trancar());
+    const L0 = await c.evaluate(async () => JSON.stringify(await Cofre.local()));
+    let marca = M.log.length;
+    const r0 = await abrirPeloPin(c, PIN_A);
+    const v0 = await c.evaluate(() => Cofre.conferirAoVivo());
+    await espere(400);
+    const log0 = M.log.slice(marca), L1 = await c.evaluate(async () => JSON.stringify(await Cofre.local()));
+    conferir(r0.ok && v0 === false && L1 === L0 && !log0.some((l) => /sol_minha_chave_grupo|sol_guardar_chave_grupo/.test(l.caminho) || (['PATCH', 'POST'].includes(l.metodo) && /omni_docs/.test(l.caminho))) &&
+      await c.evaluate(() => Cofre.desatualizado === false && Cofre.fk) === FK0,
+      'G2. sem troca: abrir pelo PIN e conferir não grava nada (o cadeado igual byte a byte, nada nas Senhas nem no registro) e não abre nenhuma chave embrulhada (uma GET só)');
+    await c.evaluate(() => Cofre.trancar());
+    /* C1.4: um prox (a nova de uma troca que este aparelho começou e perdeu: outro fk) fica depois de adotar */
+    await b.evaluate(async (pin) => {
+      const d = await Cofre._pinRaw(pin), duk = await Cofre.aes(d.raw); d.raw.fill(0);
+      const prox = Object.assign({ kv: 3, fk: 'fk-prox' }, await Cofre.cifrar(duk, Cofre.rnd(32)));
+      await Cofre.mudarLocal(null, (L) => { L.fam[S.family.id].prox = prox; return L; });
+    }, PIN_A);
+    await vigiarAvisos(b);
+    /* B sem internet durante a troca (as Senhas abertas, com a de antes) */
+    await semRede(B.ctx, true);
+    await trocaAMao();
+    await darPublica(CRIS);   /* uma responsável que ganhou a chave pública depois da troca: a próxima liberação é para ela */
+    marca = M.log.length;
+    await b.evaluate(() => { window.__usar = 0; const o = Cofre.usarChave; Cofre.usarChave = function () { window.__usar++; return o.apply(this, arguments); }; });
+    await semRede(B.ctx, false);   /* o "online" chama o Cloud.poll */
+    const adotou = await esperar(b, (fk) => Cofre.fk === fk && !Cofre._conf, FKN, 20000);
+    await espere(300);
+    const famB = await famDe(b), titB = await titulos(b), chB = await b.evaluate(() => ({ outras: Cofre.outras.map((o) => o.fk), kv: Cofre.kv, usar: window.__usar, d: Cofre.desatualizado }));
+    conferir(adotou && famB.fk === FKN && famB.kv === 2 && JSON.stringify(famB.velhas) === JSON.stringify([FK0]) && chB.kv === 2 && JSON.stringify(chB.outras) === JSON.stringify([FK0]) && chB.usar === 1 && chB.d === false,
+      'G2. aberto: no Cloud.poll adota a nova sem pedir o PIN; L.fam[GID] = a nova e velhas = [a de antes]; a de antes só abre (' + JSON.stringify([famB, chB]) + ')');
+    conferir(famB.prox === 'fk-prox', 'C1.4. o prox de outra troca (outro fk) continua guardado depois de adotar');
+    conferir(ITENS.every((x, i) => titB['v' + i] === x[1]) && titB._em === true && Object.keys(titB).length === 7, 'G2. aberto: mostra os 7 (os 6 itens e o código de emergência) (' + JSON.stringify(titB) + ')');
+    conferir(/atualizadas neste/.test(await avisos(b)), 'G2. aviso para leigo: "' + (await avisos(b)) + '"');
+    /* nada mudou de novo: conferir outra vez é uma GET só, sem RSA */
+    let m2 = M.log.length;
+    const v2 = await b.evaluate(() => Cofre.conferirAoVivo());
+    conferir(v2 === false && !M.log.slice(m2).some((l) => /sol_minha_chave_grupo/.test(l.caminho)), 'G2. depois de adotar, conferir de novo não abre nenhuma chave embrulhada');
+    /* G3: de volta à internet com a velha, nunca entregou a velha; a próxima liberação leva a nova (para a Cris) */
+    await distribuirJa(b);
+    await ate(() => regBanco().membros[CRIS], 8000);
+    const e = await entregas(marca);
+    conferir(e.length >= 1 && e.every((x) => x.fk === FKN && x.kv === 2) && e.some((x) => x.user === CRIS) && regOk(regBanco()) && regBanco().kv === 2,
+      'G3. de volta à internet: nenhuma chave embrulhada com a velha; a Cris recebe a nova; o registro continua o novo (' + JSON.stringify(e) + ')');
+    /* C, fechado durante a troca: ao abrir pelo PIN, adota ANTES do usarChave (chamado uma vez) */
+    await contarUsar(c); await vigiarAvisos(c);
+    const rc = await abrirPeloPin(c, PIN_A);
+    await espere(300);
+    const famC = await famDe(c), titC = await titulos(c), chC = await c.evaluate(() => ({ fk: Cofre.fk, kv: Cofre.kv, outras: Cofre.outras.map((o) => o.fk), usar: window.__usar }));
+    conferir(rc.ok && famC.fk === FKN && famC.kv === 2 && JSON.stringify(famC.velhas) === JSON.stringify([FK0]) && chC.fk === FKN && chC.kv === 2 && JSON.stringify(chC.outras) === JSON.stringify([FK0]) && chC.usar === 1,
+      'G2. fechado: abre pelo PIN e já adota (usarChave uma vez, com a nova; a de antes só abre) (' + JSON.stringify([famC, chC]) + ')');
+    conferir(ITENS.every((x, i) => titC['v' + i] === x[1]) && titC._em === true && /atualizadas neste/.test(await avisos(c)), 'G2. fechado: mostra tudo e avisa');
+  });
+
+  /* ================= G2b (etapa E4): o registro que demora não segura o abrir ================= */
+  await parte('G2b', 'Abrir pelo PIN com o registro do banco demorando: abre já com a que tem e adota quando ele chega (revisão final F1)', async (novo) => {
+    const B = await novo('G2b-ana', { vp: 'computador' }), b = B.p;
+    const C = await novo('G2b-ana-celular', { vp: 'celular' }), c = C.p;
+    await abertoComVelha(b, ANA, PIN_A);
+    await abertoComVelha(c, ANA, PIN_A);
+    for (const x of [b, c]) await x.evaluate(() => { Cofre.trancar(); Cloud.stopPoll(); });   /* sem o Cloud.poll: quem adota é o próprio abrir */
+    await trocaAMao();
+    /* a leitura do registro (settings: cofre e giro) leva 2,5 s para responder */
+    const lento = (u) => u.href.includes('/rest/v1/omni_docs') && u.href.includes('id=in.(cofre,giro)');
+    await b.route(lento, async (r) => { await espere(2500); return r.fallback(); });
+    await contarUsar(b); await vigiarAvisos(b);
+    const t0 = Date.now(), rc = await abrirPeloPin(b, PIN_A), dt = Date.now() - t0, fk1 = await b.evaluate(() => Cofre.fk);
+    const adotou = await esperar(b, (fk) => Cofre.fk === fk, FKN, 12000);
+    await espere(300);
+    const fam = await famDe(b), usar = await b.evaluate(() => window.__usar);
+    await b.unroute(lento);
+    conferir(rc.ok && fk1 === FK0 && dt < 2500, 'G2b. o abrir não espera o registro que demora: abre em ' + (dt / 1000).toFixed(1) + ' s com a que tem');
+    conferir(adotou && fam.fk === FKN && JSON.stringify(fam.velhas) === JSON.stringify([FK0]) && usar === 2 && /atualizadas neste/.test(await avisos(b)),
+      'G2b. quando o registro chega dizendo a nova, adota sozinho (sem esperar o Cloud.poll) e avisa (' + JSON.stringify(fam) + ', usarChave ' + usar + ')');
+    /* o pedido do registro começa junto com o PIN: com o registro lento (1,5 s) e o PIN que demora mais (1,8 s), adota ANTES de abrir */
+    await c.route(lento, async (r) => { await espere(1500); return r.fallback(); });
+    await contarUsar(c);
+    await c.evaluate(() => { const o = Pin.abrir; Pin.abrir = async (pin) => { await new Promise((r) => setTimeout(r, 1800)); return o.call(Pin, pin); }; });
+    const rc2 = await abrirPeloPin(c, PIN_A), c2 = await c.evaluate(() => ({ fk: Cofre.fk, usar: window.__usar }));
+    await c.unroute(lento);
+    conferir(rc2.ok && c2.fk === FKN && c2.usar === 1, 'G2b. o registro pedido junto com o PIN: já chegou quando o PIN abre, e a nova é adotada antes de abrir (usarChave uma vez) (' + JSON.stringify(c2) + ')');
+  });
+
+  /* ================= G3D (etapa E4): o aparelho que entrou aprovado pela família ================= */
+  await parte('G3D', 'O aparelho aprovado pela família (sem a chave pessoal): "precisa ser aprovado de novo", a carga recusa, o que não abre sai da tela; reaprovado, as chaves de antes vêm junto', async (novo) => {
+    const D = await novo('G3D-ana-familia', { vp: 'celular' }), d = D.p;
+    await abertoPelaFamilia(d, ANA, PIN_A);
+    const t0 = await titulos(d);
+    conferir(await d.evaluate(() => Cofre.aberto() && Cofre.fk) === FK0 && ITENS.every((x, i) => t0['v' + i] === x[1]) && await d.evaluate(() => !document.querySelector('#cfVelho') && Cofre.desatualizado === false),
+      'preparo: o aparelho da família abre com a de antes, sem cartão');
+    const nova = await trocaAMao();
+    /* A muda o item v4 depois da troca (com a nova) */
+    const d4 = await abrirLinha(nova, linha('vault', 'v4').dados_cifrado), s4 = JSON.parse(new TextDecoder().decode(await decifrar(nova, d4.enc)));
+    s4.title = 'Cartão mudado pela Ana'; d4.enc = await cifrar(nova, utf8(JSON.stringify(s4)));
+    gravarDoc('vault', 'v4', { dados_cifrado: await selar(nova, 2, FKN, d4) }, ANA);
+    const L0 = await d.evaluate(async () => JSON.stringify(await Cofre.local()));
+    const velho4 = await d.evaluate(() => JSON.parse(JSON.stringify(DB.col('vault').get('v4'))));
+    await d.evaluate(() => Cloud.poll());
+    const viu = await esperar(d, () => Cofre.desatualizado === 'semChave' && !!document.querySelector('#cfVelho [data-act="cofre.reaprovar"]'), null, 20000);
+    const card = await d.evaluate(() => (document.querySelector('#cfVelho') || {}).innerText || '');
+    const t1 = await titulos(d), L1 = await d.evaluate(async () => JSON.stringify(await Cofre.local()));
+    conferir(viu && /precisa ser aprovado de novo/.test(card) && /Pedir aprovação de novo/.test(card) && /mesmo PIN/.test(card) && L1 === L0 && await d.evaluate(() => Cofre.fk) === FK0,
+      'G3. sem a chave pessoal: o cartão "' + card.replace(/\s+/g, ' ').slice(0, 140) + '…", e o cadeado daqui não muda');
+    conferir(Object.keys(t1).join() === '_em', 'C14. as linhas novas não abrem aqui: os itens de antes saem da tela (não dá para editar uma cópia velha) (' + JSON.stringify(t1) + ')');
+    /* uma edição da cópia velha (de uma janela aberta antes) não volta a linha da Ana */
+    await vigiarAvisos(d);
+    await d.evaluate(async (v) => { await DB.put('vault', Object.assign({}, v, { updatedAt: '2026-11-12T11:00:00.000Z' }), true); }, velho4);
+    await espere(600); await subir(d, true);
+    const ed = await avisos(d);
+    conferir(/precisa da atualização/.test(ed) && await tituloDe(nova, linha('vault', 'v4').dados_cifrado) === 'Cartão mudado pela Ana' && await d.evaluate(() => !CloudDriver.fila.has('vault|v4')),
+      'C14. uma edição da cópia velha não sobe: a linha continua a da Ana (' + ed + ')');
+    /* a carga "família" deste aparelho recusa */
+    const cg = await d.evaluate(async (bia) => { const L = await Cofre.local(), k = await Aparelhos.carga({ tipo: 'familia', grupo_id: S.family.id, quem: bia }, L, new Uint8Array(Cofre.dukRaw)); if (k.zerar) k.zerar(); return { c: !!k.c, texto: k.texto || '' }; }, BIA);
+    conferir(!cg.c && /versão antiga/.test(cg.texto), 'G3. a carga "família" deste aparelho recusa: "' + cg.texto + '"');
+    /* C14: a ficha do carro nem mostra a placa para mudar */
+    await d.evaluate(() => { Cars.edit({ id: 'car-g3d', kind: 'veiculo', name: 'Carro de mentira', carro: {}, seguro: {} }); });
+    await esperar(d, () => !!document.querySelector('.modal input[name="name"]'), null, 5000);
+    const fc = await d.evaluate(() => { const m = document.querySelector('.modal'); return { placa: !!m.querySelector('[name="_sec.placa"]'), texto: m.innerText }; });
+    await d.evaluate(() => closeModals());
+    conferir(!fc.placa && /precisa da atualização/.test(fc.texto), 'C14. a ficha do carro: com a chave velha, a placa nem aparece para mudar (o aviso no lugar)');
+    /* o fechar e abrir de novo pelo PIN: abre com a de antes, o cartão continua */
+    await d.evaluate(() => Cofre.trancar());
+    const rp = await abrirPeloPin(d, PIN_A);
+    conferir(rp.ok && await d.evaluate(() => Cofre.fk === 'fk-teste' && Cofre.desatualizado === 'semChave') && await esperar(d, () => !!document.querySelector('#cfVelho'), null, 5000), 'G3. abrir pelo PIN: abre com a de antes e o cartão continua');
+    /* o botão pede a aprovação "para a família" */
+    const n0 = db.sol_acesso_pedidos.length;
+    await d.click('#cfVelho [data-act="cofre.reaprovar"]');
+    const pediu = await esperar(d, () => [...document.querySelectorAll('.modal')].some((m) => /Pedir para alguém da família/.test(m.innerText)), null, 8000);
+    const ped = db.sol_acesso_pedidos.slice(n0).find((x) => x.user_id === ANA);
+    conferir(pediu && ped && ped.grupo_id === GID && ped.estado === 'aberto', 'G3. "Pedir aprovação de novo" abre o pedido para a família (o pedido está no banco, desta família)');
+    await d.click('#apCancelar').catch(() => {});
+    await espere(500); await d.evaluate(() => closeModals());
+    /* reaprovado (a carga da família chega com a nova): com o mesmo PIN, as chaves de antes (e o prox de uma troca, C8) vêm junto */
+    const PROX = [...crypto.randomBytes(32)];
+    await d.evaluate(async (o) => {
+      const r = await Cofre._pinRaw(o.pin), duk = await Cofre.aes(r.raw); r.raw.fill(0);
+      const prox = Object.assign({ kv: 3, fk: 'fk-prox' }, await Cofre.cifrar(duk, new Uint8Array(o.prox)));
+      await Cofre.mudarLocal(null, (L) => { L.fam[S.family.id].prox = prox; return L; });
+    }, { pin: PIN_A, prox: PROX });
+    const rm = await d.evaluate(async (o) => {
+      const r = await Cofre.montar(null, { raw: new Uint8Array(o.nova), kv: 2, fk: o.fkn }, o.pin, 'familia', null, null);
+      if (r.raw) r.raw.fill(0);
+      const p = await Cofre._pinRaw(o.pin), duk = await Cofre.aes(p.raw); p.raw.fill(0);
+      const f = (await Cofre.local()).fam[S.family.id], igual = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
+      const velha = f.velhas && f.velhas[0] ? [...(await Cofre.decifrar(duk, f.velhas[0]))] : null, prox = f.prox ? [...(await Cofre.decifrar(duk, f.prox))] : null;
+      return { ok: !!r.ok, fk: f.fk, velhas: (f.velhas || []).map((v) => v.fk), velhaIgual: !!velha && igual(velha, o.velha), prox: f.prox && f.prox.fk, proxIgual: !!prox && igual(prox, o.prox),
+        outras: Cofre.outras.map((x) => x.fk), atual: Cofre.fk, d: Cofre.desatualizado };
+    }, { nova: [...nova], fkn: FKN, pin: PIN_A, velha: [...M.cfVelha], prox: PROX });
+    await espere(500);
+    const t2 = await titulos(d);
+    conferir(rm.ok && rm.fk === FKN && rm.atual === FKN && JSON.stringify(rm.velhas) === JSON.stringify([FK0]) && rm.velhaIgual && JSON.stringify(rm.outras) === JSON.stringify([FK0]) && rm.d === false,
+      'G3. reaprovado com o mesmo PIN: o cadeado novo leva a de antes (a mesma chave, fechada pela chave nova do aparelho) e ela só abre (' + JSON.stringify(rm) + ')');
+    conferir(rm.prox === 'fk-prox' && rm.proxIgual, 'C8. o prox de uma troca também vem junto');
+    conferir(t2.v4 === 'Cartão mudado pela Ana' && ['v0', 'v1', 'v2', 'v3', 'v5'].every((id) => t2[id] === ITENS[+id.slice(1)][1]), 'G3. reaprovado: os itens voltam à tela (o v4 com a mudança da Ana)');
+    /* com outro PIN, o cadeado de antes não abre: segue sem (nada quebra) */
+    const rm2 = await d.evaluate(async (o) => {
+      const r = await Cofre.montar(null, { raw: new Uint8Array(o.nova), kv: 2, fk: o.fkn }, '909192', 'familia', null, null); if (r.raw) r.raw.fill(0);
+      const f = (await Cofre.local()).fam[S.family.id]; return { ok: !!r.ok, fk: f.fk, velhas: f.velhas || null, prox: f.prox || null };
+    }, { nova: [...nova], fkn: FKN });
+    conferir(rm2.ok && rm2.fk === FKN && rm2.velhas === null && rm2.prox === null, 'G3. reaprovado com outro PIN: o cadeado de antes não abre, segue só com a nova (' + JSON.stringify(rm2) + ')');
+  });
+
+  /* ================= G3b (etapa E4, C4): o registro que volta para trás ================= */
+  await parte('G3b', 'O registro volta para uma chave mais velha (C4): ninguém volta e o cartão "não confere"; entre duas de mesma kv, a do registro', async (novo) => {
+    const B = await novo('G3b-ana', { vp: 'computador' }), b = B.p;
+    const C = await novo('G3b-ana-celular', { vp: 'celular' }), c = C.p;
+    const E = await novo('G3b-bia', { vp: 'celular' }), e = E.p;
+    await abertoComVelha(b, ANA, PIN_A);
+    await abertoComVelha(c, ANA, PIN_A);
+    await abertoComVelha(e, BIA, PIN_C);
+    await c.evaluate(() => Cofre.trancar());
+    await trocaAMao();
+    /* a nova ainda não embrulhada para a Bia (responsável, com a chave pessoal no aparelho) */
+    const daBia = db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === BIA && x.versao > 1);
+    db.sol_grupo_chaves.splice(0, db.sol_grupo_chaves.length, ...db.sol_grupo_chaves.filter((x) => !daBia.includes(x)));
+    await b.evaluate(() => Cloud.poll());
+    conferir(await esperar(b, (fk) => Cofre.fk === fk, FKN, 20000), 'preparo: B adotou a nova');
+    const regN = regBanco(), LB = await b.evaluate(async () => JSON.stringify(await Cofre.local()));
+    /* alguém grava à mão o registro de antes */
+    gravarDoc('settings', 'cofre', { dados: Object.assign({}, regN, { fk: FK0, kv: 1 }) }, BIA);
+    await b.evaluate(() => Cloud.poll());
+    const viu = await esperar(b, () => Cofre.desatualizado === 'estranho' && !!document.querySelector('#cfVelho'), null, 20000);
+    const card = await b.evaluate(() => (document.querySelector('#cfVelho') || {}).innerText || '');
+    conferir(viu && /não confere/.test(card) && await b.evaluate(() => Cofre.fk) === FKN && await b.evaluate(async () => JSON.stringify(await Cofre.local())) === LB,
+      'G3b. aberto: o registro voltou para a de antes → nada muda aqui (continua com a nova) e o cartão "' + card.trim() + '"');
+    const rc = await abrirPeloPin(c, PIN_A);
+    const fc = await famDe(c);
+    conferir(rc.ok && fc.fk === FK0 && !fc.velhas.length && await c.evaluate(() => Cofre.fk) === FK0, 'G3b. um aparelho que ainda tinha a de antes abre com ela (o registro diz ela; nada a adotar)');
+    await c.evaluate(() => Cofre.trancar());
+    /* o registro de volta à nova, e uma chave intrusa de mesma kv (outro fk) embrulhada para a Ana, a mais nova na lista */
+    gravarDoc('settings', 'cofre', { dados: regN }, ANA);
+    const pubAna = db.sol_chave_publica.find((k) => k.user_id === ANA).chave_publica, vs = Math.max(...db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === ANA).map((x) => x.versao));
+    db.sol_grupo_chaves.push({ grupo_id: GID, user_id: ANA, versao: vs + 1, chave_embrulhada: await embrulhar(pubAna, crypto.randomBytes(32), 2, 'fk-intrusa'), embrulhada_por: BIA, criado_em: agora() });
+    const bm = await b.evaluate(async (o) => {
+      const d = await Cofre._pinRaw(o.pin), duk = await Cofre.aes(d.raw); d.raw.fill(0);
+      const L = await Cofre.local(), sk = await Cofre.importarSk(await Cofre.decifrar(duk, L.sk));
+      const q = async (reg) => { const r = await Cofre.buscarMinha(sk, reg); return r ? r.fk + ':' + r.kv : null; };
+      return { reg: await q(o.reg), sem: await q(null), acima: await q(Object.assign({}, o.reg, { kv: 3 })) };
+    }, { pin: PIN_A, reg: regN });
+    conferir(bm.reg === FKN + ':2' && bm.sem === 'fk-intrusa:2' && bm.acima === null, 'G3b. buscarMinha: com o registro, a do fk dele (não a intrusa, mais nova na lista); sem registro, a de kv maior; nunca abaixo da kv do registro (' + JSON.stringify(bm) + ')');
+    const rc2 = await abrirPeloPin(c, PIN_A);
+    const fc2 = await famDe(c);
+    conferir(rc2.ok && fc2.fk === FKN && JSON.stringify(fc2.velhas) === JSON.stringify([FK0]) && await c.evaluate(() => Cofre.fk) === FKN, 'G3b. o aparelho velho adota a do registro, não a intrusa (' + JSON.stringify(fc2) + ')');
+    /* a Bia sem a nova embrulhada para ela: "Falta liberar"; quando chega, adota */
+    await e.evaluate(() => Cloud.poll());
+    const falta = await esperar(e, () => Cofre.desatualizado === 'faltaLiberar' && /Falta um chefe abrir/.test((document.querySelector('#cfVelho') || {}).innerText || ''), null, 20000);
+    conferir(falta && await e.evaluate(() => Cofre.fk) === FK0 && (await famDe(e)).fk === FK0, 'G3b. sem a nova embrulhada para a Bia: o cartão "Falta um chefe abrir…" e nada muda no cadeado dela');
+    db.sol_grupo_chaves.push(...daBia);
+    await e.evaluate(() => Cloud.poll());
+    conferir(await esperar(e, (fk) => Cofre.fk === fk && Cofre.desatualizado === false && !document.querySelector('#cfVelho'), FKN, 20000) && (await famDe(e)).fk === FKN, 'G3b. quando a nova chega para ela, a Bia adota no próximo Cloud.poll e o cartão some');
+  });
+
+  /* ================= G9 (etapa E4, C2): o envio que não volta com a chave velha ================= */
+  await parte('G9', 'Editado sem internet com a velha: sobe com a nova e sem duplicar (só mudou o cadeado); conflito de verdade guarda as duas, com a nova; fechado, espera (C2)', async (novo) => {
+    const B = await novo('G9-ana-computador', { vp: 'computador' }), b = B.p;
+    const C = await novo('G9c-ana-celular', { vp: 'celular' }), c = C.p;
+    await abertoComVelha(b, ANA, PIN_A);
+    await abertoComVelha(c, ANA, PIN_A);
+    const editar = (p, id, titulo) => p.evaluate(async ([id, titulo]) => {
+      const v = DB.col('vault').get(id), o = await Vault.decObj(v.enc); o.title = titulo;
+      await DB.put('vault', Object.assign({}, v, { enc: await Vault.encObj(o) }), true);
+      for (let i = 0; i < 30 && !CloudDriver.fila.has('vault|' + id); i++) await new Promise((r) => setTimeout(r, 100));
+      return CloudDriver.fila.has('vault|' + id) && JSON.parse(CloudDriver.recs.get('vault|' + id).cif).fk;
+    }, [id, titulo]);
+    await semRede(B.ctx, true); await semRede(C.ctx, true);
+    const f2 = await editar(b, 'v2', 'RG editado sem internet'), f1 = await editar(b, 'v1', 'Banco editado sem internet'), f3 = await editar(c, 'v3', 'E-mail editado sem internet');
+    /* B também faz um código de emergência novo sem internet (fechado pelo código, com a kv/fk de antes) */
+    const fe = await b.evaluate(async () => { const cod = await Cofre.envelope(); for (let i = 0; i < 30 && !CloudDriver.fila.has('vault|_em'); i++) await new Promise((r) => setTimeout(r, 100)); return !!cod && CloudDriver.fila.has('vault|_em') && JSON.parse(CloudDriver.recs.get('vault|_em').cif).d.em.fk; });
+    await c.evaluate(() => Cofre.trancar());   /* C fecha as Senhas antes de a internet voltar */
+    conferir(f2 === FK0 && f1 === FK0 && f3 === FK0 && fe === FK0, 'preparo: três edições e um código de emergência novo sem internet, com a de antes, na fila (B: v1, v2 e o código; C: v3)');
+    const nova = await trocaAMao();
+    /* depois da troca, a Ana muda o v1 em outro aparelho (um conflito de verdade com a edição de B) */
+    const d1 = await abrirLinha(nova, linha('vault', 'v1').dados_cifrado), s1 = JSON.parse(new TextDecoder().decode(await decifrar(nova, d1.enc)));
+    s1.title = 'Banco mudado pela Ana'; d1.enc = await cifrar(nova, utf8(JSON.stringify(s1)));
+    gravarDoc('vault', 'v1', { dados_cifrado: await selar(nova, 2, FKN, d1) }, ANA);
+    const ids0 = vivasVault().map((r) => r.id).sort();
+    const marca = M.log.length;
+    /* B volta com as Senhas abertas */
+    await semRede(B.ctx, false);
+    const subiu = await ateA(async () => (await tituloDe(nova, linha('vault', 'v2').dados_cifrado)) === 'RG editado sem internet', 25000);
+    await subir(b);
+    await ate(() => vivasVault().length > ids0.length, 8000);
+    const l2 = linha('vault', 'v2'), o2 = JSON.parse(l2.dados_cifrado), d2 = await abrirLinha(nova, l2.dados_cifrado);
+    conferir(subiu && o2.fk === FKN && o2.kv === 2 && !(await abre(() => decifrar(VELHA, d2.enc))) && await b.evaluate(() => Cofre.fk) === FKN,
+      'G9. a edição de B feita sem internet com a de antes sobe com a nova, nas DUAS camadas (adotou antes de mandar)');
+    const novos = vivasVault().filter((r) => !ids0.includes(r.id));
+    const tN = novos.length === 1 ? await tituloDe(nova, novos[0].dados_cifrado) : null;
+    conferir(novos.length === 1 && JSON.parse(novos[0].dados_cifrado).fk === FKN && tN === 'Banco editado sem internet' && await tituloDe(nova, linha('vault', 'v1').dados_cifrado) === 'Banco mudado pela Ana',
+      'G9. só mudou o cadeado (v2): nenhum item duplicado; conflito de verdade (v1): ficam as duas, e a cópia de B também com a nova (' + novos.map((r) => r.id).join() + ')');
+    const comVelha = subiuCom(marca, FK0);
+    conferir(!comVelha.length && !vivasVault().some((r) => { try { const o = JSON.parse(r.dados_cifrado); return o.c && o.fk === FK0; } catch (e) { return false; } }),
+      'C2. nada chegou ao banco fechado com a de antes (' + comVelha.map((l) => l.caminho).join(' | ') + ')');
+    const em = JSON.parse(linha('vault', '_em').dados_cifrado);
+    conferir(em.d.em.fk === FKN && em.d.em.kv === 2 && await b.evaluate(() => CloudDriver.fila.has('vault|_em')),
+      'C2. o código de emergência feito sem internet com a de antes não sobe (ficaria por cima do refeito na troca): espera na fila');
+    const tB = await titulos(b);
+    conferir(tB.v2 === 'RG editado sem internet' && tB.v1 === 'Banco mudado pela Ana' && Object.values(tB).includes('Banco editado sem internet'), 'G9. a tela de B mostra o que ficou no banco');
+    /* G9c: C volta com as Senhas FECHADAS: nada sobe (espera) */
+    const m3 = M.log.length, l3antes = JSON.stringify(linha('vault', 'v3'));
+    await semRede(C.ctx, false);
+    const esperou = await esperar(c, () => CloudDriver.fila.has('vault|v3') && (CloudDriver.adiado.get('vault|v3') || 0) > Date.now(), null, 20000);
+    await espere(800);
+    conferir(esperou && JSON.stringify(linha('vault', 'v3')) === l3antes && !subiuCom(m3, FK0).length && !M.log.slice(m3).some((l) => ['PATCH', 'POST'].includes(l.metodo) && /colecao=eq\.vault/.test(l.caminho)),
+      'G9c. C volta com as Senhas fechadas: a edição feita com a de antes fica esperando (nada sobe; a linha do banco não muda)');
+    /* C abre pelo PIN: adota e a edição sobe UMA vez, com a nova, sem esperar os 2 minutos */
+    const nVivas = vivasVault().length;
+    const rc = await abrirPeloPin(c, PIN_A);
+    const subiu3 = await ateA(async () => (await tituloDe(nova, linha('vault', 'v3').dados_cifrado)) === 'E-mail editado sem internet', 15000);
+    await espere(800);
+    const o3 = JSON.parse(linha('vault', 'v3').dados_cifrado);
+    conferir(rc.ok && subiu3 && o3.fk === FKN && o3.kv === 2 && vivasVault().length === nVivas && !subiuCom(m3, FK0).length && await c.evaluate(() => !CloudDriver.fila.has('vault|v3')),
+      'G9c. C abre pelo PIN: adota a nova e a edição sobe uma vez, com a nova, sem item duplicado');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E3 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E4 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9)');
 })().catch((e) => { console.error(e); process.exit(1); });

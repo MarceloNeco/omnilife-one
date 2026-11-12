@@ -2035,7 +2035,8 @@ const CloudDriver = {
       if (this.gid !== gid) return;
       if (d) DB.col("vault").set(id, d);
     }
-    if (!quieto) { scheduleRender(true); this.flush(); }
+    /* 2.27.0 (C2): o que esperava a chave nova para subir (adiado no envio) tenta de novo já, com as chaves de agora */
+    if (!quieto) { for (const k of [...this.adiado.keys()]) if (k.startsWith("vault|")) this.adiado.delete(k); scheduleRender(true); this.flush(); }
   },
   fecharCofre() {
     const em = DB.col("vault").get("_em"); DB.col("vault").clear(); if (em && em.em) DB.col("vault").set("_em", em);
@@ -2065,7 +2066,7 @@ const CloudDriver = {
   /* ---------- enviar ---------- */
   async flush(agora) {
     if (this._flushing) { this._maisUma = true; return; }   /* entrou mudança durante o envio: manda logo depois */
-    if (!this.gid || !navigator.onLine) return; this._flushing = true; this._maisUma = false;
+    if (!this.gid || !navigator.onLine) return; this._flushing = true; this._maisUma = false; this._banco = null;
     try {
       for (const [key, op] of [...this.fila.entries()]) {
         if (!this.gid) break;
@@ -2085,7 +2086,7 @@ const CloudDriver = {
         }
         Sync.badge();
       }
-    } finally { this._flushing = false; Sync.badge(); if (this._maisUma) { this._maisUma = false; setTimeout(() => this.flush(), 300); } }
+    } finally { this._flushing = false; this._banco = null; Sync.badge(); if (this._maisUma) { this._maisUma = false; setTimeout(() => this.flush(), 300); } }
   },
   sel: "id,vis,dados,dados_cifrado,versao,atualizado_em,atualizado_por,apagado_em",
   url(col, id) { return "omni_docs?grupo_id=eq." + this.gid + "&colecao=eq." + encodeURIComponent(col) + "&id=eq." + encodeURIComponent(id); },
@@ -2178,7 +2179,8 @@ const CloudDriver = {
   async enviarCofre(id) {
     const key = "vault|" + id;
     for (let vez = 0; vez < 4; vez++) {
-      const rec = this.recs.get(key); if (!rec || !rec.cif || !this.gid) return;
+      let rec = this.recs.get(key); if (!rec || !rec.cif || !this.gid) return;
+      rec = await this.cadeadoDoBanco(id, rec);
       const corpo = { vis: "restrito", dados: null, dados_cifrado: rec.cif };
       if (rec.versao) {
         const r = await Conta.rest("PATCH", this.url("vault", id) + "&versao=eq." + rec.versao, Object.assign({ apagado_em: null }, corpo), "return=representation");
@@ -2192,6 +2194,8 @@ const CloudDriver = {
       if (rec.versao && l.versao === rec.versao) throw this.erro(tt("sem permissão para mudar isto", "not allowed to change this"), 403);
       /* apagado lá, ou ninguém mudou desde a última vez que este aparelho viu: vale o deste aparelho */
       if (l.apagado_em || l.dados_cifrado === rec.baseCif) { await this.guardar(key, Object.assign({}, rec, { versao: l.versao })); continue; }
+      /* 2.27.0: lá, o mesmo item só mudou de cadeado (a troca da chave fechou o mesmo conteúdo com a nova): não é conflito */
+      if (await Cofre.mesmoConteudo(l.dados_cifrado, rec.baseCif)) { await this.guardar(key, Object.assign({}, rec, { versao: l.versao, baseCif: l.dados_cifrado })); continue; }
       const novo = uid("v");
       await this.guardar("vault|" + novo, { cif: rec.cif });
       const d = await Cofre.abrir(novo, rec.cif); if (d) DB.col("vault").set(novo, d);
@@ -2202,11 +2206,42 @@ const CloudDriver = {
     }
     throw this.erro(tt("muitas mudanças ao mesmo tempo; tento de novo", "too many changes at once; will retry"), 0);
   },
+  /* 2.27.0 (C2): o registro e a troca como estão no banco, lidos uma vez por envio (o envio vem ANTES do receber: a cópia daqui
+     pode estar velha). Uma resposta de erro do banco adia (não tira nada da fila); sem internet, o envio para e tenta depois */
+  bancoDoEnvio() {
+    if (!this._banco) this._banco = Cofre.noBanco().catch((e) => { this._banco = null; if (!e.status) throw e; const x = this.erro("adiado", 409); x.adiar = true; throw x; });
+    return this._banco;
+  },
+  /* 2.27.0 (C2): um item fechado com uma chave que não é a do registro do banco (editado sem internet antes da troca) nunca chega
+     lá assim. Com a chave do registro aqui (ou adotada agora, com as Senhas abertas), fecha de novo com ela antes de subir; senão
+     espera (adiado). O código de emergência velho não se refaz sem o código: espera o "Fazer o código novo" */
+  async cadeadoDoBanco(id, rec) {
+    let o = null; try { o = JSON.parse(rec.cif); } catch (e) {}
+    const em = o && o.em ? (o.d && o.d.em) || {} : null;
+    if (!o || !(o.c || em)) return rec;
+    const fk = em ? em.fk : o.fk, kv = em ? em.kv : o.kv;
+    if (!fk) return rec;
+    const b = await this.bancoDoEnvio();
+    if (Cofre.ehAtual(b.reg, kv, fk)) return rec;
+    const adiar = () => { const e = this.erro("adiado", 409); e.adiar = true; return e; };
+    if (em) throw adiar();
+    if (Cofre.aberto() && !Cofre.ehAtual(b.reg, Cofre.kv, Cofre.fk)) await Cofre.conferirAoVivo();
+    if (!Cofre.aberto() || !Cofre.ehAtual(b.reg, Cofre.kv, Cofre.fk)) throw adiar();
+    /* o selar confere com o registro do banco (a cópia daqui ainda pode dizer a de antes); qualquer erro = espera */
+    let cif = null; try { const d = await Cofre.abrir(id, rec.cif); if (d) cif = await Cofre.selar(d, b.reg); } catch (e) {}
+    if (!cif) throw adiar();
+    const n = Object.assign({}, this.recs.get("vault|" + id) || rec, { cif });
+    await this.guardar("vault|" + id, n);
+    return n;
+  },
   async aceitarCofre(id, row, trocar) {
     const key = "vault|" + id, rec = this.recs.get(key) || {};
     const nrec = Object.assign({}, rec, { baseCif: row.dados_cifrado, vis: row.vis, versao: row.versao, at: row.atualizado_em });
     delete nrec.doc;
-    if (trocar || !rec.cif) { nrec.cif = row.dados_cifrado; const d = await Cofre.abrir(id, row.dados_cifrado); if (d) { DB.col("vault").set(id, d); scheduleRender(); } }
+    if (trocar || !rec.cif) {
+      nrec.cif = row.dados_cifrado; const d = await Cofre.abrir(id, row.dados_cifrado);
+      if (d) { DB.col("vault").set(id, d); scheduleRender(); } else if (Cofre.aberto() && DB.col("vault").get(id)) { DB.col("vault").delete(id); scheduleRender(); }   /* C14, como no receber */
+    }
     await this.guardar(key, nrec);
   },
   async receberCofre(row) {
@@ -2217,6 +2252,9 @@ const CloudDriver = {
     if (!row.dados_cifrado) return;
     await this.guardar(key, { cif: row.dados_cifrado, baseCif: row.dados_cifrado, vis: row.vis, versao: row.versao, at: row.atualizado_em });
     const d = await Cofre.abrir(id, row.dados_cifrado); if (d) DB.col("vault").set(id, d);   /* sem aviso: o cofre nunca vai para notificação */
+    /* 2.27.0 (C14): a linha nova não abre aqui (fechada com uma chave que este aparelho ainda não tem): o item de antes sai da tela.
+       Editar a cópia velha gravaria por cima da mudança de outra pessoa (a versão já é a nova) */
+    else if (Cofre.aberto() && DB.col("vault").get(id)) { DB.col("vault").delete(id); scheduleRender(true); }
   },
   async enviarCombinado(id) {
     const rec = this.recs.get("comsg|" + id); if (!rec) return;
@@ -2524,6 +2562,8 @@ const Cloud = {
         S.audit = (hist || []).map((a) => ({ id: a.id, at: a.criado_em, byUid: a.criado_por, byName: a.nome || "", action: a.acao, detail: a.detalhe || "" }));
       } else { S.invites = []; S.joinRequests = []; S.audit = []; }
       await Gov.tick();
+      /* 2.27.0 (a): a chave da família mudou no banco? Com as Senhas abertas, este aparelho acompanha antes de liberar */
+      if (Cofre.aberto()) await Cofre.conferirAoVivo();
       /* cofre aberto aqui: libera a chave da família para quem preparou o cofre e ainda espera (a cada 2 min no máximo) */
       if (Cofre.aberto()) Cofre.distribuir().catch((e) => console.warn("cofre: liberar", e));
       /* 2.26.0: pedidos de acesso para aprovar (toda volta) e, a cada 3 voltas, este aparelho na conta (visto, PIN trocado em
@@ -3420,6 +3460,9 @@ const Cofre = {
   vf: null, vfRaw: null, kv: 0, fk: "", gid: null, dukRaw: null, status: null,
   /* 2.27.0, o chaveiro: chaves da família que só ABREM ([{kv, fk, vf}], a de antes da troca); a atual (vf) é a única que FECHA */
   outras: [],
+  /* 2.27.0 (a): a chave da família mudou e este aparelho não acompanhou — false | "semChave" (entrou aprovado pela família: não
+     tem como buscar a nova) | "faltaLiberar" | "estranho" (o registro voltou para uma chave mais velha, C4). O cartão do view */
+  desatualizado: false,
   usa() { return S.mode === "cloud" && !!S.family; },
   aberto() { return this.usa() && !!this.vf && this.gid === S.family.id; },
   K(uid) { return "cofre|" + (uid || Conta.uid()); },
@@ -3441,17 +3484,18 @@ const Cofre = {
   /* 2.27.0: o registro e a troca como estão NO BANCO (C13: quem entrega a chave da família decide por ele; a cópia daqui fica para
      trás quando há uma mudança dela esperando na fila). Sem resposta do banco, lança erro: aí não se entrega nada.
      {reg: dados do registro (mesmo apagado: ele ainda diz qual é a chave) | null, giro: a linha da troca | null} */
-  async noBanco() {
-    const rows = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.settings&id=in.(cofre,giro)&select=id,vis,dados,versao,atualizado_em,apagado_em", undefined, undefined, 8000);
+  async noBanco(prazo) {
+    const rows = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.settings&id=in.(cofre,giro)&select=id,vis,dados,versao,atualizado_em,apagado_em", undefined, undefined, prazo || 8000);
     const de = (id) => (rows || []).find((r) => r.id === id) || null, c = de("cofre");
     return { reg: c && c.dados && c.dados.fk ? c.dados : null, giro: de("giro") };
   },
   /* (b) a chave {kv, fk} é a do registro? Sem registro (família nova), é. Uma de outro fk, ou mais velha, nunca é entregue nem fecha */
   ehAtual(reg, kv, fk) { return !reg || !reg.fk || (reg.fk === fk && (+reg.kv || 0) <= (+kv || 0)); },
-  /* mudar as Senhas da casa: nunca no meio da troca (viva) nem com a chave velha neste aparelho. {ok} | {texto} */
-  podeMudar() {
+  /* mudar as Senhas da casa: nunca no meio da troca (viva) nem com a chave velha neste aparelho. {ok} | {texto}
+     reg: o registro com que comparar (o envio passa o do banco, C2); sem ele, a cópia daqui */
+  podeMudar(reg) {
     if (Giro.vivo()) return { texto: Giro.T.mudarEspere };
-    if (this.aberto() && !this.ehAtual(this.registro(), this.kv, this.fk)) return { texto: Giro.T.mudarVelho };
+    if (this.aberto() && !this.ehAtual(reg === undefined ? this.registro() : reg, this.kv, this.fk)) return { texto: Giro.T.mudarVelho };
     return { ok: true };
   },
   /* ---------- cripto ---------- */
@@ -3485,10 +3529,10 @@ const Cofre = {
   },
   /* ---------- registro do cofre ↔ texto cifrado no banco ----------
      "_em" (envelope de emergência) já vem cifrado pelo código de emergência: vai como está, para o contato abrir sem a CF. */
-  async selar(doc) {
+  async selar(doc, reg) {
     const d = JSON.parse(JSON.stringify(doc)); delete d.id;
     /* última porta: só a chave atual fecha (nada sai daqui fechado com a velha, nem no meio da troca) */
-    const pm = this.podeMudar(); if (!pm.ok) throw new Error(pm.texto);
+    const pm = this.podeMudar(reg); if (!pm.ok) throw new Error(pm.texto);
     if (doc.id === "_em") return JSON.stringify({ em: 1, d });
     if (!this.aberto()) throw new Error(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
     return JSON.stringify(Object.assign({ c: 1, kv: this.kv, fk: this.fk }, await this.cifrar(this.vf, new TextEncoder().encode(JSON.stringify(d)))));
@@ -3519,7 +3563,11 @@ const Cofre = {
   /* ---------- destrancar ---------- */
   ESPERAS: [0, 0, 0, 0, 30, 60, 300, 900, 1800, 3600],   /* segundos de espera depois do n-ésimo erro; no 10º bloqueia */
   /* 2.26.0: o PIN da conta (Pin.abrir). Sem internet ou sem o SQL, o PIN deste aparelho, como antes */
-  destrancarPin(pin) { return Pin.abrir(pin); },
+  destrancarPin(pin) { this.olharRegistro(); return Pin.abrir(pin); },
+  /* 2.27.0 (a): ao abrir, o registro do banco é pedido JÁ no começo, junto com o PIN da conta (ou o "visto" da digital) e com o
+     mesmo prazo de 4 s: numa rede pendurada as esperas não somam (revisão final, F1). O chaveNova usa este pedido (até 30 s) */
+  _regAbrir: null,
+  olharRegistro() { this._regAbrir = this.usa() && navigator.onLine ? { t: Date.now(), p: this.noBanco(4000).then((b) => b.reg, () => undefined) } : null; },
   /* 2.21.0: confere o PIN (com a mesma contagem de erros) sem destrancar de novo — o "confirmar" das chaves de IA */
   async conferirPin(pin) { const r = await this._pinRaw(pin); if (r.raw) { r.raw.fill(0); return { ok: true }; } return r; },
   async conferirDigital() {
@@ -3582,6 +3630,7 @@ const Cofre = {
     try { return { L, raw: await this.decifrar(await this.hkdf(out, "omnilife-cofre-prf"), L.prf) }; } catch (e) { return { erro: "digital" }; }
   },
   async destrancarDigital() {
+    this.olharRegistro();
     const d = await this.dukDigital(); if (!d.raw) return d;
     const L = d.L, raw = d.raw;
     /* 2.26.0: a digital não fala com o servidor; com internet, um aparelho tirado da conta não abre nem por ela */
@@ -3601,11 +3650,17 @@ const Cofre = {
     const duk = await this.aes(raw), gid = S.family.id, f = (L.fam || {})[gid];
     if (f) {
       this.dukRaw = raw;
-      /* 2.27.0: as de antes da troca (L.fam[gid].velhas, fechadas pela chave deste aparelho) só abrem: o que ainda está fechado
-         com elas (linhas e anexos) continua aparecendo. Uma que não abre fica de fora (a atual abre do mesmo jeito) */
-      const atual = await this.decifrar(duk, f), outras = [];
-      for (const v of f.velhas || []) { try { outras.push({ kv: v.kv, fk: v.fk, raw: await this.decifrar(duk, v) }); } catch (e) {} }
-      await this.usarChave(atual, f.kv, f.fk, outras); return { ok: true };
+      /* 2.27.0 (a): o registro do banco diz outra chave? A nova é adotada AQUI, antes do usarChave (que libera para os outros e
+         manda a Saúde): nunca com a velha. A de agora vai junto, só para abrir */
+      const n = await this.chaveNova(L, duk, f, 300);
+      if (n) await this.adotar(gid, n, duk);
+      /* as de antes da troca (L.fam[gid].velhas, fechadas pela chave deste aparelho) só abrem: o que ainda está fechado com elas
+         (linhas e anexos) continua aparecendo. Uma que não abre fica de fora (a atual abre do mesmo jeito) */
+      const atual = n ? n.raw : await this.decifrar(duk, f), outras = [];
+      for (const v of n ? this.depoisDe(f, n) : f.velhas || []) { try { outras.push({ kv: v.kv, fk: v.fk, raw: await this.decifrar(duk, v) }); } catch (e) {} }
+      await this.usarChave(atual, n ? n.kv : f.kv, n ? n.fk : f.fk, outras); atual.fill(0);
+      if (n) toast("🔐 " + this.T().atualizou, 5000);
+      return { ok: true };
     }
     /* a chave desta família ainda não está neste aparelho: vem do banco, embrulhada para mim (precisa de internet) */
     if (!L.sk) return { erro: "aguardando" };
@@ -3632,7 +3687,7 @@ const Cofre = {
   trancar() {
     if (this.vfRaw) this.vfRaw.fill(0); if (this.dukRaw) this.dukRaw.fill(0);
     const estava = !!this.vf;
-    this.vf = null; this.vfRaw = null; this.dukRaw = null; this.kv = 0; this.fk = ""; this.gid = null; this.outras = [];
+    this.vf = null; this.vfRaw = null; this.dukRaw = null; this.kv = 0; this.fk = ""; this.gid = null; this.outras = []; this.desatualizado = false;
     if (estava) { S.vaultKey = null; CloudDriver.fecharCofre(); }
   },
   /* ---------- digital/rosto (WebAuthn PRF): a digital libera um segredo que decifra a CA ---------- */
@@ -3690,10 +3745,109 @@ const Cofre = {
     const { bk } = await this.minhasNoBanco(); if (!bk) return null;
     try { const o = JSON.parse(bk.privada_cifrado); const pkcs8 = await this.decifrar(await this.kdf(Restore.normCode(codigo), bk.sal, bk.iteracoes), o); return { pkcs8, kid: o.kid }; } catch (e) { return null; }
   },
-  async buscarMinha(sk) {
-    const rows = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: S.family.id }), reg = this.registro();
-    for (const r of rows || []) { try { const k = await this.desembrulhar(sk, r.chave_embrulhada); if (!reg || !reg.fk || k.fk === reg.fk) return k; } catch (e) {} }
-    return null;
+  /* a chave da família embrulhada para mim. reg (o registro do banco; sem ele, a cópia daqui) diz qual vale: com reg.fk, só a
+     desse fk e nunca com a kv abaixo da dele (C4); sem registro, qualquer uma. Entre as que valem, a de kv maior (empate: a
+     primeira, a de versão maior), como o MoneyTRIO. Os bytes das que não ficaram zeram. {raw, kv, fk} | null */
+  async buscarMinha(sk, reg) {
+    if (reg === undefined) reg = this.registro();
+    const rows = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: S.family.id });
+    let melhor = null;
+    for (const r of Array.isArray(rows) ? rows : []) {   /* os testes que trocam o Conta.rpc devolvem texto */
+      let k; try { k = await this.desembrulhar(sk, r.chave_embrulhada); } catch (e) { continue; }
+      if (!this.ehAtual(reg, k.kv, k.fk) || (melhor && (+k.kv || 0) <= (+melhor.kv || 0))) { k.raw.fill(0); continue; }
+      if (melhor) melhor.raw.fill(0);
+      melhor = k;
+    }
+    return melhor;
+  },
+  /* (a) o registro do BANCO diz outra chave da família que a deste aparelho (f = L.fam[gid])? Só a do fk do registro, e só para a
+     frente (C4: nunca uma de kv menor, nem que o registro mande; kv igual com outro fk é o conserto de uma segunda chave). Quando
+     nada mudou: uma GET só, sem RSA. Anota this.desatualizado (o cartão do view). Sem resposta do banco ou qualquer falha = null:
+     fica a que tem. espera (ms, ao abrir): o registro que não chegou até lá não segura o abrir — abre com a que tem e, quando
+     ele chegar dizendo outra, o conferirAoVivo adota (numa rede pendurada, abrir não espera a rede: revisão final, F1).
+     {raw, kv, fk} | null */
+  async chaveNova(L, duk, f, espera) {
+    try {
+      if (!L || !f || !navigator.onLine || !this.usa()) return null;
+      const a = this._regAbrir; this._regAbrir = null;
+      const p = a && Date.now() - a.t < 30000 ? a.p : this.noBanco().then((b) => b.reg, () => undefined), tarde = {};
+      const reg = await (espera ? Promise.race([p, sleep(espera).then(() => tarde)]) : p);
+      if (reg === tarde) { p.then((r) => { if (r && r.fk && !this.ehAtual(r, f.kv, f.fk)) this.conferirAoVivo(); }); return null; }
+      if (reg === undefined) return null;   /* sem resposta do banco: não decide nada (fica a que tem; o Cloud.poll confere depois) */
+      if (!reg || !reg.fk || this.ehAtual(reg, f.kv, f.fk)) { this.desatualizado = false; return null; }
+      const kv = +reg.kv || 0, fkv = +f.kv || 0;
+      if (kv < fkv || reg.fk === f.fk) { this.desatualizado = "estranho"; return null; }   /* voltou para trás (ou a kv mente) */
+      if (!L.sk) { this.desatualizado = "semChave"; return null; }
+      const pk = await this.decifrar(duk, L.sk); let sk; try { sk = await this.importarSk(pk); } finally { pk.fill(0); }
+      const r = await this.buscarMinha(sk, reg);
+      if (r && r.fk === reg.fk && ((+r.kv || 0) > fkv || ((+r.kv || 0) === fkv && r.fk !== f.fk))) { this.desatualizado = false; return r; }
+      if (r) r.raw.fill(0);
+      this.desatualizado = "faltaLiberar"; return null;
+    } catch (e) { return null; }
+  },
+  /* depois de adotar n: as que ficam só para abrir (a de antes e as velhas dela), até 2 (C16) */
+  depoisDe(f, n) { return [f].concat(f.velhas || []).filter((v, i, a) => v.fk !== n.fk && a.findIndex((x) => x.fk === v.fk) === i).slice(0, 2); },
+  /* (a) a nova passa a ser a deste aparelho, pela porta única. A de antes vai para velhas SEM abrir (já está fechada pela chave do
+     aparelho): o que ainda está fechado com ela continua abrindo. O prox (a nova de uma troca que este aparelho começou) só sai
+     se for esta (C1: uma troca que perdeu não perde a chave dela) */
+  async adotar(gid, n, duk) {
+    const c = await this.cifrar(duk, n.raw);
+    return this.mudarLocal(null, (X) => {
+      const a = X && X.fam && X.fam[gid];
+      if (!a || a.fk === n.fk) return;   /* outra aba já adotou (ou o cadeado saiu): nada a gravar */
+      const novo = Object.assign({ kv: n.kv, fk: n.fk }, c, { velhas: this.depoisDe(a, n).map((v) => ({ kv: v.kv, fk: v.fk, iv: v.iv, ct: v.ct })) });
+      if (a.prox && a.prox.fk !== n.fk) novo.prox = a.prox;
+      X.fam = Object.assign({}, X.fam, { [gid]: novo });
+      return X;
+    });
+  },
+  /* (a) com as Senhas abertas (a cada volta do Cloud.poll e no envio, C2): a chave mudou no banco → adota a nova sem pedir o PIN
+     (a chave deste aparelho está na memória). Uma por vez. Nunca no aparelho que faz a troca: lá, só a troca muda a chave.
+     true = adotou */
+  _conf: null,
+  conferirAoVivo() {
+    if (this._conf) return this._conf;
+    if (!this.aberto() || !this.dukRaw || Giro.rodando || !navigator.onLine) return Promise.resolve(false);
+    return (this._conf = this._conferir().catch(() => false).finally(() => { this._conf = null; }));
+  },
+  async _conferir() {
+    const gid = this.gid, vf = this.vf, antes = this.desatualizado, duk = await this.aes(this.dukRaw), L = await this.local(), f = L && L.fam && L.fam[gid];
+    if (!f) return false;
+    const n = await this.chaveNova(L, duk, f), mesma = () => this.gid === gid && this.vf === vf;
+    if (this.desatualizado !== antes) scheduleRender(true);
+    let raw, kv, fk, lista;
+    if (n && mesma()) { await this.adotar(gid, n, duk); raw = n.raw; kv = n.kv; fk = n.fk; lista = this.depoisDe(f, n); }
+    /* outra aba (ou o abrir pelo PIN) já adotou: o cadeado daqui tem a do registro e a memória ainda não */
+    else if (!n && !this.desatualizado && f.fk !== this.fk && mesma()) { raw = await this.decifrar(duk, f); kv = f.kv; fk = f.fk; lista = f.velhas || []; }
+    else { if (n) n.raw.fill(0); return false; }
+    const outras = [];
+    for (const v of lista) { try { outras.push({ kv: v.kv, fk: v.fk, raw: await this.decifrar(duk, v) }); } catch (e) {} }
+    if (!mesma()) { raw.fill(0); outras.forEach((o) => o.raw.fill(0)); return false; }   /* trancou no meio */
+    await this.usarChave(raw, kv, fk, outras); raw.fill(0);
+    toast("🔐 " + this.T().atualizou, 5000);
+    return true;
+  },
+  /* 2.27.0: duas linhas do cofre com o MESMO conteúdo (só o cadeado mudou: a troca fecha o mesmo item com a chave nova)? Abre as
+     duas com o chaveiro, as duas camadas, e compara o que tem dentro. Não abre = não dá para saber = false */
+  async mesmoConteudo(a, b) {
+    const ler = async (cif) => {
+      const o = JSON.parse(cif); if (!o || !o.c) return null;
+      const k = o.fk ? this.chaveDe(o.fk) : this.vf; if (!k) return null;
+      const d = JSON.parse(new TextDecoder().decode(await this.decifrar(k, o)));
+      if (d.enc) d.enc = await Vault.decStr(d.enc, k);
+      return JSON.stringify(d);
+    };
+    try { const x = await ler(a), y = await ler(b); return x !== null && x === y; } catch (e) { return false; }
+  },
+  T() {
+    const ap = apN();
+    return {
+      atualizou: tt("As Senhas da casa foram atualizadas neste " + ap + ".", "The vault was updated on this " + ap + "."),
+      semChave: tt("As Senhas da casa ficaram mais seguras, mas este " + ap + " entrou aprovado pela família e precisa ser aprovado de novo.", "The vault got safer, but this " + ap + " joined approved by the family and needs to be approved again."),
+      semChaveAnexos: tt("Os anexos guardados só neste " + ap + " voltam depois da aprovação, se você usar o mesmo PIN.", "Attachments kept only on this " + ap + " come back after approval, if you use the same PIN."),
+      faltaLiberar: tt("As Senhas da casa ficaram mais seguras. Falta um chefe abrir as Senhas da casa no aparelho dele para liberar para você.", "The vault got safer. A family head still needs to open the vault on their device to release it to you."),
+      estranho: tt("Algo nas Senhas da casa não confere. Peça ajuda pelo 💬.", "Something in the vault doesn't match. Ask for help with 💬.")
+    };
   },
   /* quem tem o cofre aberto libera a CF para os chefes/responsáveis que ainda não têm (ou que trocaram de chave) */
   distribuir(forcar) {
@@ -3739,7 +3893,7 @@ const Cofre = {
      {ok, raw} | {erro: "aguardando", raw} (a família ainda não liberou para esta chave pessoal: o L fica gravado com ela).
      raw = uma cópia da chave deste aparelho para quem chama (zerar depois). */
   async montar(pkcs8, fam, pin, como, ap, conta, novaCF) {
-    const gid = S.family.id, dukRaw = this.rnd(32), duk = await this.aes(dukRaw), sal = b64FromBuf(this.rnd(16));
+    const gid = S.family.id, dukRaw = this.rnd(32), duk = await this.aes(dukRaw), sal = b64FromBuf(this.rnd(16)), velho = await this.local();
     const L = { v: 1, uid: Conta.uid(), pin: Object.assign({ sal, iter: COFRE_ITER }, await this.cifrar(await this.kdf(pin, sal, COFRE_ITER), dukRaw)), prf: null,
       sk: pkcs8 ? await this.cifrar(duk, pkcs8) : null, fam: {}, erros: 0, ate: 0, bloqueado: false, como, ap: ap || null, avisosAte: new Date().toISOString() };
     if (conta) { L.srv = await Pin.fecharSrv(dukRaw, conta.segredo); L.pinVersao = conta.versao; }
@@ -3755,16 +3909,39 @@ const Cofre = {
       }
       if (!reg || !reg.fk) { r = { raw: this.rnd(32), kv: 1, fk: this.id() }; nova = true; }
     }
-    if (r) L.fam[gid] = Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw));
+    if (r) L.fam[gid] = Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw), await this.levarVelha(velho, pin, conta, duk, gid, r));
     this.trancar();
     await this.mudarLocal(null, () => L);   /* aqui, e só aqui, o cadeado de antes dá lugar ao novo */
     const copia = new Uint8Array(dukRaw);
     if (!r) { dukRaw.fill(0); return { erro: "aguardando", raw: copia }; }
     this.dukRaw = dukRaw;
-    await this.usarChave(r.raw, r.kv, r.fk);
+    const outras = [];
+    for (const v of L.fam[gid].velhas || []) { try { outras.push({ kv: v.kv, fk: v.fk, raw: await this.decifrar(duk, v) }); } catch (e) {} }
+    await this.usarChave(r.raw, r.kv, r.fk, outras);
     /* a chave da família nasceu agora: o registro do cofre (quem já tem a chave) sobe já, para outro aparelho não criar outra */
     if (nova) { try { await this.distribuir(true); } catch (e) { console.warn("cofre: liberar", e); } Cloud.audit("cofre.criado", Cloud.myName()); }
     return { ok: true, raw: copia };
+  },
+  /* 2.27.0 (6.1, C8): aprovado de novo depois da troca. As chaves de antes deste aparelho (a do cadeado velho, as velhas dele e o
+     prox de uma troca começada aqui) passam para o cadeado novo, fechadas pela chave nova do aparelho: os anexos guardados só aqui
+     e as mudanças feitas sem internet continuam abrindo. Só se o cadeado velho abre com o PIN de agora (o mesmo PIN) ou com o PIN
+     da conta (conta.segredo). r = a chave que chega. {velhas?, prox?} (vazio = nada a levar) */
+  async levarVelha(velho, pin, conta, duk, gid, r) {
+    const a = velho && velho.fam && velho.fam[gid];
+    if (!a) return {};
+    const lista = this.depoisDe(a, r), prox = a.prox && a.prox.fk !== r.fk ? a.prox : null;
+    if (!lista.length && !prox) return {};
+    let d = null;
+    if (velho.srv && conta) { try { d = await Pin.abrirSrv(velho.srv, conta.segredo); } catch (e) {} }
+    if (!d && velho.pin && pin && !velho.bloqueado) { try { d = await this.decifrar(await this.kdf(pin, velho.pin.sal, velho.pin.iter), velho.pin); } catch (e) {} }
+    if (!d) return {};
+    const dukV = await this.aes(d); d.fill(0);
+    const re = async (v) => { const raw = await this.decifrar(dukV, v); try { return Object.assign({ kv: v.kv, fk: v.fk }, await this.cifrar(duk, raw)); } finally { raw.fill(0); } };
+    const out = {}, velhas = [];
+    for (const v of lista) { try { velhas.push(await re(v)); } catch (e) {} }
+    if (velhas.length) out.velhas = velhas;
+    if (prox) { try { out.prox = await re(prox); } catch (e) {} }
+    return out;
   },
   /* conta nova (sem a pública, sem aparelho e sem PIN da conta): o par novo SÓ aqui — com a pública já na conta, NUNCA (ela é
      de outro aparelho ou app: aí é a "Primeira vez"). Sem código para anotar: o kit fica desligado (nada em omni_chave_privada).
@@ -3931,6 +4108,13 @@ const Cofre = {
     TelaConta.marcarPasso(this.status);   /* D1: o cartão do Início aparece ou some */
     return this.status;
   },
+  /* 2.27.0 (a, 8.6): a chave da família mudou e este aparelho não acompanhou */
+  cartaoDesatualizado() {
+    const d = this.desatualizado, T = this.T();
+    if (d === "semChave") return '<div class="card warnc" id="cfVelho"><p class="small">🔐 ' + T.semChave + '</p><button class="btn sm" data-act="cofre.reaprovar">👪 ' + tt("Pedir aprovação de novo", "Ask for approval again") + '</button><p class="tiny faint" style="margin-top:6px">' + T.semChaveAnexos + "</p></div>";
+    if (d === "faltaLiberar" || d === "estranho") return '<div class="card warnc" id="cfVelho"><p class="small">' + (d === "estranho" ? "⚠️ " + T.estranho : "🔐 " + T.faltaLiberar) + "</p></div>";
+    return "";
+  },
   view() {
     const st = this.status || { fase: "?" };
     const guia = '<button class="linkbtn tiny" data-act="cofre.guia">❔ ' + tt("Como funciona", "How it works") + "</button>";
@@ -3975,7 +4159,7 @@ const Cofre = {
     }
     /* aberto */
     const trocar = st.trocarPin || (!st.ligadoPin && !st.srv && !st.pinVersao);
-    return '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
+    return this.cartaoDesatualizado() + '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
       (st.criarPin ? '<div class="card tight"><p class="small">🔢 ' + tt("Falta criar o PIN da sua conta SolverONE: um PIN só, para todos os seus aparelhos e apps (OmniLifeONE, MoneyTRIO e os próximos).", "Your SolverONE account PIN is still missing: one PIN for all your devices and apps (OmniLifeONE, MoneyTRIO and the next ones).") + '</p><button class="btn sm" data-act="conta.pin.criar">🔢 ' + tt("Criar o PIN da conta", "Create the account PIN") + "</button></div>" : "") +
       (this.temLegado() ? '<div class="card warnc"><h3>📦 ' + tt("Senhas antigas neste aparelho", "Old vault on this device") + '</h3><p class="small">' + tt("Este aparelho ainda tem itens do cofre antigo (o que abria com a senha mestra). Traga para cá: assim eles aparecem em todos os aparelhos da família.", "This device still has items from the old vault (the one opened with the master password). Bring them into this vault so they show up on every family device.") + '</p><button class="btn sm" data-act="cofre.legado">⬆️ ' + tt("Trazer as senhas antigas", "Bring the old vault") + "</button></div>" : "") +
       '<details class="card tight"><summary class="grouph">⚙️ ' + tt("Opções deste " + apN(), "Vault options on this " + apN()) + '</summary><div class="row" style="margin-top:8px">' + (st.prf ? '<button class="btn ghost sm" data-act="cofre.semdigital">👆 ' + tt("Parar de usar a digital", "Stop using fingerprint") + "</button>" : '<button class="btn ghost sm" data-act="cofre.comdigital">👆 ' + tt("Abrir também com a digital", "Also open with fingerprint") + "</button>") + (trocar ? '<button class="btn ghost sm" data-act="conta.pin.trocar">🔢 ' + tt("Trocar o PIN", "Change PIN") + "</button>" : "") + '<button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="conta">🔐 ' + tt("Segurança e aparelhos", "Security and devices") + "</button></div></details>";   /* o kit e o "Tirar este aparelho" ficam lá, em Avançado */
@@ -3991,6 +4175,8 @@ ACT["cofre.trocarpin"] = () => TelaConta.trocarPin();
 ACT["cofre.codigo"] = () => Cofre.novoCodigo();
 ACT["cofre.legado"] = () => Cofre.trazerLegado();
 ACT["cofre.desconectar"] = () => Saida.tirarEste();
+/* 2.27.0: o aparelho que entrou aprovado pela família não tem como buscar a chave nova: pede a aprovação de novo */
+ACT["cofre.reaprovar"] = () => Aparelhos.pedir("familia", { esqueci: true });
 ACT["cofre.pin"] = async () => {
   const i = $("#cfpin"); if (!i || !i.value) return;
   const b = document.querySelector('[data-act="cofre.pin"]'); if (b) { b.disabled = true; b.textContent = "⏳"; }
@@ -4006,6 +4192,7 @@ ACT["cofre.digital"] = async () => TelaConta.abrirCasa(await Cofre.destrancarDig
    ===================================================================== */
 const Giro = {
   PARADO_MS: 3 * 60e3,   /* sem notícia há mais que isso = a troca parou (gancho dos testes) */
+  rodando: false,        /* este aparelho está fazendo a troca agora (E5): aí só ela muda a chave daqui */
   /* os dados da troca de uma linha do banco ({vis, dados, atualizado_em, apagado_em}). Só vale a "restrito" (C9: um adulto
      comum cria settings como "publico"; uma troca falsa não pode travar a família) */
   dados(row) { return row && !row.apagado_em && row.vis === "restrito" && row.dados && row.dados.v === 1 ? row.dados : null; },
@@ -9590,7 +9777,7 @@ const Cars = {
       { k: "_sec.placa", label: tt("Placa", "License plate"), ph: "ABC1D23" }, { k: "_sec.chassi", label: tt("Chassi (17 letras e números, está no documento do carro)", "VIN (17 characters, on the car's registration)") },
       { k: "_sec.renavam", label: tt("Renavam (11 números, está no documento do carro)", "Registration number") },
       { k: "_sec.number", label: tt("Número da apólice do seguro", "Insurance policy number") }, { k: "_sec.item", label: tt("Item da apólice (se tiver)", "Policy item (if any)") });
-    else f.push({ type: "note", html: "🔒 " + (S.mode === "visitor" ? tt("No modo visitante não dá para guardar placa e chassi.", "Plate and VIN can't be saved in visitor mode.") : modo === "falta" ? tt("Os dados protegidos deste carro (placa, chassi, apólice e custo) não estão neste aparelho agora, então não mudam por aqui.", "This car's protected data (plate, VIN, policy and cost) isn't on this device right now, so it can't be changed here.") : isGuardian() ? tt("Placa, chassi, renavam e o número da apólice ficam trancados nas Senhas da casa. Para ver ou mudar, abra as Senhas da casa antes e volte aqui.", "Plate, VIN and the policy number stay locked in the vault. To see or change them, open the vault first and come back.") : tt("Placa, chassi e o número da apólice só os responsáveis veem.", "Only guardians see the plate, VIN and policy number.")) });
+    else f.push({ type: "note", html: "🔒 " + (S.mode === "visitor" ? tt("No modo visitante não dá para guardar placa e chassi.", "Plate and VIN can't be saved in visitor mode.") : modo === "espera" ? esc(Cofre.podeMudar().texto || "") : modo === "falta" ? tt("Os dados protegidos deste carro (placa, chassi, apólice e custo) não estão neste aparelho agora, então não mudam por aqui.", "This car's protected data (plate, VIN, policy and cost) isn't on this device right now, so it can't be changed here.") : isGuardian() ? tt("Placa, chassi, renavam e o número da apólice ficam trancados nas Senhas da casa. Para ver ou mudar, abra as Senhas da casa antes e volte aqui.", "Plate, VIN and the policy number stay locked in the vault. To see or change them, open the vault first and come back.") : tt("Placa, chassi e o número da apólice só os responsáveis veem.", "Only guardians see the plate, VIN and policy number.")) });
     f.push(g("🛡 " + tt("Seguro", "Insurance")),
       { k: "seguro.seguradora", label: tt("Seguradora", "Insurer"), ph: tt("Ex.: Porto Seguro", "e.g. Geico") },
       { k: "seguro.inicio", label: tt("O seguro vale de", "Coverage from"), type: "date" }, { k: "seguro.fim", label: tt("até (vence em)", "until (expires on)"), type: "date" },
@@ -9612,8 +9799,11 @@ const Cars = {
   async edit(c) {
     c = c ? JSON.parse(JSON.stringify(c)) : { kind: "veiculo", parent: "", carro: {}, seguro: {} };
     let modo = isGuardian() && S.vaultKey ? "aberto" : "";
+    /* 2.27.0 (C14): no meio da troca da chave, ou com a chave velha aqui, a placa nem aparece para mudar (antes, o que a pessoa
+       digitava se perdia no salvar) */
+    if (modo && !Cofre.podeMudar().ok) modo = "espera";
     const vals = Object.assign({}, c);
-    if (modo) { const o = (await this.segredo(c)) || {}; if (o._falta) modo = "falta"; else { vals._sec = {}; CAR_SEC.forEach((k) => (vals._sec[k] = o[k] == null ? "" : o[k])); } }
+    if (modo === "aberto") { const o = (await this.segredo(c)) || {}; if (o._falta) modo = "falta"; else { vals._sec = {}; CAR_SEC.forEach((k) => (vals._sec[k] = o[k] == null ? "" : o[k])); } }
     const r = await formModal({ title: "🚗 " + (c.id ? esc(c.name) : tt("Novo veículo", "New vehicle")), fields: this.fields(modo), values: vals, wide: true,
       /* as Senhas da casa fecharam com a janela aberta: os dados protegidos somem dela na hora */
       after: modo === "aberto" ? (el) => { const t = setInterval(() => { if (!el.isConnected) return clearInterval(t); if (S.vaultKey) return; clearInterval(t); el.querySelectorAll('[name^="_sec."]').forEach((i) => { i.value = ""; const b = i.closest(".fld"); if (b) b.classList.add("hidden"); }); }, 1000); } : null,
