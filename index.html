@@ -3686,6 +3686,8 @@ const Cofre = {
       if (p && p.fk !== (n ? n.fk : f.fk) && !outras.some((o) => o.fk === p.fk)) { try { outras.push({ kv: p.kv, fk: p.fk, raw: await this.decifrar(duk, p) }); } catch (e) {} }
       await this.usarChave(atual, n ? n.kv : f.kv, n ? n.fk : f.fk, outras); atual.fill(0);
       if (n) { toast("🔐 " + this.T().atualizou, 5000); setTimeout(() => Giro.arrumarAparelho(), 0); }   /* os anexos daqui vão para a nova */
+      /* 3.9: depois de "Terminar a troca", as chaves de antes deste aparelho saem (quando nada daqui precisa mais delas) */
+      else if ((f.velhas || []).length) setTimeout(() => Giro.soltarVelhas(), 0);
       return { ok: true };
     }
     /* a chave desta família ainda não está neste aparelho: vem do banco, embrulhada para mim (precisa de internet) */
@@ -4822,10 +4824,11 @@ const Giro = {
     const bt = (id, fn) => { const b = m.el.querySelector("#" + id); if (b) b.onclick = () => { m.drop(); fn(); }; };
     bt("fimCodigo", () => Gov.makeEnvelope());
     bt("fimCopia", () => ACT["bk.exportSafe"]({}));
+    bt("fimTerminar", () => this.descartarPelaTela());
     return m;
   },
-  /* o lugar do "🧹 Terminar a troca" no fim (o texto "quando tiver aberto…" e o botão): etapa E10 */
-  fimDescarte() { return ""; },
+  /* o "🧹 Terminar a troca" no fim (D-E7): o texto "quando tiver aberto…" e o botão */
+  fimDescarte() { return this.terminarHtml(null, "fimTerminar"); },
   /* "Continuar de onde parou" da pílula "foi interrompido" (o app fechou no meio): vai para as Senhas da casa; abertas, continua;
      fechadas, pede o PIN e o cartão "Continuar" faz o resto. Não depende só da pílula: o cartão aparece sempre que há troca
      deste chefe pela metade */
@@ -4928,7 +4931,7 @@ const Giro = {
   botaoHtml(sql) {
     if (S.mode !== "cloud" || S.role !== "admin") return "";
     const T = this.T, curso = this.emCurso(), off = sql === false || this.rodando;
-    return '<div class="segav giro" id="segGiro">' + this.cartao() + this.aviso() +
+    return '<div class="segav giro" id="segGiro">' + this.cartao() + this.aviso() + this.terminarHtml(sql) +
       (curso && !this.rodando ? "" : '<button type="button" class="btn" data-act="conta.giro.trocar" aria-describedby="giroSub"' + (off ? " disabled" : "") + ">" + T.botao + "</button>" +
         '<p class="tiny faint" id="giroSub">' + T.intro + "</p>" + (sql === false ? '<p class="small" id="giroSemSql" role="status">⏳ ' + T.semSql + "</p>" : "")) + "</div>";
   },
@@ -5054,6 +5057,213 @@ const Giro = {
     finally { this._vigia = false; }
     return n;
   },
+  /* ---------- "Terminar a troca" (item d, 3.10, D-E7): apagar as versões antigas da chave de segurança ---------- */
+  /* a troca terminada é a do registro: a nova dela é a dele, e foi troca de verdade (a mesma conta do giro_ok do banco, C9) */
+  giroDoRegistro(g, reg) { return !!(g && reg && g.estado === "feito" && g.para && g.para.fk === reg.fk && +g.para.kv === +reg.kv && g.de && g.de.fk && g.de.fk !== reg.fk); },
+  /* o registro anota o descarte com a chave dele ({ate, em, fk}): numa troca nova (outra chave), o botão volta */
+  descartado(reg) { return !!(reg && reg.fk && reg.descarte && reg.descarte.fk === reg.fk); },
+  /* o botão aparece (no fim e no Avançado): só chefe (D-E8: qualquer chefe), a última troca "feito" e as versões antigas ainda lá */
+  podeDescartar() {
+    if (S.mode !== "cloud" || S.role !== "admin" || this.rodando || this.emCurso()) return false;
+    const reg = Cofre.registro();
+    return this.giroDoRegistro(this.dados(this.local()), reg) && !this.descartado(reg);
+  },
+  terminarHtml(sql, id) {
+    if (!this.podeDescartar()) return "";
+    const T = this.T;
+    return '<div class="note" id="' + (id ? id + "N" : "giroTerminar") + '"><p class="small">' + T.depois + '</p><button type="button" class="btn" ' + (id ? 'id="' + id + '"' : 'data-act="conta.giro.descartar"') + (sql === false ? " disabled" : "") + ">" + T.btTerminar + '</button><p class="tiny faint">' + T.terminarTexto + "</p></div>";
+  },
+  /* até qual versão apagar (3.10): a maior versão de quem está na família − 1. A versão em uso de cada pessoa (e as mais novas) o
+     banco nunca apaga */
+  async ateVersao() {
+    const rows = await Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: S.family.id }, this.PRAZO_MS);
+    return Math.max(0, ...(Array.isArray(rows) ? rows : []).map((r) => +r.ultima_versao || 0)) - 1;
+  },
+  /* antes de "Terminar a troca", pela sol_giro_situacao (8.8, para leigo): o que ainda falta. Nada muda aqui. Os resumos velhos da
+     Saúde e a troca regravada por um chefe o app conserta sozinho depois da confirmação (descartar). C11: os itens que já não abriam
+     (a troca os deixou como estavam, na chave de antes) entram na lista para apagar — só os fechados com uma chave que este aparelho
+     tem e que mesmo assim não abrem; nunca os de uma chave que ele não conhece (pode ser a mudança de outro aparelho).
+     {ok, ate} | {falta: [textos], naoAbrem: [ids]} */
+  async faltaDescartar() {
+    const T = this.T;
+    if (S.mode !== "cloud" || S.role !== "admin") return { falta: [T.soChefe] };
+    if (!navigator.onLine) return { falta: [T.semRedeFim] };
+    if (this.rodando || this.emCurso()) return { falta: [T.descGiro] };
+    let s, b;
+    try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: S.family.id }, this.PRAZO_MS); }
+    catch (e) { return { falta: [this.erroDescarte(e).message] }; }
+    try { b = await this.ler(); } catch (e) { return { falta: [T.semRedeFim] }; }
+    if (!s || !s.registro || !b.reg) return { falta: [T.descEstranho] };
+    if (this.emCurso(b.giro) || !(s.giro_ok || this.giroDoRegistro(b.g, b.reg))) return { falta: [T.descGiro] };
+    const falta = [], naoAbrem = [];
+    if (+s.vault_fora > 0) {
+      falta.push(T.descVault);
+      if (Cofre.aberto()) for (const r of await this.linhasVault()) {
+        if (r.id === "_em") continue;
+        let o = null; try { o = JSON.parse(r.dados_cifrado); } catch (e) {}
+        if ((!o || !o.c || !o.fk || Cofre.chaveDe(o.fk)) && !(await this.abreAgora(r))) naoAbrem.push(r.id);
+      }
+    }
+    if (s.money_migrado === false || +s.money_cf > 0) falta.push(T.descMoney);
+    if (+s.falta_entregar > 0) falta.push(T.descMembros(+s.falta_entregar));
+    if (falta.length) return { falta, naoAbrem };
+    let ate; try { ate = await this.ateVersao(); } catch (e) { return { falta: [this.erroDescarte(e).message] }; }
+    if (ate < 1 || ate >= +s.maior_versao) return { falta: [T.descVersao] };
+    return { ok: true, ate };
+  },
+  /* o motivo de um erro do banco no "Terminar a troca": o "descartar:<motivo>" do SQL; sem a função, "servidor" */
+  motivoDescarte(e) {
+    if (e && e.giro) return e.giro;
+    if (e && (e.status === 404 || e.code === "PGRST202")) return "servidor";
+    const m = /^descartar:(\w+)/.exec((e && e.message) || "");
+    return m ? m[1] : e && e.status ? "banco" : "rede";
+  },
+  /* o erro com o texto para leigo (8.8) */
+  erroDescarte(e) {
+    if (e && e.giro) return e;
+    const T = this.T, m = this.motivoDescarte(e), n = +((/para (\d+) pessoa/.exec((e && e.message) || "") || [])[1]) || 1;
+    if (m === "banco" || m === "rede") console.warn("terminar a troca:", e && e.message);
+    return this.erro({ servidor: T.descartarServidor, giro: T.descGiro, vault: T.descVault, ponte: T.descPonte, money: T.descMoney, membros: T.descMembros(n),
+      versao: T.descVersao, chefe: T.soChefe, registro: T.descEstranho, rede: T.semRedeFim }[m] || T.descErro, m);
+  },
+  /* "Terminar a troca" depois da confirmação (3.10): o banco apaga as versões antigas (sol_descartar_chaves_antigas, que confere tudo
+     de novo) e o registro anota o descarte (CAS). Dois consertos que o app sabe fazer, uma vez cada: descartar:ponte → tira da fila
+     do MoneyTRIO os resumos velhos da Saúde do Omni (C10) e tenta de novo; descartar:giro com a troca "feito" no banco → regrava a
+     troca (CAS; o banco quer um chefe como o último a gravar, C9) e tenta de novo. Sem a função no banco (404), nada muda. Erro =
+     texto para leigo (8.8). Quantas versões o banco apagou */
+  async descartar(ate) {
+    if (S.role !== "admin") throw this.erro(this.T.soChefe, "chefe");
+    try {
+      const b = await this.ler(), gid = S.family.id;
+      if (!b.reg) throw this.erro(this.T.descEstranho, "registro");
+      if (ate == null) ate = await this.ateVersao();
+      let n, ponte = false, giro = false;
+      for (;;) {
+        try { n = await Conta.rpc("sol_descartar_chaves_antigas", { p_grupo: gid, p_ate_versao: ate }, this.PRAZO_MS); break; }
+        catch (e) {
+          const m = this.motivoDescarte(e);
+          if (m === "ponte" && !ponte) { ponte = true; await this.marcarPonte(b.reg.fk); continue; }
+          if (m === "giro" && !giro && !this.emCurso(b.giro) && this.giroDoRegistro(b.g, b.reg) && (await this.gravarDoc(b.giro, b.g))) { giro = true; continue; }
+          throw e;
+        }
+      }
+      if (!(await this.anotarDescarte(b.reg.fk, ate))) throw this.erro(this.T.descErro, "registro");
+      Cloud.audit("cofre.descartado", Cloud.myName());
+      return n;
+    } catch (e) { throw this.erroDescarte(e); }
+  },
+  /* o registro anota o descarte desta chave ({ate, em, fk}), com a versão lida (CAS): tira o botão e deixa cada aparelho soltar as
+     chaves de antes (soltarVelhas). Outra chave no registro (uma troca nova virou depois) = não anota */
+  async anotarDescarte(fk, ate) {
+    for (let vez = 0; vez < 4; vez++) {
+      const l = await CloudDriver.linha("settings", "cofre", this.PRAZO_MS), d = (l && l.dados) || {};
+      if (!l || l.apagado_em || d.fk !== fk) return false;
+      if (this.descartado(d) && +d.descarte.ate >= ate) { await CloudDriver.aceitar("settings", "cofre", l, true); return true; }
+      const r = await Conta.rest("PATCH", CloudDriver.url("settings", "cofre") + "&versao=eq." + l.versao, { vis: "restrito", dados: Object.assign({}, d, { descarte: { ate, em: new Date().toISOString(), fk } }) }, "return=representation", this.PRAZO_MS);
+      if (r && r[0]) { await CloudDriver.aceitar("settings", "cofre", r[0], true); return true; }
+    }
+    return false;
+  },
+  /* o toque em "🧹 Terminar a troca" (no fim e no Avançado; o ACT direto também): primeiro o que falta, sem mudar nada; tudo certo, a
+     confirmação */
+  async descartarPelaTela() {
+    const T = this.T;
+    if (this._descartando) return;
+    this._descartando = true;
+    const b = document.querySelector('[data-act="conta.giro.descartar"]'), antes = b && b.innerHTML;
+    if (b) { b.disabled = true; b.textContent = T.conferindoBt; }
+    try {
+      let f; try { f = await this.faltaDescartar(); } catch (e) { f = { falta: [this.erroDescarte(e).message] }; }
+      if (f.ok) this.confirmarDescarte(f.ate); else this.janelaFalta(f.falta, f.naoAbrem);
+    } finally {
+      this._descartando = false;
+      if (b && b.isConnected) { b.disabled = false; b.innerHTML = antes; }
+    }
+  },
+  /* o que ainda falta (8.8, para leigo). C11: os itens que já não abrem, com "Apagar os itens que não abrem" (só com o PIN) */
+  janelaFalta(falta, naoAbrem) {
+    const T = this.T, ids = naoAbrem || [];
+    /* "Ainda não dá para terminar:" uma vez só (o texto do 8.8 sem o SQL já começa assim) */
+    const body = '<p class="small">' + T.faltaTit + '</p><ul class="small" id="giroFalta">' + falta.map((t) => "<li>" + (t.startsWith(T.faltaTit) ? t.slice(T.faltaTit.length).trim() : t) + "</li>").join("") + "</ul>" +
+      (ids.length ? '<div class="note warn" id="giroTermNaoAbrem"><p class="small">⚠️ ' + T.descNaoAbrem(ids.length) + '</p><button type="button" class="btn ghost" id="giroTermApagar">' + T.btApagar + "</button></div>" : "");
+    const m = modal({ title: T.terminarTit, cls: "giro", body, foot: '<button type="button" class="btn" data-x>' + T.btEntendi + "</button>" });
+    const ap = m.el.querySelector("#giroTermApagar");
+    if (ap) ap.onclick = async () => {
+      m.drop();
+      if (!(await Cofre.provarAgora(T.btApagar, T.apagarPin(ids.length), true))) return;
+      let n = 0; try { n = await this.apagarNaoAbrem(ids); } catch (e) { toast(T.erroConferir, 5000); }
+      if (n) toast("✓ " + T.apagouOk(n), 5000);
+      this.descartarPelaTela();   /* confere tudo de novo */
+    };
+    return m;
+  },
+  /* a confirmação (3.10): o que acontece, "Entendi", digitar TROCAR e, só então, o PIN. Depois: o banco apaga, o registro anota,
+     o aviso, e este aparelho solta as chaves de antes (se nada daqui precisa delas) */
+  confirmarDescarte(ate) {
+    const T = this.T;
+    const body = "<p>" + T.terminarTexto + '</p><p class="small">' + T.depois + "</p>" +
+      '<label class="check"><input type="checkbox" id="giroTermCk"><span>' + T.terminarCheck + "</span></label>" +
+      '<label class="fld"><span>' + T.digitar + '</span><input type="text" id="giroTermPalavra" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>' +
+      '<p class="small" id="giroTermErr" role="alert" style="color:var(--warn)"></p>';
+    const m = TelaConta.janela({ title: T.terminarTit, body, confirmacao: false, campo: false, cls: "cadeado giro",
+      foot: '<button type="button" class="btn ghost" data-x>' + tt("Cancelar", "Cancel") + '</button><button type="button" class="btn danger" data-ok>' + T.btTerminarJa + "</button>" });
+    const $m = (s) => m.el.querySelector(s);
+    let ocupado = false;   /* um toque duplo não pede o PIN duas vezes */
+    $m("[data-ok]").onclick = async () => {
+      if (ocupado) return;
+      const palavra = ($m("#giroTermPalavra").value || "").trim().toUpperCase();
+      if (!$m("#giroTermCk").checked || !["TROCAR", "CHANGE"].includes(palavra)) { $m("#giroTermErr").textContent = T.faltaTerminar; return; }
+      ocupado = true; m.drop();
+      if (!(await Cofre.provarAgora(T.terminarTit, T.terminarPin, true))) return;
+      try { await this.descartar(ate); }
+      catch (e) { scheduleRender(true); return this.janelaFalta([this.erroDescarte(e).message]); }
+      toast(T.descartouOk, 6000);
+      scheduleRender(true);
+      this.soltarVelhas().catch(() => {});
+    };
+    return m;
+  },
+  /* 3.9: depois de "Terminar a troca" (o registro DO BANCO anota o descarte da chave de agora), as chaves de antes deste aparelho
+     (L.fam[gid].velhas e as que só abrem, na memória) saem — cada uma só quando nada daqui precisa mais dela: nenhuma linha das Senhas
+     da casa daqui (a do banco ou a que espera na fila) fechada com ela, e nenhum anexo guardado aqui que ainda abra com ela (esses o
+     arrumarAparelho passa para a de agora, e a próxima abertura solta). Até lá, ficam (no máximo 2, C16). Pela porta única.
+     Quantas soltou */
+  _soltando: false,
+  async soltarVelhas() {
+    if (this._soltando || this.rodando || S.mode !== "cloud" || !Cofre.aberto() || !navigator.onLine) return 0;
+    const gid = Cofre.gid, fk = Cofre.fk, L = await Cofre.local(), f = L && L.fam && L.fam[gid];
+    if (!f || f.fk !== fk || !(f.velhas || []).length) return 0;
+    this._soltando = true;
+    try {
+      const b = await Cofre.noBanco();
+      if (this.emCurso(b.giro) || !b.reg || b.reg.fk !== fk || !this.descartado(b.reg)) return 0;
+      const velhas = f.velhas.map((v) => v.fk), precisa = new Set();
+      const fkDe = (cif) => { try { const o = JSON.parse(cif); return o.c ? o.fk : o.em && o.d && o.d.em ? o.d.em.fk : null; } catch (e) { return null; } };
+      for (const [k, rec] of CloudDriver.recs) if (k.startsWith("vault|")) for (const c of [rec.cif, rec.baseCif]) if (c) precisa.add(fkDe(c));
+      let arrumar = false;
+      for (const fm of DB.raw("files").filter((x) => x.enc && (x.enc.fk !== fk || x.enc.antes))) {
+        const e = fm.enc;
+        if (e.antes || velhas.includes(e.fk)) { precisa.add(e.antes ? e.antes.fk : e.fk); arrumar = true; continue; }
+        /* sem a chave dita (de antes da 2.27.0) ou de fora da família: abre com alguma delas? */
+        const blob = await DB.driver.getFile(fm.id, fm); if (!blob) continue;
+        for (const v of velhas) {
+          const k = Cofre.chaveDe(v); if (!k) { precisa.add(v); continue; }   /* sem como conferir: fica */
+          try { await Vault.decryptBlob(blob, e.iv, e.type, k); precisa.add(v); arrumar = true; } catch (er) {}
+        }
+      }
+      if (arrumar) this.arrumarAparelho();
+      const sai = velhas.filter((v) => !precisa.has(v));
+      if (!sai.length || !Cofre.aberto() || Cofre.fk !== fk) return 0;
+      await Cofre.mudarLocal(null, (X) => {
+        const a = X && X.fam && X.fam[gid]; if (!a || a.fk !== fk || !(a.velhas || []).length) return;
+        X.fam = Object.assign({}, X.fam, { [gid]: Object.assign({}, a, { velhas: a.velhas.filter((v) => !sai.includes(v.fk)) }) });
+        return X;
+      });
+      Cofre.outras = Cofre.outras.filter((o) => !sai.includes(o.fk));
+      return sai.length;
+    } catch (e) { console.warn("soltar as de antes:", e && e.message); return 0; }
+    finally { this._soltando = false; }
+  },
   get T() {
     return {
       aprovarEspere: tt("Espere a troca de segurança terminar para aprovar (alguns minutos).", "Wait for the security change to finish before approving (a few minutes)."),
@@ -5158,7 +5368,31 @@ const Giro = {
       /* para os outros chefes e responsáveis (8.5) e a troca esquecida (C16) */
       outroTrocando: tt("Um chefe da família está trocando a chave de segurança (alguns minutos). Algumas senhas podem não aparecer até terminar. Não precisa fazer nada.", "A family head is changing the security key (a few minutes). Some passwords may not show until it finishes. Nothing to do."),
       outroParado: tt("A troca de segurança parou no meio. O chefe que começou precisa continuar.", "The security change stopped halfway. The head who started it needs to continue."),
-      esquecida: (h) => tt("A troca de segurança começou e parou antes de mudar qualquer coisa. Se o chefe que começou não continuar, ela se desfaz sozinha em " + h + " h.", "The security change started and stopped before changing anything. If the head who started it doesn't continue, it undoes itself in " + h + " h.")
+      esquecida: (h) => tt("A troca de segurança começou e parou antes de mudar qualquer coisa. Se o chefe que começou não continuar, ela se desfaz sozinha em " + h + " h.", "The security change started and stopped before changing anything. If the head who started it doesn't continue, it undoes itself in " + h + " h."),
+      /* "Terminar a troca" (8.8, D-E7; C16: nada de "servidor") */
+      btTerminar: tt("🧹 Terminar a troca (apagar as versões antigas)", "🧹 Finish the change (delete the old versions)"),
+      terminarTit: tt("🧹 Terminar a troca", "🧹 Finish the change"),
+      terminarTexto: tt("Depois disso, nada antigo abre mais as senhas, nem cópias antigas. Faça antes de convidar alguém novo para a família.", "After this, nothing old opens the passwords anymore, not even old copies. Do it before inviting someone new to the family."),
+      depois: tt("Quando tiver aberto as Senhas da casa nos seus outros aparelhos e o MoneyTRIO, toque em “Terminar a troca”.", "Once you've opened the vault on your other devices and MoneyTRIO, tap “Finish the change”."),
+      terminarCheck: tt("Entendi e quero terminar agora", "I understand and want to finish now"),
+      faltaTerminar: tt("Marque o item acima e digite TROCAR para confirmar.", "Check the item above and type CHANGE to confirm."),
+      btTerminarJa: tt("🧹 Terminar agora", "🧹 Finish now"),
+      terminarPin: tt("Para terminar, digite o PIN da sua conta (ou use a digital).", "To finish, type your account PIN (or use your fingerprint)."),
+      descartouOk: tt("✓ Pronto: a troca terminou.", "✓ Done: the change is finished."),
+      faltaTit: tt("Ainda não dá para terminar:", "You can't finish yet:"),
+      descartarServidor: tt("Ainda não dá para terminar: falta uma atualização do SolverONE.", "You can't finish yet: a SolverONE update is missing."),
+      descGiro: tt("Termine primeiro “Trocar a chave de segurança da família”.", "First finish “Change the family security key”."),
+      descVault: tt("Ainda há senhas na versão antiga. Abra as Senhas da casa neste aparelho e espere 1 minuto.", "Some passwords are still on the old version. Open the vault on this device and wait 1 minute."),
+      descPonte: tt("Há avisos da Saúde para o MoneyTRIO na versão antiga. Abra o MoneyTRIO pelo PIN e espere 1 minuto.", "There are Health updates for MoneyTRIO on the old version. Open MoneyTRIO with the PIN and wait 1 minute."),
+      descMoney: tt("O MoneyTRIO ainda não terminou a preparação da família.", "MoneyTRIO hasn't finished preparing the family yet."),
+      descMembros: (n) => tt("Falta entregar a versão nova para " + n + (n > 1 ? " pessoas" : " pessoa") + ". Abra as Senhas da casa e espere 1 minuto.", "The new version still has to reach " + n + (n > 1 ? " people" : " person") + ". Open the vault and wait 1 minute."),
+      descVersao: tt("Não há nada antigo para apagar.", "There's nothing old to delete."),
+      descEstranho: tt("Algo nas Senhas da casa não confere. Peça ajuda pelo 💬.", "Something in the vault doesn't check out. Ask for help with 💬."),
+      descErro: tt("Algo não conferiu. Toque de novo em “Terminar a troca”.", "Something didn't check out. Tap “Finish the change” again."),
+      semRedeFim: tt("Para terminar, ligue a internet.", "To finish, turn on the internet."),
+      /* C11: os itens que já não abriam (ficaram como estavam na troca) impedem o último passo */
+      descNaoAbrem: (n) => tt(n + (n > 1 ? " itens" : " item") + " das Senhas da casa já não " + (n > 1 ? "abrem" : "abre") + " (" + (n > 1 ? "estragaram" : "estragou") + " antes da troca) e " + (n > 1 ? "impedem" : "impede") + " de terminar. Se não precisa " + (n > 1 ? "deles" : "dele") + ", apague.",
+        n + (n > 1 ? " items" : " item") + " in the vault no longer " + (n > 1 ? "open" : "opens") + " (broken before the change) and " + (n > 1 ? "block" : "blocks") + " finishing. If you don't need " + (n > 1 ? "them" : "it") + ", delete " + (n > 1 ? "them" : "it") + ".")
     };
   }
 };
@@ -5167,6 +5401,8 @@ const Giro = {
 /* ⚙ → Segurança e aparelhos → Avançado → "🔄 Trocar a chave de segurança da família" (só chefe: quem não é ouve "Só um chefe…") */
 ACT["conta.giro.trocar"] = () => Giro.trocarPelaTela();
 ACT["conta.giro.continuar"] = () => Giro.continuar();
+/* "🧹 Terminar a troca" (apagar as versões antigas, D-E7): só chefe; primeiro o que falta, depois a confirmação e o PIN */
+ACT["conta.giro.descartar"] = () => Giro.descartarPelaTela();
 ACT["conta.giro.assumir"] = async () => {
   const op = await Giro.opDoCartao(); if (!op) return;
   const b = document.querySelector('[data-act="conta.giro.assumir"]'); if (b) { b.disabled = true; b.textContent = "⏳"; }

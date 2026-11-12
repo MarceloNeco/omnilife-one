@@ -105,6 +105,17 @@
      G12b C6: sem a sol_giro_situacao, o botão desligado ("Ainda não dá…") e a confirmação não abre
      AV   os avisos para os outros (8.5, e C16 aos chefes), o cartão "Continuar" no Avançado, AUDIT_TXT e GOV_SENS
      G14  leigo e telas: os textos em PT e EN, 390 px sem rolar para o lado, prints (PRINTS=<pasta>) em 390 e 1280 px
+   Etapa E10 ("Terminar a troca", item d: apagar as versões antigas; o SQL de verdade é o teste/sql-giro.js, no PGlite):
+     G12  antes da troca → "Termine primeiro…" (a tela e o banco); o MoneyTRIO não migrado → "O MoneyTRIO ainda não terminou…";
+          ping-pong → "Falta entregar…"; a confirmação (Entendi, TROCAR, PIN); o banco apaga só as versões antigas de cada pessoa (o
+          Davi, que recebeu a versão 1 depois da troca, fica); o registro anota o descarte (CAS) e o botão sai; este aparelho solta
+          as chaves de antes; o outro solta na próxima abertura — nunca sem o descarte, e não enquanto algo dele ainda está nelas
+     G12s sem o SQL da plataforma: o botão desligado e "Ainda não dá para terminar: falta uma atualização do SolverONE." (C16), nada
+          muda; a responsável não vê o botão e ouve "Só um chefe…" sem perguntar ao banco
+     G12p C10: pelo botão do fim; o resumo velho do Omni marcado e tenta de novo; um aviso velho que não é do Omni trava ("ponte")
+     G12g C9: a troca "feito" gravada por último por uma responsável — o app regrava (CAS) e termina
+     G12v C11: o item que já não abria (ficou na de antes) impede; "Apagar os itens que não abrem" (com o PIN); uma linha de chave
+          desconhecida nunca é oferecida para apagar
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -471,6 +482,43 @@ async function digitarPin(p, pin) {
 const umaVolta = (p) => p.evaluate(async () => { for (let i = 0; i < 100 && Cloud._polling; i++) await new Promise((r) => setTimeout(r, 100)); await Cloud.poll(); for (let i = 0; i < 100 && (Cloud._polling || Giro._vigia); i++) await new Promise((r) => setTimeout(r, 100)); });
 /* as gravações no banco desde marca (PATCH/POST/DELETE em omni_docs e as entregas) */
 const gravacoesDesde = (marca) => M.log.slice(marca).filter((l) => (['PATCH', 'POST', 'DELETE'].includes(l.metodo) && /omni_docs/.test(l.caminho)) || /sol_guardar_chave_grupo/.test(l.caminho));
+
+/* ---------------- etapa E10: "Terminar a troca" (apagar as versões antigas) ---------------- */
+/* a janela do "Terminar a troca": {tipo: "falta" (o que ainda falta) | "confirma" | null, txt} */
+const janelaTerm = (p) => p.evaluate(() => {
+  const m = [...document.querySelectorAll('.modal.giro')].find((x) => x.querySelector('#giroFalta, #giroTermPalavra'));
+  return m ? { tipo: m.querySelector('#giroFalta') ? 'falta' : 'confirma', txt: m.innerText.replace(/\s+/g, ' ').trim(), apagar: !!m.querySelector('#giroTermApagar') } : { tipo: null, txt: '' };
+});
+/* toca em "🧹 Terminar a troca" (o botão do Avançado, ou o ACT direto) e espera a janela */
+async function tocarTerminar(p, act) {
+  if (act) await p.evaluate(() => ACT['conta.giro.descartar']()); else await p.click('[data-act="conta.giro.descartar"]');
+  await esperar(p, () => !!document.querySelector('.modal.giro #giroFalta, .modal.giro #giroTermPalavra'), null, 20000);
+  await espere(150);
+  return janelaTerm(p);
+}
+const fecharTerm = async (p) => { await p.click('.modal.giro .mf [data-x]').catch(() => {}); await p.waitForSelector('.modal.giro', { state: 'detached', timeout: 5000 }).catch(() => {}); };
+/* marca "Entendi", digita a palavra e toca em "Terminar agora" */
+async function confirmarTerminar(p, op) {
+  op = op || {};
+  if (!op.semCheck) await p.check('.modal.giro #giroTermCk');
+  await p.fill('.modal.giro #giroTermPalavra', op.palavra === undefined ? 'trocar' : op.palavra);
+  await p.click('.modal.giro [data-ok]');
+}
+/* Giro.descartar() direto (sem a conferência da tela): {n} | {motivo, txt} */
+const descartarDireto = (p) => p.evaluate(async () => { try { return { n: await Giro.descartar() }; } catch (e) { return { motivo: e.giro || null, txt: e.message }; } });
+/* o banco do "Terminar a troca": as versões guardadas, o registro e o histórico do descarte (para conferir que nada mudou) */
+const bancoTerm = () => JSON.stringify([db.sol_grupo_chaves.map((c) => [c.user_id, c.versao]), regBanco(), db.omni_historico.filter((h) => h.acao === 'cofre.descartado').length]);
+/* conta as voltas do soltarVelhas (window.__solt) */
+const contarSoltar = (p) => p.evaluate(() => { window.__solt = 0; const o = Giro.soltarVelhas; Giro.soltarVelhas = async function () { try { return await o.apply(this, arguments); } finally { window.__solt++; } }; });
+/* tranca e abre de novo pelo PIN; espera o soltarVelhas da abertura terminar */
+async function reabrirPeloPin(p, pin) {
+  const n0 = await p.evaluate(() => window.__solt || 0);
+  await p.evaluate(() => { Cofre.trancar(); render(); });
+  const r = await abrirPeloPin(p, pin);
+  await esperar(p, (n0) => (window.__solt || 0) > n0 && !Giro._soltando, n0, 15000);
+  return r;
+}
+const outrasDe = (p) => p.evaluate(() => Cofre.outras.map((o) => o.fk));
 
 (async () => {
   const browser = await iniciar();
@@ -2739,8 +2787,244 @@ const gravacoesDesde = (marca) => M.log.slice(marca).filter((l) => (['PATCH', 'P
   });
 
 
+  /* ================= G12 (etapa E10): "Terminar a troca" ================= */
+  await parte('G12', '"Terminar a troca" (item d): antes da troca → "Termine primeiro…"; o MoneyTRIO não migrado → "O MoneyTRIO ainda não terminou…"; um aparelho velho gravou por cima (ping-pong) → "Falta entregar…"; depois da troca, com o PIN, o banco apaga só as versões antigas de cada pessoa (quem recebeu a versão 1 depois da troca fica), o registro anota e o botão sai; os aparelhos soltam as chaves de antes (sem o descarte, nunca; com algo daqui ainda nela, ainda não)', async (novo) => {
+    const A = await novo('G12-ana', { vp: 'celular' }), a = A.p;
+    const B = await novo('G12-ana-pc', { vp: 'computador' }), bb = B.p;
+    /* a Ana já trocou de chave pessoal uma vez (a chave da família de antes embrulhada de novo para ela, versão 2): antes da troca já
+       há uma versão antiga no banco */
+    const kA = db.sol_chave_publica.find((k) => k.user_id === ANA).chave_publica;
+    db.sol_grupo_chaves.push({ grupo_id: GID, user_id: ANA, versao: 2, chave_embrulhada: await embrulhar(kA, M.cfVelha, 1, FK0), embrulhada_por: ANA, criado_em: agora() });
+    linha('settings', 'cofre').dados.membros[ANA].seq = 2;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(bb, ANA, PIN_B);
+    await anexar(bb, [['fG12b', 'familia']]);
+    await vigiarAvisos(a); await contarSoltar(bb);
+    /* --- antes da troca --- */
+    await avancado(a);
+    conferir(!(await a.$('[data-act="conta.giro.descartar"]')) && !(await a.evaluate(() => Giro.podeDescartar())), 'G12. antes da troca, o Avançado não oferece "Terminar a troca"');
+    let foto0 = bancoTerm(), marca = M.log.length;
+    const j0 = await tocarTerminar(a, true);
+    conferir(j0.tipo === 'falta' && j0.txt.includes('Ainda não dá para terminar:') && j0.txt.includes('Termine primeiro “Trocar a chave de segurança da família”.') && bancoTerm() === foto0 && !gravacoesDesde(marca).length &&
+      !M.log.slice(marca).some((l) => /sol_descartar_chaves_antigas/.test(l.caminho)),
+      'G12. antes da troca, o ACT direto: "Ainda não dá para terminar: Termine primeiro “Trocar a chave de segurança da família”." — nada muda e o banco nem é chamado para apagar (' + j0.txt.slice(0, 140) + ')');
+    await fecharTerm(a);
+    const d0 = await descartarDireto(a);
+    conferir(d0.motivo === 'giro' && d0.txt === 'Termine primeiro “Trocar a chave de segurança da família”.' && bancoTerm() === foto0 && M.log.slice(marca).filter((l) => /sol_descartar_chaves_antigas/.test(l.caminho)).length === 1,
+      'G12. o banco, direto (p_ate_versao 1: há versão antiga): descartar:giro → o mesmo texto, e nada muda (' + JSON.stringify(d0) + ')');
+    /* --- a troca --- */
+    const rg = await girar(a), gd = linha('settings', 'giro').dados, fkN = gd.para.fk;
+    conferir(rg.ok && gd.estado === 'feito' && versoes(ANA) === '1,2,3' && versoes(BIA) === '1,2', 'G12. a troca terminou (a Ana com 1,2,3; a Bia com 1,2) (' + JSON.stringify(rg.erro || 'ok') + ')');
+    await umaVolta(bb);
+    const adotou = await ateA(async () => { const f = await famDe(bb), an = await anexosDe(bb, ['fG12b']); return f.fk === fkN && an.fG12b.enc.fk === fkN; }, 20000);
+    conferir(adotou && JSON.stringify((await famDe(bb)).velhas) === '["' + FK0 + '"]', 'G12. o outro aparelho da Ana adotou a nova (velhas = [a de antes]) e passou o anexo dele para a nova');
+    await avancado(a);
+    const bt = await a.evaluate(() => { const b = document.querySelector('[data-act="conta.giro.descartar"]'), n = document.querySelector('#giroTerminar'); return b ? { dis: b.disabled, txt: b.textContent.trim(), nota: n.innerText.replace(/\s+/g, ' '), h: b.getBoundingClientRect().height } : null; });
+    conferir(bt && !bt.dis && bt.txt === '🧹 Terminar a troca (apagar as versões antigas)' && bt.nota.includes('Quando tiver aberto as Senhas da casa nos seus outros aparelhos e o MoneyTRIO, toque em “Terminar a troca”.') &&
+      bt.nota.includes('Depois disso, nada antigo abre mais as senhas, nem cópias antigas. Faça antes de convidar alguém novo para a família.') && bt.h >= 44,
+      'G12. depois da troca, o Avançado oferece "🧹 Terminar a troca (apagar as versões antigas)" com o que fazer antes e o que acontece (' + JSON.stringify(bt) + ')');
+    await foto(a, 'e10-avancado', '#giroTerminar');
+    /* --- sem o descarte, nenhum aparelho solta a chave de antes --- */
+    await reabrirPeloPin(bb, PIN_B);
+    conferir(JSON.stringify((await famDe(bb)).velhas) === '["' + FK0 + '"]' && (await outrasDe(bb)).includes(FK0), 'G12. sem o "Terminar a troca", abrir de novo não solta a chave de antes');
+    /* --- o MoneyTRIO ainda não migrou --- */
+    db.money_docs.push({ grupo_id: GID, colecao: 'tx', id: 'm1', vis: 'publico', dados: null, dados_cifrado: '{"c":1,"m":"c","iv":"x","ct":"y"}', versao: 1, apagado_em: null });
+    foto0 = bancoTerm(); marca = M.log.length;
+    const j1 = await tocarTerminar(a);
+    conferir(j1.tipo === 'falta' && j1.txt.includes('O MoneyTRIO ainda não terminou a preparação da família.') && !j1.txt.includes('Termine primeiro') && bancoTerm() === foto0 && !gravacoesDesde(marca).length,
+      'G12. o MoneyTRIO não migrou: "O MoneyTRIO ainda não terminou a preparação da família." e nada muda (' + j1.txt.slice(0, 120) + ')');
+    await foto(a, 'e10-falta');
+    await fecharTerm(a);
+    const d1 = await descartarDireto(a);
+    conferir(d1.motivo === 'money' && d1.txt === 'O MoneyTRIO ainda não terminou a preparação da família.' && bancoTerm() === foto0, 'G12. o banco, direto: descartar:money → o mesmo texto, nada muda (' + JSON.stringify(d1) + ')');
+    db.money_docs.splice(0);
+    /* --- ping-pong: um aparelho velho gravou para a Bia uma versão maior que a do registro --- */
+    db.sol_grupo_chaves.push({ grupo_id: GID, user_id: BIA, versao: 3, chave_embrulhada: 'aparelho-velho', embrulhada_por: BIA, criado_em: agora() });
+    foto0 = bancoTerm(); marca = M.log.length;
+    const j2 = await tocarTerminar(a);
+    conferir(j2.tipo === 'falta' && j2.txt.includes('Falta entregar a versão nova para 1 pessoa. Abra as Senhas da casa e espere 1 minuto.') && bancoTerm() === foto0 && !gravacoesDesde(marca).length,
+      'G12. ping-pong: "Falta entregar a versão nova para 1 pessoa…" e nada muda (' + j2.txt.slice(0, 120) + ')');
+    await fecharTerm(a);
+    const d2 = await descartarDireto(a);
+    conferir(d2.motivo === 'membros' && d2.txt === 'Falta entregar a versão nova para 1 pessoa. Abra as Senhas da casa e espere 1 minuto.' && bancoTerm() === foto0, 'G12. o banco, direto: descartar:membros → o mesmo texto, nada muda (' + JSON.stringify(d2) + ')');
+    db.sol_grupo_chaves.splice(db.sol_grupo_chaves.findIndex((c) => c.user_id === BIA && c.versao === 3), 1);
+    /* --- o Davi vira responsável depois da troca: recebe a versão 1, já com a nova --- */
+    db.sol_grupo_membros.find((m) => m.grupo_id === GID && m.user_id === DAVI).papel = 'responsavel';
+    await distribuirJa(a);
+    const kd = await chaveDaPessoa(DAVI);
+    conferir(versoes(DAVI) === '1' && kd && kd.fk === fkN && regBanco().membros[DAVI] && regBanco().membros[DAVI].seq === 1 && regBanco().membros[DAVI].fk === fkN, 'G12. o Davi, responsável depois da troca, recebe a versão 1 já com a nova');
+    /* --- a confirmação: sem "Entendi" ou sem TROCAR não segue; PIN errado não muda nada --- */
+    foto0 = bancoTerm(); marca = M.log.length;
+    const j3 = await tocarTerminar(a);
+    conferir(j3.tipo === 'confirma' && ['🧹 Terminar a troca', 'Depois disso, nada antigo abre mais as senhas, nem cópias antigas. Faça antes de convidar alguém novo para a família.', 'Entendi e quero terminar agora', 'Para confirmar, digite TROCAR', '🧹 Terminar agora'].every((t) => j3.txt.includes(t)) && !gravacoesDesde(marca).length,
+      'G12. tudo pronto: a confirmação (o que acontece, "Entendi e quero terminar agora", TROCAR); abrir não muda nada (' + j3.txt.slice(0, 160) + ')');
+    await foto(a, 'e10-confirmacao');
+    await confirmarTerminar(a, { semCheck: true });
+    const e1 = await a.textContent('.modal.giro #giroTermErr');
+    await confirmarTerminar(a, { palavra: 'TROCA' });
+    const e2 = await a.textContent('.modal.giro #giroTermErr');
+    conferir(e1 === 'Marque o item acima e digite TROCAR para confirmar.' && e2 === e1 && !(await a.$('.modal #ppin')) && bancoTerm() === foto0, 'G12. sem "Entendi" ou com a palavra errada, não segue (nem pede o PIN) (' + JSON.stringify([e1, e2]) + ')');
+    await confirmarTerminar(a);
+    await digitarPin(a, '000000');
+    await a.waitForFunction(() => /PIN errado/.test((document.querySelector('#perr') || {}).textContent || ''), null, { timeout: 10000 });
+    conferir(bancoTerm() === foto0 && !M.log.slice(marca).some((l) => /sol_descartar_chaves_antigas/.test(l.caminho)), 'G12. com o PIN errado, nada muda (o banco nem é chamado)');
+    /* --- o PIN certo: o banco apaga só as versões antigas --- */
+    await a.fill('.modal #ppin', PIN_A); await a.click('.modal:has(#ppin) [data-ok]');
+    const ok = await esperar(a, () => (window.__av || []).some((t) => /Pronto: a troca terminou/.test(t)), null, 20000);
+    await ate(() => db.omni_historico.some((h) => h.grupo_id === GID && h.acao === 'cofre.descartado'), 8000);   /* o histórico sobe sem segurar o aviso */
+    const reg = regBanco(), hist = db.omni_historico.filter((h) => h.grupo_id === GID && h.acao === 'cofre.descartado');
+    conferir(ok && versoes(ANA) === '3' && versoes(BIA) === '2' && versoes(DAVI) === '1' && versoes(CRIS) === '',
+      'G12. "✓ Pronto: a troca terminou.": saíram só as versões antigas (a Ana fica com a 3, a Bia com a 2) e o Davi, que recebeu a versão 1 depois da troca, FICA (' + [versoes(ANA), versoes(BIA), versoes(DAVI)].join(' | ') + ')');
+    const ch = M.log.slice(marca).filter((l) => /sol_descartar_chaves_antigas/.test(l.caminho));
+    conferir(ch.length === 1 && ch[0].corpo.p_ate_versao === 2 && reg.descarte && reg.descarte.ate === 2 && reg.descarte.fk === fkN && !!Date.parse(reg.descarte.em) && reg.fk === fkN && reg.kv === 2 && hist.length === 1,
+      'G12. p_ate_versao = a maior versão de quem está na família − 1 (2); o registro anota o descarte desta chave ({ate, em, fk}); o histórico conta (' + JSON.stringify([ch.length && ch[0].corpo, reg.descarte, hist.length]) + ')');
+    const cofrePatch = M.log.slice(marca).filter((l) => l.metodo === 'PATCH' && /id=eq\.cofre/.test(l.caminho));
+    conferir(cofrePatch.length === 1 && /versao=eq\.\d+/.test(cofrePatch[0].caminho), 'G12. o registro anotado com a versão lida (CAS), uma gravação só');
+    await esperar(a, () => !document.querySelector('[data-act="conta.giro.descartar"]'), null, 8000);
+    conferir(!(await a.$('[data-act="conta.giro.descartar"]')) && !(await a.evaluate(() => Giro.podeDescartar())), 'G12. depois, o botão "Terminar a troca" sai do Avançado');
+    const soltouA = await ateA(async () => (await famDe(a)).velhas.length === 0 && !(await outrasDe(a)).length, 10000);
+    conferir(soltouA && (await famDe(a)).fk === fkN, 'G12. este aparelho solta a chave de antes logo depois (nada daqui precisa mais dela): velhas [] e nada só para abrir');
+    /* --- o outro aparelho: algo daqui ainda na chave de antes = ainda não solta --- */
+    const cifVelha = await linhaCom(VELHA, 1, FK0, 'Tardio de mentira');
+    await bb.evaluate((cif) => CloudDriver.recs.set('vault|vTardio', { cif, baseCif: cif, vis: 'restrito', versao: 1, at: new Date().toISOString() }), cifVelha);
+    await reabrirPeloPin(bb, PIN_B);
+    conferir(JSON.stringify((await famDe(bb)).velhas) === '["' + FK0 + '"]' && (await outrasDe(bb)).includes(FK0), 'G12. o outro aparelho: com uma linha daqui ainda fechada com a de antes, abrir de novo NÃO solta');
+    await bb.evaluate(() => { CloudDriver.recs.delete('vault|vTardio'); DB.col('vault').delete('vTardio'); });
+    await bb.evaluate(async (fk) => {
+      const k = Cofre.chaveDe(fk), r = await Vault.encryptBlob(new Blob([new TextEncoder().encode('anexo fG12v')], { type: 'text/plain' }), k);
+      const meta = { id: 'fG12v', name: 'fG12v.txt', type: 'application/octet-stream', size: r.blob.size, vis: 'restrito', enc: { iv: r.iv, type: 'text/plain', fk }, chunks: 1 };
+      await DB.driver.putFile('fG12v', r.blob, meta); await DB.put('files', meta, true);
+    }, FK0);
+    await reabrirPeloPin(bb, PIN_B);
+    conferir(JSON.stringify((await famDe(bb)).velhas) === '["' + FK0 + '"]', 'G12. o outro aparelho: com um anexo daqui ainda na de antes, abrir de novo NÃO solta (e o anexo vai para a nova)');
+    const arrumou = await ateA(async () => { const an = await anexosDe(bb, ['fG12v']); return an.fG12v.enc.fk === fkN && !an.fG12v.enc.antes && an.fG12v.txt === 'anexo fG12v'; }, 20000);
+    await reabrirPeloPin(bb, PIN_B);
+    const fb = await famDe(bb), ob = await outrasDe(bb), tb = await titulos(bb), anb = await anexosDe(bb, ['fG12b', 'fG12v']);
+    conferir(arrumou && fb.fk === fkN && !fb.velhas.length && !ob.length && tb.v0 === 'Wi-Fi de casa' && Object.keys(tb).filter((k) => k !== '_em').length === 6 && anb.fG12b.txt === 'anexo fG12b' && anb.fG12v.txt === 'anexo fG12v',
+      'G12. o outro aparelho, na próxima abertura (tudo daqui na nova): solta a chave de antes (velhas [] e nada só para abrir) e continua abrindo tudo, anexos também (' + JSON.stringify([fb, ob]) + ')');
+  });
+
+  /* ================= G12s (etapa E10): sem a função no banco, e quem não é chefe ================= */
+  await parte('G12s', 'Sem a sol_giro_situacao / sol_descartar_chaves_antigas (o SQL da plataforma ainda não aplicado): o botão "Terminar a troca" fica desligado e o toque diz "Ainda não dá para terminar: falta uma atualização do SolverONE." (nunca "servidor"), e nada muda; a responsável nem vê o botão e o ACT direto ouve "Só um chefe…" sem perguntar ao banco', async (novo) => {
+    const A = await novo('G12s-ana', { vp: 'celular' }), a = A.p;
+    const C = await novo('G12s-bia', { vp: 'celular' }), c = C.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const rg = await girar(a);
+    conferir(rg.ok, 'G12s. a troca terminou');
+    M.semGiroSql = true;
+    await avancado(a);
+    const bt = await a.evaluate(() => { const b = document.querySelector('[data-act="conta.giro.descartar"]'); return b ? { dis: b.disabled, sem: ((document.querySelector('#giroSemSql') || {}).textContent || '').trim() } : null; });
+    conferir(bt && bt.dis && bt.sem === '⏳ Ainda não dá: falta uma atualização do SolverONE.', 'G12s. sem a função no banco, "Terminar a troca" fica desligado, com "Ainda não dá: falta uma atualização do SolverONE." (' + JSON.stringify(bt) + ')');
+    const foto0 = bancoTerm(), marca = M.log.length;
+    const j = await tocarTerminar(a, true);
+    conferir(j.tipo === 'falta' && j.txt.includes('Ainda não dá para terminar: falta uma atualização do SolverONE.') && j.txt.split('Ainda não dá para terminar').length === 2 && !/servidor/i.test(j.txt) && bancoTerm() === foto0 && !gravacoesDesde(marca).length,
+      'G12s. o ACT direto: "Ainda não dá para terminar: falta uma atualização do SolverONE." (sem "servidor") e nada muda (' + j.txt.slice(0, 120) + ')');
+    await fecharTerm(a);
+    const d = await descartarDireto(a);
+    conferir(d.motivo === 'servidor' && d.txt === 'Ainda não dá para terminar: falta uma atualização do SolverONE.' && bancoTerm() === foto0 && !gravacoesDesde(marca).length && !regBanco().descarte,
+      'G12s. Giro.descartar() direto: o banco responde 404 → o mesmo texto; nenhuma versão apagada, o registro sem o descarte (' + JSON.stringify(d) + ')');
+    M.semGiroSql = false;
+    /* a responsável */
+    await entrarOmni(c, BIA); await quieto(c);
+    const mc = M.log.length;
+    const bia = await c.evaluate(() => ({ html: Giro.terminarHtml(), pode: Giro.podeDescartar(), bot: Giro.botaoHtml(true) }));
+    const jb = await tocarTerminar(c, true);
+    conferir(!bia.html && !bia.pode && !bia.bot && jb.tipo === 'falta' && jb.txt.includes('Só um chefe da família pode fazer isso.') &&
+      !M.log.slice(mc).some((l) => /sol_(giro_situacao|descartar_chaves_antigas)/.test(l.caminho)) && bancoTerm() === foto0,
+      'G12s. a Bia (responsável): sem o botão; o ACT direto → "Só um chefe da família pode fazer isso.", sem perguntar ao banco, nada muda (' + jb.txt.slice(0, 100) + ')');
+  });
+
+  /* ================= G12p (etapa E10): C10 — a ponte no "Terminar a troca", pelo botão do fim ================= */
+  await parte('G12p', 'C10: o fim da troca oferece "Terminar a troca"; um resumo velho da Saúde do Omni que ficou sem marcar não trava (o app marca e tenta de novo); um aviso velho que não é do Omni trava com "Há avisos da Saúde para o MoneyTRIO na versão antiga…" e nada é apagado; quando o MoneyTRIO lê, termina', async (novo) => {
+    const A = await novo('G12p-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A); await vigiarAvisos(a);
+    await pelaPilula(a);
+    const fim = await esperar(a, () => [...document.querySelectorAll('.modal.giro')].some((m) => /A família está mais segura/.test(m.innerText)), null, 60000);
+    const tf = await textoFim(a), fkN = linha('settings', 'giro').dados.para.fk;
+    conferir(fim && tf.includes('Quando tiver aberto as Senhas da casa nos seus outros aparelhos e o MoneyTRIO, toque em “Terminar a troca”.') && tf.includes('🧹 Terminar a troca (apagar as versões antigas)') && tf.includes('Depois disso, nada antigo abre mais as senhas'),
+      'G12p. a janela do fim oferece "🧹 Terminar a troca" (D-E7), com o que fazer antes (' + tf.slice(-200) + ')');
+    db.sol_ponte.push(msgPonte('pVelho', ANA));
+    db.sol_ponte.push(msgPonte('pMoney', ANA, { de_app: 'moneytrio', para_app: 'omnilife-one', tipo: 'gastos' }));
+    conferir(situacao().ponte_outra === 2, 'G12p. dois avisos não lidos fechados com a de antes (um resumo da Saúde do Omni, um do MoneyTRIO)');
+    const ch0 = JSON.stringify(db.sol_grupo_chaves);
+    await a.click('.modal.giro #fimTerminar');
+    await esperar(a, () => !!document.querySelector('.modal.giro #giroTermPalavra') && ![...document.querySelectorAll('.modal.giro')].some((m) => /A família está mais segura/.test(m.innerText)), null, 20000);
+    await confirmarTerminar(a); await digitarPin(a, PIN_A);
+    await esperar(a, () => !!document.querySelector('.modal.giro #giroFalta'), null, 20000);
+    const j = await janelaTerm(a);
+    conferir(j.txt.includes('Há avisos da Saúde para o MoneyTRIO na versão antiga. Abra o MoneyTRIO pelo PIN e espere 1 minuto.') && !!ponteDe('pVelho').lido_em && !ponteDe('pMoney').lido_em &&
+      JSON.stringify(db.sol_grupo_chaves) === ch0 && !regBanco().descarte,
+      'C10. o resumo velho do Omni marcado e tentou de novo; o aviso que não é do Omni continua e trava: "Há avisos da Saúde para o MoneyTRIO na versão antiga…"; nada apagado (' + j.txt.slice(0, 140) + ')');
+    await fecharTerm(a);
+    ponteDe('pMoney').lido_em = agora();   /* o MoneyTRIO abriu e leu */
+    await avancado(a);
+    const j2 = await tocarTerminar(a);
+    conferir(j2.tipo === 'confirma', 'G12p. lido o aviso, a confirmação abre');
+    await confirmarTerminar(a); await digitarPin(a, PIN_A);
+    const ok = await esperar(a, () => (window.__av || []).some((t) => /Pronto: a troca terminou/.test(t)), null, 20000);
+    conferir(ok && versoes(ANA) === '2' && versoes(BIA) === '2' && regBanco().descarte && regBanco().descarte.fk === fkN, 'G12p. termina: só as versões em uso ficam');
+  });
+
+  /* ================= G12g (etapa E10): C9 — a troca "feito" regravada por um chefe ================= */
+  await parte('G12g', 'C9: a troca "feito" gravada por último por uma responsável (o banco quer um chefe) — o chefe confirma e o app regrava a troca (CAS) e termina', async (novo) => {
+    const A = await novo('G12g-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A); await vigiarAvisos(a);
+    const rg = await girar(a);
+    const rb = await rest(BIA, 'PATCH', docUrl('settings', 'giro'), { dados: Object.assign({}, linha('settings', 'giro').dados, { batida: agora() }) }, 'return=representation');
+    conferir(rg.ok && rb.status === 200 && linha('settings', 'giro').atualizado_por === BIA && situacao().giro_ok === false, 'G12g. a troca "feito" foi gravada por último pela Bia: o banco não a aceita como conferida (giro_ok false)');
+    await umaVolta(a); await avancado(a);
+    const j = await tocarTerminar(a);
+    conferir(j.tipo === 'confirma', 'G12g. a troca deste chefe está "feito" e é a do registro: a confirmação abre (o app sabe consertar)');
+    const v0 = linha('settings', 'giro').versao;
+    await confirmarTerminar(a); await digitarPin(a, PIN_A);
+    const ok = await esperar(a, () => (window.__av || []).some((t) => /Pronto: a troca terminou/.test(t)), null, 20000), g = linha('settings', 'giro');
+    conferir(ok && g.atualizado_por === ANA && g.versao === v0 + 1 && g.dados.estado === 'feito' && g.vis === 'restrito' && versoes(ANA) === '2' && regBanco().descarte,
+      'G12g. regravou a troca (pela Ana, com a versão lida) e terminou (' + JSON.stringify([g.atualizado_por === ANA, g.versao - v0]) + ')');
+  });
+
+  /* ================= G12v (etapa E10): C11 — itens que não abrem impedem de terminar ================= */
+  await parte('G12v', 'C11: depois da troca, um item que já não abria (a troca o deixou na chave de antes) impede de terminar: "Ainda há senhas na versão antiga…" + "1 item… já não abre… impede de terminar" com "Apagar os itens que não abrem" (só com o PIN); uma linha de outra chave nunca entra na lista para apagar', async (novo) => {
+    const A = await novo('G12v-ana', { vp: 'celular' }), a = A.p;
+    /* um item que já não abria antes da troca (estragado, na chave de antes): a troca o deixa como está (C11) */
+    gravarDoc('vault', 'vQuebrada', { dados_cifrado: await linhaCom(new Uint8Array(crypto.randomBytes(32)), 1, FK0, 'Quebrada de mentira') });
+    await abertoComVelha(a, ANA, PIN_A); await vigiarAvisos(a);
+    const rg = await girar(a), fkN = linha('settings', 'giro').dados.para.fk;
+    /* e uma linha de uma chave que este aparelho não conhece (outro aparelho) */
+    gravarDoc('vault', 'vOutra', { dados_cifrado: await linhaCom(new Uint8Array(crypto.randomBytes(32)), 3, 'fk-de-outro', 'Outra de mentira') });
+    const sv = situacao();
+    conferir(rg.ok && rg.r.estranhas.includes('vQuebrada') && JSON.parse(linha('vault', 'vQuebrada').dados_cifrado).fk === FK0 && sv.vault_fora === 2,
+      'G12v. depois da troca, 2 linhas vivas fora: a que já não abria (ficou na de antes) e uma de outra chave (' + JSON.stringify([rg.erro || 'ok', sv.vault_fora]) + ')');
+    const foto0 = bancoTerm(), outra0 = JSON.stringify(linha('vault', 'vOutra')), marca = M.log.length;
+    const d = await descartarDireto(a);
+    conferir(d.motivo === 'vault' && d.txt === 'Ainda há senhas na versão antiga. Abra as Senhas da casa neste aparelho e espere 1 minuto.' && bancoTerm() === foto0, 'G12v. o banco, direto: descartar:vault → "Ainda há senhas na versão antiga…", nada muda (' + JSON.stringify(d) + ')');
+    await avancado(a);
+    const j = await tocarTerminar(a);
+    conferir(j.tipo === 'falta' && j.txt.includes('Ainda há senhas na versão antiga. Abra as Senhas da casa neste aparelho e espere 1 minuto.') && j.txt.includes('1 item das Senhas da casa já não abre (estragou antes da troca) e impede de terminar. Se não precisa dele, apague.') && j.apagar,
+      'G12v. o que falta, e "1 item… já não abre… impede de terminar" com "🗑 Apagar os itens que não abrem" (a linha de outra chave não conta) (' + j.txt.slice(0, 200) + ')');
+    await a.click('.modal.giro #giroTermApagar');
+    await a.waitForSelector('.modal #ppin', { timeout: 15000 });
+    const pin = await a.evaluate(() => document.querySelector('.modal:has(#ppin)').innerText.replace(/\s+/g, ' '));
+    await a.click('.modal:has(#ppin) [data-x]');
+    await espere(400);
+    conferir(/Vai apagar 1 item que não abre/.test(pin) && bancoTerm() === foto0 && !gravacoesDesde(marca).length, 'G12v. "Apagar…" pede o PIN; cancelar não muda nada');
+    await tocarTerminar(a);
+    await a.click('.modal.giro #giroTermApagar');
+    await digitarPin(a, PIN_A);
+    await esperar(a, () => !!document.querySelector('.modal.giro #giroFalta') && !document.querySelector('.modal #ppin'), null, 20000);
+    const j2 = await janelaTerm(a), q = linha('vault', 'vQuebrada');
+    conferir(q.apagado_em && q.dados_cifrado === null && JSON.stringify(linha('vault', 'vOutra')) === outra0 && j2.txt.includes('Ainda há senhas na versão antiga') && !j2.apagar && bancoTerm() === foto0,
+      'G12v. com o PIN: o estragado apagado e sem o conteúdo; a linha de outra chave intacta (nunca oferecida para apagar); ainda falta ela');
+    await fecharTerm(a);
+    linha('vault', 'vOutra').apagado_em = agora();   /* o aparelho dela sumiu com ela (fora do app) */
+    const j3 = await tocarTerminar(a);
+    conferir(j3.tipo === 'confirma', 'G12v. sem nada fora, a confirmação abre');
+    await confirmarTerminar(a); await digitarPin(a, PIN_A);
+    const ok = await esperar(a, () => (window.__av || []).some((t) => /Pronto: a troca terminou/.test(t)), null, 20000);
+    conferir(ok && versoes(ANA) === '2' && regBanco().descarte, 'G12v. termina');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E9 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E10 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v)');
 })().catch((e) => { console.error(e); process.exit(1); });
