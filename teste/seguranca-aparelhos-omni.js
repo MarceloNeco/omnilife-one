@@ -1,7 +1,8 @@
 /* ⚙ → "🔐 Segurança e aparelhos" (2.26.0, etapa 8) e os textos para leigo, no "Supabase de mentira" (teste/mock-sol.js):
    nada vai para a internet nem para o Supabase de verdade. Confere:
      S1  a ordem: seus dados, PIN e digital, seus aparelhos, sair, avançado (PT e EN)
-     S2  a grade: computador (1280) 2 ou 3 colunas; 390 px uma coluna; 320 px sem rolar para o lado
+     S2  a grade: computador (1280 e 1024) 2 colunas sem nenhuma linha com coluna vazia ao lado (também no "só neste aparelho");
+         390 px uma coluna; 320 px sem rolar para o lado; alvos de toque (nada menor que 24 px; "Avançado" e os links soltos com 44)
      S3  fora do "Avançado" (fechado), nenhum jargão: passkey, desconectar, cifrad, criptograf, token, robô, "registros fechados",
          "código de recuperação", "Fechar agora" (e os do inglês) — PT e EN
      S4  "Criar o PIN da conta" OU "Trocar o PIN" conforme a conta (nunca os dois); os pedidos de acesso só quando existem (na página
@@ -17,6 +18,8 @@
          ou PIN errado não muda nada; o par novo nasce SÓ por aqui (chamar direto fora do beco é recusado)
      R3  (revisão 3) não é beco: a digital em todos os aparelhos na conta (mesmo sem leitor aqui) e a digital deste aparelho; com o
          cadeado aqui, o PIN que o abre (pelo PIN da conta guardado aqui ou pelo PIN daqui) não troca nada no "Começar do zero"
+     M   (revisão 3, telas) quem não é chefe nem responsável: sem "ainda não está na lista", sem "o PIN da conta" para entrar de novo
+         e sem "peça a aprovação" (na página e na confirmação de "Tirar este aparelho"), PT e EN
      e: "🔒 Bloquear agora" em todos os lugares (Senhas da casa, emergência, chaves de IA, "só neste aparelho" com a senha principal),
         sem "Fechar"/"Trancar o cofre agora"; o cartão da conta limpo; ⚙ → Geral leva à página; "📱 Aparelhos da família" e "Tirar";
         a ajuda; a Saúde → MoneyTRIO sem "cifrado"; os rótulos do histórico (K33) e "pin.criado"/"pin.trocado" gravados
@@ -25,7 +28,7 @@
    Pessoas, senhas, PINs e chaves de mentira. Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/seguranca-aparelhos-omni.js */
 const crypto = require('crypto'), fs = require('fs'), path = require('path');
 const { BASE, criarConferir, iniciar, terminar } = require('./_base');
-const { db, rpcs, prepararChaves, compromisso, agora, b64u, ANA, BIA, CRIS, GID } = require('./mock-sol');
+const { db, rpcs, prepararChaves, compromisso, agora, b64u, ANA, BIA, CRIS, DAVI, GID } = require('./mock-sol');
 const { aparelho, entrarOmni, senhasDaCasa, cadeado225 } = require('./_nuvem');
 
 const PIN_225 = '736251', PIN_A = '590317', PIN_B = '482915', PIN_X = '615048', PINS = [PIN_225, PIN_A, PIN_B, PIN_X];
@@ -51,6 +54,24 @@ async function pagina(p) {
 const texto = (p) => p.evaluate(() => document.querySelector('#screen').innerText);
 const ordem = (p) => p.evaluate(() => [...document.querySelectorAll('.segap > section, .segap > details')].map((e) => e.id).join(','));
 const ORDEM = 'segDados,segPin,segAps,segSair,segAvancado';
+/* revisão 3 (telas): as linhas da grade que NÃO chegam à borda direita (uma coluna vazia ao lado = a largura sem uso) */
+const buracos = (p) => p.evaluate(() => {
+  const g = document.querySelector('.segap'), dir = g.getBoundingClientRect().right, linhas = {};
+  [...g.children].forEach((e) => { const r = e.getBoundingClientRect(), k = Math.round(r.top); linhas[k] = Math.max(linhas[k] || 0, r.right); });
+  return Object.values(linhas).filter((r) => r < dir - 2).length;
+});
+/* revisão 3 (telas): os alvos de toque da página menores que o pedido (todos ≥ 24 px; "Avançado" e os links soltos ≥ 44 px) */
+const alvosPequenos = (p) => p.evaluate(() => [...document.querySelectorAll('#segPedidos button, .segap button, .segap summary, .segap a, .segap select')].map((b) => {
+  const r = b.getBoundingClientRect(), min = b.tagName === 'SUMMARY' || b.classList.contains('linkbtn') ? 44 : 24;
+  return r.width && (r.height < min || r.width < 24) ? (b.innerText || b.tagName).replace(/\s+/g, ' ').trim().slice(0, 30) + ' (' + Math.round(r.height) + ' px)' : '';
+}).filter(Boolean));
+/* revisão 3 (telas): o menor espaço entre dois botões seguidos de um item do Avançado (0 = colados, um encostado no outro) */
+const colados = (p, sel) => p.evaluate((sel) => {
+  const bs = [...document.querySelectorAll(sel)].map((b) => b.getBoundingClientRect()).filter((r) => r.width);
+  let m = 99;
+  for (let i = 1; i < bs.length; i++) { const a = bs[i - 1], b = bs[i]; m = Math.min(m, a.bottom > b.top + 1 ? b.left - a.right : b.top - a.bottom); }
+  return Math.round(m);
+}, sel);
 const JARGAO_PT = /passkey|desconect|cifrad|criptograf|token|robô|registros fechados|código de recuperação|Fechar agora/i;
 const JARGAO_EN = /passkey|disconnect|encrypt|cipher|token|robot|closed records|recovery code|close now/i;
 /* o menu do 👤: os itens (texto e classe), na ordem */
@@ -113,6 +134,13 @@ const linhaFalsa = (nome, app, seg) => ({ id: crypto.randomUUID(), user_id: ANA,
   const col1280 = await a.evaluate(() => getComputedStyle(document.querySelector('.segap')).gridTemplateColumns.split(' ').length);
   conferir(col1280 >= 2 && col1280 <= 3, 'S2. 1280 px: a grade usa a largura (' + col1280 + ' colunas)');
   conferir(await a.evaluate(() => document.querySelector('#segAps').getBoundingClientRect().width > document.querySelector('#segDados').getBoundingClientRect().width * 1.5), 'S2. "Seus aparelhos" ocupa a linha inteira');
+  /* revisão 3 (telas): no computador nenhuma linha fica com uma coluna vazia ao lado (1280 e 1024, Avançado aberto ou não) */
+  const bur = [await buracos(a)];
+  await a.evaluate(() => { document.querySelector('#segAvancado').open = true; }); bur.push(await buracos(a));
+  await a.setViewportSize({ width: 1024, height: 800 }); await pagina(a); bur.push(await buracos(a));
+  await a.setViewportSize({ width: 1280, height: 800 }); await a.evaluate(() => { TelaConta._avAberto = false; }); await pagina(a);
+  conferir(bur.every((n) => n === 0), 'S2. 1280 e 1024 px: a grade usa a largura toda — nenhuma linha com uma coluna vazia ao lado (' + bur.join(', ') + ')');
+  conferir(!(await alvosPequenos(a)).length, 'alvos de toque: nada menor que 24 px; "Avançado" e os links soltos com 44 px' + ((await alvosPequenos(a)).length ? ': ' + (await alvosPequenos(a)).join(' · ') : ''));
   /* D4: com as Senhas da casa abertas aqui e outros caminhos (a Bia, o kit), nada de "Começar do zero" — nem chamando direto */
   await vigiarPares(a);
   const zA = await a.evaluate((pin) => Cofre.criarConta(pin, true), PIN_X);
@@ -203,6 +231,12 @@ const linhaFalsa = (nome, app, seg) => ({ id: crypto.randomUUID(), user_id: ANA,
   const av = await a.evaluate(() => document.querySelector('#segAvancado').innerText);
   conferir(/Tirar este aparelho da conta/.test(av) && /Kit de emergência \(código de recuperação\)/.test(av) && /Ligado: há uma cópia/.test(av) && /nem a SolverONE lê/.test(av) && !/Começar do zero/.test(av),
     'Avançado: "Tirar este aparelho da conta", o kit (ligado: a Ana tem o código antigo), como fica guardado; sem "Começar do zero" (há outros caminhos)');
+  const gk = [await colados(a, '#segKit .btn')];
+  await a.setViewportSize({ width: 320, height: 700 }); await pagina(a); await a.evaluate(() => { document.querySelector('#segAvancado').open = true; }); gk.push(await colados(a, '#segKit .btn'));
+  await a.setViewportSize({ width: 1280, height: 800 }); await pagina(a); await a.evaluate(() => { document.querySelector('#segAvancado').open = true; });
+  conferir(gk.every((n) => n >= 6), 'Avançado → kit ligado: "Fazer um código novo" e "Desligar" separados (não colados um no outro), em 1280 e 320 px (' + gk.join(', ') + ' px)');
+  conferir(/entre e peça a aprovação/.test(av) && /Para entrar de novo: e-mail e senha \(ou Google\) e o PIN da conta/.test(await texto(a)),
+    'chefe/responsável: "Sair" lembra o PIN da conta e "Tirar este aparelho" diz para pedir a aprovação (o membro não vê isso — bloco M)');
   await a.evaluate(() => { document.querySelector('#segAvancado').open = false; TelaConta._avAberto = false; });
 
   /* o pedido recusado: some da página */
@@ -245,6 +279,10 @@ const linhaFalsa = (nome, app, seg) => ({ id: crypto.randomUUID(), user_id: ANA,
   conferir(await a.evaluate(() => !Cofre.aberto() && !SolverCofre.aberto()), 'S5. com os interruptores desligados, "🔒 Bloquear agora" fecha as Senhas da casa e as chaves de IA e avisa');
   await pagina(a);
   conferir(await naTela(a, '#segPin [data-act="conta.pin.esqueci"]'), 'PIN e digital: com as Senhas da casa fechadas aparece "Esqueci o PIN"');
+  await a.setViewportSize({ width: 390, height: 844 }); await pagina(a);
+  const peq = await alvosPequenos(a);
+  conferir(!peq.length, '390 px, Senhas da casa fechadas: "Esqueci o PIN", "Avançado" e o link da família com 44 px de alvo (nada menor que 24)' + (peq.length ? ': ' + peq.join(' · ') : ''));
+  await a.setViewportSize({ width: 1280, height: 800 }); await pagina(a);
   await a.click('#segPin [data-act="conta.pin.trocar"]');
   conferir(await a.waitForSelector('.modal #pcAtual, #toasts:has-text("Abra primeiro")', { timeout: 8000 }).then(() => true, () => false), 'S5. "Trocar o PIN" responde com os interruptores desligados');
   await a.evaluate(() => { closeModals(); SolverRecursos.ligado = window.__ligadoOriginal; render(); });
@@ -297,9 +335,37 @@ const linhaFalsa = (nome, app, seg) => ({ id: crypto.randomUUID(), user_id: ANA,
     bio: !!document.querySelector('#segPin [data-chg="set.biolock"]'), t: document.querySelector('#screen').innerText }));
   conferir(s7b.ids === 'segDados,segPin,segSair' && s7b.how && s7b.bio && /ana@teste\.com/.test(s7b.t) && /senha principal/.test(s7b.t) && !JARGAO_PT.test(s7b.t),
     'S7. "só neste aparelho" com a conta: seus dados, PIN e digital (do perfil, a digital do app e "Bloquear agora") e sair — sem lista nem avançado');
+  await foto(g, 'seguranca-390-pt-so-neste-aparelho.png');
+  await g.setViewportSize({ width: 1280, height: 800 }); await g.evaluate(() => render()); await g.waitForSelector('.segap', { timeout: 10000 });
+  const bur7 = await buracos(g);
+  conferir(bur7 === 0, 'S2/S7. "só neste aparelho" com a conta, 1280 px: nenhuma linha com uma coluna vazia ao lado (' + bur7 + ')');
+  await g.setViewportSize({ width: 390, height: 844 });
   await g.evaluate(() => { localStorage.removeItem(Conta.K); go('settings'); });
   conferir(!G.lixo.erros.length && !G.lixo.nativos.length, 'S7: sem erro de script e sem diálogo nativo' + (G.lixo.erros.length ? ': ' + G.lixo.erros.join(' | ') : ''));
   await G.ctx.close();
+
+  /* ================= revisão 3 (telas): quem não é chefe nem responsável (o Davi, membro adulto) =================
+     ele não tem as Senhas da casa nem entra na lista da conta pelo OmniLifeONE, e volta só com e-mail e senha: nada de "ainda não
+     está na lista", "o PIN da conta" para entrar de novo ou "peça a aprovação" */
+  console.log('M. Quem não é chefe nem responsável');
+  const MV = await aparelho(browser, { nome: 'Davi-celular', vp: 'celular', base: BASE }), mv = MV.p; lixos.push(MV.lixo);
+  await entrarOmni(mv, DAVI); await quieto(mv);
+  await pagina(mv); await mv.evaluate(() => { document.querySelector('#segAvancado').open = true; });
+  const tm = await texto(mv);
+  conferir(await ordem(mv) === ORDEM && /Davi Teste/.test(tm) && /O PIN da conta abre as Senhas da casa, que são de chefes e responsáveis/.test(tm), 'M. a página do membro: a mesma ordem, os dados dele e a frase do PIN da conta');
+  conferir(!/ainda não está na lista|not on the list yet/.test(tm), 'M. "Seus dados" sem "Este celular: ainda não está na lista" (o aparelho de quem não é responsável nunca entra nessa lista)');
+  conferir(/Sai da conta neste aparelho\. Para entrar de novo: e-mail e senha \(ou Google\)\./.test(tm) && !/Google\) e o PIN da conta/.test(tm), 'M. "Sair": para entrar de novo, e-mail e senha (sem "o PIN da conta", que ele não usa)');
+  conferir(/Tirar este aparelho da conta/.test(tm) && !/peça a aprovação/.test(tm), 'M. Avançado → "Tirar este aparelho": sem "peça a aprovação" (ele volta só entrando)');
+  await foto(mv, 'seguranca-390-pt-membro.png');
+  await mv.click('#segAvancado [data-act="conta.ap.este"]'); await mv.waitForSelector('.modal [data-yes]', { timeout: 8000 });
+  const cm = await textoJanelas(mv); await mv.click('.modal [data-no]');
+  conferir(/Tirar este .* da conta\?/.test(cm) && !/peça a aprovação/.test(cm) && await mv.evaluate(() => Conta.on()), 'M. a confirmação de "Tirar este aparelho" também sem "peça a aprovação"; Cancelar não sai');
+  await mv.evaluate(() => setLang('en')); await pagina(mv); await mv.evaluate(() => { document.querySelector('#segAvancado').open = true; });
+  const tme = await texto(mv);
+  conferir(!/not on the list yet|and the account PIN|ask for approval/.test(tme) && /To get back in: e-mail and password \(or Google\)\./.test(tme), 'M (EN). nem "not on the list yet", nem "the account PIN", nem "ask for approval"');
+  await mv.evaluate(() => setLang('pt'));
+  conferir(!MV.lixo.erros.length && !MV.lixo.nativos.length, 'M: sem erro de script e sem diálogo nativo' + (MV.lixo.erros.length ? ': ' + MV.lixo.erros.join(' | ') : ''));
+  await MV.ctx.close();
 
   /* ================= D3 desta página: "Sair" e Avançado → "Tirar este aparelho" ================= */
   console.log('D3. Segurança e aparelhos → "Sair" e Avançado → "Tirar este aparelho"');

@@ -121,14 +121,18 @@ async function janelaPin(p) {
   console.log('K12. Sem o SQL do PIN da conta, um aparelho já no PIN da conta não troca o PIN só daqui');
   const ok12 = await k.evaluate(async (pin) => { const r = await Cofre.destrancarPin(pin); return r.ok === true; }, PIN_CONTA);
   L = await local(k); const ctAntes = L.ct;
+  /* o aviso é um toast de 5 s: guardado quando aparece (com o computador ocupado, ler a tela depois das idas e voltas o perdia) */
+  await k.evaluate(() => { window.__avisos = []; const t = document.querySelector('#toasts'); new MutationObserver(() => window.__avisos.push(t.textContent)).observe(t, { childList: true, subtree: true }); });
   await k.evaluate(() => { document.querySelector('#toasts').innerHTML = ''; Sol.ligadoPin = false; window.__novo = 0; const f = TelaConta.formPin; TelaConta.formPin = function (op) { window.__novo++; return f.call(this, op); }; window.__troca = TelaConta.trocarPin(); });
   await k.waitForTimeout(1500);
   const k12 = await k.evaluate(async () => ({ prova: !!document.querySelector('.modal #ppin'), form: !!document.querySelector('.modal #pcAtual, .modal #pcP1'), novo: window.__novo }));
   await k.evaluate(() => closeModals());
   const r12 = await k.evaluate(() => window.__troca);
   L = await local(k);
-  conferir(ok12 && !k12.prova && !k12.form && k12.novo === 0 && r12 === false && L.ct === ctAntes && /Para trocar o PIN da conta, ligue a internet/.test(await toasts(k)),
-    'K12. "Trocar o PIN" sem o SQL do PIN da conta: só diz para ligar a internet; o PIN deste aparelho não muda');
+  const avisos12 = await k.evaluate(() => window.__avisos.join(' | '));
+  const bom12 = ok12 && !k12.prova && !k12.form && k12.novo === 0 && r12 === false && L.ct === ctAntes && /Para trocar o PIN da conta, ligue a internet/.test(avisos12);
+  conferir(bom12, 'K12. "Trocar o PIN" sem o SQL do PIN da conta: só diz para ligar a internet; o PIN deste aparelho não muda' +
+    (bom12 ? '' : ' — ' + JSON.stringify({ ok12, k12, r12, igual: L.ct === ctAntes, avisos: avisos12 })));
   await k.evaluate(() => { Sol.ligadoPin = null; });
 
   /* ---------- tirado da conta: criar/trocar o PIN da conta não diz "Sem conexão" ---------- */

@@ -321,13 +321,19 @@ async function provar(p, pin) { await p.waitForSelector('.modal #ppin', { timeou
 
   /* limpeza */
   const guardados = await Promise.all([a, c, d].map((p) => p.evaluate(() => JSON.stringify(Object.assign({}, localStorage)) + JSON.stringify(Object.assign({}, sessionStorage)))));
-  const segredos = PINS.concat([CODIGO, CODIGO.replace(/-/g, ''), CODIGO2, CODIGO2.replace(/-/g, '')]);
-  conferir(!guardados.some((g) => segredos.some((k) => g.includes(k))), 'nenhum PIN nem código em localStorage/sessionStorage');
-  conferir(!lixos.some((l) => l.console.some((x) => segredos.some((k) => x.includes(k)))) && !db.omni_historico.some((x) => segredos.some((k) => JSON.stringify(x).includes(k))), 'nenhum PIN nem código no console nem no histórico');
+  /* o PIN como número inteiro (sem dígito colado), como no aparelhos-cruzado-omni.js: o app guarda horários de 13 dígitos
+     (Date.now(): sessão, anúncio, AssistONE…) que às vezes contêm os mesmos 6 dígitos por acaso — isso não é o PIN guardado.
+     Os códigos (letras e números em pedaços) continuam conferidos como texto */
+  const codigos = [CODIGO, CODIGO.replace(/-/g, ''), CODIGO2, CODIGO2.replace(/-/g, '')];
+  const vaza = (t) => PINS.some((n) => new RegExp('(^|[^0-9])' + n + '([^0-9]|$)').test(String(t))) || codigos.some((k) => String(t).includes(k));
+  conferir(!guardados.some(vaza), 'nenhum PIN nem código em localStorage/sessionStorage');
+  conferir(!lixos.some((l) => l.console.some(vaza)) && !db.omni_historico.some((x) => vaza(JSON.stringify(x))), 'nenhum PIN nem código no console nem no histórico');
   conferir(!lixos.some((l) => l.erros.length), 'sem erro de script' + lixos.map((l) => l.erros.join(' / ')).filter(Boolean).map((x) => ': ' + x).join(''));
   conferir(!lixos.some((l) => l.nativos.length), 'sem diálogo nativo (alert/confirm/prompt)');
   conferir(!lixos.some((l) => l.fora.some((u) => /supabase\.co/.test(u))), 'nada do Supabase fora do banco de mentira');
 
-  await S2.fechar();
+  /* o fechar do servidor espera as conexões abertas acabarem, e o navegador (ainda aberto) pode segurar uma para sempre: a suíte
+     ficava parada aqui (visto na revisão 3). Como no aparelhos-cruzado-omni.js, no máximo 3 s; o terminar fecha o navegador */
+  await Promise.race([S2.fechar(), new Promise((r) => setTimeout(r, 3000))]);
   await terminar(falhas, browser, 'kit de emergência e digital em todos os aparelhos (etapa 9)');
 })().catch((e) => { console.error(e); process.exit(1); });

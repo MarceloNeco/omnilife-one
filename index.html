@@ -597,12 +597,19 @@ footer.app{border-top:0;opacity:.8}
 .apfaixa{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px max(14px,env(safe-area-inset-left));font-size:.86rem;background:linear-gradient(var(--warn-soft),var(--warn-soft)),var(--surface);border-top:1px solid color-mix(in srgb,var(--warn) 40%,transparent)}
 .apfaixa span{flex:1;min-width:180px;overflow-wrap:anywhere}
 body:not(.booted) .apfaixa{display:none}
-/* ⚙ → Segurança e aparelhos: grade que usa a largura (2–3 colunas no computador, uma no celular, sem rolar para o lado em 320 px) */
-.segap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:12px;align-items:start}
+/* ⚙ → Segurança e aparelhos: grade que usa a largura (2 colunas no computador, uma no celular, sem rolar para o lado em 320 px).
+   Duas e não três: com 4 cartões e "Seus aparelhos" na linha inteira, 3 colunas deixavam uma coluna vazia em duas linhas (o .wrap
+   tem no máximo 1100 px, então 360 nunca chega a 3). No "só neste aparelho" o "Sair" é o último e fica na linha toda */
+.segap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:12px;align-items:start}
 .segap>.card{margin:0;min-width:0;overflow-wrap:anywhere}
+.segap>#segSair:last-child{grid-column:1/-1}
+/* alvos de toque de 44 px: o "Avançado" (era 17 px) e os links soltos ("Esqueci o PIN", o da família) */
+.segap>details>summary{margin:0;padding:13px 6px;min-height:44px;cursor:pointer}
+.segap .linkbtn{min-height:44px}
 .segap .segav{padding:10px 0;border-top:1px solid var(--border)}
 .segap .segav:first-child{border-top:0}
 .segap .segav .tiny{margin:4px 0 6px}
+.segap .segav .btn{margin:0 8px 8px 0}   /* "Fazer um código novo" e "Desligar" não ficam colados (nem lado a lado, nem um embaixo do outro) */
 /* "🔒 Bloquear agora" com a explicação pequena embaixo (no lugar do antigo "🔒 Fechar") */
 .btn.bloq{flex-direction:column;gap:1px;line-height:1.15}
 .btn.bloq .tiny{font-weight:400;opacity:.85}
@@ -4989,13 +4996,14 @@ const TelaConta = {
     const dados = '<p class="small"><b>' + esc(s.nome || (eu && eu.name) || "") + "</b><br>" + esc(s.email || "") + "</p>" +
       (s.desde ? '<p class="small">' + tt("Conectado desde ", "Signed in since ") + esc(fmtDate(isoDate(new Date(s.desde)))) + "</p>" : "") +
       (fam || S.role ? '<p class="small">' + [fam ? tt("Família ", "Family ") + "<b>" + esc(fam) + "</b>" : "", S.role ? esc(roleName(S.role)) : ""].filter(Boolean).join(" · ") + "</p>" : "") +
-      (nuvem ? '<p class="small" id="segComo">' + (c.como || tt("Este " + ap + ": ", "This " + ap + ": ") + "…") + "</p>" : "");
+      /* "Este {ap}: …" é a lista de quem guarda as Senhas da casa: o aparelho de quem não é responsável nunca entra nela */
+      (nuvem && guard ? '<p class="small" id="segComo">' + (c.como || tt("Este " + ap + ": ", "This " + ap + ": ") + "…") + "</p>" : "");
     const pin = nuvem && guard ? '<div id="segPinC">' + (c.pin || carregando) + "</div>"
       : (nuvem ? '<p class="small">' + tt("O PIN da conta abre as Senhas da casa, que são de chefes e responsáveis.", "The account PIN opens the home passwords, which belong to heads and guardians.") + "</p>" : SetViews.travaPerfil()) +
         '<div class="row" style="margin:8px 0">' + this.botaoBloquear() + "</div>" + SetViews.travaApp();
     const aps = nuvem ? sec("segAps", "📱 " + tt("Seus aparelhos", "Your devices"), '<div id="segApsC">' + (c.aps || carregando) + "</div>", "grid-column:1/-1") : "";
     const sair = sec("segSair", "🚪 " + tt("Sair", "Sign out"), '<button type="button" class="btn danger" data-act="conta.sair">🚪 ' + tt("Sair", "Sign out") + "</button>" +
-      '<p class="tiny faint" style="margin-top:8px">' + (nuvem ? tt("Sai da conta neste aparelho. Para entrar de novo: e-mail e senha (ou Google) e o PIN da conta.", "Signs out on this device. To get back in: e-mail and password (or Google) and the account PIN.")
+      '<p class="tiny faint" style="margin-top:8px">' + (nuvem && guard ? tt("Sai da conta neste aparelho. Para entrar de novo: e-mail e senha (ou Google) e o PIN da conta.", "Signs out on this device. To get back in: e-mail and password (or Google) and the account PIN.")
         : tt("Sai da conta neste aparelho. Para entrar de novo: e-mail e senha (ou Google).", "Signs out on this device. To get back in: e-mail and password (or Google).")) + "</p>");
     const av = nuvem ? '<details class="card" id="segAvancado"' + (this._avAberto ? " open" : "") + '><summary class="grouph">⚙️ ' + tt("Avançado", "Advanced") + '</summary><div id="segAvC">' + (c.av || carregando) + "</div></details>" : "";
     return '<div id="segPedidos">' + this.pedidosHtml() + '</div><div class="segap">' + sec("segDados", "👤 " + tt("Seus dados", "Your data"), dados) +
@@ -5051,7 +5059,9 @@ const TelaConta = {
     const item = (id, tit, txt, bt) => '<div class="segav" id="' + id + '"><b>' + tit + '</b><p class="tiny faint">' + txt + "</p>" + (bt || "") + "</div>";
     const b = (act, t, cls) => '<button type="button" class="btn sm ' + (cls || "ghost") + '" data-act="' + act + '">' + t + "</button>";
     const pk = guard && leitor && L && L.sk && Aparelhos.pkAqui();   /* K23 */
-    return item("segTirarEste", "📴 " + tt("Tirar este aparelho da conta", "Remove this device from the account"), tt("Sai da conta e apaga daqui as Senhas da casa e o PIN guardado. Na internet continua tudo. Para usar de novo aqui, entre e peça a aprovação.", "Signs out and erases the home passwords and the saved PIN from here. Everything stays online. To use it here again, sign in and ask for approval."),
+    /* quem não é responsável não tem as Senhas da casa aqui e volta só entrando (sem aprovação) */
+    return item("segTirarEste", "📴 " + tt("Tirar este aparelho da conta", "Remove this device from the account"), guard ? tt("Sai da conta e apaga daqui as Senhas da casa e o PIN guardado. Na internet continua tudo. Para usar de novo aqui, entre e peça a aprovação.", "Signs out and erases the home passwords and the saved PIN from here. Everything stays online. To use it here again, sign in and ask for approval.")
+        : tt("Sai da conta e apaga deste " + ap + " as chaves de IA guardadas aqui. Para usar de novo aqui, é só entrar de novo.", "Signs out and erases the AI keys saved on this " + ap + ". To use it here again, just sign in again."),
         b("conta.ap.este", "📴 " + tt("Tirar este " + ap, "Remove this " + ap), "danger")) +
       (guard ? item("segKit", "🧰 " + tt("Kit de emergência (código de recuperação)", "Emergency kit (recovery code)"),
         st.temKit ? tt("Ligado: há uma cópia da sua chave fechada por um código que só você tem.", "On: there is a copy of your key locked by a code only you have.")
@@ -7264,7 +7274,9 @@ const Saida = {
     /* o que ainda está na fila das Senhas da casa tenta subir antes (elas ficam na internet; só a cópia deste aparelho sai) */
     if (navigator.onLine) { try { await CloudDriver.flush(true); } catch (e) {} }
     const pend = [...CloudDriver.fila.keys()].filter((k) => k.startsWith("vault|")).length;
-    if (!(await confirmBox(tt("Tirar este " + apN() + " da conta? Ele sai da conta e as Senhas da casa e as chaves de IA saem daqui (na internet as Senhas da casa continuam). Para usar de novo aqui, entre e peça a aprovação.", "Remove this " + apN() + " from the account? It signs out and the home passwords and AI keys leave this " + apN() + " (the home passwords stay online). To use it here again, sign in and ask for approval.") +
+    /* quem não é responsável (2.26.0: chega aqui por Segurança e aparelhos → Avançado) não tem as Senhas da casa e volta só entrando */
+    if (!(await confirmBox((isGuardian() ? tt("Tirar este " + apN() + " da conta? Ele sai da conta e as Senhas da casa e as chaves de IA saem daqui (na internet as Senhas da casa continuam). Para usar de novo aqui, entre e peça a aprovação.", "Remove this " + apN() + " from the account? It signs out and the home passwords and AI keys leave this " + apN() + " (the home passwords stay online). To use it here again, sign in and ask for approval.")
+      : tt("Tirar este " + apN() + " da conta? Ele sai da conta e as chaves de IA guardadas aqui saem deste " + apN() + ". Para usar de novo aqui, é só entrar de novo.", "Remove this " + apN() + " from the account? It signs out and the AI keys saved here leave this " + apN() + ". To use it here again, just sign in again.")) +
       (pend ? "<br><br>⚠️ " + pend + tt(" mudança(s) nas Senhas da casa ainda não foram para a internet e vão se perder. Se puder, ligue a internet antes.", " vault change(s) haven't gone online yet and will be lost. If you can, turn on the internet first.") : ""), tt("Tirar este " + apN(), "Remove this " + apN()), true))) return false;
     if (S.family && navigator.onLine) { try { await Cloud.audit("aparelho.tirado", Devices.label() + " · " + Cloud.myName()); } catch (e) {} }
     return this.sair({ apagar: true, semPerguntar: true, motivo: "este" });
