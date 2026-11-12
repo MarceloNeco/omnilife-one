@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.26.0",
+  "d": "2026-11-12",
+  "hora": "02:35:00",
+  "pt": [
+   "📱 Celular novo sem papel: o aparelho novo mostra 6 números e você aprova num aparelho que já está na sua conta (OmniLifeONE ou MoneyTRIO), conferindo que os números são os mesmos. Não precisa mais do código de recuperação para isso.",
+   "🔢 Um PIN por pessoa, o mesmo em todos os aparelhos e no MoneyTRIO: ele abre as Senhas da casa, as chaves de IA e as aprovações. Trocou num aparelho, vale em todos. Quem ainda usa o PIN antigo do aparelho recebe o convite para criar o PIN da conta (nada muda em silêncio).",
+   "🔐 Tela nova ⚙ → Segurança e aparelhos: seus dados, PIN e digital, a lista dos seus aparelhos (com \"Tirar\" para um aparelho perdido), Sair e, em Avançado, o código de emergência e a digital em todos os aparelhos.",
+   "🚪 \"Sair\" de verdade: sai da conta neste aparelho e tranca o que estava aberto, sem apagar os dados da família guardados aqui. Um aparelho tirado da conta por outro também sai sozinho.",
+   "🔒 \"Bloquear agora\" no lugar de \"Fechar\" e \"Trancar o cofre agora\", e textos mais simples nas telas de aparelhos e do PIN."
+  ],
+  "en": [
+   "📱 New phone without the paper: the new device shows 6 numbers and you approve it on a device already in your account (OmniLifeONE or MoneyTRIO), checking that the numbers match. You no longer need the recovery code for this.",
+   "🔢 One PIN per person, the same on every device and in MoneyTRIO: it opens Home passwords, AI keys and approvals. Change it on one device and it works on all. If you still use the old device PIN, you are invited to create the account PIN (nothing changes silently).",
+   "🔐 New screen ⚙ → Security and devices: your details, PIN and fingerprint, the list of your devices (with \"Remove\" for a lost device), Sign out and, under Advanced, the emergency code and the fingerprint on all devices.",
+   "🚪 A real \"Sign out\": it signs out of the account on this device and locks what was open, without erasing the family data kept here. A device removed from the account by another one also signs out by itself.",
+   "🔒 \"Lock now\" replaces \"Close\" and \"Lock the vault now\", and the device and PIN screens use simpler words."
+  ]
+ },
+ {
   "v": "2.25.0",
   "d": "2026-11-07",
   "hora": "15:39:00",

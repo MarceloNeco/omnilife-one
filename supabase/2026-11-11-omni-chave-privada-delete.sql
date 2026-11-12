@@ -1,0 +1,21 @@
+-- =====================================================================================
+-- 2026-11-11-omni-chave-privada-delete.sql  —  OmniLifeONE 2.26.0 no projeto solverone-app (Supabase)
+-- Deixar a pessoa DESLIGAR o próprio kit de emergência (⚙ → Segurança e aparelhos → Avançado)
+-- -------------------------------------------------------------------------------------
+-- O QUE FAZ: dá a quem entrou na conta (papel "authenticated") a permissão de APAGAR linhas da tabela
+-- omni_chave_privada — a cópia da chave pessoal fechada pelo código de recuperação (o "papel"). Hoje o banco
+-- só deixa ler, criar e mudar (select, insert, update): por isso o botão "Desligar" do app ainda mostra
+-- "Ainda não dá para desligar: falta um ajuste no servidor." e não muda nada.
+--
+-- CADA UM SÓ APAGA A PRÓPRIA LINHA: a política omni_chave_privada_dono (omnilife-one-v1.sql, 4.10) já vale
+-- para tudo ("for all") e limita à linha da própria pessoa (user_id = auth.uid()). Este arquivo não mexe nela,
+-- não cria nada e não apaga nada: só acrescenta a permissão que faltava. Pode rodar mais de uma vez.
+--
+-- QUEM APLICA: o DONO, com as próprias mãos (nunca por script, robô ou automação):
+--   1. supabase.com → projeto solverone-app → SQL Editor → New query
+--   2. cole este arquivo inteiro → Run
+--   3. pronto: no app, "Desligar" o kit passa a apagar a cópia (o código deixa de valer no OmniLifeONE e no MoneyTRIO)
+-- Nenhuma chave, senha ou dado de pessoa neste arquivo.
+-- =====================================================================================
+
+grant delete on public.omni_chave_privada to authenticated;

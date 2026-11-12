@@ -7,7 +7,8 @@
      3. trancar as chaves de propósito ("🔒 Trancar agora") faz o próximo uso pedir o PIN de novo, mesmo com as Senhas abertas (1.6.1)
      4. abrir as Senhas da casa pela tela delas abre as chaves junto
      5. "Mostrar a chave guardada" pergunta o PIN de novo (e PIN errado não abre)
-     6. trocar o PIN das Senhas da casa troca o das chaves (continua um PIN só)
+     6. trocar o PIN das Senhas da casa troca o das chaves (continua um PIN só) — aqui a troca só deste aparelho, a que vale
+        sem o SQL do PIN da conta (2.26.0, K12); a troca do PIN da conta (no banco) é conferida no pin-conta-omni.js (B3)
      7. cofre de antes, com outro PIN: junta uma vez ("Juntar tudo num PIN só") e depois vale o PIN da pessoa
      8. permissão "🔑 Chaves de IA": o chefe vê ⚙ → IA; outra pessoa só se o chefe der; o campo aparece só para o chefe
    Só valores de mentira. Uso: node teste/rodar.js */
@@ -80,14 +81,17 @@ const tranca = (p) => p.evaluate(async () => { await SolverCofre.trancar(); Cofr
   conferir(await mostrando === CHAVE, '5. PIN certo: mostra');
 
   /* 6. trocar o PIN das Senhas da casa */
-  /* desde os reforços, trocar o PIN pede antes o PIN de agora (ver pin-reforcos-omni.js) */
-  const trocando6 = p.evaluate(async (novo) => { Cofre.pedirNovoPin = async () => novo; await Cofre.trocarPin(); }, PIN_NOVO);
+  /* desde os reforços, trocar o PIN pede antes o PIN de agora (ver pin-reforcos-omni.js). 2.26.0: sem o banco, a troca só deste
+     aparelho existe quando o SQL do PIN da conta falta (Sol.ligadoPin false) e o aparelho nunca passou para o PIN da conta */
+  const trocando6 = p.evaluate(async () => { Sol.ligadoPin = false; await Cofre.trocarPin(); });
   await p.waitForSelector('.modal #ppin', { timeout: 6000 }); await p.fill('.modal #ppin', PIN); await p.click('.modal:has(#ppin) [data-ok]');
+  /* o PIN novo pelo formulário do PIN novo (o mesmo do PIN da conta: só números, 6 ou mais) */
+  await p.waitForSelector('.modal #pcP1', { timeout: 6000 }); await p.fill('.modal #pcP1', PIN_NOVO); await p.fill('.modal #pcP2', PIN_NOVO); await p.click('.modal #pcOk');
   await trocando6;
   await p.waitForTimeout(300);
   await tranca(p);
   const r6 = await p.evaluate(async (a) => [await SolverCofre.abrir(a.velho).then(() => 'abriu', (e) => e.message), await SolverCofre.trancar(), await SolverCofre.abrir(a.novo).then(() => 'abriu', (e) => e.message)], { velho: PIN, novo: PIN_NOVO });
-  conferir(r6[0] === 'pin-errado' && r6[2] === 'abriu', '6. trocar o PIN das Senhas da casa troca o das chaves (continua um PIN só)');
+  conferir(r6[0] === 'pin-errado' && r6[2] === 'abriu', '6. trocar o PIN das Senhas da casa (só deste aparelho, sem o SQL do PIN da conta) troca o das chaves (continua um PIN só)');
 
   await ctx.close();
 
