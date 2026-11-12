@@ -243,7 +243,8 @@ sem framework: HTML, CSS e JavaScript puros.
   - **No Fundo** (`Giro.iniciar` → `DGO.fundo`, tipo `chave-familia`, "Deixando a família mais segura"): pílula com o andamento,
     tela acesa (Wake Lock), aviso antes de fechar, `podeCancelar: false`, resultado onde a pessoa estiver (`mostrarFim`). Uma aba só
     (Web Lock `omnilife-giro|<gid>`: "Já está trocando em outra janela deste aparelho."). **Pausa** (D-E2): as Senhas fechadas (5 min
-    sem toque NÃO trancam com a troca rodando — `Trava.ocioso`; app escondido 30 s, `pagehide`, "Bloquear agora" e Sair trancam) →
+    sem toque NÃO trancam com a troca rodando — `Trava.ocioso` —, salvo enquanto ela só espera a internet, `Giro.semInternet`: revisão
+    R4; app escondido 30 s, `pagehide`, "Bloquear agora" e Sair trancam) →
     `Giro.parar` para no fim da linha com "Parou porque as Senhas fecharam…"; ao abrir pelo PIN, o cartão "Continuar" (`Giro.cartao`,
     nas Senhas da casa e no Avançado; não depende da pílula). Sem internet: "Esperando a internet…" e segue sozinha. **Prazo**:
     cada chamada da troca tem `Giro.PRAZO_MS` (30 s) — rede pendurada vira "Parou sem internet…" com "Tentar de novo" (tudo é CAS e
@@ -264,7 +265,7 @@ sem framework: HTML, CSS e JavaScript puros.
     trocando em outro aparelho, falta a atualização do SolverONE, não é chefe…; revisão S4). `Gov.openWithCode` sem `_em`: "Ainda não
     há um código de emergência que valha…".
   - **A ponte Saúde → MoneyTRIO** (C10/D-E10): durante a troca (e com a chave daqui atrasada) o `SaudeMT.enviar` não manda (fica
-    pendente). No F7, na ordem: anota o pendente → `Giro.marcarPonte(nova)` marca como lidas as `saude-resumo` DO OMNI que não estão
+    pendente; o cartão de Integrações diz o que segura — a troca, ou o que falta a este aparelho —, `SaudeMT.esperaTexto`, revisões R2/R3). No F7, na ordem: anota o pendente → `Giro.marcarPonte(nova)` marca como lidas as `saude-resumo` DO OMNI que não estão
     na nova (achadas por REST em `sol_ponte`, `Giro.ponteNaoLidas`: a caixa do banco esconderia as de quem desligou a ponte) →
     `feito` → reenvia o resumo inteiro com a nova. Marcar antes do "feito" é o que impede o descarte de travar para sempre. A Saúde é
     de cada aparelho (não sobe) e o reenvio leva só a do aparelho que trocou: cada outro aparelho, ao adotar a nova, manda o resumo
@@ -287,15 +288,23 @@ sem framework: HTML, CSS e JavaScript puros.
     chefe e responsável (C5); `Giro.abrirNova` (no `Cloud.poll` e ao abrir) a põe no chaveiro só para ABRIR — o que a troca já passou
     para ela continua aparecendo, também com a troca parada (só se ela sai da chave daqui e sobe a versão; nada fechado com ela,
     nada gravado). Um aparelho aprovado pela família (sem a chave pessoal) continua sem ver o que já foi trocado.
+  - **"Tirar este aparelho" no meio da troca** (revisão R1, o mesmo cuidado do "Começar do zero" do C8): com a troca DESTE chefe
+    pela metade e a chave pessoal neste aparelho, `Saida.tirarEste` não tira se não há outro jeito de ela voltar (`Giro.outroCaminho`,
+    C5.2: outro aparelho que entrou pela conta, a digital em todos os aparelhos ou o kit) — as senhas já trocadas se perderiam; o aviso
+    manda terminar a troca ou ligar o kit. Com outro caminho, pergunta como antes e, no aparelho da troca, avisa que ela para e continua
+    no outro. Um aparelho que entrou pela família (sem a chave pessoal) sai como antes.
   - **O vigia** (`Giro.vigiar`, no `Cloud.poll`): as linhas que um aparelho atrasado gravou com uma chave de antes sobem para a
     atual (por `trocarLinha`, CAS). **Nunca** com a troca em curso nem rodando, e só se a chave daqui é a do registro do banco (C3).
   - **Nunca devolver uma chave velha** (as guardas): `Cofre._distribuir` (decide pelo registro DO BANCO, confere de novo antes de
     cada `sol_guardar_chave_grupo` e do `DB.put`, nada durante a troca, só chefe e responsável); `CloudDriver.enviar` (o registro da
     fila só anda para a frente; `settings/giro` nunca pela fila; `settings/cofre|giro` não se apagam pela fila); `Aparelhos.carga`
-    "família" (`podeFamilia`; troca em curso → "Espere a troca de segurança terminar…"; chave que não é a do registro do banco → "Este
-    aparelho ainda está com a versão antiga…"; sem resposta → não entrega); `Aparelhos.receber` (carga com chave velha não monta:
+    "família" (`podeFamilia`; troca em curso → "Espere a troca de segurança terminar…", ou, parada, "…parou no meio. Só dá para aprovar
+    depois que um chefe terminar a troca." — revisão R2; chave que não é a do registro do banco → o texto que resolve ali,
+    `Cofre.velhoTexto`: "precisa ser aprovado de novo" sem a chave pessoal, "Falta um chefe abrir…", "não confere", ou "Este aparelho
+    ainda está com a versão antiga… Abra pelo PIN" só para quem tem a chave pessoal e ainda não viu a nova — revisão R3; sem resposta
+    → não entrega); `Aparelhos.receber` (carga com chave velha não monta:
     "O aparelho que aprovou estava com a versão antiga…"); `Cofre.podeMudar` + `selar` (troca viva ou chave daqui atrasada → nada se
-    fecha; `editVault`, `Cofre.envelope`, `trazerLegado`, `Cars.edit` ao ABRIR — C14); o **reseal** no envio
+    fecha, com o mesmo `Cofre.velhoTexto` — revisão R3; `editVault`, `Cofre.envelope`, `trazerLegado`, `Cars.edit` ao ABRIR — C14); o **reseal** no envio
     (`CloudDriver.bancoDoEnvio` + `cadeadoDoBanco`: o que está na fila fechado com a de antes é fechado de novo com a do registro do
     banco antes de subir, ou espera; o `_em` velho nunca sobe; o conflito "só de cadeado" não duplica — `Cofre.mesmoConteudo`); um
     item cuja linha nova não abre sai da tela (C14). A cópia protegida não leva nem traz o registro e a troca (`Restore.daChave`, C12).

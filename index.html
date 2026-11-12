@@ -3519,8 +3519,14 @@ const Cofre = {
      reg: o registro com que comparar (o envio passa o do banco, C2); sem ele, a cópia daqui */
   podeMudar(reg) {
     if (Giro.vivo()) return { texto: Giro.T.mudarEspere };
-    if (this.aberto() && !this.ehAtual(reg === undefined ? this.registro() : reg, this.kv, this.fk)) return { texto: Giro.T.mudarVelho };
+    if (this.aberto() && !this.ehAtual(reg === undefined ? this.registro() : reg, this.kv, this.fk)) return { texto: this.velhoTexto() || Giro.T.mudarVelho };
     return { ok: true };
+  },
+  /* revisão R3: este aparelho não acompanhou a troca — o que resolve de verdade ("abra pelo PIN com internet" só serve a quem tem a
+     chave pessoal e ainda não viu a nova). semSk: o cadeado daqui não tem a chave pessoal (entrou pela família). "" = nenhum desses */
+  velhoTexto(semSk) {
+    const d = semSk ? "semChave" : this.desatualizado, T = this.T();
+    return d === "semChave" ? T.semChave : d === "faltaLiberar" ? T.faltaLiberar : d === "estranho" ? T.estranho : "";
   },
   /* ---------- cripto ---------- */
   rnd(n) { return crypto.getRandomValues(new Uint8Array(n)); },
@@ -4288,6 +4294,7 @@ const Giro = {
   OUTRO_MS: 3600e3,      /* revisão S2: a troca de OUTRO chefe sem notícia há mais que isso, e que já mudou algo, outro chefe pode continuar */
   PRAZO_MS: 30e3,        /* cada chamada ao banco: sem resposta até lá = rede pendurada (vira "Parou sem internet…", com Tentar de novo) */
   rodando: false,        /* este aparelho está fazendo a troca agora: aí só ela muda a chave daqui */
+  semInternet: false,    /* revisão R4: a troca está só esperando a internet voltar (não conta como uso das Senhas: Trava.ocioso) */
   /* os dados da troca de uma linha do banco ({vis, dados, atualizado_em, apagado_em}). Só vale a "restrito" (C9: um adulto
      comum cria settings como "publico"; uma troca falsa não pode travar a família) */
   dados(row) { return row && !row.apagado_em && row.vis === "restrito" && row.dados && row.dados.v === 1 ? row.dados : null; },
@@ -4447,10 +4454,14 @@ const Giro = {
   /* espera a internet voltar (e mais um pouco, para ela firmar). Para na hora se as Senhas fecharem ou o Fundo cortar (pausa) */
   async esperarRede(ctx) {
     ctx.andamento(null, this.T.esperandoRede);
-    for (let t = Date.now(); ; await sleep(250)) {
-      this.parar(ctx);
-      if (!navigator.onLine) t = Date.now(); else if (Date.now() - t >= this.REDE_MS) return;
-    }
+    /* revisão R4: a espera não tem prazo — ela não segura as Senhas abertas: 5 min sem toque fecham, e a troca pausa (parar) */
+    this.semInternet = true;
+    try {
+      for (let t = Date.now(); ; await sleep(250)) {
+        this.parar(ctx);
+        if (!navigator.onLine) t = Date.now(); else if (Date.now() - t >= this.REDE_MS) return;
+      }
+    } finally { this.semInternet = false; }
   },
   async _executar(ctx) {
     const T = this.T, L = await Cofre.local(), b0 = this.basico(L);
@@ -5332,6 +5343,11 @@ const Giro = {
   get T() {
     return {
       aprovarEspere: tt("Espere a troca de segurança terminar para aprovar (alguns minutos).", "Wait for the security change to finish before approving (a few minutes)."),
+      /* revisão R2: parada, ela não termina sozinha */
+      aprovarParada: tt("A troca de segurança parou no meio. Só dá para aprovar depois que um chefe terminar a troca.", "The security change stopped halfway. Approving is only possible after a family head finishes the change."),
+      /* revisão R1: "Tirar este aparelho" no meio da troca deste chefe */
+      tirarGiro: (ap) => tt("Agora não dá para tirar este " + ap + ": a troca de segurança que você começou está pela metade e só este " + ap + " abre as Senhas da casa por você. Termine antes a troca (Casa → Senhas da casa → Continuar) ou ligue o kit de emergência (aqui em Avançado).", "You can't remove this " + ap + " right now: the security change you started is halfway and only this " + ap + " opens the vault for you. First finish the change (Home → Home passwords → Continue) or turn on the emergency kit (here in Advanced)."),
+      tirarPausa: (ap) => tt("🔄 A troca de segurança que você começou neste " + ap + " para: continue no seu outro aparelho (Casa → Senhas da casa → “Continuar neste aparelho”).", "🔄 The security change you started on this " + ap + " stops: continue it on your other device (Home → Home passwords → “Continue on this device”)."),
       aprovarVelho: tt("Este aparelho ainda está com a versão antiga das Senhas da casa. Abra pelo PIN com internet e tente de novo.", "This device still has the old version of the vault. Open it with the PIN, online, and try again."),
       aprovarNaoPode: tt("Quem pediu não é chefe nem responsável desta família: as Senhas da casa são só deles. Recuse este pedido.", "The person asking is not a head or guardian of this family: the home passwords are only theirs. Decline this request."),
       aprovarRede: tt("Sem internet para conferir as Senhas da casa. Ligue a internet e tente de novo.", "No internet to check the vault. Turn on the internet and try again."),
@@ -5617,8 +5633,9 @@ const Aparelhos = {
       if (!this.podeFamilia(p)) return { texto: Giro.T.aprovarNaoPode };
       /* (b): nunca a chave velha, nem no meio da troca — conferido no banco (C13); sem resposta dele, não entrega */
       let b; try { b = await Cofre.noBanco(); } catch (e) { return { texto: Giro.T.aprovarRede }; }
-      if (Giro.emCurso(b.giro)) return { texto: Giro.T.aprovarEspere };
-      if (!Cofre.ehAtual(b.reg, f.kv, f.fk)) return { texto: Giro.T.aprovarVelho };
+      /* revisão R2: uma troca parada não termina sozinha "em alguns minutos" */
+      if (Giro.emCurso(b.giro)) return { texto: Giro.vivo(b.giro) ? Giro.T.aprovarEspere : Giro.T.aprovarParada };
+      if (!Cofre.ehAtual(b.reg, f.kv, f.fk)) return { texto: Cofre.velhoTexto(!L.sk) || Giro.T.aprovarVelho };   /* revisão R3 */
       const cf = await Cofre.decifrar(duk, f);
       return { c: SolProto.cargaFamilia(p.grupo_id, f.kv, f.fk, cf), zerar: () => cf.fill(0) };
     }
@@ -6828,8 +6845,9 @@ const Trava = {
     try { if (S.booted) render(); } catch (e) {}
   },
   /* a troca de segurança rodando aqui conta como uso (ninguém toca na tela por alguns minutos; o mesmo critério da diretriz para as
-     chaves de IA com trabalho no Fundo). Esconder o app e o Bloquear agora continuam trancando: aí a troca pausa (D-E2) */
-  ocioso() { if (Giro.rodando) return this.tocar(); if (this.aberto() && Date.now() - this.ultimo > this.MIN * 60000) this.trancar(tt("Senhas da casa fechadas: 5 minutos sem uso.", "Vault locked after 5 min idle.")); },
+     chaves de IA com trabalho no Fundo). Esconder o app e o Bloquear agora continuam trancando: aí a troca pausa (D-E2).
+     Revisão R4: esperando a internet (sem prazo) não conta — 5 min sem toque fecham as Senhas e a troca pausa */
+  ocioso() { if (Giro.rodando && !Giro.semInternet) return this.tocar(); if (this.aberto() && Date.now() - this.ultimo > this.MIN * 60000) this.trancar(tt("Senhas da casa fechadas: 5 minutos sem uso.", "Vault locked after 5 min idle.")); },
   iniciar() {
     ["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, () => this.tocar(), { passive: true }));
     setInterval(() => this.ocioso(), 15000);
@@ -7187,7 +7205,13 @@ const SaudeMT = {
     if (!this.pode()) return h4 + '<p class="tiny faint">' + tt("Para responsáveis com conta na nuvem e as Senhas da casa prontas. Neste modo, nada da Saúde vai para o MoneyTRIO.", "For guardians with a cloud account and the vault set up. In this mode, nothing from Health goes to MoneyTRIO.") + "</p>";
     return h4 + '<label class="check"><input type="checkbox" data-chg="mt.saude"' + (this.ligado() ? " checked" : "") + "> " + tt("Mandar o plano de saúde, a validade e o médico (ou veterinário) de cada um", "Send each one's health plan, expiry date and doctor (or vet)") + "</label>" +
       '<p class="tiny faint">' + tt("Só se você também usa o MoneyTRIO. Vai embaralhado aqui no aparelho, com a chave da família: só os responsáveis abrem, nem a SolverONE lê. Nunca vão carteirinha, SUS, tipo sanguíneo, alergias, remédios, condições ou telefones. Manda ao ligar e quando muda o plano, a validade ou o médico de alguém.", "Only if you also use MoneyTRIO. It goes scrambled here on the device, with the family key: only guardians can open it, not even SolverONE can read it. Card number, SUS, blood type, allergies, medicines, conditions and phones never go. It sends when turned on and whenever someone's plan, expiry date or doctor changes.") + "</p>" +
-      (this.ligado() && this.pendente() ? '<p class="small">⏳ ' + tt("Tem uma atualização esperando: vai quando as Senhas da casa forem abertas.", "An update is waiting: it goes when the vault is opened.") + "</p>" : "");
+      (this.ligado() && this.pendente() ? '<p class="small">⏳ ' + this.esperaTexto() + "</p>" : "");
+  },
+  /* revisões R2/R3: o que segura a atualização (com as Senhas abertas, "quando forem abertas" não resolve nada) */
+  esperaTexto() {
+    if (Giro.emCurso()) return tt("Tem uma atualização esperando: vai quando a troca de segurança terminar.", "An update is waiting: it goes when the security change finishes.");
+    const v = Cofre.aberto() ? Cofre.velhoTexto() : "";
+    return v ? tt("Tem uma atualização esperando.", "An update is waiting.") + " " + v : tt("Tem uma atualização esperando: vai quando as Senhas da casa forem abertas.", "An update is waiting: it goes when the vault is opened.");
   }
 };
 ACT["mt.saude"] = async (d, el) => {
@@ -8915,13 +8939,24 @@ const Saida = {
   },
   /* "Tirar este aparelho da conta" (Avançado): sai e apaga daqui o cadeado, a cópia das Senhas da casa e as chaves de IA */
   async tirarEste() {
+    /* revisão R1 (2.27.0): no meio da troca de segurança deste chefe, o cadeado daqui (a chave pessoal e a nova da troca) não sai se
+       não há outro jeito de a chave pessoal voltar (C5.2): as senhas já trocadas se perderiam — o mesmo cuidado do "Começar do zero"
+       (C8). Um aparelho que entrou pela família não guarda a chave pessoal: sai como antes */
+    let giro = "";
+    if (TelaConta.zeroGiro()) {
+      const L = await Cofre.local().catch(() => null);
+      if (L && L.sk) {
+        if (!(await Giro.outroCaminho())) { toast(Giro.T.tirarGiro(apN()), 9000); return false; }
+        if (Giro.ehDaqui(Giro.dados(Giro.local()), L)) giro = "<br><br>" + Giro.T.tirarPausa(apN());
+      }
+    }
     /* o que ainda está na fila das Senhas da casa tenta subir antes (elas ficam na internet; só a cópia deste aparelho sai) */
     if (navigator.onLine) { try { await CloudDriver.flush(true); } catch (e) {} }
     const pend = [...CloudDriver.fila.keys()].filter((k) => k.startsWith("vault|")).length;
     /* quem não é responsável (2.26.0: chega aqui por Segurança e aparelhos → Avançado) não tem as Senhas da casa e volta só entrando */
     if (!(await confirmBox((isGuardian() ? tt("Tirar este " + apN() + " da conta? Ele sai da conta e as Senhas da casa e as chaves de IA saem daqui (na internet as Senhas da casa continuam). Para usar de novo aqui, entre e peça a aprovação.", "Remove this " + apN() + " from the account? It signs out and the home passwords and AI keys leave this " + apN() + " (the home passwords stay online). To use it here again, sign in and ask for approval.")
       : tt("Tirar este " + apN() + " da conta? Ele sai da conta e as chaves de IA guardadas aqui saem deste " + apN() + ". Para usar de novo aqui, é só entrar de novo.", "Remove this " + apN() + " from the account? It signs out and the AI keys saved here leave this " + apN() + ". To use it here again, just sign in again.")) +
-      (pend ? "<br><br>⚠️ " + pend + tt(" mudança(s) nas Senhas da casa ainda não foram para a internet e vão se perder. Se puder, ligue a internet antes.", " vault change(s) haven't gone online yet and will be lost. If you can, turn on the internet first.") : ""), tt("Tirar este " + apN(), "Remove this " + apN()), true))) return false;
+      (pend ? "<br><br>⚠️ " + pend + tt(" mudança(s) nas Senhas da casa ainda não foram para a internet e vão se perder. Se puder, ligue a internet antes.", " vault change(s) haven't gone online yet and will be lost. If you can, turn on the internet first.") : "") + giro, tt("Tirar este " + apN(), "Remove this " + apN()), true))) return false;
     if (S.family && navigator.onLine) { try { await Cloud.audit("aparelho.tirado", Devices.label() + " · " + Cloud.myName()); } catch (e) {} }
     return this.sair({ apagar: true, semPerguntar: true, motivo: "este" });
   }

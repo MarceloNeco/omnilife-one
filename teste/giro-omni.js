@@ -135,6 +135,11 @@
      RD2  a troca parada no meio, sem o chefe que começou: a responsável continua vendo o que já foi trocado (a nova só abre)
      RD3  o resumo da Saúde de outro aparelho não se perde na troca: ele manda o dele de novo ao adotar a nova
      RD4  a cópia de antes, restaurada depois da troca: o que não volta não fica preso no aparelho e o aviso diz quantos
+   Revisão de regressões da 2.27.0 (os achados R1–R4):
+     RR1  "Tirar este aparelho" no meio da troca do chefe não apaga o único aparelho com a chave pessoal dele (diz o que fazer)
+     RR2  com a troca parada, aprovar "pela família" não promete "alguns minutos"; a Saúde diz que espera a troca terminar
+     RR3  num aparelho que não acompanhou a troca, mudar, aprovar, o carro e a Saúde dizem o que resolve (não "abra pelo PIN")
+     RR4  esperando a internet no meio da troca, 5 min sem toque fecham as Senhas (a troca pausa e a tela acesa é solta)
    O G6 (o MoneyTRIO 3.66 de verdade acompanha a troca) é o teste/giro-moneytrio-omni.js (MONEYTRIO=<pasta>).
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
@@ -1190,17 +1195,18 @@ async function restaurarCopia(p, txt) {
     await d.evaluate(async (v) => { await DB.put('vault', Object.assign({}, v, { updatedAt: '2026-11-12T11:00:00.000Z' }), true); }, velho4);
     await espere(600); await subir(d, true);
     const ed = await avisos(d);
-    conferir(/precisa da atualização/.test(ed) && await tituloDe(nova, linha('vault', 'v4').dados_cifrado) === 'Cartão mudado pela Ana' && await d.evaluate(() => !CloudDriver.fila.has('vault|v4')),
+    /* revisão R3: o aviso diz o que resolve ali (ser aprovado de novo), não "abra pelo PIN com internet" */
+    conferir(/precisa ser aprovado de novo/.test(ed) && !/Abra pelo PIN/.test(ed) && await tituloDe(nova, linha('vault', 'v4').dados_cifrado) === 'Cartão mudado pela Ana' && await d.evaluate(() => !CloudDriver.fila.has('vault|v4')),
       'C14. uma edição da cópia velha não sobe: a linha continua a da Ana (' + ed + ')');
     /* a carga "família" deste aparelho recusa */
     const cg = await d.evaluate(async (bia) => { const L = await Cofre.local(), k = await Aparelhos.carga({ tipo: 'familia', grupo_id: S.family.id, quem: bia }, L, new Uint8Array(Cofre.dukRaw)); if (k.zerar) k.zerar(); return { c: !!k.c, texto: k.texto || '' }; }, BIA);
-    conferir(!cg.c && /versão antiga/.test(cg.texto), 'G3. a carga "família" deste aparelho recusa: "' + cg.texto + '"');
+    conferir(!cg.c && /precisa ser aprovado de novo/.test(cg.texto) && !/Abra pelo PIN/.test(cg.texto), 'G3. a carga "família" deste aparelho recusa: "' + cg.texto + '"');
     /* C14: a ficha do carro nem mostra a placa para mudar */
     await d.evaluate(() => { Cars.edit({ id: 'car-g3d', kind: 'veiculo', name: 'Carro de mentira', carro: {}, seguro: {} }); });
     await esperar(d, () => !!document.querySelector('.modal input[name="name"]'), null, 5000);
     const fc = await d.evaluate(() => { const m = document.querySelector('.modal'); return { placa: !!m.querySelector('[name="_sec.placa"]'), texto: m.innerText }; });
     await d.evaluate(() => closeModals());
-    conferir(!fc.placa && /precisa da atualização/.test(fc.texto), 'C14. a ficha do carro: com a chave velha, a placa nem aparece para mudar (o aviso no lugar)');
+    conferir(!fc.placa && /precisa ser aprovado de novo/.test(fc.texto) && !/Abra pelo PIN/.test(fc.texto), 'C14. a ficha do carro: com a chave velha, a placa nem aparece para mudar (o aviso no lugar)');
     /* o fechar e abrir de novo pelo PIN: abre com a de antes, o cartão continua */
     await d.evaluate(() => Cofre.trancar());
     const rp = await abrirPeloPin(d, PIN_A);
@@ -3411,8 +3417,137 @@ async function restaurarCopia(p, txt) {
     conferir(rl && rl.naoVoltou === 0 && sl.n === 2 && sl.tem, 'RD4. a cópia de um cofre de antes da 2.15.0 (com a senha principal) continua indo para "Trazer as senhas antigas" (' + JSON.stringify([rl && rl.naoVoltou, sl]) + ')');
   });
 
+  /* ================= revisão de regressões (2.27.0): R1–R4 ================= */
+  /* R1: "Tirar este aparelho" (2.26.0) apaga o cadeado daqui (a chave pessoal e o prox): no meio da troca deste chefe, sem outro jeito
+     de a chave pessoal voltar, as senhas já trocadas se perderiam (como o "Começar do zero" do C8) */
+  await parte('RR1', 'Revisão (regressões R1): com a troca da Ana pela metade e só este aparelho com a chave pessoal dela (sem kit, sem a digital da conta, sem outro aparelho que entrou pela conta), "Tirar este aparelho" não tira (as senhas já trocadas se perderiam) e diz o que fazer; com outro jeito de a chave voltar, ou num aparelho que entrou pela família, pergunta como antes — e, no aparelho da troca, avisa que ela para', async (novo) => {
+    const A = await novo('RR1-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    /* o caso do aviso C5.2: sem o kit; o outro aparelho dela entrou pela família (não conta) */
+    db.omni_chave_privada.splice(0, db.omni_chave_privada.length, ...db.omni_chave_privada.filter((k) => k.user_id !== ANA));
+    db.sol_aparelhos.push({ id: 'ap-familia-ana', user_id: ANA, nome: 'Tablet · Chrome', app: 'omnilife-one', como: 'familia', aprovado_por: BIA, aprovado_por_ap: null, criado_em: agora(), visto_em: agora(), removido_em: null, removido_por: null });
+    conferir(!(await a.evaluate(() => Giro.outroCaminho())), 'RR1. preparo: nenhum outro jeito de a chave pessoal da Ana voltar (C5.2)');
+    /* a troca pausa no meio das linhas: as Senhas fecham (app escondido > 30 s, D-E2) */
+    await a.evaluate(() => { Giro.PAUSA_MS = 400; });
+    await comecar(a);
+    await ate(() => { const g = linha('settings', 'giro'); return !!(g && g.dados && g.dados.para && comFk(g.dados.para.fk).length >= 3); }, 30000);
+    await a.evaluate(() => Cofre.trancar());
+    const r0 = await resultado(a, 20000), fkN = linha('settings', 'giro').dados.para.fk, feitas = comFk(fkN).length;
+    conferir(r0 && r0.motivo === 'trancou' && feitas >= 3 && feitas < 6 && regBanco().fk === FK0, 'RR1. a troca da Ana pausou com ' + feitas + ' de 6 na nova (' + JSON.stringify(r0) + ')');
+    /* "Tirar este aparelho" (Segurança e aparelhos → Avançado) */
+    await vigiarAvisos(a);
+    const L0 = await a.evaluate(async () => JSON.stringify(await Cofre.local())), marca = M.log.length;
+    const tirar = (p) => p.evaluate(() => { window.__tirar = 'esperando'; Saida.tirarEste().then((x) => { window.__tirar = x; }, (e) => { window.__tirar = 'erro ' + e.message; }); });
+    await tirar(a);
+    await esperar(a, () => window.__tirar !== 'esperando' || !!document.querySelector('.modal [data-yes]'), null, 15000);
+    const s1 = await a.evaluate(async () => ({ r: window.__tirar, pergunta: !!document.querySelector('.modal [data-yes]'), L: JSON.stringify(await Cofre.local()), saindo: Saida.saindo, user: !!S.user }));
+    if (s1.pergunta) { await a.click('.modal [data-no]'); await a.waitForSelector('.modal', { state: 'detached', timeout: 5000 }).catch(() => {}); }
+    await espere(300);
+    const av1 = await avisos(a);
+    conferir(s1.r === false && !s1.pergunta && !s1.saindo && s1.user && s1.L === L0, 'RR1. só este aparelho abre as Senhas da Ana: "Tirar este aparelho" não tira (nem pergunta), o cadeado daqui fica inteiro (' + JSON.stringify([s1.r, s1.pergunta, s1.saindo]) + ')');
+    conferir(/Agora não dá para tirar este (celular|tablet|computador)/.test(av1) && /troca de segurança que você começou está pela metade/.test(av1) && /Continuar/.test(av1) && /kit de emergência/.test(av1),
+      'RR1. o aviso diz por quê e o que fazer (terminar a troca, ou ligar o kit) (' + av1 + ')');
+    conferir(!M.log.slice(marca).some((l) => /sol_aparelho_tirar|omni_aparelhos/.test(l.caminho)) && !db.omni_historico.some((h) => h.acao === 'aparelho.tirado'), 'RR1. nada sai da lista de aparelhos nem vai para o histórico');
+    /* num aparelho dela que entrou pela FAMÍLIA (sem a chave pessoal: nada se perde) pergunta como antes, sem falar da troca */
+    const D = await novo('RR1-ana-familia', { vp: 'celular' }), d = D.p;
+    await abertoPelaFamilia(d, ANA, PIN_A);
+    await d.evaluate(async () => { const x = await Giro.ler(); await CloudDriver.aceitar('settings', 'giro', x.giro, true); });
+    await tirar(d);
+    const pd = await esperar(d, () => !!document.querySelector('.modal [data-yes]'), null, 15000), td = await janelas(d);
+    if (pd) await d.click('.modal [data-no]');
+    await esperar(d, () => window.__tirar === false, null, 5000);
+    conferir(pd && /Tirar este (celular|tablet|computador) da conta\?/.test(td) && !/troca de segurança/.test(td) && await d.evaluate(() => window.__tirar === false && !Saida.saindo),
+      'RR1. num aparelho que entrou pela família (sem a chave pessoal), "Tirar este aparelho" pergunta como antes; "Cancelar" não muda nada (' + td.slice(0, 120) + ')');
+    /* com outro aparelho dela que entrou pela conta (outro jeito de a chave voltar): pergunta, e avisa que a troca daqui para */
+    db.sol_aparelhos.push({ id: 'ap-conta-ana', user_id: ANA, nome: 'Notebook · Chrome', app: 'moneytrio', como: 'aparelho', aprovado_por: ANA, aprovado_por_ap: null, criado_em: agora(), visto_em: agora(), removido_em: null, removido_por: null });
+    await tirar(a);
+    const pa = await esperar(a, () => !!document.querySelector('.modal [data-yes]'), null, 15000), ta = await janelas(a);
+    if (pa) await a.click('.modal [data-no]');
+    await esperar(a, () => window.__tirar === false, null, 5000);
+    conferir(pa && /Tirar este (celular|tablet|computador) da conta\?/.test(ta) && /A troca de segurança que você começou neste (celular|tablet|computador) para/.test(ta) && /Continuar neste aparelho/.test(ta) && await a.evaluate(async (L0) => window.__tirar === false && JSON.stringify(await Cofre.local()) === L0, L0),
+      'RR1. com outro aparelho dela que entrou pela conta: pergunta, e avisa que a troca daqui para e continua no outro; "Cancelar" não muda nada (' + ta.slice(0, 200) + ')');
+  });
+
+  /* R2: uma troca PARADA não termina sozinha "em alguns minutos" */
+  await parte('RR2', 'Revisão (regressões R2): com a troca de outro chefe parada (sem notícia), aprovar um aparelho "pela família" não promete "alguns minutos" e a Saúde → MoneyTRIO diz que espera a troca terminar (as Senhas já estão abertas); com a troca andando, aprovar espera como antes', async (novo) => {
+    const A = await novo('RR2-bia', { vp: 'computador' }), a = A.p;
+    await abertoComVelha(a, BIA, PIN_B);
+    await ligarSaude(a);
+    gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco({}) }, ANA);
+    await a.evaluate(async () => { const x = await Giro.ler(); await CloudDriver.aceitar('settings', 'giro', x.giro, true); });
+    const ver = () => a.evaluate(async (ana) => {
+      const L = await Cofre.local(), k = await Aparelhos.carga({ tipo: 'familia', grupo_id: S.family.id, quem: ana }, L, new Uint8Array(Cofre.dukRaw)); if (k.zerar) k.zerar();
+      lsSet(LS.saudeMT, S.family.id);
+      return { c: !!k.c, texto: k.texto || '', saude: SaudeMT.card().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '), vivo: Giro.vivo() };
+    }, ANA);
+    const v1 = await ver();
+    conferir(!v1.c && v1.texto === 'Espere a troca de segurança terminar para aprovar (alguns minutos).', 'RR2. com a troca andando: aprovar "pela família" espera (alguns minutos), como antes (' + v1.texto + ')');
+    /* a troca para (dois dias sem notícia) */
+    linha('settings', 'giro').atualizado_em = new Date(Date.now() - 2 * 24 * 3600e3).toISOString();
+    await a.evaluate(async () => { const x = await Giro.ler(); await CloudDriver.aceitar('settings', 'giro', x.giro, true); });
+    const v2 = await ver();
+    conferir(!v2.c && !v2.vivo && !/alguns minutos/.test(v2.texto) && /parou no meio/.test(v2.texto) && /um chefe terminar a troca/.test(v2.texto),
+      'RR2. com a troca parada: aprovar "pela família" diz que ela parou e que um chefe precisa terminar, sem "alguns minutos" (' + v2.texto + ')');
+    conferir(/vai quando a troca de segurança terminar/.test(v2.saude) && !/forem abertas/.test(v2.saude), 'RR2. a Saúde → MoneyTRIO, com as Senhas abertas: "vai quando a troca de segurança terminar" (não "quando forem abertas") (' + v2.saude.slice(-160) + ')');
+  });
+
+  /* R3: o aparelho que não acompanhou a troca: as telas antigas dizem o que fazer de verdade */
+  await parte('RR3', 'Revisão (regressões R3): depois da troca, num aparelho que não acompanhou — sem a chave pessoal (entrou pela família) ou sem a nova liberada para a pessoa —, mudar uma senha, aprovar "pela família" e a Saúde → MoneyTRIO dizem o que fazer de verdade ("precisa ser aprovado de novo" / "falta um chefe…"), não "abra pelo PIN com internet", que não resolve', async (novo) => {
+    const E = await novo('RR3-bia', { vp: 'celular' }), e = E.p;
+    const D = await novo('RR3-ana-familia', { vp: 'celular' }), d = D.p;
+    await abertoComVelha(e, BIA, PIN_C);
+    await abertoPelaFamilia(d, ANA, PIN_A);
+    /* a Saúde → MoneyTRIO ligada nos dois (um depois do outro, cada um com a cópia de agora: sem pergunta de conflito) */
+    await ligarSaude(d); await e.evaluate(() => CloudDriver.pull()); await ligarSaude(e);
+    await trocaAMao();
+    /* a nova ainda não embrulhada para a Bia (nenhum chefe abriu as Senhas depois da troca) */
+    const daBia = db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === BIA && x.versao > 1);
+    db.sol_grupo_chaves.splice(0, db.sol_grupo_chaves.length, ...db.sol_grupo_chaves.filter((x) => !daBia.includes(x)));
+    await e.evaluate(() => Cloud.poll()); await d.evaluate(() => Cloud.poll());
+    const ok = (await esperar(e, () => Cofre.desatualizado === 'faltaLiberar', null, 20000)) && (await esperar(d, () => Cofre.desatualizado === 'semChave', null, 20000));
+    const ver = (p, quem) => p.evaluate(async (quem) => {
+      const L = await Cofre.local(), k = await Aparelhos.carga({ tipo: 'familia', grupo_id: S.family.id, quem }, L, new Uint8Array(Cofre.dukRaw)); if (k.zerar) k.zerar();
+      lsSet(LS.saudeMT, S.family.id);
+      return { pm: Cofre.podeMudar().texto || '', carga: k.c ? 'saiu' : k.texto || '', saude: SaudeMT.card().replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ') };
+    }, quem);
+    const vb = await ver(e, ANA), vd = await ver(d, BIA);
+    conferir(ok, 'RR3. preparo: a Bia está em "Falta liberar" e o aparelho da Ana que entrou pela família, em "precisa ser aprovado de novo"');
+    const nao = (t) => !/Abra pelo PIN com internet|forem abertas/.test(t);
+    conferir(/Falta um chefe abrir as Senhas da casa/.test(vb.pm) && /Falta um chefe abrir as Senhas da casa/.test(vb.carga) && /Falta um chefe abrir as Senhas da casa/.test(vb.saude) && nao(vb.pm) && nao(vb.carga) && nao(vb.saude),
+      'RR3. a Bia (sem a nova liberada): mudar, aprovar e a Saúde dizem "falta um chefe abrir…" (' + JSON.stringify([vb.pm, vb.carga]) + ')');
+    conferir(/precisa ser aprovado de novo/.test(vd.pm) && /precisa ser aprovado de novo/.test(vd.carga) && /precisa ser aprovado de novo/.test(vd.saude) && nao(vd.pm) && nao(vd.carga) && nao(vd.saude),
+      'RR3. o aparelho que entrou pela família: mudar, aprovar e a Saúde dizem "precisa ser aprovado de novo" (' + JSON.stringify([vd.pm, vd.carga]) + ')');
+    /* a ficha do carro (o aviso no lugar da placa) também */
+    await e.evaluate(() => { Cars.edit({ id: 'car-rr3', kind: 'veiculo', name: 'Carro de mentira', carro: {}, seguro: {} }); });
+    await esperar(e, () => !!document.querySelector('.modal input[name="name"]'), null, 5000);
+    const fc = await e.evaluate(() => { const m = document.querySelector('.modal'); return { placa: !!m.querySelector('[name="_sec.placa"]'), texto: m.innerText }; });
+    await e.evaluate(() => closeModals());
+    conferir(!fc.placa && /Falta um chefe abrir as Senhas da casa/.test(fc.texto) && nao(fc.texto), 'RR3. a ficha do carro da Bia: o aviso certo no lugar da placa');
+  });
+
+  /* R4: esperando a internet, a troca não segura as Senhas abertas sem prazo */
+  await parte('RR4', 'Revisão (regressões R4): sem internet no meio da troca ("Esperando a internet…"), 5 minutos sem tocar na tela fecham as Senhas da casa como sempre: a troca pausa ("Parou porque as Senhas fecharam…") e a tela acesa é solta (rodando de verdade, 5 min sem toque continuam não fechando: G10)', async (novo) => {
+    const A = await novo('RR4-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await wakeLockDeMentira(a);
+    M.depoisDe = { 'PATCH vault': 2, acao: () => { cortarRede(A, true).catch(() => {}); } };
+    await a.evaluate(() => { go('house', 'vault'); });
+    await pelaPilula(a);
+    const esperando = await esperar(a, () => [...document.querySelectorAll('.dgo-tarefa')].some((x) => /Esperando a internet/.test(x.innerText)), null, 20000);
+    const meio = await a.evaluate(() => ({ aberto: Cofre.aberto(), rodando: Giro.rodando, wl: window.__wl.slice() }));
+    conferir(esperando && meio.aberto && meio.rodando && JSON.stringify(meio.wl) === '["pedido"]', 'RR4. preparo: a troca espera a internet, com as Senhas abertas e a tela acesa (' + JSON.stringify(meio) + ')');
+    /* 5 min sem tocar na tela */
+    await a.evaluate(() => { Trava.ultimo -= 6 * 60e3; Trava.ocioso(); });
+    const parou = await esperar(a, () => !!window.__fu, null, 5000);
+    await espere(500);
+    const fim = await a.evaluate(() => ({ fu: window.__fu, aberto: Cofre.aberto() || !!S.vaultKey, rodando: Giro.rodando, wl: window.__wl.slice() }));
+    conferir(parou && !fim.aberto && !fim.rodando && fim.fu && fim.fu.motivo === 'trancou', 'RR4. esperando a internet, 5 min sem toque fecham as Senhas e a troca pausa ("Parou porque as Senhas fecharam…") (' + JSON.stringify(fim.fu) + ')');
+    conferir(JSON.stringify(fim.wl) === '["pedido","solto"]', 'RR4. a tela acesa é solta (' + JSON.stringify(fim.wl) + ')');
+    await cortarRede(A, false);
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E11 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7e, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v, D8; revisão de segurança RS1, RS2, RS3, RS4; revisão de dados RD1, RD2, RD3, RD4)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E11 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7e, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v, D8; revisão de segurança RS1, RS2, RS3, RS4; revisão de dados RD1, RD2, RD3, RD4; revisão de regressões RR1, RR2, RR3, RR4)');
 })().catch((e) => { console.error(e); process.exit(1); });
