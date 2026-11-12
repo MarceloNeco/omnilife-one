@@ -42,7 +42,7 @@
      G9   B edita sem internet com a velha; a troca acontece; ao voltar, a edição sobe com a nova e sem item duplicado (só mudou o
           cadeado: mesmoConteudo); um conflito de verdade guarda as duas, as duas com a nova; nada chega ao banco com a velha (C2).
           G9c: C, fechado, não manda nada (espera); ao abrir pelo PIN, sobe uma vez com a nova
-   Etapa E5 (a troca em si, sem a tela: Giro.executar chamado por page.evaluate; a tela e o Fundo são da E6/E9):
+   Etapa E5 (a troca em si, sem a tela: Giro.executar chamado por page.evaluate; o Fundo é da E6, a tela da E9):
      G0   só abrir o app (recarregar, abrir pelo PIN, as voltas do Cloud.poll, a liberação), sem tocar no botão: o cadeado dos dois
           aparelhos, os anexos, omni_docs, sol_grupo_chaves e as chaves pessoais ficam iguais, byte a byte
      G1   a troca: nasce "preparado" com a nova embrulhada para cada chefe; a nova chega a cada chefe e responsável ANTES da primeira
@@ -60,6 +60,25 @@
      G8c  C1: outra troca ficou com a vez — para antes de tocar nas linhas; a nova dele vai para as de antes (não se perde)
      G8d  C1: a vez passou para outro aparelho no meio — a próxima anotação relê e para, sem gravar por cima
      AN   o app fecha no meio de um anexo (antes ou depois do arquivo novo): o anexo continua abrindo; "Continuar" termina
+   Etapa E6 (a troca no Fundo, a trava e a pausa):
+     FU   Giro.iniciar = trabalho do Fundo (tipo chave-familia): a pílula com o andamento e sem ✕, a tela acesa pedida e solta, o
+          aviso antes de fechar, trocar de tela 3 vezes não para, o fim aparece onde a pessoa está
+     G7r  recarregar no meio: a pílula "foi interrompido" com "Continuar de onde parou" (aoRetomar); fechadas, as Senhas pedem o PIN
+          e mostram tudo (também o já trocado); o cartão "Continuar" termina com a mesma nova
+     G7b  o aparelho que trocava fecha no meio: o outro aparelho do mesmo chefe só assume depois do prazo sem notícia e se a troca
+          não andou entre duas leituras; "Continuar neste aparelho" termina com a MESMA nova
+     G7c  sem internet no meio: "Esperando a internet…" e continua sozinha quando ela volta
+     G7d  Sair no meio: a pergunta diz que a troca pausa; ao entrar de novo, PIN e "Continuar"
+     G7o  a troca pela metade de outra pessoa: sem cartão e sem assumir
+     G8   duas abas do mesmo aparelho: a segunda recebe "Já está trocando em outra janela deste aparelho." (Web Lock)
+     G10  5 min sem toque não tranca; "Bloquear agora" pergunta antes; o app escondido > 30 s tranca e a troca pausa (D-E2); PIN,
+          tudo aparece, "Continuar". G10b: fechar enquanto espera a internet para na hora. G10v: fechar bem na hora de virar não
+          abre as Senhas de novo
+     C8   com a troca deste chefe pela metade, "Começar do zero" não aparece (a explicação no lugar) e não roda
+     G7f  C8: aprovado de novo pela conta (outro PIN) no meio da troca (depois de virar o registro; G7f2: logo depois de a troca nascer):
+          a troca pausa sem gravar no cadeado novo com a chave de antes do aparelho, e "Continuar" termina com a mesma nova
+     C16  uma troca esquecida no "preparado" há mais de 24 h vale como desistida; a próxima nasce por cima
+     AR   o aparelho que adota a nova arruma os anexos dele (3.9) no Fundo
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -268,6 +287,36 @@ const girar = (p, op) => p.evaluate(async (op) => {
   try { const r = await Giro.executar((v, t) => { if (t && passos[passos.length - 1] !== t) passos.push(t); }, {}, op); return { ok: true, r: JSON.parse(JSON.stringify(r)), passos }; }
   catch (e) { return { erro: e.message, motivo: e.giro || null, passos }; }
 }, op === undefined ? { novo: true } : op);
+/* ---------------- etapa E6: a troca no Fundo, a trava e a pausa ---------------- */
+/* começa (ou continua) a troca SEM esperar o fim: o andamento fica em window.__passos e o resultado em window.__res */
+const comecar = (p, op) => p.evaluate((op) => {
+  window.__passos = []; window.__res = null;
+  Giro.executar((v, t) => { if (t && window.__passos[window.__passos.length - 1] !== t) window.__passos.push(t); }, {}, op)
+    .then((r) => { window.__res = { ok: true, r: JSON.parse(JSON.stringify(r)) }; }, (e) => { window.__res = { erro: e.message, motivo: e.giro || null }; });
+}, op === undefined ? { novo: true } : op);
+const resultado = async (p, ms) => { await esperar(p, () => !!window.__res, null, ms || 30000); return p.evaluate(() => window.__res); };
+/* pela tela: Giro.iniciar (o trabalho do Fundo), sem esperar. O fim em window.__fu */
+const pelaPilula = (p, op) => p.evaluate((op) => { window.__fu = null; Giro.iniciar(op).then(() => { window.__fu = { ok: true }; }, (e) => { window.__fu = { erro: e.message, motivo: e.giro || null }; }); }, op === undefined ? { novo: true } : op);
+/* o texto do cartão da troca pela metade nas Senhas da casa ('' = não há) */
+const cartaoGiro = (p) => p.evaluate(() => { const c = document.querySelector('#giroCartao'); return c ? c.innerText.replace(/\s+/g, ' ').trim() : ''; });
+/* a tela acesa de mentira (o navegador do teste não tem): window.__wl anota "pedido" e "solto" */
+const wakeLockDeMentira = (p) => p.evaluate(() => {
+  window.__wl = [];
+  Object.defineProperty(navigator, 'wakeLock', { configurable: true, value: { request: async () => {
+    window.__wl.push('pedido'); const ls = [];
+    return { released: false, addEventListener: (ev, fn) => ls.push(fn), release: async function () { this.released = true; window.__wl.push('solto'); ls.forEach((f) => f()); } };
+  } } });
+});
+/* o aviso antes de fechar está ligado? (um "beforeunload" de mentira: o Fundo cancela) */
+const avisaAntesDeFechar = (p) => p.evaluate(() => { const e = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(e); return e.defaultPrevented; });
+/* sem internet de verdade neste aparelho: navigator.onLine falso E nada chega ao banco (o setOffline sozinho não corta o que o
+   teste atende pelo ctx.route) */
+const cortar = (r) => r.abort('internetdisconnected');
+async function cortarRede(A, sim) { if (sim) { await A.ctx.route(SB + '/**', cortar); await semRede(A.ctx, true); } else { await A.ctx.unroute(SB + '/**', cortar); await semRede(A.ctx, false); } }
+/* uma troca de mentira no banco, como outro aparelho a deixou */
+const trocaNoBanco = (campos) => Object.assign({ v: 1, vis: 'restrito', estado: 'recifrando', por: ANA, ap: 'aparelho-de-mentira', apNome: 'Outro aparelho', de: { kv: 1, fk: FK0 }, para: { kv: 2, fk: 'fk-de-mentira' },
+  inicio: agora(), batida: agora(), total: 0, feitos: 0, voltas: 0, estranhas: 0, em: null, envelopes: {}, entregues: {}, fim: null, erro: null }, campos);
+
 /* a CF que está com a pessoa (a versão mais alta dela em sol_grupo_chaves), aberta em Node com M.PKCS8: {raw, kv, fk} | null */
 async function chaveDaPessoa(uid) {
   const c = db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === uid).sort((a, b) => b.versao - a.versao)[0];
@@ -1449,8 +1498,358 @@ async function linhaCom(raw, kv, fk, titulo, rawInterna) {
     conferir(r3.ok && ok === 2, '"Continuar" termina: os dois anexos na nova, a ficha só com ela, e abrem (' + JSON.stringify([r3.erro || 'ok', m3.fANantes.enc, m3.fANdepois.enc]) + ')');
   });
 
+  /* ================= FU (etapa E6): a troca como trabalho do Fundo ================= */
+  await parte('FU', 'A troca no Fundo (Giro.iniciar): a pílula "Deixando a família mais segura" com o andamento e sem ✕, a tela acesa pedida e solta, o aviso antes de fechar, trocar de tela 3 vezes não para, e o fim aparece onde a pessoa está', async (novo) => {
+    const A = await novo('FU-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await wakeLockDeMentira(a); await vigiarAvisos(a);
+    const fecharAntes = await avisaAntesDeFechar(a);
+    await a.evaluate(() => { Giro.PAUSA_MS = 600; go('house', 'vault'); });
+    await pelaPilula(a);
+    const viu = await esperar(a, () => [...document.querySelectorAll('.dgo-tarefa')].some((x) => /Deixando a família mais segura/.test(x.innerText) && /Senhas: \d de 6/.test(x.innerText)), null, 20000);
+    const durante = await a.evaluate(() => {
+      const t = DGO.fundo.lista().find((x) => x.tipo === 'chave-familia');
+      return { t: t && { id: t.id, estado: t.estado, podeCancelar: t.podeCancelar }, x: !!document.querySelector('.dgo-tarefa .dgo-tarefa-bt'), live: !!document.querySelector('.dgo-tarefas[aria-live]'), rodando: Giro.rodando, wl: window.__wl.slice(), cartao: !!document.querySelector('#giroCartao') };
+    });
+    const avisoDurante = await avisaAntesDeFechar(a);
+    conferir(viu && durante.t && durante.t.id === 'giro-' + GID && durante.t.estado === 'rodando' && durante.t.podeCancelar === false && !durante.x && durante.rodando && !durante.cartao,
+      'FU. a pílula "Deixando a família mais segura" com "Senhas: i de 6", trabalho do Fundo tipo chave-familia, sem ✕ (parar no meio não); o cartão "Continuar" não aparece enquanto roda (' + JSON.stringify(durante.t) + ')');
+    conferir(!fecharAntes && avisoDurante && JSON.stringify(durante.wl) === '["pedido"]' && durante.live, 'FU. enquanto troca: a tela acesa pedida, o aviso antes de fechar ligado (antes não estava) e a pílula num lugar que o leitor de tela anuncia (' + JSON.stringify(durante.wl) + ')');
+    /* trocar de tela 3 vezes no meio não para nada */
+    for (const [t, s] of [['home', null], ['settings', 'conta'], ['house', 'vault']]) { await a.evaluate(([t, s]) => go(t, s || undefined), [t, s]); await espere(300); }
+    const fim = await esperar(a, () => window.__fu && window.__fu.ok, null, 40000);
+    await espere(600);
+    const gd = linha('settings', 'giro').dados, wl = await a.evaluate(() => window.__wl.slice()), avisoDepois = await avisaAntesDeFechar(a);
+    conferir(fim && gd.estado === 'feito' && comFk(gd.para.fk).length === 6 && regBanco().fk === gd.para.fk, 'FU. trocando de tela 3 vezes no meio, a troca termina ("feito", as 6 na nova)');
+    conferir(!avisoDepois && JSON.stringify(wl) === '["pedido","solto"]', 'FU. no fim: a tela acesa solta e o aviso antes de fechar desligado (' + JSON.stringify([wl, avisoDepois]) + ')');
+    conferir(/Pronto: a família está mais segura/.test(await avisos(a)) && !(await cartaoGiro(a)), 'FU. o fim aparece onde a pessoa está ("✓ Pronto: a família está mais segura"), sem cartão de troca pela metade');
+  });
+
+  /* ================= G7r (etapa E6): recarregar no meio do trabalho do Fundo ================= */
+  await parte('G7r', 'O app recarrega no meio da troca do Fundo: a pílula "foi interrompido" com "Continuar de onde parou"; fechadas, as Senhas pedem o PIN e mostram tudo (também o que já foi trocado); o cartão "Continuar" termina com a mesma nova', async (novo) => {
+    const A = await novo('G7r-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    /* o aviso antes de fechar do navegador, se vier, é aceito (quem recarregou disse "sair mesmo assim") */
+    a.removeAllListeners('dialog');
+    a.on('dialog', (d) => { if (d.type() === 'beforeunload') d.accept().catch(() => {}); else { A.lixo.nativos.push(d.type() + ': ' + d.message()); d.dismiss().catch(() => {}); } });
+    const ids0 = idsVault();
+    let recarregou = null;
+    M.depoisDe = { 'PATCH vault': 3, acao: () => { recarregou = a.reload().catch(() => {}); } };
+    await a.evaluate(() => { Giro.PAUSA_MS = 200; go('house', 'vault'); });
+    await pelaPilula(a);
+    await ate(() => recarregou, 20000); await recarregou;
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    const fkN = linha('settings', 'giro').dados.para.fk, antes = comFk(fkN).length;
+    const bt = await a.waitForSelector('.dgo-tarefa button[aria-label="Continuar de onde parou"]', { timeout: 10000 }).then(() => true, () => false);
+    conferir(bt && antes >= 3 && antes < 6 && linha('settings', 'giro').dados.estado === 'recifrando' && regBanco().fk === FK0, 'G7r. recarregou no meio: a pílula "foi interrompido" com "Continuar de onde parou" (' + antes + ' de 6 já na nova)');
+    await quieto(a); await vigiarAvisos(a);
+    await a.click('.dgo-tarefa button[aria-label="Continuar de onde parou"]');
+    await esperar(a, () => S.route && S.route.tab === 'house' && S.route.sub === 'vault' && Cofre.status && Cofre.status.fase === 'trancado', null, 8000);
+    await espere(500);
+    const c1 = await cartaoGiro(a);
+    conferir(/Abra as Senhas da casa para continuar a troca/.test(await avisos(a)) && /A troca ficou pela metade\. Continuar de onde parou\? Abra as Senhas da casa/.test(c1) && !/conta\.giro/.test(await a.evaluate(() => document.querySelector('#giroCartao').innerHTML)),
+      '"Continuar de onde parou" leva às Senhas da casa: fechadas, pede para abrir, e o cartão da troca pela metade já está lá (sem botão até abrir) (' + c1 + ')');
+    const ra = await abrirPeloPin(a, PIN_A); await espere(400);
+    const t = await titulos(a);
+    conferir(ra.ok && ITENS.every((x, i) => t['v' + i] === x[1]) && await a.evaluate(() => !Giro.rodando), 'G7r. abre pelo PIN e mostra os 6 — também os já trocados, antes do "Continuar" (a nova do prox só para abrir) (' + JSON.stringify(t) + ')');
+    const temBt = await a.waitForSelector('#giroCartao [data-act="conta.giro.continuar"]', { timeout: 5000 }).then(() => true, () => false);
+    const semDesistir = !(await a.$('#giroCartao [data-act="conta.giro.desistir"]'));
+    if (temBt) await a.click('#giroCartao [data-act="conta.giro.continuar"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 30000);
+    const gd = linha('settings', 'giro').dados;
+    conferir(temBt && semDesistir && fim && gd.para.fk === fkN && gd.para.kv === 2 && comFk(fkN).length === 6 && !comFk(FK0).length && regBanco().fk === fkN && idsVault() === ids0,
+      'G7r. o cartão "Continuar" (sem "Desistir": a nova já saiu para a família) termina com a MESMA nova, sem item a mais');
+    await espere(600);
+    conferir(!(await cartaoGiro(a)), 'G7r. terminada, o cartão sai');
+  });
+
+  /* ================= G7b (etapa E6): o aparelho que trocava sumiu; outro do mesmo chefe continua ================= */
+  await parte('G7b', 'O aparelho que trocava some no meio (fechado): o outro aparelho do mesmo chefe só oferece continuar depois do prazo sem notícia; "Continuar neste aparelho" termina com a MESMA nova (nenhuma segunda chave)', async (novo) => {
+    const A = await novo('G7b-ana-celular', { vp: 'celular' }), a = A.p;
+    const B = await novo('G7b-ana-computador', { vp: 'computador' }), b = B.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(b, ANA, PIN_A);
+    const ids0 = idsVault();
+    let fechou = null;
+    M.depoisDe = { 'PATCH vault': 3, acao: () => { fechou = A.ctx.close().catch(() => {}); } };
+    girar(a).catch(() => null);
+    await ate(() => fechou, 20000); await fechou; await espere(300);
+    const g1 = JSON.parse(JSON.stringify(linha('settings', 'giro').dados)), fkN = g1.para.fk, antes = comFk(fkN).length, entregues = versoes(ANA) + '/' + versoes(BIA);
+    /* logo depois: a troca tem notícia recente — o outro aparelho só vê o aviso, e assumir não passa */
+    await b.evaluate(async () => { await Cloud.poll(); go('house', 'vault'); render(); });
+    await espere(400);
+    const c0 = await cartaoGiro(b), r0 = await b.evaluate(() => Giro.assumir());
+    conferir(antes >= 3 && antes < 6 && /Já está trocando no /.test(c0) && !(await b.$('#giroCartao [data-act="conta.giro.assumir"]')) && r0.motivo === 'trocando' && linha('settings', 'giro').dados.ap === g1.ap,
+      'G7b. com notícia recente, o outro aparelho do chefe só vê "Já está trocando no …" e não assume (' + JSON.stringify([c0, r0.motivo]) + ')');
+    /* parada há mais que o prazo: o cartão oferece continuar aqui */
+    await b.evaluate(() => { Giro.PARADO_MS = 1500; Giro.ASSUMIR_MS = 500; });
+    await espere(1700); await b.evaluate(() => render());
+    const c1 = await cartaoGiro(b);
+    conferir(/A troca começou no .+ e parou há 0 min\. Continuar neste aparelho\?/.test(c1) && !!(await b.$('#giroCartao [data-act="conta.giro.assumir"]')),
+      'G7b. parada há mais que o prazo: "A troca começou no … e parou há 0 min. Continuar neste aparelho?" com o botão (' + c1 + ')');
+    /* a troca anda entre as duas leituras (o outro aparelho voltou): não assume */
+    setTimeout(() => gravarDoc('settings', 'giro', { dados: JSON.parse(JSON.stringify(linha('settings', 'giro').dados)) }, ANA), 200);
+    const r2 = await b.evaluate(() => Giro.assumir());
+    conferir(r2.motivo === 'trocando' && linha('settings', 'giro').dados.ap === g1.ap, 'G7b. se a troca anda entre as duas leituras, não assume (a vez fica com o outro) (' + JSON.stringify(r2) + ')');
+    await espere(1700); await b.evaluate(async () => { await Cloud.poll(); render(); });
+    const marca = M.log.length;
+    await b.click('#giroCartao [data-act="conta.giro.assumir"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 40000);
+    const gd = linha('settings', 'giro').dados, n = await chaveDaPessoa(ANA), apB = await b.evaluate(async () => Giro.meuAp(await Cofre.local()));
+    conferir(fim && gd.para.fk === fkN && gd.para.kv === 2 && gd.ap === apB && gd.ap !== g1.ap && comFk(fkN).length === 6 && !comFk(FK0).length && regBanco().fk === fkN,
+      'G7b. "Continuar neste aparelho" termina com a MESMA nova (kv 2), agora com a vez deste aparelho (' + JSON.stringify([gd.estado, gd.para, gd.ap === apB]) + ')');
+    let tt = 0; for (const x of comFk(fkN)) if ((await tituloDe(n.raw, x.dados_cifrado)) === ITENS[+x.id.slice(1)][1]) tt++;
+    const posts = M.log.slice(marca).filter((l) => l.metodo === 'POST' && l.corpo && l.corpo.id === 'giro');
+    conferir(idsVault() === ids0 && tt === 6 && !posts.length && !(await entregas(marca)).length && versoes(ANA) + '/' + versoes(BIA) === entregues, 'G7b. os mesmos ids, os títulos iguais, nenhuma troca nova e a família não recebeu de novo');
+    const famB = await famDe(b);
+    conferir(famB.fk === fkN && famB.velhas.includes(FK0) && famB.prox === null, 'G7b. o aparelho que continuou fica com a nova (a de antes só para abrir) (' + JSON.stringify(famB) + ')');
+  });
+
+  /* ================= G7c (etapa E6): sem internet no meio ================= */
+  await parte('G7c', 'Sem internet no meio da troca: não erra de cara — "Esperando a internet…" — e continua sozinha quando a internet volta, com a mesma nova', async (novo) => {
+    const A = await novo('G7c-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const ids0 = idsVault();
+    await a.evaluate(() => { Giro.REDE_MS = 300; });
+    M.depoisDe = { 'PATCH vault': 2, acao: () => { cortarRede(A, true).catch(() => {}); } };
+    await comecar(a);
+    const esperando = await esperar(a, () => (window.__passos || []).includes('Esperando a internet…'), null, 20000);
+    await espere(2000);
+    const meio = await a.evaluate(() => ({ res: window.__res, rodando: Giro.rodando, aberto: Cofre.aberto() }));
+    const fkN = linha('settings', 'giro').dados.para.fk, antes = comFk(fkN).length;
+    conferir(esperando && !meio.res && meio.rodando && meio.aberto && antes >= 2 && antes < 6, 'G7c. sem internet: a troca espera ("Esperando a internet…"), sem erro (' + JSON.stringify([antes, meio, await a.evaluate(() => window.__passos)]) + ')');
+    await cortarRede(A, false);
+    const r = await resultado(a, 40000), gd = linha('settings', 'giro').dados;
+    conferir(r && r.ok && gd.estado === 'feito' && gd.para.fk === fkN && comFk(fkN).length === 6 && !comFk(FK0).length && regBanco().fk === fkN && idsVault() === ids0 && versoes(ANA) === '1,2',
+      'G7c. a internet volta e a troca continua sozinha até o fim, com a mesma nova, sem item a mais nem entrega repetida (' + JSON.stringify(r && (r.erro || r.r)) + ')');
+  });
+
+  /* ================= G7d (etapa E6): Sair no meio ================= */
+  await parte('G7d', 'Sair no meio da troca: a pergunta diz que ela para e continua quando entrar de novo; ao entrar e abrir pelo PIN, "Continuar" termina com a mesma nova', async (novo) => {
+    const A = await novo('G7d-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await a.evaluate(() => { Giro.PAUSA_MS = 500; go('house', 'vault'); });
+    await pelaPilula(a);
+    await ateA(async () => { const g = linha('settings', 'giro'); return !!(g && g.dados.estado === 'recifrando' && comFk(g.dados.para.fk).length >= 1); }, 20000);
+    a.evaluate(() => ACT['conta.sair']()).catch(() => {});
+    const perg = await a.waitForSelector('.modal [data-yes]', { timeout: 8000 }).then(() => janelas(a), () => '');
+    conferir(/A troca de segurança para agora e continua de onde parou quando você entrar de novo\. Sair mesmo assim\?/.test(perg) && !/Se sair agora, ele para/.test(perg),
+      'G7d. "Sair" no meio da troca pergunta com o texto da pausa (não "ele para") (' + perg + ')');
+    await Promise.all([a.waitForNavigation({ timeout: 20000 }).catch(() => {}), a.click('.modal [data-yes]')]);
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.gate === 'welcome', null, { timeout: 20000 }).catch(() => {});
+    const fkN = linha('settings', 'giro').dados.para.fk, g1 = linha('settings', 'giro').dados;
+    conferir(g1.estado !== 'feito' && regBanco().fk === FK0 && comFk(fkN).length < 6, 'G7d. saiu: a troca ficou parada no meio (' + g1.estado + ', ' + comFk(fkN).length + ' de 6)');
+    await entrarOmni(a, ANA); await quieto(a); await senhasDaCasa(a);
+    const c0 = await cartaoGiro(a);
+    const ra = await abrirPeloPin(a, PIN_A); await espere(400);
+    const c1 = await cartaoGiro(a), temBt = !!(await a.$('#giroCartao [data-act="conta.giro.continuar"]'));
+    conferir(/A troca ficou pela metade\. Continuar de onde parou\? Abra as Senhas da casa/.test(c0) && ra.ok && /A troca ficou pela metade/.test(c1) && temBt, 'G7d. entrou de novo: o cartão da troca pela metade; abre pelo PIN e o "Continuar" aparece (' + c0 + ' → ' + c1 + ')');
+    if (temBt) await a.click('#giroCartao [data-act="conta.giro.continuar"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 30000);
+    conferir(fim && linha('settings', 'giro').dados.para.fk === fkN && comFk(fkN).length === 6 && regBanco().fk === fkN, 'G7d. "Continuar" termina com a mesma nova');
+  });
+
+  /* ================= G8 (etapa E6): duas abas do mesmo aparelho ================= */
+  await parte('G8', 'Duas abas do mesmo aparelho: com a troca rodando numa, a outra recebe "Já está trocando em outra janela deste aparelho." (começar ou continuar) e o banco só vê uma troca; terminada, a trava sai sozinha', async (novo) => {
+    const A = await novo('G8-ana', { vp: 'computador' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const a2 = await A.ctx.newPage(); a2.base = BASE; a2.nome = 'G8-aba2';
+    const erros2 = []; a2.on('pageerror', (e) => erros2.push(String((e && e.message) || e))); a2.on('dialog', (d) => { erros2.push('diálogo ' + d.type()); d.dismiss().catch(() => {}); });
+    await entrarOmni(a2, ANA); await quieto(a2); await senhasDaCasa(a2);
+    const r0 = await abrirPeloPin(a2, PIN_A);
+    await a.evaluate(() => { Giro.PAUSA_MS = 300; });
+    const marca = M.log.length;
+    await comecar(a);
+    await esperar(a, () => Giro.rodando, null, 5000);
+    const r2 = await girar(a2);
+    await ateA(async () => !!linha('settings', 'giro'), 15000); await espere(500);
+    const r3 = await girar(a2, {});
+    const r = await resultado(a, 40000), gd = linha('settings', 'giro').dados;
+    const posts = M.log.slice(marca).filter((l) => l.metodo === 'POST' && l.corpo && l.corpo.colecao === 'settings' && l.corpo.id === 'giro');
+    conferir(r0.ok && r2.motivo === 'outraAba' && r2.erro === 'Já está trocando em outra janela deste aparelho.' && r3.motivo === 'outraAba', 'G8. a outra aba: "Já está trocando em outra janela deste aparelho." ao começar e ao continuar (' + JSON.stringify([r2, r3]) + ')');
+    conferir(r && r.ok && gd.estado === 'feito' && posts.length === 1 && comFk(gd.para.fk).length === 6, 'G8. uma troca só no banco (1 POST), terminada pela primeira aba (' + posts.length + ')');
+    const r4 = await girar(a2, {});
+    conferir(r4.motivo === 'nada' && !erros2.length, 'G8. terminada, a trava sai sozinha: a outra aba já pode (não há o que continuar) (' + JSON.stringify([r4, erros2]) + ')');
+    await a2.close();
+  });
+
+  /* ================= G10 (etapa E6): a trava das Senhas durante a troca ================= */
+  await parte('G10', 'A trava das Senhas durante a troca: 5 min sem toque não tranca; "Bloquear agora" pergunta antes; o app escondido mais de 30 s tranca e a troca pausa ("Parou porque as Senhas fecharam…"); PIN, tudo aparece, "Continuar" termina', async (novo) => {
+    const A = await novo('G10-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await a.evaluate(() => { Giro.PAUSA_MS = 400; go('house', 'vault'); });
+    await comecar(a);
+    await esperar(a, () => (window.__passos || []).some((t) => /^Senhas: 2 de/.test(t)), null, 20000);
+    /* 5 min sem tocar na tela */
+    const ocioso = await a.evaluate(() => { Trava.ultimo -= 6 * 60e3; Trava.ocioso(); return { aberto: Cofre.aberto(), rodando: Giro.rodando }; });
+    conferir(ocioso.aberto && ocioso.rodando, 'G10. 5 min sem tocar na tela com a troca rodando: as Senhas não fecham e a troca segue (' + JSON.stringify(ocioso) + ')');
+    /* "Bloquear agora": pergunta; "Cancelar" deixa seguir */
+    a.evaluate(() => ACT['conta.bloquear']()).catch(() => {});
+    const perg = await a.waitForSelector('.modal [data-yes]', { timeout: 5000 }).then(() => janelas(a), () => '');
+    await a.click('.modal [data-no]'); await espere(300);
+    const segue = await a.evaluate(() => ({ aberto: Cofre.aberto(), rodando: Giro.rodando, res: window.__res }));
+    conferir(/A troca de segurança para agora e continua de onde parou quando você abrir as Senhas da casa de novo\. Bloquear mesmo assim\?/.test(perg) && segue.aberto && segue.rodando && !segue.res,
+      'G10. "Bloquear agora" no meio pergunta antes (a troca para e continua depois); "Cancelar" deixa tudo seguindo (' + perg + ')');
+    /* o app escondido por mais de 30 s */
+    await a.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true }); document.dispatchEvent(new Event('visibilitychange'));
+      Trava.saiu -= 31e3; delete document.hidden; document.dispatchEvent(new Event('visibilitychange'));
+    });
+    const r1 = await resultado(a, 20000), fkN = linha('settings', 'giro').dados.para.fk, antes = comFk(fkN).length;
+    conferir(r1 && !r1.ok && r1.motivo === 'trancou' && r1.erro === 'Parou porque as Senhas fecharam. Abra e toque em Continuar.' && !(await a.evaluate(() => Cofre.aberto() || !!S.vaultKey)) && antes < 6 && regBanco().fk === FK0,
+      'G10. escondido mais de 30 s: as Senhas fecham e a troca pausa, com o texto para leigo (' + JSON.stringify([r1, antes]) + ')');
+    await a.evaluate(() => render()); await espere(200);
+    const c0 = await cartaoGiro(a), ra = await abrirPeloPin(a, PIN_A); await espere(400);
+    const t = await titulos(a), temBt = !!(await a.$('#giroCartao [data-act="conta.giro.continuar"]'));
+    conferir(/Abra as Senhas da casa/.test(c0) && ra.ok && ITENS.every((x, i) => t['v' + i] === x[1]) && temBt, 'G10. de volta: PIN; os 6 aparecem (também os já trocados) e o "Continuar" (' + c0 + ')');
+    if (temBt) await a.click('#giroCartao [data-act="conta.giro.continuar"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 30000);
+    conferir(fim && linha('settings', 'giro').dados.para.fk === fkN && comFk(fkN).length === 6 && regBanco().fk === fkN, 'G10. "Continuar" termina com a mesma nova');
+  });
+
+  /* ================= G10b (etapa E6): as Senhas fecham enquanto a troca espera a internet ================= */
+  await parte('G10b', 'Sem internet e as Senhas fecham enquanto a troca espera a internet: ela para na hora ("Parou porque as Senhas fecharam…"), sem esperar a rede voltar', async (novo) => {
+    const A = await novo('G10b-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    M.depoisDe = { 'PATCH vault': 2, acao: () => { cortarRede(A, true).catch(() => {}); } };
+    await comecar(a);
+    const esperando = await esperar(a, () => (window.__passos || []).includes('Esperando a internet…'), null, 20000);
+    await a.evaluate(() => Trava.trancar());
+    const parou = await esperar(a, () => !!window.__res, null, 3000), r = await a.evaluate(() => window.__res);
+    conferir(esperando && parou && r && r.motivo === 'trancou' && await a.evaluate(() => !navigator.onLine && !Giro.rodando), 'G10b. esperando a internet, as Senhas fecham: a troca para na hora, com o texto de quando fecham (' + JSON.stringify(r) + ')');
+    await cortarRede(A, false);
+  });
+
+  /* ================= G7o (etapa E6): a troca pela metade de outra pessoa ================= */
+  await parte('G7o', 'A troca pela metade de OUTRA pessoa (parada há 10 min): este chefe não vê o cartão de continuar e não assume (só quem começou continua)', async (novo) => {
+    const A = await novo('G7o-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const g = gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco({ por: CRIS, apNome: 'Aparelho da Cris' }) }, CRIS);
+    g.atualizado_em = new Date(Date.now() - 10 * 60e3).toISOString();
+    await a.evaluate(async () => { const b = await Giro.ler(); await CloudDriver.aceitar('settings', 'giro', b.giro, true); go('house', 'vault'); render(); });
+    await espere(300);
+    const c = await cartaoGiro(a), r = await a.evaluate(() => Giro.assumir()), d = linha('settings', 'giro').dados;
+    conferir(!c && r.motivo === 'trocando' && d.por === CRIS && d.ap === 'aparelho-de-mentira', 'G7o. sem cartão e sem assumir a troca de outra pessoa (' + JSON.stringify([c, r.motivo, d.por === CRIS]) + ')');
+  });
+
+  /* ================= G10v (etapa E6): as Senhas fecham bem na hora de virar ================= */
+  await parte('G10v', 'As Senhas fecham bem na hora de virar (o registro já mudou): a troca pausa SEM abrir as Senhas de novo; o cadeado daqui já tem a nova; PIN e "Continuar" terminam', async (novo) => {
+    const A = await novo('G10v-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await a.evaluate(() => { const o = Cofre.adotar; Cofre.adotar = async function () { const r = await o.apply(this, arguments); if (Giro.rodando && !window.__tr) { window.__tr = 1; Cofre.trancar(); } return r; }; });
+    const r = await girar(a); await espere(800);
+    const gd = linha('settings', 'giro').dados, fkN = gd.para.fk, fam = await famDe(a), fechado = await a.evaluate(() => ({ aberto: Cofre.aberto(), vf: !!Cofre.vf, chave: !!S.vaultKey }));
+    conferir(!r.ok && r.motivo === 'trancou' && !fechado.aberto && !fechado.vf && !fechado.chave && regBanco().fk === fkN && fam.fk === fkN && gd.estado === 'virando',
+      'G10v. trancou ao virar: a troca pausa e as Senhas ficam fechadas (nada as abre de novo); o registro e o cadeado daqui já com a nova (' + JSON.stringify([r.motivo, fechado, gd.estado]) + ')');
+    const ra = await abrirPeloPin(a, PIN_A), fk = await a.evaluate(() => Cofre.fk), r2 = await girar(a, {});
+    conferir(ra.ok && fk === fkN && r2.ok && linha('settings', 'giro').dados.estado === 'feito', 'G10v. abre pelo PIN (já com a nova) e "Continuar" termina');
+  });
+
+  /* ================= G7f (etapa E6, C8): aprovado de novo pela conta no meio da troca ================= */
+  /* "Esqueci o PIN" e a aprovação pelo outro aparelho (Cofre.montar com a chave pessoal e outro PIN) bem na hora de uma gravação da
+     troca: quando = "giro" (logo depois de a troca nascer, antes de guardar a nova aqui) ou "registro" (logo depois de virar o
+     registro, antes de guardar a nova no cadeado) */
+  const reaprovarNoMeio = (p, quando, pinNovo) => p.evaluate((o) => {
+    const rest = Conta.rest.bind(Conta);
+    Conta.rest = async function (metodo, caminho, corpo) {
+      const r = await rest.apply(Conta, arguments);
+      const alvo = o.quando === 'giro' ? metodo === 'POST' && corpo && corpo.colecao === 'settings' && corpo.id === 'giro' : metodo === 'PATCH' && /colecao=eq\.settings&id=eq\.cofre/.test(caminho);
+      if (alvo && Giro.rodando && !window.__reap) {
+        window.__reap = 1;
+        const x = await Cofre._pinRaw(o.pin), duk = await Cofre.aes(x.raw); x.raw.fill(0);
+        const pk = await Cofre.decifrar(duk, (await Cofre.local()).sk);
+        const m = await Cofre.montar(pk, null, o.novo, 'aparelho', 'ap-novo-de-mentira', null); if (m.raw) m.raw.fill(0);
+        window.__reapOk = !!m.ok;
+      }
+      return r;
+    };
+  }, { pin: PIN_A, novo: pinNovo, quando });
+  /* o cadeado deste aparelho abre inteiro com o PIN dado? (a entrada da família, as velhas e o prox) */
+  const cadeadoAbre = (p, pin) => p.evaluate(async (pin) => {
+    const x = await Cofre._pinRaw(pin); if (!x || !x.raw) return { pin: false };
+    const duk = await Cofre.aes(x.raw); x.raw.fill(0);
+    const f = (await Cofre.local()).fam[S.family.id], ok = async (v) => { try { (await Cofre.decifrar(duk, v)).fill(0); return true; } catch (e) { return false; } };
+    return { pin: true, fam: await ok(f), velhas: (await Promise.all((f.velhas || []).map(ok))).every(Boolean), prox: f.prox ? await ok(f.prox) : null, fk: f.fk };
+  }, pin);
+  for (const quando of ['registro', 'giro']) {
+    await parte(quando === 'registro' ? 'G7f' : 'G7f2', 'C8: aprovado de novo pela conta (outro PIN) bem ' + (quando === 'registro' ? 'depois de virar o registro' : 'depois de a troca nascer') + ': a troca pausa sem gravar no cadeado novo com a chave de antes do aparelho; "Continuar" termina com a MESMA nova e o cadeado abre inteiro pelo PIN novo', async (novo) => {
+      const A = await novo('G7f-' + quando, { vp: 'celular' }), a = A.p, PIN_NOVO = '918273';
+      await abertoComVelha(a, ANA, PIN_A);
+      /* um aparelho com lugar na lista da conta (2.26+): a aprovação de novo dá outro lugar a ele */
+      await a.evaluate(() => Cofre.mudarLocal(null, (L) => { L.ap = 'ap-antigo-de-mentira'; return L; }));
+      await reaprovarNoMeio(a, quando, PIN_NOVO);
+      const r1 = await girar(a), g1 = linha('settings', 'giro').dados, fkN = g1.para.fk, c1 = await cadeadoAbre(a, PIN_NOVO);
+      conferir(await a.evaluate(() => window.__reapOk) === true && !r1.ok && r1.motivo === 'trancou' && c1.fam && c1.velhas && c1.prox !== false && c1.fk === FK0,
+        'G7f. ' + quando + ': aprovado de novo no meio, a troca pausa ("Parou porque as Senhas fecharam…") e o cadeado novo fica inteiro (nada gravado nele com a chave de antes do aparelho) (' + JSON.stringify([r1.motivo, g1.estado, c1]) + ')');
+      const apNovo = await a.evaluate(async () => (await Cofre.local()).ap);
+      const r2 = await girar(a, {}), gd = linha('settings', 'giro').dados;
+      await a.evaluate(() => Trava.trancar());
+      const ra = await abrirPeloPin(a, PIN_NOVO), c2 = await cadeadoAbre(a, PIN_NOVO), fk = await a.evaluate(() => Cofre.fk), t = await titulos(a);
+      conferir(r2.ok && gd.estado === 'feito' && gd.para.fk === fkN && comFk(fkN).length === 6 && regBanco().fk === fkN && ra.ok && fk === fkN && c2.fam && c2.velhas && c2.fk === fkN && ITENS.every((x, i) => t['v' + i] === x[1]),
+        'G7f. ' + quando + ': "Continuar" direto, mesmo com outro lugar na lista da conta (' + apNovo + '), termina com a MESMA nova (vinda da família) e o aparelho abre pelo PIN novo com ela, mostrando os 6 (' + JSON.stringify([r2.erro || 'ok', c2]) + ')');
+    });
+  }
+
+  /* ================= C8 (etapa E6): "Começar do zero" no meio da troca ================= */
+  await parte('C8', 'C8: com a troca deste chefe pela metade, "Começar do zero" não aparece (a explicação no lugar) e não roda; a de outro chefe não impede', async (novo) => {
+    const A = await novo('C8-ana', { vp: 'computador' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await vigiarAvisos(a);
+    await a.evaluate(() => Trava.trancar());
+    /* o "beco" (nenhum outro jeito de usar as Senhas aqui): só aí o "Começar do zero" aparece */
+    const beco = { rede: true, outros: 0, temKit: false, pkConta: false, familiaPode: false, guardiao: true, ligado: true, prf: false, bloqueado: false };
+    const ver = () => a.evaluate((st) => { const h = TelaConta.avHtml(st, null, false); return { pode: TelaConta.podeZero(st), bt: /data-act="conta\.zero"/.test(h), txt: /Termine antes a troca de segurança/.test(h) }; }, beco);
+    const z0 = await ver();
+    gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco({}) }, ANA);
+    await a.evaluate(() => CloudDriver.pull());
+    const z1 = await ver(), zr = await a.evaluate(() => TelaConta.comecarDoZero());
+    conferir(z0.pode && z0.bt && !z0.txt && !z1.pode && !z1.bt && z1.txt && zr === false && /Termine antes a troca de segurança num aparelho seu/.test(await avisos(a)),
+      'C8. com a troca dela pela metade: "Começar do zero" sai do Avançado (a explicação no lugar) e não roda (' + JSON.stringify([z0, z1]) + ')');
+    gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco({ por: BIA }) }, BIA);
+    await a.evaluate(() => CloudDriver.pull());
+    const z2 = await ver();
+    conferir(z2.pode && z2.bt && !z2.txt, 'C8. uma troca de outra pessoa não muda o "Começar do zero" desta (' + JSON.stringify(z2) + ')');
+  });
+
+  /* ================= C16 (etapa E6): a troca esquecida no "preparado" ================= */
+  await parte('C16', 'C16: uma troca que nasceu e não passou do "preparado" há mais de 24 h vale como desistida (não trava ninguém) e a próxima nasce por cima; com menos, ainda trava', async (novo) => {
+    const A = await novo('C16-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const g = gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco({ estado: 'preparado', para: { kv: 2, fk: 'fk-esquecida' } }) }, ANA);
+    const ver = () => a.evaluate(async () => { const b = await Giro.ler(); return { em: Giro.emCurso(b.giro), p: (await Giro.pode()).motivo }; });
+    g.atualizado_em = new Date(Date.now() - 23 * 3600e3).toISOString();
+    const p1 = await ver();
+    conferir(p1.em && p1.p === 'trocando', 'C16. com 23 h sem notícia, a troca ainda vale (trava: "Já está trocando…") (' + JSON.stringify(p1) + ')');
+    const semData = await a.evaluate(() => Giro.emCurso({ vis: 'restrito', dados: { v: 1, estado: 'preparado' }, apagado_em: null }));
+    conferir(semData === true, 'C16. uma troca "preparado" sem data conhecida nunca vale como esquecida (continua travando)');
+    g.atualizado_em = new Date(Date.now() - 25 * 3600e3).toISOString();
+    const p2 = await ver(), r = await girar(a), gd = linha('settings', 'giro').dados;
+    conferir(!p2.em && p2.p === undefined && r.ok && gd.estado === 'feito' && gd.para.fk !== 'fk-esquecida' && gd.para.kv === 3 && comFk(gd.para.fk).length === 6,
+      'C16. com 25 h: vale como desistida, e a próxima troca nasce por cima, com a versão seguinte à dela (kv 3) (' + JSON.stringify([p2, r.erro, gd.para]) + ')');
+  });
+
+  /* ================= AR (etapa E6): os anexos de um aparelho que adotou ================= */
+  await parte('AR', 'Depois de adotar a nova (a troca foi em outro aparelho), os anexos guardados só neste aparelho passam para a nova, como trabalho do Fundo ("Arrumando os anexos deste aparelho"); o que não é da família fica', async (novo) => {
+    const A = await novo('AR-ana-celular', { vp: 'celular' }), a = A.p;
+    const B = await novo('AR-ana-computador', { vp: 'computador' }), b = B.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(b, ANA, PIN_A);
+    const ids = ['fARfam', 'fARsemfk', 'fARlocal'];
+    await anexar(b, [['fARfam', 'familia'], ['fARsemfk', 'semfk'], ['fARlocal', 'outro']]);
+    const an0 = await anexosDe(b, ids);
+    await b.evaluate(() => { window.__fuEv = []; DGO.fundo.aoMudar((ev, t) => { if (t.tipo === 'chave-familia') window.__fuEv.push(ev + ':' + t.titulo); }); });
+    const r = await girar(a), fkN = linha('settings', 'giro').dados.para.fk, n = await chaveDaPessoa(ANA);
+    await b.evaluate(() => Cloud.poll());
+    const adotou = await esperar(b, (fk) => Cofre.fk === fk, fkN, 20000);
+    const arrumou = await esperar(b, () => (window.__fuEv || []).some((x) => x === 'feito:Arrumando os anexos deste aparelho'), null, 20000);
+    const an = await anexosDe(b, ids);
+    let ok = 0; for (const id of ['fARfam', 'fARsemfk']) if (an[id].enc.fk === fkN && !an[id].enc.antes && an[id].txt === 'anexo ' + id && (await abreBlob(n.raw, an[id].enc.iv, an[id].bytes)) && !(await abreBlob(VELHA, an[id].enc.iv, an[id].bytes))) ok++;
+    conferir(r.ok && adotou && arrumou && ok === 2, 'AR. o outro aparelho adota e arruma os anexos dele no Fundo: os da família (com e sem enc.fk) na nova, abrem, e a de antes não abre (' + JSON.stringify([adotou, arrumou, ok, await b.evaluate(() => window.__fuEv)]) + ')');
+    conferir(JSON.stringify(an.fARlocal) === JSON.stringify(an0.fARlocal), 'AR. o anexo que não é da família ficou como estava');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E5 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E6 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR)');
 })().catch((e) => { console.error(e); process.exit(1); });
