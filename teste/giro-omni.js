@@ -38,7 +38,7 @@
           pedido "para a família" sai), a carga recusa, os itens que não abrem saem da tela (C14), a placa do carro nem aparece
           para mudar (C14); reaprovado com o mesmo PIN, as chaves de antes e o prox vêm junto (levarVelha, C8); com outro PIN, não
      G3b  o registro volta para uma chave mais velha (C4): ninguém volta, o cartão "não confere"; entre duas de mesma kv, a do
-          registro (buscarMinha); sem a nova embrulhada para ela, a Bia vê "Falta um chefe abrir…" e adota quando ela chega
+          registro (buscarMinha); sem a nova embrulhada para ela, a Bia vê "Falta um chefe ou responsável abrir…" e adota quando ela chega
      G9   B edita sem internet com a velha; a troca acontece; ao voltar, a edição sobe com a nova e sem item duplicado (só mudou o
           cadeado: mesmoConteudo); um conflito de verdade guarda as duas, as duas com a nova; nada chega ao banco com a velha (C2).
           G9c: C, fechado, não manda nada (espera); ao abrir pelo PIN, sobe uma vez com a nova
@@ -140,6 +140,14 @@
      RR2  com a troca parada, aprovar "pela família" não promete "alguns minutos"; a Saúde diz que espera a troca terminar
      RR3  num aparelho que não acompanhou a troca, mudar, aprovar, o carro e a Saúde dizem o que resolve (não "abra pelo PIN")
      RR4  esperando a internet no meio da troca, 5 min sem toque fecham as Senhas (a troca pausa e a tela acesa é solta)
+   Revisão de telas da 2.27.0 (os achados T1–T18):
+     RT1  o ↻ da pílula: o cartão "Continuar" sai da tela; um código digitado num cartão que ficou aberto vai para a troca (refeito)
+     RT2  aparelho que não acompanhou: a lista diz que as senhas continuam guardadas, "＋ Guardar" desligado, "chefe ou responsável",
+          44 px, o 💬 no cartão "não confere"
+     RT3  os textos que a troca lança cabem na pílula (< 80) e mandam tocar em ↻;  RT4  a ajuda da troca, a busca, o ❓, o Avançado
+     RT5  as mensagens da confirmação à vista no celular, o foco;  RT7  "Continuar neste aparelho": conferindo, um toque só
+     RT8  "⏳ Terminando…";  RT9  o lembrete "Falta terminar a troca", o "Trocar" em segundo plano, o fim;  RT10  "há 26 h", 44 px
+     RT12 sem "espere 1 minuto" quando só itens que não abrem impedem de terminar
    O G6 (o MoneyTRIO 3.66 de verdade acompanha a troca) é o teste/giro-moneytrio-omni.js (MONEYTRIO=<pasta>).
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
@@ -1292,8 +1300,8 @@ async function restaurarCopia(p, txt) {
     conferir(rc2.ok && fc2.fk === FKN && JSON.stringify(fc2.velhas) === JSON.stringify([FK0]) && await c.evaluate(() => Cofre.fk) === FKN, 'G3b. o aparelho velho adota a do registro, não a intrusa (' + JSON.stringify(fc2) + ')');
     /* a Bia sem a nova embrulhada para ela: "Falta liberar"; quando chega, adota */
     await e.evaluate(() => Cloud.poll());
-    const falta = await esperar(e, () => Cofre.desatualizado === 'faltaLiberar' && /Falta um chefe abrir/.test((document.querySelector('#cfVelho') || {}).innerText || ''), null, 20000);
-    conferir(falta && await e.evaluate(() => Cofre.fk) === FK0 && (await famDe(e)).fk === FK0, 'G3b. sem a nova embrulhada para a Bia: o cartão "Falta um chefe abrir…" e nada muda no cadeado dela');
+    const falta = await esperar(e, () => Cofre.desatualizado === 'faltaLiberar' && /Falta um chefe ou responsável abrir/.test((document.querySelector('#cfVelho') || {}).innerText || ''), null, 20000);
+    conferir(falta && await e.evaluate(() => Cofre.fk) === FK0 && (await famDe(e)).fk === FK0, 'G3b. sem a nova embrulhada para a Bia: o cartão "Falta um chefe ou responsável abrir…" e nada muda no cadeado dela');
     db.sol_grupo_chaves.push(...daBia);
     await e.evaluate(() => Cloud.poll());
     conferir(await esperar(e, (fk) => Cofre.fk === fk && Cofre.desatualizado === false && !document.querySelector('#cfVelho'), FKN, 20000) && (await famDe(e)).fk === FKN, 'G3b. quando a nova chega para ela, a Bia adota no próximo Cloud.poll e o cartão some');
@@ -2444,8 +2452,8 @@ async function restaurarCopia(p, txt) {
     let n = 0;
     segurar = (q) => q.method() === 'PATCH' && /colecao=eq\.vault/.test(q.url()) && !/id=eq\._em/.test(q.url()) && ++n === 3;
     const t0 = Date.now(); await comecar(a); const r1 = await resultado(a, 20000), d1 = Date.now() - t0;
-    conferir(r1 && r1.motivo === 'rede' && r1.erro === 'Parou sem internet. Toque em Tentar de novo: continua de onde parou.' && segurou === 1 && d1 < 15000 && linha('settings', 'giro').dados.estado === 'recifrando',
-      'PZ. a resposta de uma linha não volta: a troca para em segundos com "Parou sem internet. Toque em Tentar de novo…" (' + JSON.stringify([r1, segurou, d1]) + ')');
+    conferir(r1 && r1.motivo === 'rede' && r1.erro === 'Parou sem internet. Toque em ↻ para continuar de onde parou.' && segurou === 1 && d1 < 15000 && linha('settings', 'giro').dados.estado === 'recifrando',
+      'PZ. a resposta de uma linha não volta: a troca para em segundos com "Parou sem internet. Toque em ↻…" (' + JSON.stringify([r1, segurou, d1]) + ')');
     segurar = (q) => q.method() === 'GET' && /colecao=eq\.vault&id=eq\._em&select=/.test(q.url());
     await comecar(a, {}); const r2 = await resultado(a, 20000);
     conferir(r2 && r2.motivo === 'rede' && segurou === 2 && linha('settings', 'giro').dados.estado === 'emergencia', 'PZ. a leitura do código de emergência não volta: para também, no passo dele (' + JSON.stringify([r2, segurou]) + ')');
@@ -3513,7 +3521,7 @@ async function restaurarCopia(p, txt) {
     const vb = await ver(e, ANA), vd = await ver(d, BIA);
     conferir(ok, 'RR3. preparo: a Bia está em "Falta liberar" e o aparelho da Ana que entrou pela família, em "precisa ser aprovado de novo"');
     const nao = (t) => !/Abra pelo PIN com internet|forem abertas/.test(t);
-    conferir(/Falta um chefe abrir as Senhas da casa/.test(vb.pm) && /Falta um chefe abrir as Senhas da casa/.test(vb.carga) && /Falta um chefe abrir as Senhas da casa/.test(vb.saude) && nao(vb.pm) && nao(vb.carga) && nao(vb.saude),
+    conferir(/Falta um chefe ou responsável abrir as Senhas da casa/.test(vb.pm) && /Falta um chefe ou responsável abrir as Senhas da casa/.test(vb.carga) && /Falta um chefe ou responsável abrir as Senhas da casa/.test(vb.saude) && nao(vb.pm) && nao(vb.carga) && nao(vb.saude),
       'RR3. a Bia (sem a nova liberada): mudar, aprovar e a Saúde dizem "falta um chefe abrir…" (' + JSON.stringify([vb.pm, vb.carga]) + ')');
     conferir(/precisa ser aprovado de novo/.test(vd.pm) && /precisa ser aprovado de novo/.test(vd.carga) && /precisa ser aprovado de novo/.test(vd.saude) && nao(vd.pm) && nao(vd.carga) && nao(vd.saude),
       'RR3. o aparelho que entrou pela família: mudar, aprovar e a Saúde dizem "precisa ser aprovado de novo" (' + JSON.stringify([vd.pm, vd.carga]) + ')');
@@ -3522,7 +3530,7 @@ async function restaurarCopia(p, txt) {
     await esperar(e, () => !!document.querySelector('.modal input[name="name"]'), null, 5000);
     const fc = await e.evaluate(() => { const m = document.querySelector('.modal'); return { placa: !!m.querySelector('[name="_sec.placa"]'), texto: m.innerText }; });
     await e.evaluate(() => closeModals());
-    conferir(!fc.placa && /Falta um chefe abrir as Senhas da casa/.test(fc.texto) && nao(fc.texto), 'RR3. a ficha do carro da Bia: o aviso certo no lugar da placa');
+    conferir(!fc.placa && /Falta um chefe ou responsável abrir as Senhas da casa/.test(fc.texto) && nao(fc.texto), 'RR3. a ficha do carro da Bia: o aviso certo no lugar da placa');
   });
 
   /* R4: esperando a internet, a troca não segura as Senhas abertas sem prazo */
@@ -3546,8 +3554,328 @@ async function restaurarCopia(p, txt) {
     await cortarRede(A, false);
   });
 
+  /* ================= Revisão de telas da 2.27.0 (os achados T1–T18) ================= */
+  /* T1: o ↻ da pílula volta a troca sem passar pelo Giro.iniciar — o cartão "Continuar" não pode ficar na tela com a troca andando, e um
+     código de emergência digitado num cartão que ainda estivesse lá vai para a troca que anda (nunca some em silêncio) */
+  await parte('RT1', 'Revisão (telas T1): depois do ↻ ("Tentar de novo") da pílula, o cartão "Continuar" sai da tela assim que a troca volta a andar; um código de emergência digitado num cartão que ainda estivesse aberto vai para a troca que anda (ele continua valendo), e com a troca já depois do passo dele o aviso diz isso', async (novo) => {
+    const A = await novo('RT1-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await vigiarAvisos(a);
+    await a.evaluate(() => { Giro.PRAZO_MS = 1500; Giro.PAUSA_MS = 300; });
+    let segurar = null;
+    await A.ctx.route(SB + '/**', (route) => { const q = route.request(); if (segurar && segurar(q)) { segurar = null; return engolir(route); } return supabase(route); });
+    let n = 0; segurar = (q) => q.method() === 'PATCH' && /colecao=eq\.vault/.test(q.url()) && !/id=eq\._em/.test(q.url()) && ++n === 2;
+    /* começa SEM o código (a pessoa não estava com ele à mão) e a rede pendura na 2ª senha */
+    await avancado(a); await abrirConfirmacao(a); await confirmarTroca(a); await digitarPin(a, PIN_A);
+    const parou = await esperar(a, () => [...document.querySelectorAll('.dgo-tarefa')].some((x) => /Parou sem internet/.test(x.innerText)), null, 30000);
+    await a.evaluate(() => { go('house', 'vault'); render(); });
+    const comCampo = await esperar(a, () => !!document.querySelector('#giroCartao [data-act="conta.giro.continuar"]') && !!document.querySelector('#giroCodigo'), null, 8000);
+    conferir(parou && comCampo, 'RT1. preparo: a troca parou sem internet (sem o código) e o cartão "Continuar" pede o código de emergência');
+    /* ↻ da pílula, como o texto manda */
+    await a.evaluate(() => { Giro.PAUSA_MS = 2500; });
+    await a.click('.dgo-tarefa button[aria-label="Tentar de novo"]');
+    const anda = await esperar(a, () => Giro.rodando, null, 10000);
+    const sumiu = await esperar(a, () => !document.querySelector('#giroCartao') && !document.querySelector('#giroCodigo'), null, 3000);
+    conferir(anda && sumiu, 'RT1. depois do ↻ a troca anda e o cartão "Continuar" (com o campo do código) sai da tela sozinho (' + (await cartaoGiro(a)) + ')');
+    /* um cartão que ainda estivesse na tela (um redesenho atrasado): a pessoa digita o código e toca em "Continuar" */
+    await a.evaluate((c) => { document.body.insertAdjacentHTML('beforeend', '<input type="text" id="giroCodigo">'); document.querySelector('#giroCodigo').value = c; window.__av = []; }, CODIGO_EM);
+    await a.evaluate(() => ACT['conta.giro.continuar']());
+    await espere(800);
+    const av = await avisos(a);
+    await a.evaluate(() => { const i = document.querySelector('#giroCodigo'); if (i) i.remove(); });
+    conferir(/já está andando/.test(av) && /continua valendo/.test(av), 'RT1. "Continuar" com a troca já andando: o aviso diz que ela já anda e que o código vai junto (' + av + ')');
+    /* a troca saiu do Avançado e a pessoa está nas Senhas da casa: o fim espera na pílula ("Pronto"); tocar nela abre o fim */
+    const feito = await ate(() => (linha('settings', 'giro').dados || {}).estado === 'feito', 90000);
+    const pronta = await esperar(a, () => !!document.querySelector('.dgo-tarefa.pronta'), null, 15000);
+    if (pronta) await a.click('.dgo-tarefa.pronta');
+    const fim = await esperar(a, () => [...document.querySelectorAll('.modal.giro')].some((m) => /A família está mais segura/.test(m.innerText)), null, 15000);
+    await espere(400);
+    const gd = linha('settings', 'giro').dados, em = linha('vault', '_em'), n2 = await chaveDaPessoa(ANA);
+    let abreNova = false;
+    try { const d = JSON.parse(em.dados_cifrado).d.em; abreNova = d.fk === gd.para.fk && igual(await decifrar(await kdf(CODIGO_EM, d.sal), d), n2.raw); } catch (e) {}
+    conferir(feito && fim && gd.em === 'refeito' && !em.apagado_em && abreNova && /continua o mesmo/.test(await textoFim(a)),
+      'RT1. o código digitado depois do ↻ foi usado: "refeito", o MESMO código abre a chave nova e o fim diz que ele continua o mesmo (' + gd.em + ')');
+    conferir(!db.omni_historico.some((h) => h.grupo_id === GID && h.acao === 'emergencia.invalidada'), 'RT1. o código não deixou de valer (nada de "emergencia.invalidada" no histórico)');
+    /* a troca já depois do passo do código: o código não vai e o aviso diz o que fazer (nunca some em silêncio) */
+    const r = await a.evaluate(() => {
+      window.__av = []; const ctx = { op: {}, g: { estado: 'virando' } }, antes = Giro._ctx; Giro._ctx = ctx;
+      try { Giro.juntar({ codigoEm: 'MNTR-0000-0000-0000' }); } finally { Giro._ctx = antes; }
+      return { tem: 'codigoEm' in ctx.op };
+    });
+    await espere(300);
+    const av2 = await avisos(a);
+    conferir(!r.tem && /já passou do código de emergência/.test(av2) && /código novo/.test(av2), 'RT1. com a troca já depois do código: o código não vai, e o aviso diz que no fim é preciso fazer o código novo (' + av2 + ')');
+  });
+
+  /* T2 + T15 + T13 (#cfVelho) + T17: o aparelho que não acompanhou a troca */
+  await parte('RT2', 'Revisão (telas T2, T15, T13, T17): num aparelho que não acompanhou a troca (entrou pela família, ou sem a nova liberada), a lista não diz "Ainda não tem nada guardado" (as senhas continuam guardadas, e diz quando voltam), o "＋ Guardar" fica desligado e o ACT direto não abre a escolha do tipo (diz o que resolve); "Falta um chefe ou responsável…"; botões de 44 px; o cartão "não confere" tem o 💬', async (novo) => {
+    const D = await novo('RT2-ana-familia', { vp: 'celular' }), d = D.p;
+    const C = await novo('RT2-bia', { vp: 'celular' }), c = C.p;
+    await abertoPelaFamilia(d, ANA, PIN_A);
+    await abertoComVelha(c, BIA, PIN_C);
+    await vigiarAvisos(d); await vigiarAvisos(c);
+    await trocaAMao();
+    /* a nova ainda não embrulhada para a Bia (nenhum chefe abriu as Senhas depois da troca) */
+    const daBia = db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === BIA && x.versao > 1);
+    db.sol_grupo_chaves.splice(0, db.sol_grupo_chaves.length, ...db.sol_grupo_chaves.filter((x) => !daBia.includes(x)));
+    await umaVolta(d); await umaVolta(c);
+    const ok = (await esperar(d, () => Cofre.desatualizado === 'semChave', null, 20000)) && (await esperar(c, () => Cofre.desatualizado === 'faltaLiberar', null, 20000));
+    conferir(ok, 'RT2. preparo: o aparelho da Ana que entrou pela família em "precisa ser aprovado de novo" e a Bia em "Falta liberar"');
+    for (const [p, nome, re] of [[d, 'semChave', /aprovado de novo/], [c, 'faltaLiberar', /Falta um chefe ou responsável abrir/]]) {
+      await p.evaluate(() => { go('house', 'vault'); render(); });
+      await esperar(p, () => !!document.querySelector('#cfVelho') && !/…/.test((document.querySelector('#vlist') || {}).innerText || '…'), null, 8000);
+      const st = await p.evaluate(() => {
+        const g = document.querySelector('[data-act="vault.new"]'), bts = [...document.querySelectorAll('#cfVelho .btn')];
+        return { lista: ((document.querySelector('#vlist') || {}).innerText || '').replace(/\s+/g, ' '), cartao: ((document.querySelector('#cfVelho') || {}).innerText || '').replace(/\s+/g, ' '),
+          guardarDesligado: !!g && g.disabled, alturas: bts.map((b) => Math.round(b.getBoundingClientRect().height)), itens: DB.all('vault').filter((v) => v.id !== '_em').length };
+      });
+      conferir(st.itens === 0 && !/Ainda não tem nada guardado/.test(st.lista) && /continuam guardadas/.test(st.lista) && re.test(st.lista + ' ' + st.cartao),
+        'RT2. ' + nome + ': a lista vazia não diz "Ainda não tem nada guardado" — as senhas continuam guardadas, e diz quando voltam (' + st.lista + ')');
+      conferir(st.guardarDesligado, 'RT2. ' + nome + ': o "＋ Guardar" fica desligado (não dá para guardar com este aparelho assim)');
+      await p.evaluate(() => { window.__av = []; ACT['vault.new'](); });
+      await espere(800);
+      const j = await janelas(p), av = await avisos(p);
+      await p.evaluate(() => closeModals());
+      conferir(!/O que você quer guardar/.test(j) && re.test(av) && !/Abra pelo PIN/.test(av), 'RT2. ' + nome + ': o ACT direto do "＋ Guardar" nem abre a escolha do tipo e diz o que resolve, não "Abra pelo PIN" (' + av + ')');
+      if (nome === 'semChave') conferir(st.alturas.length && st.alturas.every((h) => h >= 44), 'RT2. o botão "Pedir aprovação de novo" com 44 px ou mais, como o resto da troca (T13) (' + JSON.stringify(st.alturas) + ')');
+      if (nome === 'faltaLiberar') conferir(/Falta um chefe ou responsável abrir as Senhas da casa/.test(st.cartao), 'RT2. "Falta um chefe ou responsável abrir…" (qualquer responsável com as Senhas abertas também libera, T15) (' + st.cartao + ')');
+    }
+    const t15 = await c.evaluate(() => { S.lang = 'en'; const t = Cofre.T().faltaLiberar; S.lang = 'pt'; return t; });
+    conferir(/head or guardian/.test(t15), 'RT2. em inglês também: "A family head or guardian…" (' + t15 + ')');
+    /* T17: o cartão "Algo nas Senhas da casa não confere. Peça ajuda…" com o 💬 ali mesmo */
+    await c.evaluate(() => { Cloud.stopPoll(); Cofre.desatualizado = 'estranho'; go('house', 'vault'); render(); });
+    await esperar(c, () => /não confere/.test((document.querySelector('#cfVelho') || {}).innerText || ''), null, 8000);
+    const est = await c.evaluate(() => { const k = document.querySelector('#cfVelho'); return { txt: k.innerText.replace(/\s+/g, ' '), fb: !!k.querySelector('[data-act="fb.open"]') }; });
+    conferir(est.fb && /Peça ajuda/.test(est.txt), 'RT2. o cartão "não confere" tem o botão 💬 ali mesmo (T17) (' + est.txt + ')');
+  });
+
+  /* T3 + T6: os textos que a troca lança aparecem inteiros na pílula (o Fundo só mostra o motivo com menos de 80 caracteres) */
+  await parte('RT3', 'Revisão (telas T3, T6): todo texto que a troca pode lançar tem menos de 80 caracteres em PT e EN (a pílula só mostra o motivo assim); o motivo "aparelho desatualizado" aparece na pílula; os textos de erro mandam tocar em ↻ (o botão da pílula), não num "Tentar de novo" que não existe', async (novo) => {
+    const A = await novo('RT3-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const lens = await a.evaluate(() => {
+      const out = [];
+      for (const lang of ['pt', 'en']) {
+        S.lang = lang; const T = Giro.T;
+        for (const k of ['soChefe', 'semRede', 'fechado', 'semSk', 'velho', 'fila', 'outraAba', 'estranho', 'semSql', 'moneyFalta', 'nada', 'erroRede', 'erroTrancou', 'erroPausou', 'erroAssumiram', 'erroOutroAp', 'erroVelha', 'erroConferir']) out.push([lang, k, T[k].length, T[k]]);
+        out.push([lang, 'jaTrocando', Giro.jaTrocando({ apNome: 'iPhone/iPad · Firefox · app' }).length, '']);
+      }
+      S.lang = 'pt'; return out;
+    });
+    const longos = lens.filter((x) => !(x[2] > 0 && x[2] < 80));
+    conferir(lens.length === 38 && !longos.length, 'RT3. os ' + lens.length + ' textos que a troca lança (PT e EN, com o nome de aparelho mais longo) têm menos de 80 caracteres (' + JSON.stringify(longos.map((x) => x.slice(0, 3))) + ')');
+    const re = lens.filter((x) => ['erroRede', 'erroConferir'].includes(x[1]));
+    conferir(re.length === 4 && re.every((x) => /↻/.test(x[3]) && !/Tentar de novo|Try again/.test(x[3])), 'RT3. "Parou sem internet…" e "Algo não conferiu…" mandam tocar em ↻ (T6) (' + JSON.stringify(re.map((x) => x[3])) + ')');
+    /* outra troca terminou enquanto o PIN estava aberto: o motivo aparece inteiro na pílula (sem o Cloud.poll, que adotaria a nova antes) */
+    await a.evaluate(() => Cloud.stopPoll());
+    await trocaAMao();
+    await a.evaluate(() => go('house', 'vault'));
+    await pelaPilula(a);
+    await esperar(a, () => !!window.__fu, null, 20000);
+    await espere(300);
+    const fu = await a.evaluate(() => window.__fu), pil = await a.evaluate(() => [...document.querySelectorAll('.dgo-tarefa')].map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | '));
+    conferir(fu && fu.motivo === 'velho' && pil.includes(fu.erro) && /desatualizado/.test(pil), 'RT3. a pílula mostra o motivo inteiro (' + pil + ')');
+  });
+
+  /* T4 + T18: a ajuda da troca e o texto do Avançado */
+  await parte('RT4', 'Revisão (telas T4, T18): a Ajuda explica a troca da chave de segurança (o que é, a ordem, Continuar, o código novo, "Terminar a troca" e onde ficam), a busca acha por "trocar chave" e "terminar a troca", o ❓ do AssistONE em Segurança e aparelhos abre essa ajuda e há "❔ Como funciona" no botão, na confirmação e no fim; o texto do Avançado sem "criptografia" e com o nome do dono', async (novo) => {
+    const A = await novo('RT4-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const h = await a.evaluate(() => {
+      const um = () => { const x = HELP()['chave-seguranca']; return x ? [x.t].concat(x.steps, [x.note || '']).join(' ').replace(/<[^>]+>/g, '') : ''; };
+      const pt = um(); S.lang = 'en'; const en = um(); S.lang = 'pt';
+      return { pt, en, b1: Search.find('trocar chave').map((x) => x.t), b2: Search.find('terminar a troca').map((x) => x.t), aj: Rec.AJUDA['chave-seguranca'] || null };
+    });
+    const faltaPt = ['Trocar a chave de segurança da família', 'MoneyTRIO', 'Continuar', 'Fazer o código novo', 'Terminar a troca', 'Segurança e aparelhos', 'Avançado', 'pessoa nova'].filter((x) => !h.pt.includes(x));
+    const faltaEn = ['Change the family security key', 'Continue', 'Make the new code', 'Finish the change', 'Security and devices', 'Advanced'].filter((x) => !h.en.includes(x));
+    const ruim = (t) => /cifr|token|sincron|encrypt|sync/i.test(t) || /chave/i.test(t.replace(/chave de segurança/gi, '')) || /\bkey/i.test(t.replace(/security key/gi, ''));
+    conferir(!faltaPt.length && !faltaEn.length && !ruim(h.pt) && !ruim(h.en), 'RT4. a ajuda "chave-seguranca" em PT e EN, para leigo (faltou: ' + faltaPt.concat(faltaEn).join(' | ') + ')');
+    conferir(h.b1.some((t) => /Trocar a chave de segurança/.test(t)) && h.b2.some((t) => /Trocar a chave de segurança/.test(t)) && Array.isArray(h.aj), 'RT4. a busca 🔎 acha a ajuda por "trocar chave" e por "terminar a troca" (' + JSON.stringify([h.b1, h.b2]) + ')');
+    await avancado(a);
+    const ct = await a.evaluate(() => { const x = document.querySelector('#segComoGuarda'); return x ? x.innerText.replace(/\s+/g, ' ') : ''; });
+    await a.evaluate(() => { S.lang = 'en'; render(); }); await avancado(a);
+    const cte = await a.evaluate(() => { const x = document.querySelector('#segComoGuarda'); return x ? x.innerText.replace(/\s+/g, ' ') : ''; });
+    await a.evaluate(() => { S.lang = 'pt'; render(); }); await avancado(a);
+    conferir(!/criptografia/i.test(ct) && /chave de segurança da família/.test(ct) && !/chave dele/.test(ct) && !/encrypt/i.test(cte) && /family security key/.test(cte),
+      'RT4. "Como as Senhas da casa ficam guardadas" sem "criptografia" e com o mesmo nome do botão logo abaixo (T18) (' + ct + ' || ' + cte + ')');
+    conferir(!!(await a.$('#segGiro [data-act="conta.ajuda"][data-t="chave-seguranca"]')), 'RT4. "❔ Como funciona" junto do botão "Trocar a chave de segurança da família"');
+    /* o ❓ "Ajuda desta tela" do AssistONE em ⚙ → Segurança e aparelhos */
+    await a.evaluate(() => AOne.helpHere());
+    await espere(400);
+    const aj = await janelas(a);
+    await a.evaluate(() => closeModals());
+    conferir(/Trocar a chave de segurança da família/.test(aj) && /Terminar a troca/.test(aj) && !/Ajuda e tutoriais/.test(aj), 'RT4. o ❓ do AssistONE em Segurança e aparelhos abre a ajuda da troca, não a lista geral (' + aj.slice(0, 120) + ')');
+    /* na confirmação: o "Como funciona" abre a ajuda ali dentro (uma janela por vez) */
+    await abrirConfirmacao(a);
+    const lc = await a.$('.modal.giro [data-act="conta.ajuda"][data-t="chave-seguranca"]');
+    if (lc) { await lc.click(); await espere(400); }
+    const dentro = await a.evaluate(() => { const m = document.querySelector('.modal.giro'); const x = m && m.querySelector('.helpin'); return x ? x.innerText.replace(/\s+/g, ' ').slice(0, 80) : ''; });
+    conferir(!!lc && /Trocar a chave de segurança/.test(dentro), 'RT4. na confirmação, "❔ Como funciona" abre a ajuda dentro da própria janela (' + dentro + ')');
+    await a.click('.modal.giro .mf [data-x]').catch(() => {}); await a.waitForSelector('.modal.giro', { state: 'detached', timeout: 5000 }).catch(() => {});
+    const fimLink = await a.evaluate(() => { const m = Giro.mostrarFim({ em: null, estranhas: [], semInterna: [] }); const t = !!m.el.querySelector('[data-act="conta.ajuda"][data-t="chave-seguranca"]'); m.drop(); return t; });
+    conferir(fimLink, 'RT4. no fim, "❔ Como funciona"');
+  });
+
+  /* T5 + T14: as mensagens da confirmação à vista no celular, e o foco */
+  await parte('RT5', 'Revisão (telas T5, T14): na confirmação em 390 px, "Marque os itens acima…" e "Esse código de emergência não confere…" aparecem à vista (junto do que falta, com o foco nele), sem a pessoa rolar; "Conferir de novo" não deixa o foco cair fora da janela', async (novo) => {
+    const A = await novo('RT5-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    db.sol_ponte.push(msgPonte('pRT5', ANA));
+    const visivel = (sel) => a.evaluate((sel) => {
+      const e = document.querySelector(sel); if (!e) return null;
+      const r = e.getBoundingClientRect(), mb = e.closest('.mb'), rb = mb ? mb.getBoundingClientRect() : { top: 0, bottom: innerHeight };
+      return { txt: e.textContent, aVista: r.height > 0 && r.top >= rb.top - 1 && r.bottom <= Math.min(rb.bottom, innerHeight) + 1, foco: document.activeElement && document.activeElement.id };
+    }, sel);
+    const fechar = async () => { await a.click('.modal.giro .mf [data-x]').catch(() => {}); await a.waitForSelector('.modal.giro', { state: 'detached', timeout: 5000 }).catch(() => {}); };
+    /* 1) sem marcar nada e sem rolar: toca em "Trocar agora" */
+    await avancado(a); await abrirConfirmacao(a);
+    await a.click('.modal.giro [data-ok]'); await espere(500);
+    const e1 = await visivel('.modal.giro #giroErr');
+    conferir(e1 && e1.txt === 'Marque os itens acima e digite TROCAR para confirmar.' && e1.aVista && e1.foco === 'giroCkAps', 'RT5. sem marcar e sem rolar: a mensagem à vista e o foco no primeiro item que falta (' + JSON.stringify(e1) + ')');
+    /* 2) só a palavra faltando: a mensagem junto dela */
+    for (const id of ['giroCkAps', 'giroCkRede', 'giroCkRisco', 'giroCkOk']) if (await a.$('.modal.giro #' + id)) await a.check('.modal.giro #' + id);
+    await a.click('.modal.giro [data-ok]'); await espere(500);
+    const e2 = await visivel('.modal.giro #giroErr');
+    conferir(e2 && e2.aVista && e2.foco === 'giroPalavra', 'RT5. sem a palavra: a mensagem à vista e o foco no campo dela (' + JSON.stringify(e2) + ')');
+    await fechar();
+    /* 3) tudo certo e um código errado */
+    await avancado(a); await abrirConfirmacao(a);
+    await confirmarTroca(a, { codigo: 'AAAA-BBBB-CCCC-DDDD' });
+    await a.waitForFunction(() => /não confere/.test((document.querySelector('.modal.giro #giroErr') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+    await espere(300);
+    const e3 = await visivel('.modal.giro #giroErr');
+    conferir(e3 && /não confere/.test(e3.txt) && e3.aVista && e3.foco === 'giroCodigoC', 'RT5. código errado: a mensagem à vista, junto do campo do código, com o foco nele (' + JSON.stringify(e3) + ')');
+    await fechar();
+    /* 4) "Conferir de novo" pelo teclado: o foco fica na janela */
+    await avancado(a); await abrirConfirmacao(a);
+    await a.focus('.modal.giro #giroPonteBt'); await a.keyboard.press('Enter');
+    await esperar(a, () => !/Conferindo/.test((document.querySelector('.modal.giro #giroPonte') || {}).textContent || ''), null, 10000);
+    await espere(300);
+    const f4 = await a.evaluate(() => { const x = document.activeElement, m = document.querySelector('.modal.giro'); return { dentro: !!(m && x && m.contains(x)), onde: x ? x.tagName + '#' + x.id : null }; });
+    conferir(f4.dentro, 'RT5. depois de "Conferir de novo", o foco continua na janela (T14) (' + JSON.stringify(f4) + ')');
+  });
+
+  /* T7: "Continuar neste aparelho" — o retorno na tela e um toque só */
+  await parte('RT7', 'Revisão (telas T7): "Continuar neste aparelho" mostra que está conferindo (não só "⏳") e continua desligado depois de um redesenho (o Cloud.poll redesenha); um segundo toque não começa outra conferência nem avisa "Já está trocando" com o nome deste aparelho', async (novo) => {
+    const A = await novo('RT7-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await vigiarAvisos(a);
+    const gg = gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco({ por: ANA, ap: 'ap-outro', apNome: 'Android · Chrome' }) }, ANA); gg.atualizado_em = new Date(Date.now() - 10 * 60e3).toISOString(); gg.versao++;
+    await a.evaluate(async () => {
+      Giro.ASSUMIR_MS = 6000; window.__as = 0; const o = Giro.assumir; Giro.assumir = function () { window.__as++; return o.apply(this, arguments); };
+      const b = await Giro.ler(); await CloudDriver.aceitar('settings', 'giro', b.giro, true); go('house', 'vault'); render();
+    });
+    await esperar(a, () => !!document.querySelector('#giroCartao [data-act="conta.giro.assumir"]'), null, 8000);
+    await a.click('#giroCartao [data-act="conta.giro.assumir"]');
+    await espere(1500);
+    await a.evaluate(() => render()); await espere(500);
+    const s2 = await a.evaluate(() => { const b = [...document.querySelectorAll('#giroCartao button')].find((x) => /Conferindo|Continuar neste aparelho/.test(x.textContent)); return b ? { txt: b.textContent, dis: b.disabled } : null; });
+    conferir(s2 && s2.dis && /Conferindo se a troca parou/.test(s2.txt), 'RT7. depois do toque e de um redesenho: o botão continua desligado, dizendo que está conferindo (' + JSON.stringify(s2) + ')');
+    await a.evaluate(() => ACT['conta.giro.assumir']());
+    await espere(9000);
+    const r = await a.evaluate(() => window.__as), av = await avisos(a);
+    conferir(r === 1 && !/Já está trocando no/.test(av), 'RT7. um segundo toque não começa outra conferência nem avisa "Já está trocando no …" (' + JSON.stringify([r, av]) + ')');
+  });
+
+  /* T8: "Terminar a troca" — depois do PIN, a tela mostra que está trabalhando */
+  await parte('RT8', 'Revisão (telas T8): "Terminar a troca" com a rede lenta: depois do PIN, a tela mostra "⏳ Terminando…" (o botão desligado e um aviso) até o "✓ Pronto"; tocar de novo não abre outra janela', async (novo) => {
+    const A = await novo('RT8-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await vigiarAvisos(a);
+    const rg = await girar(a); await umaVolta(a);
+    await avancado(a);
+    let lento = true;
+    await A.ctx.route(SB + '/**', async (route) => { if (lento && /sol_descartar_chaves_antigas/.test(route.request().url())) await espere(5000); return supabase(route); });
+    const j = await tocarTerminar(a);
+    await confirmarTerminar(a); await digitarPin(a, PIN_A);
+    await espere(2200);
+    const st = await a.evaluate(() => { const b = document.querySelector('[data-act="conta.giro.descartar"]'); return { bt: b ? { txt: b.textContent, dis: b.disabled } : null, av: (window.__av || []).join(' | ') }; });
+    conferir(rg.ok && j.tipo === 'confirma' && st.bt && st.bt.dis && /Terminando/.test(st.bt.txt) && /Terminando/.test(st.av), 'RT8. entre o PIN e a resposta: o botão desligado com "⏳ Terminando…" e um aviso (' + JSON.stringify(st) + ')');
+    await a.evaluate(() => ACT['conta.giro.descartar']()); await espere(600);
+    conferir(!(await a.$('.modal.giro #giroFalta, .modal.giro #giroTermPalavra')), 'RT8. tocar de novo enquanto termina não abre outra janela');
+    const ok = await esperar(a, () => (window.__av || []).some((t) => /a troca terminou/.test(t)), null, 20000);
+    lento = false;
+    conferir(ok && regBanco().descarte, 'RT8. depois vem "✓ Pronto: a troca terminou."');
+  });
+
+  /* T9 + T11 + T13 (#emFalta): depois da troca, o "Terminar a troca" não fica escondido */
+  await parte('RT9', 'Revisão (telas T9, T11, T13): depois da troca, o chefe vê nas Senhas da casa "Falta terminar a troca" com o botão (a responsável não); no Avançado, "Trocar…" de novo fica em segundo plano; o fim diz onde o botão fica; com itens que já não abriam, o fim não diz "Tudo foi trocado"; o "Fazer o código novo" com 44 px', async (novo) => {
+    const A = await novo('RT9-ana', { vp: 'celular' }), a = A.p;
+    const B = await novo('RT9-bia', { vp: 'celular' }), b = B.p;
+    await abertoComVelha(a, ANA, PIN_A); await abertoComVelha(b, BIA, PIN_C);
+    await vigiarAvisos(a);
+    const rg = await girar(a); await umaVolta(a); await umaVolta(b);
+    await a.evaluate(() => { go('house', 'vault'); render(); });
+    const viu = await esperar(a, () => !!document.querySelector('#giroLembrete [data-act="conta.giro.descartar"]'), null, 8000);
+    const lt = await a.evaluate(() => ((document.querySelector('#giroLembrete') || {}).innerText || '').replace(/\s+/g, ' '));
+    conferir(rg.ok && viu && /Falta terminar a troca/.test(lt) && /Terminar a troca/.test(lt), 'RT9. nas Senhas da casa do chefe: "Falta terminar a troca" com o botão (' + lt.slice(0, 120) + ')');
+    const hEm = await a.evaluate(() => [...document.querySelectorAll('#emFalta .btn')].map((x) => Math.round(x.getBoundingClientRect().height)));
+    conferir(hEm.length && hEm.every((h) => h >= 44), 'RT9. o "🆘 Fazer o código novo" das Senhas da casa com 44 px ou mais (T13) (' + JSON.stringify(hEm) + ')');
+    await b.evaluate(() => { go('house', 'vault'); render(); }); await espere(800);
+    conferir(!(await b.$('#giroLembrete')), 'RT9. a responsável não vê o lembrete (só chefe termina a troca)');
+    await avancado(a);
+    const cls = await a.evaluate(() => { const x = document.querySelector('[data-act="conta.giro.trocar"]'); return x ? x.className : ''; });
+    conferir(/\bghost\b/.test(cls), 'RT9. no Avançado, "🔄 Trocar…" de novo fica em segundo plano enquanto falta terminar a anterior (' + cls + ')');
+    const tf = await a.evaluate(() => { const m = Giro.mostrarFim({ em: null, estranhas: [], semInterna: [] }); const t = m.el.innerText.replace(/\s+/g, ' '); m.drop(); return t; });
+    conferir(/Segurança e aparelhos → Avançado/.test(tf) && /Senhas da casa/.test(tf) && /Tudo foi trocado e conferido/.test(tf), 'RT9. o fim diz onde o "Terminar a troca" fica se a janela fechar (' + tf.slice(0, 200) + ')');
+    const t11 = await a.evaluate(() => { const m = Giro.mostrarFim({ em: null, estranhas: ['vX'], semInterna: [] }); const t = m.el.innerText.replace(/\s+/g, ' '); m.drop(); S.lang = 'en'; const m2 = Giro.mostrarFim({ em: null, estranhas: ['vX', 'vY'], semInterna: [] }); const te = m2.el.innerText.replace(/\s+/g, ' '); m2.drop(); S.lang = 'pt'; return [t, te]; });
+    conferir(!/Tudo foi trocado/.test(t11[0]) && /menos 1 item que já não abria/.test(t11[0]) && !/Everything was changed/.test(t11[1]) && /except 2 items/.test(t11[1]), 'RT9. com itens que já não abriam, o fim não diz "Tudo foi trocado" (T11) (' + t11[0].slice(0, 160) + ')');
+    /* termina pelo botão das Senhas da casa: o lembrete sai e o "Trocar…" volta ao normal */
+    await a.evaluate(() => { go('house', 'vault'); render(); });
+    await esperar(a, () => !!document.querySelector('#giroLembrete [data-act="conta.giro.descartar"]'), null, 8000);
+    await a.click('#giroLembrete [data-act="conta.giro.descartar"]');
+    await esperar(a, () => !!document.querySelector('.modal.giro #giroTermPalavra'), null, 20000);
+    await confirmarTerminar(a); await digitarPin(a, PIN_A);
+    const ok = await esperar(a, () => (window.__av || []).some((t) => /a troca terminou/.test(t)), null, 20000);
+    await a.evaluate(() => { go('house', 'vault'); render(); }); await espere(800);
+    const sem = !(await a.$('#giroLembrete'));
+    await avancado(a);
+    const cls2 = await a.evaluate(() => { const x = document.querySelector('[data-act="conta.giro.trocar"]'); return x ? x.className : ''; });
+    conferir(ok && regBanco().descarte && sem && !/\bghost\b/.test(cls2), 'RT9. terminada pelo botão das Senhas da casa: o lembrete sai e o "Trocar…" volta ao normal (' + cls2 + ')');
+  });
+
+  /* T10 + T13 (o cartão "Continuar"): o tempo para leigo e alvos de 44 px */
+  await parte('RT10', 'Revisão (telas T10, T13): "A troca começou no … e parou há …" em min, h ou dias (nunca "1560 min"); o cartão "Continuar" com o campo do código (um campo de texto como os outros) e os botões com 44 px', async (novo) => {
+    const A = await novo('RT10-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    const meu = await a.evaluate(async () => ({ ap: Giro.meuAp(await Cofre.local()), nav: Devices.myId() }));
+    const pegar = async (campos, atras) => {
+      const g = gravarDoc('settings', 'giro', { vis: 'restrito', dados: trocaNoBanco(campos) }, ANA); g.atualizado_em = new Date(Date.now() - atras).toISOString(); g.versao++;
+      await a.evaluate(async () => { const b = await Giro.ler(); await CloudDriver.aceitar('settings', 'giro', b.giro, true); go('house', 'vault'); render(); });
+      await esperar(a, () => !!document.querySelector('#giroCartao'), null, 8000); await espere(300);
+      return a.evaluate(() => {
+        const c = document.querySelector('#giroCartao'), i = c && c.querySelector('#giroCodigo');
+        return { txt: c ? c.innerText.replace(/\s+/g, ' ') : '', alturas: c ? [...c.querySelectorAll('.btn, #giroCodigo')].map((x) => Math.round(x.getBoundingClientRect().height)) : [], tipo: i ? i.type + '|' + i.getAttribute('type') : null };
+      });
+    };
+    /* a troca DESTE aparelho parada: "Continuar" com o campo do código */
+    const c0 = await pegar({ por: ANA, ap: meu.ap, nav: meu.nav }, 10 * 60e3);
+    conferir(/Continuar de onde parou/.test(c0.txt) && c0.tipo === 'text|text' && c0.alturas.length >= 2 && c0.alturas.every((h) => h >= 44), 'RT10. o cartão "Continuar": o campo do código é um campo de texto e cada alvo tem 44 px ou mais (T13) (' + JSON.stringify(c0) + ')');
+    /* de outro aparelho da Ana, parada há… */
+    const casos = [[10 * 60e3, /parou há 10 min\. Continuar/], [75 * 60e3, /parou há 1 h\. Continuar/], [26 * 3600e3, /parou há 26 h\. Continuar/], [4 * 86400e3 + 3600e3, /parou há 4 dias\. Continuar/]];
+    const viu = [];
+    for (const [ms, re] of casos) { const c = await pegar({ por: ANA, ap: 'ap-outro', apNome: 'Android · Chrome' }, ms); viu.push([re.test(c.txt), c.txt.slice(0, 90), c.alturas]); }
+    conferir(viu.every((x) => x[0]), 'RT10. "parou há 10 min", "há 1 h", "há 26 h", "há 4 dias" — nada de "1560 min" (' + JSON.stringify(viu.map((x) => x[1])) + ')');
+    conferir(viu.every((x) => x[2].length && x[2].every((h) => h >= 44)), 'RT10. "Continuar neste aparelho" e o campo com 44 px ou mais (T13) (' + JSON.stringify(viu.map((x) => x[2])) + ')');
+    const en = await a.evaluate(() => { S.lang = 'en'; const t = Giro.T.parouEm('X', Giro.haQuanto(30 * 3600e3)); S.lang = 'pt'; return t; });
+    conferir(/stopped 30 h ago/.test(en), 'RT10. em inglês: "…stopped 30 h ago" (' + en + ')');
+  });
+
+  /* T12: o "que falta" do Terminar não manda esperar quando esperar não resolve */
+  await parte('RT12', 'Revisão (telas T12): depois da troca, quando o único item fora da versão nova é um que já não abria, o "Ainda não dá para terminar" não manda "abra… e espere 1 minuto" (esperar não resolve): fica só o "Apagar os itens que não abrem"', async (novo) => {
+    const A = await novo('RT12-ana', { vp: 'celular' }), a = A.p;
+    gravarDoc('vault', 'vQuebrada', { dados_cifrado: await linhaCom(new Uint8Array(crypto.randomBytes(32)), 1, FK0, 'Quebrada de mentira') });
+    await abertoComVelha(a, ANA, PIN_A); await vigiarAvisos(a);
+    const rg = await girar(a), sv = situacao();
+    conferir(rg.ok && sv.vault_fora === 1, 'RT12. preparo: depois da troca, só o item que já não abria está fora (' + JSON.stringify([rg.erro || 'ok', sv.vault_fora]) + ')');
+    await avancado(a);
+    const j = await tocarTerminar(a);
+    conferir(j.tipo === 'falta' && !j.txt.includes('Ainda há senhas na versão antiga') && !/espere 1 minuto/.test(j.txt) && j.txt.includes('1 item das Senhas da casa já não abre') && j.apagar,
+      'RT12. a lista do que falta: só o item que já não abre, com "Apagar…", sem "abra… e espere 1 minuto" (' + j.txt.slice(0, 220) + ')');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E11 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7e, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v, D8; revisão de segurança RS1, RS2, RS3, RS4; revisão de dados RD1, RD2, RD3, RD4; revisão de regressões RR1, RR2, RR3, RR4)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E11 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7e, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ, G1t, G4t, C52, C53, C11t, G13t, G1b, G1p, G9v, G11, G12b, AV, G14, G12, G12s, G12p, G12g, G12v, D8; revisão de segurança RS1, RS2, RS3, RS4; revisão de dados RD1, RD2, RD3, RD4; revisão de regressões RR1, RR2, RR3, RR4; revisão de telas RT1, RT2, RT3, RT4, RT5, RT7, RT8, RT9, RT10, RT12)');
 })().catch((e) => { console.error(e); process.exit(1); });

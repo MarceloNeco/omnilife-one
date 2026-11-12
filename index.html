@@ -1776,7 +1776,7 @@ const Rec = {
     "ah": "seguranca seguranca.alertas", "mc": "seguranca seguranca.alertas", "where": "casa casa.onde-esta", "mt": "casa casa.manutencao", "cofre": "casa casa.senhas", "vault": "casa casa.senhas",
     "guide": "casa casa.guias", "car": "veiculos casa.veiculos", "vida": "veiculos casa.veiculos veiculos.vida", "pet": "pets", "doc": "documentos", "fb": "feedback" },
   /* ajuda (busca 🔎) de uma função desligada também some */
-  AJUDA: { rotas: ["agenda", "deslocamento"], clima: ["clima"], escola: ["agenda", "agenda.escola"], veiculos: ["veiculos", "casa.veiculos"], pets: ["pets"], assistone: ["assistone"], inbox: ["inbox"], familia: ["familia"], "familia-seguranca": ["familia"],
+  AJUDA: { rotas: ["agenda", "deslocamento"], clima: ["clima"], escola: ["agenda", "agenda.escola"], veiculos: ["veiculos", "casa.veiculos"], pets: ["pets"], assistone: ["assistone"], inbox: ["inbox"], familia: ["familia"], "familia-seguranca": ["familia"], "chave-seguranca": ["casa", "casa.senhas"],
     cheguei: ["seguranca", "seguranca.cheguei"], vigia: ["seguranca", "seguranca.vigilante"], alertas: ["seguranca", "seguranca.alertas"], "alertas-telegram": ["seguranca", "seguranca.alertas"], "alertas-whatsapp": ["seguranca", "seguranca.alertas"] },
   /* nunca bloqueados: trancar, parar e desconectar sempre funcionam (segurança da família) */
   SEMPRE: ["cofre.desconectar", "vault.lock", "vigia.stop", "vigia.mute", "ho.end"],
@@ -3914,8 +3914,13 @@ const Cofre = {
       atualizou: tt("As Senhas da casa foram atualizadas neste " + ap + ".", "The vault was updated on this " + ap + "."),
       semChave: tt("As Senhas da casa ficaram mais seguras, mas este " + ap + " entrou aprovado pela família e precisa ser aprovado de novo.", "The vault got safer, but this " + ap + " joined approved by the family and needs to be approved again."),
       semChaveAnexos: tt("Os anexos guardados só neste " + ap + " voltam depois da aprovação, se você usar o mesmo PIN.", "Attachments kept only on this " + ap + " come back after approval, if you use the same PIN."),
-      faltaLiberar: tt("As Senhas da casa ficaram mais seguras. Falta um chefe abrir as Senhas da casa no aparelho dele para liberar para você.", "The vault got safer. A family head still needs to open the vault on their device to release it to you."),
-      estranho: tt("Algo nas Senhas da casa não confere. Peça ajuda pelo 💬.", "Something in the vault doesn't match. Ask for help with 💬.")
+      /* revisão T15: qualquer chefe ou responsável com as Senhas abertas libera (Cofre.distribuir) */
+      faltaLiberar: tt("As Senhas da casa ficaram mais seguras. Falta um chefe ou responsável abrir as Senhas da casa no aparelho dele para liberar para você.", "The vault got safer. A family head or guardian still needs to open the vault on their device to release it to you."),
+      estranho: tt("Algo nas Senhas da casa não confere. Peça ajuda no ☰ → 💬.", "Something in the vault doesn't match. Ask for help in ☰ → 💬."),
+      /* revisão T2: a lista vazia de um aparelho que não acompanhou a troca (as senhas não sumiram: só não abrem aqui ainda) */
+      vazia: (d) => d === "semChave" ? tt("Suas senhas continuam guardadas. Elas aparecem de novo aqui depois que este " + ap + " for aprovado de novo (botão acima).", "Your passwords are still kept. They show up here again after this " + ap + " is approved again (button above).")
+        : d === "faltaLiberar" ? tt("Suas senhas continuam guardadas. Elas aparecem de novo aqui depois que um chefe ou responsável abrir as Senhas da casa no aparelho dele.", "Your passwords are still kept. They show up here again after a family head or guardian opens the vault on their device.")
+        : tt("Suas senhas continuam guardadas. Peça ajuda no ☰ → 💬.", "Your passwords are still kept. Ask for help in ☰ → 💬.")
     };
   },
   /* quem tem o cofre aberto libera a CF para os chefes/responsáveis que ainda não têm (ou que trocaram de chave) */
@@ -4203,8 +4208,8 @@ const Cofre = {
   /* 2.27.0 (a, 8.6): a chave da família mudou e este aparelho não acompanhou */
   cartaoDesatualizado() {
     const d = this.desatualizado, T = this.T();
-    if (d === "semChave") return '<div class="card warnc" id="cfVelho"><p class="small">🔐 ' + T.semChave + '</p><button class="btn sm" data-act="cofre.reaprovar">👪 ' + tt("Pedir aprovação de novo", "Ask for approval again") + '</button><p class="tiny faint" style="margin-top:6px">' + T.semChaveAnexos + "</p></div>";
-    if (d === "faltaLiberar" || d === "estranho") return '<div class="card warnc" id="cfVelho"><p class="small">' + (d === "estranho" ? "⚠️ " + T.estranho : "🔐 " + T.faltaLiberar) + "</p></div>";
+    if (d === "semChave") return '<div class="card warnc giro" id="cfVelho"><p class="small">🔐 ' + T.semChave + '</p><button class="btn sm" data-act="cofre.reaprovar">👪 ' + tt("Pedir aprovação de novo", "Ask for approval again") + '</button><p class="tiny faint" style="margin-top:6px">' + T.semChaveAnexos + "</p></div>";
+    if (d === "faltaLiberar" || d === "estranho") return '<div class="card warnc giro" id="cfVelho"><p class="small">' + (d === "estranho" ? "⚠️ " + T.estranho : "🔐 " + T.faltaLiberar) + "</p>" + (d === "estranho" ? Fb.botao("sm") : "") + "</div>";   /* revisão T17: o 💬 ali mesmo */
     return "";
   },
   view() {
@@ -4251,7 +4256,7 @@ const Cofre = {
     }
     /* aberto */
     const trocar = st.trocarPin || (!st.ligadoPin && !st.srv && !st.pinVersao);
-    return Giro.cartao() + Giro.aviso() + this.cartaoDesatualizado() + Giro.cartaoCodigo() + '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
+    return Giro.cartao() + Giro.aviso() + this.cartaoDesatualizado() + Giro.cartaoCodigo() + Giro.lembrete() + '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new"' + (this.desatualizado ? ' disabled aria-describedby="cfVelho"' : "") + ">＋ " + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
       (st.criarPin ? '<div class="card tight"><p class="small">🔢 ' + tt("Falta criar o PIN da sua conta SolverONE: um PIN só, para todos os seus aparelhos e apps (OmniLifeONE, MoneyTRIO e os próximos).", "Your SolverONE account PIN is still missing: one PIN for all your devices and apps (OmniLifeONE, MoneyTRIO and the next ones).") + '</p><button class="btn sm" data-act="conta.pin.criar">🔢 ' + tt("Criar o PIN da conta", "Create the account PIN") + "</button></div>" : "") +
       (this.temLegado() ? '<div class="card warnc"><h3>📦 ' + tt("Senhas antigas neste aparelho", "Old vault on this device") + '</h3><p class="small">' + tt("Este aparelho ainda tem itens do cofre antigo (o que abria com a senha mestra). Traga para cá: assim eles aparecem em todos os aparelhos da família.", "This device still has items from the old vault (the one opened with the master password). Bring them into this vault so they show up on every family device.") + '</p><button class="btn sm" data-act="cofre.legado">⬆️ ' + tt("Trazer as senhas antigas", "Bring the old vault") + "</button></div>" : "") +
       '<details class="card tight"><summary class="grouph">⚙️ ' + tt("Opções deste " + apN(), "Vault options on this " + apN()) + '</summary><div class="row" style="margin-top:8px">' + (st.prf ? '<button class="btn ghost sm" data-act="cofre.semdigital">👆 ' + tt("Parar de usar a digital", "Stop using fingerprint") + "</button>" : '<button class="btn ghost sm" data-act="cofre.comdigital">👆 ' + tt("Abrir também com a digital", "Also open with fingerprint") + "</button>") + (trocar ? '<button class="btn ghost sm" data-act="conta.pin.trocar">🔢 ' + tt("Trocar o PIN", "Change PIN") + "</button>" : "") + '<button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="conta">🔐 ' + tt("Segurança e aparelhos", "Security and devices") + "</button></div></details>";   /* o kit e o "Tirar este aparelho" ficam lá, em Avançado */
@@ -4413,6 +4418,7 @@ const Giro = {
   executar(andamento, c, op) {
     const esquecer = (e) => { if (op && e && this.NAO_VOLTA.includes(e.giro)) delete op.codigoEm; throw e; };
     if (this.rodando) return Promise.reject(this.erro(this.T.outraAba, "rodando")).catch(esquecer);
+    this._op = op || null;   /* revisão T1: o "Continuar" de um cartão que ficou na tela entrega o código a esta troca (juntar) */
     /* uma troca por navegador: outra aba (ou janela) deste aparelho com a troca rodando segura a trava (ela cai sozinha quando a
        aba fecha). A mesma aba já tem o "rodando" */
     const W = navigator.locks;
@@ -4423,6 +4429,8 @@ const Giro = {
     if (this.rodando) throw this.erro(this.T.outraAba, "rodando");
     this.rodando = true;
     const ctx = { gid: S.family.id, uid: Conta.uid(), andamento: andamento || (() => {}), c: c || {}, op: op || {}, para: null, de: null, sk: null };
+    /* revisão T1: a troca anda por qualquer caminho (também o ↻ da pílula, que não passa pelo iniciar): o cartão "Continuar" sai já */
+    this._ctx = ctx; scheduleRender(true);
     const zerar = () => { if (ctx.para && ctx.para.raw) ctx.para.raw.fill(0); ctx.para = null; ctx.sk = null; ctx.duk = null; };
     try {
       /* sem internet no meio, não erra de cara: espera ela voltar e continua de onde parou (retomar = ler de novo o que o banco
@@ -4443,6 +4451,8 @@ const Giro = {
       throw this.erro(!navigator.onLine || !e.status ? this.T.erroRede : this.T.erroConferir, !navigator.onLine || !e.status ? "rede" : "banco");
     } finally {
       this.rodando = false; zerar(); ctx.dukRaw = null;
+      if (this._ctx === ctx) this._ctx = null;
+      scheduleRender();   /* parou (ou terminou): o cartão "Continuar" volta, se for o caso */
       /* passou do código de emergência (ou continuou depois dele): o código digitado não serve mais para nada aqui */
       if (ctx.g && !this.antesDoCodigo(ctx.g.estado)) this.esquecerCodigo(ctx);
     }
@@ -4662,6 +4672,7 @@ const Giro = {
      sem o conteúdo: no fim o chefe faz um novo e entrega de novo). Já refeito (retomada) = nada a fazer. Cada gravação com a versão
      lida (CAS). "sem" | "refeito" | "invalidado" */
   async emergencia(ctx) {
+    ctx.emLido = true;   /* revisão T1: daqui em diante um código entregue depois (juntar) não seria usado */
     ctx.andamento(0.9, this.T.codigo);
     for (let vez = 0; vez < 4; vez++) {
       const l = await CloudDriver.linha("vault", "_em", this.PRAZO_MS);
@@ -4855,7 +4866,8 @@ const Giro = {
   mostrarFim(r) {
     r = r || {}; scheduleRender(true);
     const T = this.T, n = new Set([].concat(r.estranhas || [], r.semInterna || [])).size;
-    const body = "<p>" + T.fimTexto + "</p>" +
+    /* revisão T11: com itens que já não abriam, "Tudo foi trocado" seria falso */
+    const body = "<p>" + (n ? T.fimMenos(n) : T.fimTexto) + " " + this.comoFunciona() + "</p>" +
       (r.em === "invalidado" ? '<div class="note bad" id="fimEm"><p class="small">' + T.emFalta + '</p><button type="button" class="btn" id="fimCodigo">' + T.btCodigoNovo + "</button></div>"
         : r.em === "refeito" ? '<p class="small" id="fimEm">✓ ' + T.emRefeito + "</p>" : "") +
       '<div class="note"><p class="small">' + T.copiaNova + '</p><button type="button" class="btn ghost" id="fimCopia">' + T.btCopiaNova + "</button></div>" +
@@ -4869,7 +4881,7 @@ const Giro = {
     return m;
   },
   /* o "🧹 Terminar a troca" no fim (D-E7): o texto "quando tiver aberto…" e o botão */
-  fimDescarte() { return this.terminarHtml(null, "fimTerminar"); },
+  fimDescarte() { const h = this.terminarHtml(null, "fimTerminar"); return h ? h + '<p class="tiny faint" id="fimOnde">' + this.T.ondeTerminar + "</p>" : ""; },
   /* "Continuar de onde parou" da pílula "foi interrompido" (o app fechou no meio): vai para as Senhas da casa; abertas, continua;
      fechadas, pede o PIN e o cartão "Continuar" faz o resto. Não depende só da pílula: o cartão aparece sempre que há troca
      deste chefe pela metade */
@@ -4906,22 +4918,26 @@ const Giro = {
      só o aviso. Some enquanto ela roda aqui (a pílula mostra) */
   cartao() {
     const row = this.local(), g = this.dados(row);
-    if (S.mode !== "cloud" || S.role !== "admin" || this.rodando || !this.emCurso(row) || !g) return "";
+    if (S.mode !== "cloud" || S.role !== "admin" || this.andando() || !this.emCurso(row) || !g) return "";
     const T = this.T, aberto = Cofre.aberto(), st = Cofre.status || {}, daqui = g.ap === (st.ap || Devices.myId()) || g.ap === Devices.myId() || g.nav === Devices.myId();
-    const card = (txt, bts) => '<div class="card warnc" id="giroCartao" role="status"><p class="small">🔄 ' + txt + "</p>" + (bts ? '<div class="row">' + bts + "</div>" : "") + "</div>";
+    /* revisão T13: "giro" = os alvos de 44 px da troca também aqui */
+    const card = (txt, bts) => '<div class="card warnc giro" id="giroCartao" role="status"><p class="small">🔄 ' + txt + "</p>" + (bts ? '<div class="row">' + bts + "</div>" : "") + "</div>";
+    /* revisão T7: conferindo se a troca parou (duas leituras, até ~1 min): o redesenho (Cloud.poll) mantém o botão desligado */
+    const aqui = () => this._assumindo ? '<button class="btn sm" data-act="conta.giro.assumir" disabled aria-busy="true">⏳ ' + T.assumindo + "</button>"
+      : this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.assumir">' + T.btAqui + "</button>";
     /* revisão S2: a troca de OUTRO chefe, parada há muito depois de mudar algo: este chefe pode continuar (num aparelho que entrou
        pela conta). Antes disso, nada aqui (o aviso diz que ela parou) */
     if (g.por !== Conta.uid()) {
       if (!this.deOutroParada(row) || st.como === "familia") return "";
-      return card(T.parouOutro(this.nomeAp(g)) + (aberto ? "" : " " + T.fechado), aberto ? this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.assumir">' + T.btAqui + "</button>" : "");
+      return card(T.parouOutro(this.nomeAp(g)) + (aberto ? "" : " " + T.fechado), aberto ? aqui() : "");
     }
     if (daqui) {
       if (!aberto) return card(T.continuar + " " + T.fechado);
       return card(T.continuar, this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.continuar">' + T.btContinuar + "</button>" +
         (g.estado === "preparado" ? '<button class="btn ghost sm" data-act="conta.giro.desistir">' + T.btDesistir + "</button>" : ""));
     }
-    const min = Math.floor((Date.now() - (Date.parse(row.atualizado_em) || 0)) / 60e3);
-    if (!this.vivo(row) && st.como !== "familia") return card(T.parouEm(this.nomeAp(g), min) + (aberto ? "" : " " + T.fechado), aberto ? this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.assumir">' + T.btAqui + "</button>" : "");
+    const ha = this.haQuanto(Date.now() - (Date.parse(row.atualizado_em) || 0));
+    if (!this.vivo(row) && st.como !== "familia") return card(T.parouEm(this.nomeAp(g), ha) + (aberto ? "" : " " + T.fechado), aberto ? aqui() : "");
     return card(this.vivo(row) ? this.jaTrocando(g) : T.erroOutroAp);
   },
   /* seção 4 (D-E4): a troca ainda não passou pelo código de emergência e ele existe, com a chave de antes. O código digitado na
@@ -4929,7 +4945,7 @@ const Giro = {
   pedeCodigo(g) { const em = (DB.col("vault").get("_em") || {}).em; return !!(g && g.de && em && em.fk === g.de.fk && this.antesDoCodigo(g.estado)); },
   campoCodigo(g) {
     if (!this.pedeCodigo(g)) return "";
-    return '<label class="fld" style="flex-basis:100%"><span>🆘 ' + this.T.campoCodigo + '</span><input id="giroCodigo" autocomplete="off" autocapitalize="characters" spellcheck="false"></label><p class="tiny faint" style="flex-basis:100%">' + this.T.codigoAjuda + "</p>";
+    return '<label class="fld" style="flex-basis:100%"><span>🆘 ' + this.T.campoCodigo + '</span><input type="text" id="giroCodigo" autocomplete="off" autocapitalize="characters" spellcheck="false"></label><p class="tiny faint" style="flex-basis:100%">' + this.T.codigoAjuda + "</p>";
   },
   /* o op do botão do cartão: com o código do campo, conferido aqui (errado = não continua: nada de invalidar por um erro de digitação).
      O campo é esvaziado na hora. {codigoEm?} | null */
@@ -4942,7 +4958,32 @@ const Giro = {
     return { codigoEm: v };
   },
   /* "Continuar" do cartão: a troca deste chefe, com o código do campo (se houver) */
-  async continuar() { const op = await this.opDoCartao(); if (op) this.iniciar(op).catch(() => {}); },
+  async continuar() { const op = await this.opDoCartao(); if (!op) return; if (this.andando()) return this.juntar(op); this.iniciar(op).catch(() => {}); },
+  /* revisão T1: a troca já anda neste aparelho — rodando aqui, ou o Fundo já começou o trabalho (o ↻ da pílula chama o executar sem
+     passar pelo iniciar) */
+  andando() {
+    let f = false;
+    try { f = !!(window.DGO && DGO.fundo && DGO.fundo.ativas && DGO.fundo.ativas().includes("giro-" + ((S.family && S.family.id) || ""))); } catch (e) {}
+    return this.rodando || f;
+  },
+  /* revisão T1: "Continuar" (ou "Continuar neste aparelho") de um cartão que ficou na tela com a troca já andando: não começa outra (o
+     Fundo devolveria a que roda e o código digitado sumiria em silêncio, e ele deixaria de valer). O código vai para a troca que
+     anda, se ela ainda não chegou ao passo dele (só na memória: sai logo depois do passo, C16); senão, o aviso diz o que fazer */
+  _ctx: null, _op: null, _assumindo: false, _terminando: false,
+  juntar(op) {
+    const T = this.T, ctx = this._ctx, alvo = ctx ? ctx.op : this._op;
+    const estado = ctx && ctx.g ? ctx.g.estado : (this.dados(this.local()) || {}).estado;
+    if (op && op.codigoEm) {
+      if (alvo && !(ctx && ctx.emLido) && this.antesDoCodigo(estado)) { alvo.codigoEm = op.codigoEm; toast(T.andandoCodigo, 7000); }
+      else toast(T.andandoSemCodigo, 9000);
+    } else toast(T.andando, 5000);
+    scheduleRender(true);
+  },
+  /* revisão T10: há quanto tempo, para leigo: min, h ou dias (nunca "1560 min") */
+  haQuanto(ms) {
+    const m = Math.max(0, Math.floor(ms / 60e3)), h = Math.floor(m / 60);
+    return m < 60 ? m + " min" : h < 48 ? h + " h" : Math.floor(h / 24) + " " + tt("dias", "days");
+  },
   /* 2.27.0 (D-E4, C2): "Falta um passo" — a troca tirou a validade do código de emergência (não havia o código de agora) e ainda não
      há outro, ou um código feito sem internet com a chave de antes está esperando para subir (ele nunca sobe assim). Só para o
      chefe, com as Senhas abertas: o botão faz o código novo (Gov.makeEnvelope, com a chave de agora) */
@@ -4953,7 +4994,7 @@ const Giro = {
     const preso = CloudDriver.fila.has("vault|_em") && e && e.em && e.em.fk !== Cofre.fk;
     const semCodigo = g && g.estado === "feito" && g.em === "invalidado" && !(e && e.em && e.em.fk === Cofre.fk);
     if (!preso && !semCodigo) return "";
-    return '<div class="card warnc" id="emFalta" role="status"><p class="small">' + this.T.emFalta + '</p><button class="btn sm" data-act="gov.env">' + this.T.btCodigoNovo + "</button></div>";
+    return '<div class="card warnc giro" id="emFalta" role="status"><p class="small">' + this.T.emFalta + '</p><button class="btn sm" data-act="gov.env">' + this.T.btCodigoNovo + "</button></div>";
   },
   /* ---------- as telas da troca (E9) ---------- */
   /* 8.5 (para os outros chefes e responsáveis; quem começou vê o cartão): a troca de outra pessoa viva ("algumas senhas podem não
@@ -4979,9 +5020,14 @@ const Giro = {
   botaoHtml(sql) {
     if (S.mode !== "cloud" || S.role !== "admin") return "";
     const T = this.T, curso = this.emCurso(), off = sql === false || this.rodando;
+    /* revisão T9: falta terminar a troca anterior: o "Trocar" de novo fica em segundo plano (o "Terminar a troca" vem antes) */
     return '<div class="segav giro" id="segGiro">' + this.cartao() + this.aviso() + this.terminarHtml(sql) +
-      (curso && !this.rodando ? "" : '<button type="button" class="btn" data-act="conta.giro.trocar" aria-describedby="giroSub"' + (off ? " disabled" : "") + ">" + T.botao + "</button>" +
-        '<p class="tiny faint" id="giroSub">' + T.intro + "</p>" + (sql === false ? '<p class="small" id="giroSemSql" role="status">⏳ ' + T.semSql + "</p>" : "")) + "</div>";
+      (curso && !this.rodando ? "" : '<button type="button" class="btn' + (this.podeDescartar() ? " ghost" : "") + '" data-act="conta.giro.trocar" aria-describedby="giroSub"' + (off ? " disabled" : "") + ">" + T.botao + "</button>" +
+        '<p class="tiny faint" id="giroSub">' + T.intro + "</p>" + this.comoFunciona() + (sql === false ? '<p class="small" id="giroSemSql" role="status">⏳ ' + T.semSql + "</p>" : "")) + "</div>";
+  },
+  /* revisão T4: a ajuda da troca (HELP "chave-seguranca"); dentro de uma janela, ela abre ali mesmo (Help.dentro). conta.*: não some
+     com os interruptores do Rec, como os outros botões de Segurança e aparelhos */
+  comoFunciona() { return '<button type="button" class="linkbtn tiny" data-act="conta.ajuda" data-t="chave-seguranca">❔ ' + tt("Como funciona", "How it works") + "</button>";
   },
   /* C5.2: se este aparelho sumir no meio, a chave pessoal desta pessoa volta por outro caminho? Outro aparelho da conta que entrou
      pela conta (não pela família), a digital em todos os aparelhos ou o kit de emergência. Sem saber = não (o aviso aparece) */
@@ -5024,7 +5070,7 @@ const Giro = {
   confirmar(p, caminho) {
     const T = this.T, naoAbrem = p.naoAbrem || [], temEm = !!(p.temEm && (DB.col("vault").get("_em") || {}).em);
     const li = (t) => "<li>" + t + "</li>", ck = (id, t) => '<label class="check"><input type="checkbox" id="' + id + '"><span>' + t + "</span></label>";
-    const body = "<p>" + T.intro + "</p>" +
+    const body = "<p>" + T.intro + " " + this.comoFunciona() + "</p>" +
       '<h4 class="grouph">' + T.mudaTit + '</h4><ul class="small">' + li(T.muda1) + li(T.muda2) + li(T.muda3) + (temEm ? li(T.muda4) : "") + li(T.muda5) + "</ul>" +
       (temEm ? '<label class="fld"><span>🆘 ' + T.campoCodigo + '</span><input type="text" id="giroCodigoC" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>' : "") +
       '<div class="note" id="giroCopiaN"><button type="button" class="btn ghost" id="giroCopia">' + T.btCopia + '</button><p class="tiny">' + T.copiaAviso + "</p></div>" +
@@ -5049,25 +5095,32 @@ const Giro = {
     /* "Conferir de novo": quantos avisos da Saúde ainda esperam o MoneyTRIO (seguir mesmo assim é permitido: o fim da troca manda o
        resumo deste aparelho de novo, e cada outro aparelho manda o dele ao adotar a nova — revisão D3) */
     el.addEventListener("click", async (e) => {
-      if (!e.target.closest("#giroPonteBt")) return;
-      const li = $m("#giroPonte"); li.textContent = T.conferindoBt;
+      const bt = e.target.closest("#giroPonteBt"); if (!bt || bt.dataset.ocupado) return;
+      /* revisão T14: o botão fica (só não aceita outro toque) e, no fim, o foco vai para o novo (ou para a linha): quem usa teclado
+         ou leitor de tela não perde o lugar na janela */
+      const li = $m("#giroPonte"); bt.dataset.ocupado = "1"; bt.setAttribute("aria-disabled", "true"); bt.textContent = T.conferindoBt;
       let s = null; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: S.family.id }, this.PRAZO_MS); } catch (er) {}
       let n = null; try { n = await this.pontePendentes(s); } catch (er) {}
       li.innerHTML = n === null ? "⚠️ " + T.semRede : this.ponteHtml(n);
+      const nb = $m("#giroPonteBt"); if (nb) nb.focus(); else { li.tabIndex = -1; li.focus(); }
     });
+    /* revisão T5: a mensagem vai para logo abaixo do que falta, e o foco também: no celular o rodapé com "Trocar agora" fica sempre à
+       vista, e a mensagem no fim do texto ficava fora da tela (parecia que o botão não fazia nada) */
+    const mostrarErro = (txt, alvo) => { (alvo.closest("label") || alvo).after(err); err.textContent = txt; alvo.focus(); err.scrollIntoView({ block: "nearest" }); };
     let ocupado = false;   /* um toque duplo não pede o PIN duas vezes */
     $m("[data-ok]").onclick = async () => {
       if (ocupado) return;
       const marcado = (id) => { const c = $m("#" + id); return !c || c.checked; };
       const palavra = ($m("#giroPalavra").value || "").trim().toUpperCase();
-      if (!["giroCkAps", "giroCkRede", "giroCkRisco", "giroCkOk"].every(marcado) || !["TROCAR", "CHANGE"].includes(palavra)) { err.textContent = T.falta; return; }
+      const falta = ["giroCkAps", "giroCkRede", "giroCkRisco", "giroCkOk"].find((id) => !marcado(id));
+      if (falta || !["TROCAR", "CHANGE"].includes(palavra)) return mostrarErro(T.falta, $m("#" + (falta || "giroPalavra")));
       /* o código de emergência: conferido aqui (um erro de digitação não pode fazer ele deixar de valer); só na memória, nunca guardado */
       const ci = $m("#giroCodigoC"), codigo = ci ? ci.value.trim() : "";
       if (ci) ci.value = "";
       if (codigo) {
         ocupado = true; let raw = null;
         try { raw = await Cofre.conferirCodigo(codigo); } finally { ocupado = false; }
-        if (!raw) { err.textContent = T.codigoErrado; ci.focus(); return; }
+        if (!raw) return mostrarErro(T.codigoErrado, ci);
         raw.fill(0);
       }
       m.drop();
@@ -5147,7 +5200,14 @@ const Giro = {
     if (!this.podeDescartar()) return "";
     const T = this.T;
     const d = (Cofre.registro() || {}).descarte, velha = d && d.velha ? '<p class="small" id="' + (id ? id + "V" : "giroTerminarV") + '" role="status">⚠️ ' + T.velhaDepois + "</p>" : "";   /* revisão S3 */
-    return '<div class="note" id="' + (id ? id + "N" : "giroTerminar") + '">' + velha + '<p class="small">' + T.depois + '</p><button type="button" class="btn" ' + (id ? 'id="' + id + '"' : 'data-act="conta.giro.descartar"') + (sql === false ? " disabled" : "") + ">" + T.btTerminar + '</button><p class="tiny faint">' + T.terminarTexto + "</p></div>";
+    /* revisão T8: depois do PIN, até o banco responder, o botão diz que está terminando (e não aceita outro toque) */
+    const fim = this._terminando;
+    return '<div class="note" id="' + (id ? id + "N" : "giroTerminar") + '">' + velha + '<p class="small">' + T.depois + '</p><button type="button" class="btn" ' + (id ? 'id="' + id + '"' : 'data-act="conta.giro.descartar"') + (sql === false || fim ? " disabled" : "") + (fim ? ' aria-busy="true">⏳ ' + T.terminando : ">" + T.btTerminar) + '</button><p class="tiny faint">' + T.terminarTexto + "</p></div>";
+  },
+  /* revisão T9: o lembrete nas Senhas da casa (só chefe): sem ele, o "Terminar a troca" só existia no Avançado, que começa fechado */
+  lembrete() {
+    const h = this.terminarHtml();
+    return h ? '<div class="card giro" id="giroLembrete"><p class="small"><b>🧹 ' + this.T.faltaTerminarTit + "</b></p>" + h + "</div>" : "";
   },
   /* até qual versão apagar (3.10): a maior versão de quem está na família − 1. A versão em uso de cada pessoa (e as mais novas) o
      banco nunca apaga */
@@ -5171,18 +5231,21 @@ const Giro = {
     try { b = await this.ler(); } catch (e) { return { falta: [T.semRedeFim] }; }
     if (!s || !s.registro || !b.reg) return { falta: [T.descEstranho] };
     if (this.emCurso(b.giro) || !(s.giro_ok || this.giroDoRegistro(b.g, b.reg))) return { falta: [T.descGiro] };
-    const falta = [], naoAbrem = [];
-    if (+s.vault_fora > 0) {
-      falta.push(T.descVault);
+    const falta = [], naoAbrem = [], fora = +s.vault_fora > 0;
+    if (fora) {
+      let foraNaoAbre = 0;
       if (Cofre.aberto()) for (const r of await this.linhasVault()) {
         if (r.id === "_em") continue;
         let o = null; try { o = JSON.parse(r.dados_cifrado); } catch (e) {}
-        if ((!o || !o.c || !o.fk || Cofre.chaveDe(o.fk)) && !(await this.abreAgora(r))) naoAbrem.push(r.id);
+        if ((!o || !o.c || !o.fk || Cofre.chaveDe(o.fk)) && !(await this.abreAgora(r))) { naoAbrem.push(r.id); if (!o || !o.c || o.fk !== b.reg.fk || +o.kv !== +b.reg.kv) foraNaoAbre++; }
       }
+      /* revisão T12: se tudo o que está fora da versão nova são itens que já não abrem, "abra… e espere 1 minuto" não resolve: fica só
+         o "Apagar os itens que não abrem" */
+      if (foraNaoAbre < +s.vault_fora) falta.unshift(T.descVault);
     }
     if (s.money_migrado === false || +s.money_cf > 0) falta.push(T.descMoney);
     if (+s.falta_entregar > 0) falta.push(T.descMembros(+s.falta_entregar));
-    if (falta.length) return { falta, naoAbrem };
+    if (falta.length || fora) return { falta, naoAbrem };   /* fora: o banco recusaria (os que não abrem, a lista oferece apagar) */
     let ate; try { ate = await this.ateVersao(); } catch (e) { return { falta: [this.erroDescarte(e).message] }; }
     if (ate < 1 || ate >= +s.maior_versao) return { falta: [T.descVersao] };
     return { ok: true, ate };
@@ -5244,7 +5307,7 @@ const Giro = {
      confirmação */
   async descartarPelaTela() {
     const T = this.T;
-    if (this._descartando) return;
+    if (this._descartando || this._terminando) return;
     this._descartando = true;
     const b = document.querySelector('[data-act="conta.giro.descartar"]'), antes = b && b.innerHTML;
     if (b) { b.disabled = true; b.textContent = T.conferindoBt; }
@@ -5291,8 +5354,11 @@ const Giro = {
       if (!$m("#giroTermCk").checked || !["TROCAR", "CHANGE"].includes(palavra)) { $m("#giroTermErr").textContent = T.faltaTerminar; return; }
       ocupado = true; m.drop();
       if (!(await Cofre.provarAgora(T.terminarTit, T.terminarPin, true))) return;
+      /* revisão T8: com a rede lenta, nada na tela dizia que estava trabalhando (e o botão voltava ligado, como se nada tivesse acontecido) */
+      this._terminando = true; scheduleRender(true); toast("⏳ " + T.terminando, 6000);
       try { await this.descartar(ate); }
       catch (e) { scheduleRender(true); return this.janelaFalta([this.erroDescarte(e).message]); }
+      finally { this._terminando = false; }
       toast(T.descartouOk, 6000);
       scheduleRender(true);
       this.soltarVelhas().catch(() => {});
@@ -5356,13 +5422,15 @@ const Giro = {
       mudarVelho: tt("Este aparelho precisa da atualização das Senhas da casa. Abra pelo PIN com internet.", "This device needs the vault update. Open it with the PIN, online."),
       /* a troca (8.1, 8.2, 8.4) */
       soChefe: tt("Só um chefe da família pode fazer isso.", "Only a family head can do this."),
-      semSk: tt("Faça isso num aparelho que entrou pela sua conta (não pela aprovação da família).", "Do this on a device that joined with your account (not by family approval)."),
-      velho: tt("Este aparelho ainda não tem a versão mais nova das Senhas da casa. Abra pelo PIN com internet e tente de novo.", "This device doesn't have the latest version of the vault yet. Open it with the PIN, online, and try again."),
-      fila: tt("Ainda há mudanças nas Senhas da casa esperando para subir. Ligue a internet e espere um pouco.", "There are vault changes still waiting to go up. Turn on the internet and wait a bit."),
+      /* revisão T3: os textos que a troca lança têm menos de 80 caracteres (a pílula do Fundo só mostra o motivo assim) */
+      semSk: tt("Faça isso num aparelho que entrou pela sua conta (não aprovado pela família).", "Do this on a device that joined with your account (not by family approval)."),
+      velho: tt("Este aparelho está desatualizado. Abra pelo PIN com internet e tente de novo.", "This device is out of date. Open it with the PIN, online, and try again."),
+      fila: tt("Há mudanças nas Senhas da casa esperando para subir. Ligue a internet e espere.", "Vault changes are still waiting to go up. Turn on the internet and wait."),
       semRede: tt("Para trocar, ligue a internet.", "To change it, turn on the internet."),
       fechado: tt("Abra as Senhas da casa para continuar a troca.", "Open the vault to continue the change."),
       outraAba: tt("Já está trocando em outra janela deste aparelho.", "It's already changing in another window on this device."),
-      estranho: tt("Algo nas Senhas da casa não confere. Peça ajuda pelo 💬 antes de trocar.", "Something in the vault doesn't check out. Ask for help with 💬 before changing."),
+      /* revisão T17: na pílula e nos avisos não há o botão 💬: diz onde ele fica */
+      estranho: tt("Algo nas Senhas da casa não confere. Peça ajuda no ☰ → 💬 antes de trocar.", "Something in the vault doesn't check out. Ask for help in ☰ → 💬 first."),
       semSql: tt("Ainda não dá: falta uma atualização do SolverONE.", "Not yet: a SolverONE update is missing."),
       moneyFalta: tt("O MoneyTRIO ainda não terminou a preparação da família. Termine lá primeiro.", "MoneyTRIO hasn't finished preparing the family yet. Finish there first."),
       continuar: tt("A troca ficou pela metade. Continuar de onde parou?", "The change stopped halfway. Continue where it stopped?"),
@@ -5374,13 +5442,14 @@ const Giro = {
       codigo: tt("Código de emergência", "Emergency code"),
       avisando: tt("Avisando a família", "Letting the family know"),
       conferindo: tt("Conferindo se está tudo certo", "Checking everything is right"),
-      erroRede: tt("Parou sem internet. Toque em Tentar de novo: continua de onde parou.", "Stopped without internet. Tap Try again: it picks up where it stopped."),
+      /* revisão T6: o botão da pílula é o ↻ (não há um botão escrito "Tentar de novo") */
+      erroRede: tt("Parou sem internet. Toque em ↻ para continuar de onde parou.", "Stopped without internet. Tap ↻ to pick up where it stopped."),
       erroTrancou: tt("Parou porque as Senhas fecharam. Abra e toque em Continuar.", "Stopped because the vault locked. Open it and tap Continue."),
       erroPausou: tt("A troca parou no meio. Ela continua de onde parou.", "The change stopped halfway. It picks up where it stopped."),
       erroAssumiram: tt("Continuou em outro aparelho seu.", "It continued on another device of yours."),
       erroOutroAp: tt("Continue no aparelho onde começou.", "Continue on the device where it started."),
       erroVelha: tt("Este aparelho não tem a versão de antes. Use o aparelho onde começou.", "This device lacks the previous version. Use the device where it started."),
-      erroConferir: tt("Algo não conferiu. Toque em Tentar de novo.", "Something didn't check out. Tap Try again."),
+      erroConferir: tt("Algo não conferiu. Toque em ↻ para tentar de novo.", "Something didn't check out. Tap ↻ to try again."),
       /* o Fundo, continuar, assumir, sair (8.2, 8.4) */
       esperandoRede: tt("Esperando a internet…", "Waiting for the internet…"),
       pronto: tt("Pronto: a família está mais segura", "Done: the family is safer"),
@@ -5389,12 +5458,18 @@ const Giro = {
       btDesistir: tt("Desistir", "Give up"),
       btAqui: tt("Continuar neste aparelho", "Continue on this device"),
       parouOutro: (ap) => tt("Outro chefe da família começou a troca de segurança no " + ap + " e ela parou. Se ele não puder continuar, você (também chefe) pode continuar neste aparelho.", "Another family head started the security change on " + ap + " and it stopped. If they can't continue, you (also a head) can continue on this device."),
-      parouEm: (ap, n) => tt("A troca começou no " + ap + " e parou há " + n + " min. Continuar neste aparelho?", "The change started on " + ap + " and stopped " + n + " min ago. Continue on this device?"),
+      /* revisão T10: quanto = haQuanto(ms) ("10 min", "26 h", "4 dias") */
+      parouEm: (ap, quanto) => tt("A troca começou no " + ap + " e parou há " + quanto + ". Continuar neste aparelho?", "The change started on " + ap + " and stopped " + quanto + " ago. Continue on this device?"),
+      /* revisão T7 e T1 */
+      assumindo: tt("Conferindo se a troca parou (até 1 minuto)…", "Checking that the change stopped (up to 1 minute)…"),
+      andando: tt("A troca já está andando.", "The change is already running."),
+      andandoCodigo: tt("A troca já está andando. O código de emergência vai junto: ele continua valendo.", "The change is already running. The emergency code goes along: it keeps working."),
+      andandoSemCodigo: tt("A troca já está andando e já passou do código de emergência: no fim, faça o código novo e entregue de novo.", "The change is already running and has passed the emergency code: at the end, make the new code and hand it over again."),
       desistirPergunta: tt("Desistir da troca? Nada foi mudado ainda: tudo fica como estava.", "Give up the change? Nothing was changed yet: everything stays as it was."),
       desistiuOk: tt("Pronto: a troca foi desfeita. Nada mudou.", "Done: the change was undone. Nothing changed."),
       sairPausa: tt("A troca de segurança para agora e continua de onde parou quando você entrar de novo. Sair mesmo assim?", "The security change stops now and continues where it stopped when you sign in again. Sign out anyway?"),
       bloquearPausa: tt("A troca de segurança para agora e continua de onde parou quando você abrir as Senhas da casa de novo. Bloquear mesmo assim?", "The security change stops now and continues where it stopped when you open the vault again. Lock anyway?"),
-      zeroGiro: tt("Termine antes a troca de segurança num aparelho seu, ou peça ajuda pelo 💬.", "First finish the security change on one of your devices, or ask for help with 💬."),
+      zeroGiro: tt("Termine antes a troca de segurança num aparelho seu, ou peça ajuda no ☰ → 💬.", "First finish the security change on one of your devices, or ask for help in ☰ → 💬."),
       /* o código de emergência (8.1, 8.3) */
       campoCodigo: tt("Código de emergência atual (opcional)", "Current emergency code (optional)"),
       codigoAjuda: tt("Se você tem o código de emergência à mão, digite: ele continua valendo. Se não, no fim você faz um novo e entrega de novo à pessoa de confiança.", "If you have the emergency code at hand, type it: it keeps working. If not, at the end you make a new one and hand it over again to your trusted person."),
@@ -5444,6 +5519,9 @@ const Giro = {
       /* o fim (8.3) */
       fimTit: tt("✓ A família está mais segura", "✓ The family is safer"),
       fimTexto: tt("Tudo foi trocado e conferido. As senhas continuam as mesmas.", "Everything was changed and checked. Your passwords stay the same."),
+      /* revisão T11 */
+      fimMenos: (n) => tt("O cadeado foi trocado e conferido em todos os itens, menos " + (n > 1 ? n + " itens que já não abriam antes (continuam guardados)" : "1 item que já não abria antes (continua guardado)") + ". As senhas continuam as mesmas.",
+        "The lock was changed and checked on every item except " + (n > 1 ? n + " items that already didn't open before (still kept)" : "1 item that already didn't open before (still kept)") + ". Your passwords stay the same."),
       emRefeito: tt("O código de emergência continua o mesmo.", "The emergency code stays the same."),
       copiaNova: tt("💾 Faça uma cópia protegida nova: as de antes não trazem mais de volta as senhas nem os anexos protegidos.", "💾 Make a new protected copy: the old ones no longer bring back the passwords or the protected attachments."),
       btCopiaNova: tt("💾 Fazer uma cópia protegida", "💾 Make a protected copy"),
@@ -5461,6 +5539,10 @@ const Giro = {
       depois: tt("Quando as Senhas da casa tiverem sido abertas nos seus outros aparelhos, nos dos outros chefes e responsáveis e no MoneyTRIO, toque em “Terminar a troca”.", "Once the vault has been opened on your other devices, on the other heads' and guardians' devices and in MoneyTRIO, tap “Finish the change”."),
       velhaDepois: tt("Um aparelho da família com o OmniLifeONE desatualizado entregou a versão antiga de novo. Atualize o app em todos os aparelhos da família (ou tire o aparelho desatualizado) e toque de novo em “Terminar a troca”.", "A family device with an outdated OmniLifeONE handed out the old version again. Update the app on every family device (or remove the outdated one) and tap “Finish the change” again."),
       terminarCheck: tt("Entendi e quero terminar agora", "I understand and want to finish now"),
+      /* revisão T8 e T9 */
+      terminando: tt("Terminando a troca…", "Finishing the change…"),
+      faltaTerminarTit: tt("Falta terminar a troca de segurança", "The security change still has to be finished"),
+      ondeTerminar: tt("Se fechar esta janela, o botão “Terminar a troca” fica nas Senhas da casa e em ⚙ → Segurança e aparelhos → Avançado.", "If you close this window, the “Finish the change” button stays in Home passwords and in ⚙ → Security and devices → Advanced."),
       faltaTerminar: tt("Marque o item acima e digite TROCAR para confirmar.", "Check the item above and type CHANGE to confirm."),
       btTerminarJa: tt("🧹 Terminar agora", "🧹 Finish now"),
       terminarPin: tt("Para terminar, digite o PIN da sua conta (ou use a digital).", "To finish, type your account PIN (or use your fingerprint)."),
@@ -5473,7 +5555,7 @@ const Giro = {
       descMoney: tt("O MoneyTRIO ainda não terminou a preparação da família.", "MoneyTRIO hasn't finished preparing the family yet."),
       descMembros: (n) => tt("Falta entregar a versão nova para " + n + (n > 1 ? " pessoas" : " pessoa") + ". Abra as Senhas da casa e espere 1 minuto.", "The new version still has to reach " + n + (n > 1 ? " people" : " person") + ". Open the vault and wait 1 minute."),
       descVersao: tt("Não há nada antigo para apagar.", "There's nothing old to delete."),
-      descEstranho: tt("Algo nas Senhas da casa não confere. Peça ajuda pelo 💬.", "Something in the vault doesn't check out. Ask for help with 💬."),
+      descEstranho: tt("Algo nas Senhas da casa não confere. Peça ajuda no ☰ → 💬.", "Something in the vault doesn't check out. Ask for help in ☰ → 💬."),
       descErro: tt("Algo não conferiu. Toque de novo em “Terminar a troca”.", "Something didn't check out. Tap “Finish the change” again."),
       semRedeFim: tt("Para terminar, ligue a internet.", "To finish, turn on the internet."),
       /* C11: os itens que já não abriam (ficaram como estavam na troca) impedem o último passo */
@@ -5486,13 +5568,19 @@ const Giro = {
    ficar sem botão) */
 /* ⚙ → Segurança e aparelhos → Avançado → "🔄 Trocar a chave de segurança da família" (só chefe: quem não é ouve "Só um chefe…") */
 ACT["conta.giro.trocar"] = () => Giro.trocarPelaTela();
+ACT["conta.ajuda"] = (d) => Help.open(d && d.t);   /* revisão T4: "❔ Como funciona" da troca */
 ACT["conta.giro.continuar"] = () => Giro.continuar();
 /* "🧹 Terminar a troca" (apagar as versões antigas, D-E7): só chefe; primeiro o que falta, depois a confirmação e o PIN */
 ACT["conta.giro.descartar"] = () => Giro.descartarPelaTela();
 ACT["conta.giro.assumir"] = async () => {
+  /* revisão T7: um toque só — as duas leituras levam até ~1 min, e o redesenho (Cloud.poll) mantém o botão desligado, dizendo o que faz */
+  if (Giro._assumindo) return;
   const op = await Giro.opDoCartao(); if (!op) return;
-  const b = document.querySelector('[data-act="conta.giro.assumir"]'); if (b) { b.disabled = true; b.textContent = "⏳"; }
-  const r = await Giro.assumir();
+  if (Giro.andando()) return Giro.juntar(op);   /* revisão T1 */
+  Giro._assumindo = true;
+  const b = document.querySelector('[data-act="conta.giro.assumir"]'); if (b) { b.disabled = true; b.textContent = "⏳ " + Giro.T.assumindo; }
+  scheduleRender(true);
+  let r; try { r = await Giro.assumir(); } catch (e) { r = { texto: Giro.T.semRede }; } finally { Giro._assumindo = false; }
   if (r.ok) Giro.iniciar(op).catch(() => {}); else { toast(r.texto, 6000); scheduleRender(true); }
 };
 ACT["conta.giro.desistir"] = async () => {
@@ -6707,7 +6795,7 @@ const TelaConta = {
           : b("conta.pk.ligar", "👆 " + tt("Ligar", "Turn on"))) : "") : "") +
       (window.SolverCofre && SolverCofre.digitalAtiva && SolverCofre.digitalAtiva() ? item("segDigChaves", "👆 " + tt("Digital antiga das chaves de IA", "Old fingerprint of the AI keys"), tt("Quem ligou antes a digital no cofre das chaves de IA pode desligar aqui. As chaves continuam abrindo com o PIN ou com a digital das Senhas da casa.", "If you turned on the fingerprint in the AI key vault before, you can turn it off here. The keys keep opening with the PIN or the home passwords fingerprint."),
         b("conta.dig.chaves", "👆 " + tt("Parar de usar a digital antiga", "Stop using the old fingerprint"))) : "") +
-      item("segComoGuarda", "🔒 " + tt("Como as Senhas da casa ficam guardadas", "How the home passwords are kept"), tt("Elas vão para a internet embaralhadas aqui no aparelho (criptografia de ponta a ponta, com a chave da família): nem a SolverONE lê. Quem abre são os chefes e responsáveis, cada um com a chave dele.", "They go online scrambled here on the device (end-to-end encryption, with the family key): not even SolverONE can read them. Heads and guardians open them, each with their own key.")) +
+      item("segComoGuarda", "🔒 " + tt("Como as Senhas da casa ficam guardadas", "How the home passwords are kept"), tt("Elas vão para a internet embaralhadas aqui no aparelho, com a chave de segurança da família: nem a SolverONE lê. Só os chefes e responsáveis abrem, cada um no aparelho dele, com o PIN ou a digital.", "They go online scrambled here on the device, with the family security key: not even SolverONE can read them. Only heads and guardians open them, each on their own device, with the PIN or fingerprint.")) +
       Giro.botaoHtml(giroSql) +   /* 2.27.0: "🔄 Trocar a chave de segurança da família" (só chefe) */
       (this.podeZero(st) ? item("segZero", "🧹 " + tt("Começar do zero", "Start from scratch"), tt("Só quando não há nenhum outro jeito de usar as Senhas da casa neste " + ap + ": nenhum outro aparelho seu, nem o código antigo, nem outro responsável na família. As Senhas da casa antigas só voltam pelo código de emergência da família ou se outro responsável liberar.", "Only when there is no other way to use the home passwords on this " + ap + ": no other device of yours, no old code and no other guardian in the family. The old home passwords only come back with the family emergency code or if another guardian releases them."),
         b("conta.zero", "🧹 " + tt("Começar do zero", "Start from scratch"), "danger")) :
@@ -12844,7 +12932,7 @@ const HouseViews = {
     const rows = [];
     for (const v of DB.raw("vault").filter((x) => x.id !== "_meta" && x.id !== "_em" && (isGuardian() || Cofre.aberto()))) { try { const o = await Vault.decObj(v.enc); rows.push({ v, o }); } catch (e) {} }
     rows.sort((a, b) => String(a.o.title).localeCompare(b.o.title));
-    box.innerHTML = rows.length ? rows.map(({ v, o }) => { const k = vtKind(v.kind); return '<div class="li click" data-act="' + (isGuardian() ? "vault.edit" : "vault.ver") + '" data-id="' + v.id + '"><div class="ico">' + k[1] + '</div><div class="main"><div class="t">' + esc(o.title) + '</div><div class="s">' + esc([k[2], o.company, o.login, o.valid ? tt("validade ", "valid ") + fmtDate(o.valid) : ""].filter(Boolean).join(" · ")) + "</div></div>" + ((v.files || []).length ? "📎" : "") + "</div>"; }).join("") : '<div class="empty tiny">' + tt("Ainda não tem nada guardado. Toque em ＋ Guardar — por exemplo, para a senha do Wi-Fi.", "Nothing saved yet. Tap ＋ Add — for example, for the Wi-Fi password.") + "</div>";
+    box.innerHTML = rows.length ? rows.map(({ v, o }) => { const k = vtKind(v.kind); return '<div class="li click" data-act="' + (isGuardian() ? "vault.edit" : "vault.ver") + '" data-id="' + v.id + '"><div class="ico">' + k[1] + '</div><div class="main"><div class="t">' + esc(o.title) + '</div><div class="s">' + esc([k[2], o.company, o.login, o.valid ? tt("validade ", "valid ") + fmtDate(o.valid) : ""].filter(Boolean).join(" · ")) + "</div></div>" + ((v.files || []).length ? "📎" : "") + "</div>"; }).join("") : '<div class="empty tiny">' + (Cofre.usa() && Cofre.aberto() && Cofre.desatualizado ? Cofre.T().vazia(Cofre.desatualizado) : tt("Ainda não tem nada guardado. Toque em ＋ Guardar — por exemplo, para a senha do Wi-Fi.", "Nothing saved yet. Tap ＋ Add — for example, for the Wi-Fi password.")) + "</div>";   /* revisão T2 */
   },
   guides() {
     const gs = DB.all("guides");
@@ -13002,7 +13090,8 @@ async function editVault(v, kindNovo) {
   const doc = Object.assign({}, v || {}, { kind, enc: await Vault.encObj(payload), files, vis: "restrito" });
   await DB.put("vault", doc); render();
 }
-ACT["vault.new"] = async () => { const k = await escolherTipoCofre(); if (k) editVault(null, k); };
+/* revisão T2: confere antes de escolher o tipo (no meio da troca ou num aparelho que não acompanhou, diz já o que resolve) */
+ACT["vault.new"] = async () => { const pm = Cofre.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000); const k = await escolherTipoCofre(); if (k) editVault(null, k); };
 ACT["vault.edit"] = (d) => { const v = DB.get("vault", d.id); if (v) editVault(v); };
 /* contato de emergência: só vê (o banco não deixa mudar o cofre) */
 ACT["vault.ver"] = async (d) => {
@@ -14811,6 +14900,17 @@ const HELP = () => ({
     tt("<b>Duas casas</b> (pais separados): calendário de guarda, despesas divididas com comprovante e registro de combinados que não se apaga.", "<b>Two homes</b> (separated parents): custody calendar, split expenses with receipts and an agreements log that can't be deleted."),
     tt("<b>Quem cuida de cada área:</b> divida Compras, Saúde, Casa… entre os adultos; o nome aparece no topo da área.", "<b>Who looks after each area:</b> split Shopping, Health, Home… among the adults; their name shows at the top of the area.")
   ], note: tt("Na nuvem, quem garante as partes de segurança é o próprio banco da plataforma (funções e regras de acesso), não a tela: não dá para burlar mexendo no app.", "In the cloud, the platform database itself (functions and access rules) enforces the security parts, not the screen: tampering with the app doesn't get around them.") },
+  /* revisão T4 (2.27.0): a troca da chave de segurança, passo a passo para leigo (a ordem é a D-E11) */
+  "chave-seguranca": { t: "🔄 " + tt("Trocar a chave de segurança da família", "Change the family security key"), steps: [
+    tt("<b>O que é:</b> as Senhas da casa ficam trancadas por um cadeado da família. Trocar a chave de segurança troca esse cadeado por um novo. As senhas continuam as mesmas. Só um chefe da família faz isso.", "<b>What it is:</b> the home passwords are locked by a family lock. Changing the security key swaps that lock for a new one. The passwords stay the same. Only a family head does this."),
+    tt("<b>Quando fazer:</b> antes de convidar uma pessoa nova para a família, ou se alguém de fora pode ter visto o cadeado antigo.", "<b>When:</b> before inviting a new person into the family, or if someone outside may have seen the old lock."),
+    tt("<b>Antes, nesta ordem:</b> 1) atualize o OmniLifeONE e abra em todos os aparelhos da família (os seus e os dos outros chefes e responsáveis); 2) espere o MoneyTRIO terminar a preparação da família; 3) fique com internet (de preferência Wi-Fi) e com o aparelho na tomada.", "<b>Before, in this order:</b> 1) update OmniLifeONE and open it on every family device (yours and the other heads' and guardians'); 2) wait for MoneyTRIO to finish preparing the family; 3) stay online (Wi-Fi if possible) with the device plugged in."),
+    tt("<b>Onde fica:</b> ⚙ → Segurança e aparelhos → ⚙️ Avançado → <b>🔄 Trocar a chave de segurança da família</b>. Marque os itens, digite TROCAR e o PIN. Se tiver o código de emergência à mão, digite: ele continua valendo.", "<b>Where:</b> ⚙ → Security and devices → ⚙️ Advanced → <b>🔄 Change the family security key</b>. Check the items, type CHANGE and the PIN. If you have the emergency code at hand, type it: it keeps working."),
+    tt("<b>Enquanto troca:</b> a pílula embaixo mostra o andamento. Dá para usar outras telas, mas não feche o app. Se parar no meio (sem internet, app fechado), nada se perde: nas Senhas da casa aparece <b>“A troca ficou pela metade… Continuar”</b> (ou toque em ↻ na pílula).", "<b>While it changes:</b> the pill at the bottom shows the progress. You can use other screens, but don't close the app. If it stops halfway (no internet, app closed), nothing is lost: Home passwords shows <b>“The change stopped halfway… Continue”</b> (or tap ↻ on the pill)."),
+    tt("<b>No fim:</b> se aparecer <b>“Falta um passo”</b>, toque em <b>🆘 Fazer o código novo</b> e entregue o código novo à sua pessoa de confiança (o antigo não vale mais). Faça também uma cópia protegida nova.", "<b>At the end:</b> if you see <b>“One step left”</b>, tap <b>🆘 Make the new code</b> and hand the new code to your trusted person (the old one no longer works). Also make a new protected copy."),
+    tt("<b>Depois:</b> abra as Senhas da casa nos outros aparelhos da família e abra o MoneyTRIO. Um aparelho que entrou aprovado pela família precisa ser aprovado de novo (o app mostra o botão).", "<b>Afterwards:</b> open the home passwords on the other family devices and open MoneyTRIO. A device that joined approved by the family needs to be approved again (the app shows the button)."),
+    tt("<b>Por último, “Terminar a troca”:</b> quando todos já abriram, toque em <b>🧹 Terminar a troca</b> (nas Senhas da casa ou em ⚙ → Segurança e aparelhos → Avançado). Ela apaga a versão antiga de vez. Só então convide a pessoa nova.", "<b>Last, “Finish the change”:</b> once everyone has opened it, tap <b>🧹 Finish the change</b> (in Home passwords or in ⚙ → Security and devices → Advanced). It deletes the old version for good. Only then invite the new person.")
+  ], note: tt("Se aparecer “Ainda não dá para terminar”, a janela diz o que falta. Na dúvida, peça ajuda no ☰ → 💬.", "If you see “You can't finish yet”, the window says what's missing. When in doubt, ask for help in ☰ → 💬.") },
   "novo-endereco": { t: "📦 " + tt("Trazer os dados do endereço antigo", "Bring data from the old address"), steps: [
     tt("O OmniLifeONE agora fica em <b>" + SITE_DOMAIN + "</b>. Quem usa a <b>nuvem</b> (Google/e-mail) não precisa fazer nada: é só entrar de novo.", "OmniLifeONE now lives at <b>" + SITE_DOMAIN + "</b>. If you use the <b>cloud</b> (Google/e-mail), there's nothing to do: just sign in again."),
     tt("Quem usava <b>só neste aparelho</b>: o navegador guarda os dados separados por endereço. Você precisa do arquivo de backup (<b>OmniLifeONE-backup-….json</b>) feito no endereço antigo em Configurações → Dados → Exportar.", "If you used <b>this device only</b>: the browser keeps data separate per address. You need the backup file (<b>OmniLifeONE-backup-….json</b>) made at the old address in Settings → Data → Export."),
@@ -15257,7 +15357,7 @@ const AOne = {
   },
   helpHere() {
     const t = S.route.tab, sub = S.route.sub || "";
-    const k = { inbox: "inbox", family: "familia", security: "cheguei", home: "assistone" }[t] || (t === "settings" && sub === "alerts" ? "alertas" : t === "agenda" && sub === "escola" ? "escola" : null);
+    const k = { inbox: "inbox", family: "familia", security: "cheguei", home: "assistone" }[t] || (t === "settings" && sub === "alerts" ? "alertas" : t === "settings" && sub === "conta" ? "chave-seguranca" : t === "agenda" && sub === "escola" ? "escola" : null);
     Help.open(k && HELP()[k] ? k : null);
   },
   /* ---- busca dentro do balão (mesmo índice da 🔎) ---- */

@@ -247,8 +247,13 @@ sem framework: HTML, CSS e JavaScript puros.
     R4; app escondido 30 s, `pagehide`, "Bloquear agora" e Sair trancam) →
     `Giro.parar` para no fim da linha com "Parou porque as Senhas fecharam…"; ao abrir pelo PIN, o cartão "Continuar" (`Giro.cartao`,
     nas Senhas da casa e no Avançado; não depende da pílula). Sem internet: "Esperando a internet…" e segue sozinha. **Prazo**:
-    cada chamada da troca tem `Giro.PRAZO_MS` (30 s) — rede pendurada vira "Parou sem internet…" com "Tentar de novo" (tudo é CAS e
-    idempotente). **Assumir** (`Giro.assumir`): outro aparelho do MESMO chefe, com a chave pessoal, depois de `PARADO_MS` sem
+    cada chamada da troca tem `Giro.PRAZO_MS` (30 s) — rede pendurada vira "Parou sem internet. Toque em ↻…" (tudo é CAS e
+    idempotente). Todo texto que a troca lança tem menos de 80 caracteres (a pílula só mostra o motivo assim; revisão de telas T3).
+    **Revisão de telas (T1):** o `_rodar` redesenha ao começar (o ↻ da pílula chama o `executar` sem passar pelo `iniciar`) e o
+    cartão some com a troca andando (`Giro.andando`: rodando aqui ou o trabalho `giro-<gid>` ativo no Fundo); "Continuar" de um
+    cartão que ficou na tela não começa outra: `Giro.juntar` entrega o código de emergência à troca que anda (antes do passo dele,
+    `ctx.emLido`) ou avisa que ele já passou (no fim, o código novo). "Continuar neste aparelho" fica desligado, dizendo que está
+    conferindo, durante as duas leituras (`Giro._assumindo`, revisão T7). **Assumir** (`Giro.assumir`): outro aparelho do MESMO chefe, com a chave pessoal, depois de `PARADO_MS` sem
     notícia e de duas leituras iguais com 20 s entre elas; continua com a MESMA nova (do `prox`, do envelope ou de
     `sol_minha_chave_grupo`, onde ela já está desde o F4 — C5). Quem perdeu a vez guarda a nova dele em `velhas` (C1). **Outro chefe**
     (revisão S2, D-E8): a troca de OUTRO chefe que já passou do "preparado" e está sem notícia há mais de `Giro.OUTRO_MS` (1 h,
@@ -274,7 +279,13 @@ sem framework: HTML, CSS e JavaScript puros.
     falta (para leigo) antes de confirmar; "Entendi", TROCAR e o PIN; `sol_descartar_chaves_antigas(p_grupo, p_ate_versao = maior
     − 1)`; `descartar:ponte` → marca de novo e tenta uma vez (C10); `descartar:giro` com a troca "feito" no banco → regrava a troca
     (CAS) e tenta uma vez (C9); depois `anotarDescarte` (`descarte {ate, em, fk}`, CAS) e `Cloud.audit("cofre.descartado")`. Itens
-    que não abrem impedem: "Apagar os itens que não abrem" (só com o PIN; nunca uma linha de chave desconhecida).
+    que não abrem impedem: "Apagar os itens que não abrem" (só com o PIN; nunca uma linha de chave desconhecida); quando só eles estão
+    fora, a lista não manda "esperar 1 minuto" (revisão T12). Depois do PIN, "⏳ Terminando…" até a resposta (`Giro._terminando`, T8).
+    Enquanto falta terminar, o chefe vê nas Senhas da casa o lembrete "Falta terminar a troca de segurança" com o botão
+    (`Giro.lembrete`), o "Trocar…" de novo fica em segundo plano no Avançado e o fim diz onde o botão fica (revisão T9).
+    **Ajuda** (revisão T4): o tópico `HELP["chave-seguranca"]` (o que é, a ordem D-E11, Continuar, o código novo, "Terminar a troca"
+    e onde ficam), na busca 🔎, no ❓ do AssistONE em ⚙ → Segurança e aparelhos e no "❔ Como funciona" do botão, da confirmação e do fim
+    (`ACT["conta.ajuda"]`: `conta.*`, não some com os interruptores, como os outros botões da página).
     **Soltar as de antes** (`Giro.soltarVelhas`, na abertura pelo PIN/digital e logo depois do descarte): só com o descarte desta
     chave no registro DO BANCO e quando nada daqui precisa dela (nenhuma linha na fila ou no banco local, nenhum anexo — um anexo
     ainda nela vai para a nova pelo `Giro.arrumarAparelho` e solta na próxima abertura).
@@ -282,7 +293,8 @@ sem framework: HTML, CSS e JavaScript puros.
     `olharRegistro` —, com 300 ms de folga: numa rede lenta abre com a que tem e adota quando ele chega), `Cofre.adotar` (a de antes
     vai para `velhas`, o `prox` de outra troca fica), `Cofre.comChaveDoAparelho` (ao abrir) e `Cofre.conferirAoVivo` (no
     `Cloud.poll`, sem PIN, aviso "🔐 As Senhas da casa foram atualizadas neste …"). Sem a chave pessoal (aprovado pela família):
-    `Cofre.desatualizado = "semChave"` → cartão "precisa ser aprovado de novo" com o botão; reaprovado, o `montar` leva as de antes e
+    `Cofre.desatualizado = "semChave"` → cartão "precisa ser aprovado de novo" com o botão (desatualizado, a lista vazia diz que as
+    senhas continuam guardadas e quando voltam, e o "＋ Guardar" fica desligado — revisão T2); reaprovado, o `montar` leva as de antes e
     o `prox` (`levarVelha`, C8). Depois de adotar, `Giro.arrumarAparelho` passa os anexos deste aparelho para a nova (no Fundo).
     **Troca de outro aparelho pela metade** (revisão D2): depois do "preparado" a nova já está em `sol_minha_chave_grupo` para cada
     chefe e responsável (C5); `Giro.abrirNova` (no `Cloud.poll` e ao abrir) a põe no chaveiro só para ABRIR — o que a troca já passou
@@ -300,8 +312,8 @@ sem framework: HTML, CSS e JavaScript puros.
     fila só anda para a frente; `settings/giro` nunca pela fila; `settings/cofre|giro` não se apagam pela fila); `Aparelhos.carga`
     "família" (`podeFamilia`; troca em curso → "Espere a troca de segurança terminar…", ou, parada, "…parou no meio. Só dá para aprovar
     depois que um chefe terminar a troca." — revisão R2; chave que não é a do registro do banco → o texto que resolve ali,
-    `Cofre.velhoTexto`: "precisa ser aprovado de novo" sem a chave pessoal, "Falta um chefe abrir…", "não confere", ou "Este aparelho
-    ainda está com a versão antiga… Abra pelo PIN" só para quem tem a chave pessoal e ainda não viu a nova — revisão R3; sem resposta
+    `Cofre.velhoTexto`: "precisa ser aprovado de novo" sem a chave pessoal, "Falta um chefe ou responsável abrir…" (revisão T15),
+    "não confere" (o cartão com o 💬, T17), ou "Este aparelho ainda está com a versão antiga… Abra pelo PIN" só para quem tem a chave pessoal e ainda não viu a nova — revisão R3; sem resposta
     → não entrega); `Aparelhos.receber` (carga com chave velha não monta:
     "O aparelho que aprovou estava com a versão antiga…"); `Cofre.podeMudar` + `selar` (troca viva ou chave daqui atrasada → nada se
     fecha, com o mesmo `Cofre.velhoTexto` — revisão R3; `editVault`, `Cofre.envelope`, `trazerLegado`, `Cars.edit` ao ABRIR — C14); o **reseal** no envio
