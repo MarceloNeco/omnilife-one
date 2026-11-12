@@ -2092,7 +2092,7 @@ const CloudDriver = {
   },
   sel: "id,vis,dados,dados_cifrado,versao,atualizado_em,atualizado_por,apagado_em",
   url(col, id) { return "omni_docs?grupo_id=eq." + this.gid + "&colecao=eq." + encodeURIComponent(col) + "&id=eq." + encodeURIComponent(id); },
-  async linha(col, id) { const r = await Conta.rest("GET", this.url(col, id) + "&select=" + this.sel); return (r && r[0]) || null; },
+  async linha(col, id, prazo) { const r = await Conta.rest("GET", this.url(col, id) + "&select=" + this.sel, undefined, undefined, prazo); return (r && r[0]) || null; },
   paraServidor(col, doc) {
     const d = JSON.parse(JSON.stringify(doc)); delete d.id; (NUVEM_SO_AQUI[col] || []).forEach((f) => delete d[f]);
     return { vis: d.vis === "restrito" ? "restrito" : "publico", dados: d };
@@ -2198,6 +2198,15 @@ const CloudDriver = {
       if (l.apagado_em || l.dados_cifrado === rec.baseCif) { await this.guardar(key, Object.assign({}, rec, { versao: l.versao })); continue; }
       /* 2.27.0: lá, o mesmo item só mudou de cadeado (a troca da chave fechou o mesmo conteúdo com a nova): não é conflito */
       if (await Cofre.mesmoConteudo(l.dados_cifrado, rec.baseCif)) { await this.guardar(key, Object.assign({}, rec, { versao: l.versao, baseCif: l.dados_cifrado })); continue; }
+      /* 2.27.0: o código de emergência é um só — vale o feito por último ("o anterior deixa de valer"); nunca vira um item a mais.
+         Só chega aqui fechado com a chave do registro (o cadeadoDoBanco segura o da chave de antes) */
+      if (id === "_em") {
+        const feitoEm = (cif) => { try { return String(JSON.parse(cif).d.at || ""); } catch (e) { return ""; } };
+        if (feitoEm(rec.cif) >= feitoEm(l.dados_cifrado)) { await this.guardar(key, Object.assign({}, rec, { versao: l.versao, baseCif: l.dados_cifrado })); continue; }
+        await this.aceitarCofre(id, l, true);
+        toast("🆘 " + tt("Outro chefe fez um código de emergência mais novo: vale o dele.", "Another head made a newer emergency code: theirs is the one that works."), 7000);
+        return;
+      }
       const novo = uid("v");
       await this.guardar("vault|" + novo, { cif: rec.cif });
       const d = await Cofre.abrir(novo, rec.cif); if (d) DB.col("vault").set(novo, d);
@@ -3755,9 +3764,9 @@ const Cofre = {
   /* a chave da família embrulhada para mim. reg (o registro do banco; sem ele, a cópia daqui) diz qual vale: com reg.fk, só a
      desse fk e nunca com a kv abaixo da dele (C4); sem registro, qualquer uma. Entre as que valem, a de kv maior (empate: a
      primeira, a de versão maior), como o MoneyTRIO. Os bytes das que não ficaram zeram. {raw, kv, fk} | null */
-  async buscarMinha(sk, reg) {
+  async buscarMinha(sk, reg, prazo) {
     if (reg === undefined) reg = this.registro();
-    const rows = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: S.family.id });
+    const rows = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: S.family.id }, prazo);
     let melhor = null;
     for (const r of Array.isArray(rows) ? rows : []) {   /* os testes que trocam o Conta.rpc devolvem texto */
       let k; try { k = await this.desembrulhar(sk, r.chave_embrulhada); } catch (e) { continue; }
@@ -4067,6 +4076,7 @@ const Cofre = {
     const pm = this.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);   /* o código novo nunca fecha a chave velha */
     const code = Cloud.newCode(16).replace(/(.{4})(?=.)/g, "$1-"), sal = b64FromBuf(this.rnd(16));
     const em = Object.assign({ sal, iter: COFRE_ITER, kv: this.kv, fk: this.fk }, await this.cifrar(await this.kdf(code.replace(/-/g, ""), sal, COFRE_ITER), this.vfRaw));
+    CloudDriver.adiado.delete("vault|_em");   /* 2.27.0: um código feito com a chave de antes esperava na fila (C2): este fica no lugar e sobe já */
     await DB.put("vault", { id: "_em", em, at: new Date().toISOString(), vis: "restrito" });
     Cloud.audit("emergencia.codigo", Cloud.myName());
     return code;
@@ -4074,6 +4084,19 @@ const Cofre = {
   async abrirComCodigo(code) {
     const env = DB.col("vault").get("_em"); if (!env || !env.em) return false;
     try { const raw = await this.decifrar(await this.kdf(String(code).replace(/[\s-]/g, "").toUpperCase(), env.em.sal, env.em.iter), env.em); await this.usarChave(raw, env.em.kv, env.em.fk); return true; } catch (e) { return false; }
+  },
+  /* 2.27.0 (Parte E, D-E4): o código de emergência abre este envelope? Só confere — NÃO abre as Senhas da casa (sem usarChave).
+     Mesma limpeza do abrirComCodigo (sem espaços nem traços, maiúsculas). em = o envelope (padrão: o daqui); fk = a chave que ele
+     tem de guardar (padrão: a de agora; a troca passa a de antes). Os bytes da chave que ele guarda (quem chama zera) | null */
+  async conferirCodigo(code, em, fk) {
+    em = em || (DB.col("vault").get("_em") || {}).em; fk = fk === undefined ? this.fk : fk;
+    if (!code || !em || !em.sal || em.fk !== fk) return null;
+    try { return await this.decifrar(await this.kdf(String(code).replace(/[\s-]/g, "").toUpperCase(), em.sal, em.iter), em); } catch (e) { return null; }
+  },
+  /* o MESMO código fechando outra chave (a nova da troca): o contato continua abrindo com o papel que já tem. Sal novo */
+  async envelopeCom(code, raw, kv, fk) {
+    const sal = b64FromBuf(this.rnd(16));
+    return Object.assign({ sal, iter: COFRE_ITER, kv, fk }, await this.cifrar(await this.kdf(String(code).replace(/[\s-]/g, "").toUpperCase(), sal, COFRE_ITER), raw));
   },
   /* ---------- cofre antigo (senha mestra, de antes da 2.15.0) ---------- */
   legado() {
@@ -4198,7 +4221,7 @@ const Cofre = {
     }
     /* aberto */
     const trocar = st.trocarPin || (!st.ligadoPin && !st.srv && !st.pinVersao);
-    return Giro.cartao() + this.cartaoDesatualizado() + '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
+    return Giro.cartao() + this.cartaoDesatualizado() + Giro.cartaoCodigo() + '<div class="card"><div class="between"><h3>🔓 ' + tt("Senhas da casa", "Home passwords") + '</h3><div class="row"><button class="btn sm" data-act="vault.new">＋ ' + tt("Guardar", "Add") + "</button>" + TelaConta.botaoBloquear() + '</div></div><div id="vlist" class="list"><div class="empty tiny">…</div></div><p class="tiny faint" style="margin-top:8px">🔒 ' + tt("Fecha sozinho depois de 5 minutos parado e quando você sai do aplicativo.", "It closes by itself after 5 minutes idle and when you leave the app.") + " " + guia + "</p></div>" +
       (st.criarPin ? '<div class="card tight"><p class="small">🔢 ' + tt("Falta criar o PIN da sua conta SolverONE: um PIN só, para todos os seus aparelhos e apps (OmniLifeONE, MoneyTRIO e os próximos).", "Your SolverONE account PIN is still missing: one PIN for all your devices and apps (OmniLifeONE, MoneyTRIO and the next ones).") + '</p><button class="btn sm" data-act="conta.pin.criar">🔢 ' + tt("Criar o PIN da conta", "Create the account PIN") + "</button></div>" : "") +
       (this.temLegado() ? '<div class="card warnc"><h3>📦 ' + tt("Senhas antigas neste aparelho", "Old vault on this device") + '</h3><p class="small">' + tt("Este aparelho ainda tem itens do cofre antigo (o que abria com a senha mestra). Traga para cá: assim eles aparecem em todos os aparelhos da família.", "This device still has items from the old vault (the one opened with the master password). Bring them into this vault so they show up on every family device.") + '</p><button class="btn sm" data-act="cofre.legado">⬆️ ' + tt("Trazer as senhas antigas", "Bring the old vault") + "</button></div>" : "") +
       '<details class="card tight"><summary class="grouph">⚙️ ' + tt("Opções deste " + apN(), "Vault options on this " + apN()) + '</summary><div class="row" style="margin-top:8px">' + (st.prf ? '<button class="btn ghost sm" data-act="cofre.semdigital">👆 ' + tt("Parar de usar a digital", "Stop using fingerprint") + "</button>" : '<button class="btn ghost sm" data-act="cofre.comdigital">👆 ' + tt("Abrir também com a digital", "Also open with fingerprint") + "</button>") + (trocar ? '<button class="btn ghost sm" data-act="conta.pin.trocar">🔢 ' + tt("Trocar o PIN", "Change PIN") + "</button>" : "") + '<button class="btn ghost sm" data-act="go" data-tab="settings" data-sub="conta">🔐 ' + tt("Segurança e aparelhos", "Security and devices") + "</button></div></details>";   /* o kit e o "Tirar este aparelho" ficam lá, em Avançado */
@@ -4238,6 +4261,7 @@ const Giro = {
   REDE_MS: 3000,         /* sem internet: depois que ela volta, espera isso antes de tentar de novo (gancho dos testes) */
   ASSUMIR_MS: 20e3,      /* assumir em outro aparelho: o tempo entre as duas leituras que provam que a troca está parada */
   ESQUECIDO_MS: 24 * 3600e3,   /* C16: "preparado" sem notícia há mais que isso = esquecido */
+  PRAZO_MS: 30e3,        /* cada chamada ao banco: sem resposta até lá = rede pendurada (vira "Parou sem internet…", com Tentar de novo) */
   rodando: false,        /* este aparelho está fazendo a troca agora: aí só ela muda a chave daqui */
   /* os dados da troca de uma linha do banco ({vis, dados, atualizado_em, apagado_em}). Só vale a "restrito" (C9: um adulto
      comum cria settings como "publico"; uma troca falsa não pode travar a família) */
@@ -4273,8 +4297,8 @@ const Giro = {
   async gravarDoc(row, dados) {
     const corpo = { vis: "restrito", dados: Object.assign({}, dados, { v: 1, vis: "restrito", batida: new Date().toISOString() }) };
     let r;
-    if (row) r = await Conta.rest("PATCH", CloudDriver.url("settings", "giro") + "&versao=eq." + row.versao, Object.assign({ apagado_em: null }, corpo), "return=representation");
-    else { try { r = await Conta.rest("POST", "omni_docs", Object.assign({ grupo_id: S.family.id, colecao: "settings", id: "giro" }, corpo), "return=representation"); } catch (e) { if (e.status === 409) return null; throw e; } }
+    if (row) r = await Conta.rest("PATCH", CloudDriver.url("settings", "giro") + "&versao=eq." + row.versao, Object.assign({ apagado_em: null }, corpo), "return=representation", this.PRAZO_MS);
+    else { try { r = await Conta.rest("POST", "omni_docs", Object.assign({ grupo_id: S.family.id, colecao: "settings", id: "giro" }, corpo), "return=representation", this.PRAZO_MS); } catch (e) { if (e.status === 409) return null; throw e; } }
     const l = r && r[0]; if (!l) return null;
     await CloudDriver.aceitar("settings", "giro", l, true);
     return l;
@@ -4299,18 +4323,18 @@ const Giro = {
     if (this.emCurso(b.giro)) return this.ehDaqui(b.g, L) ? { motivo: "continuar", texto: T.continuar, b } : { motivo: "trocando", texto: this.jaTrocando(b.g), b };
     /* só a partir da chave do registro (um aparelho que ficou para trás não troca) */
     if (!b.reg || !b.cofre || b.cofre.apagado_em || b.reg.fk !== Cofre.fk || +b.reg.kv !== +Cofre.kv) return { motivo: "velho", texto: T.velho };
-    let s; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: S.family.id }); }
+    let s; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: S.family.id }, this.PRAZO_MS); }
     catch (e) { return e.status === 404 || e.code === "PGRST202" ? { motivo: "semSql", texto: T.semSql } : { motivo: "rede", texto: T.semRede }; }
     if (!s || s.money_migrado === false || +s.money_cf > 0) return { motivo: "money", texto: T.moneyFalta };
     /* linha viva fora da chave do registro = existe uma segunda chave, ou lixo: não troca (R12) */
     if (+s.vault_fora > 0) return { motivo: "estranho", texto: T.estranho };
-    return { ok: true, b, ponte: +s.ponte_pendentes || 0, naoAbrem: await this.naoAbrem(), temEm: !!DB.col("vault").get("_em") };
+    return { ok: true, b, ponte: await this.pontePendentes(s), naoAbrem: await this.naoAbrem(), temEm: !!DB.col("vault").get("_em") };
   },
   /* as linhas vivas das Senhas da casa no banco (sem as apagadas: D-E6, ninguém mexe no que já está apagado) */
   async linhasVault() {
     let out = [];
     for (let off = 0; ; off += 1000) {
-      const r = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.vault&apagado_em=is.null&select=id,dados_cifrado,versao,apagado_em&order=id.asc&limit=1000&offset=" + off);
+      const r = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.vault&apagado_em=is.null&select=id,dados_cifrado,versao,apagado_em&order=id.asc&limit=1000&offset=" + off, undefined, undefined, this.PRAZO_MS);
       out = out.concat(r || []); if (!r || r.length < 1000) return out;
     }
   },
@@ -4362,8 +4386,16 @@ const Giro = {
       if (e.giro) throw e;
       console.warn("troca:", e && e.message);
       throw this.erro(!navigator.onLine || !e.status ? this.T.erroRede : this.T.erroConferir, !navigator.onLine || !e.status ? "rede" : "banco");
-    } finally { this.rodando = false; zerar(); ctx.dukRaw = null; }
+    } finally {
+      this.rodando = false; zerar(); ctx.dukRaw = null;
+      /* passou do código de emergência (ou continuou depois dele): o código digitado não serve mais para nada aqui */
+      if (ctx.g && !this.antesDoCodigo(ctx.g.estado)) this.esquecerCodigo(ctx);
+    }
   },
+  /* C16: o código de emergência digitado só vive no op (o "Tentar de novo" do Fundo guarda o op: sem isto ele ficaria na memória
+     até recarregar). Nunca vai para o banco, o aparelho, o histórico nem o console */
+  esquecerCodigo(ctx) { if (ctx.op && "codigoEm" in ctx.op) delete ctx.op.codigoEm; },
+  antesDoCodigo(estado) { return ["preparado", "entregando", "recifrando", "emergencia"].includes(estado); },
   /* espera a internet voltar (e mais um pouco, para ela firmar). Para na hora se as Senhas fecharem ou o Fundo cortar (pausa) */
   async esperarRede(ctx) {
     ctx.andamento(null, this.T.esperandoRede);
@@ -4395,7 +4427,7 @@ const Giro = {
       if (e === "preparado") { if (!(await this.guardarProx(ctx))) throw this.erro(T.erroConferir, "prox"); await this.gravar(ctx, { estado: "entregando" }); }
       else if (e === "entregando") { await this.entregar(ctx); await this.gravar(ctx, { estado: "recifrando" }); }
       else if (e === "recifrando") { const r = await this.recifrar(ctx); await this.gravar(ctx, Object.assign({ estado: "emergencia" }, r)); }
-      else if (e === "emergencia") { const em = await this.emergencia(ctx); await this.gravar(ctx, { estado: "virando", em }); }
+      else if (e === "emergencia") { const em = await this.emergencia(ctx); this.esquecerCodigo(ctx); await this.gravar(ctx, { estado: "virando", em }); }
       else if (e === "virando") { await this.virar(ctx); await this.gravar(ctx, { estado: "conferindo" }); }
       else if (e === "conferindo") return this.terminar(ctx, await this.conferirAte(ctx));
       else break;
@@ -4416,7 +4448,7 @@ const Giro = {
      dele). Só segue com as duas gravações confirmadas; nenhuma linha mexida aqui */
   async preparar(ctx, b) {
     const T = this.T, kvs = [+(b.reg && b.reg.kv) || 0, +Cofre.kv || 0, +(b.g && b.g.para && b.g.para.kv) || 0];
-    const minhas = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: ctx.gid });
+    const minhas = await Conta.rpc("sol_minha_chave_grupo", { p_grupo: ctx.gid }, this.PRAZO_MS);
     for (const r of Array.isArray(minhas) ? minhas : []) {
       try { const k = await Cofre.desembrulhar(ctx.sk, r.chave_embrulhada); kvs.push(+k.kv || 0); k.raw.fill(0); } catch (e) {}
     }
@@ -4425,7 +4457,7 @@ const Giro = {
     ctx.de = { kv: Cofre.kv, fk: Cofre.fk, vf: Cofre.vf };
     /* a nova também vai, fechada, para cada chefe: quem continuar em outro aparelho dele acha ela aqui */
     const envelopes = {};
-    for (const p of (await Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: ctx.gid })) || []) {
+    for (const p of (await Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: ctx.gid }, this.PRAZO_MS)) || []) {
       if (p.papel === "chefe" && p.chave_publica && p.chave_publica.kid) envelopes[p.user_id] = await Cofre.embrulhar(p.chave_publica, ctx.para.raw, para.kv, para.fk);
     }
     let minha = null; try { minha = envelopes[ctx.uid] ? await Cofre.desembrulhar(ctx.sk, envelopes[ctx.uid]) : null; } catch (e) {}
@@ -4466,7 +4498,7 @@ const Giro = {
     if (!raw && g.envelopes && g.envelopes[ctx.uid]) {
       try { const k = await Cofre.desembrulhar(ctx.sk, g.envelopes[ctx.uid]); if (k.fk === g.para.fk && +k.kv === +g.para.kv) raw = k.raw; else k.raw.fill(0); } catch (e) {}
     }
-    if (!raw) { const r = await Cofre.buscarMinha(ctx.sk, { fk: g.para.fk, kv: g.para.kv }); if (r && +r.kv === +g.para.kv) raw = r.raw; else if (r) r.raw.fill(0); }
+    if (!raw) { const r = await Cofre.buscarMinha(ctx.sk, { fk: g.para.fk, kv: g.para.kv }, this.PRAZO_MS); if (r && +r.kv === +g.para.kv) raw = r.raw; else if (r) r.raw.fill(0); }
     if (!raw) throw this.erro(T.erroOutroAp, "outroAp");
     ctx.para = await this.chave(raw, { kv: +g.para.kv, fk: g.para.fk });
     const vf = g.de && Cofre.chaveDe(g.de.fk);
@@ -4503,7 +4535,7 @@ const Giro = {
      versão seguinte à maior que a pessoa tem. Quem já recebeu (mesma chave pessoal) pula; cada entrega fica anotada na troca */
   async entregar(ctx) {
     ctx.andamento(0.05, this.T.avisando);
-    const reg = (ctx.cofre && ctx.cofre.dados) || {}, todas = () => Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: ctx.gid });
+    const reg = (ctx.cofre && ctx.cofre.dados) || {}, todas = () => Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: ctx.gid }, this.PRAZO_MS);
     for (const p0 of (await todas()) || []) {
       if (!["chefe", "responsavel"].includes(p0.papel) || !p0.chave_publica || !p0.chave_publica.kid) continue;
       const ja = (ctx.g.entregues || {})[p0.user_id]; if (ja && ja.kid === p0.chave_publica.kid) continue;
@@ -4512,7 +4544,7 @@ const Giro = {
       for (let vez = 0; vez < 3 && !ok && p && p.chave_publica; vez++) {
         const m = (reg.membros || {})[p.user_id];
         seq = Math.max(+p.ultima_versao || 0, (m && +m.seq) || 0, (ja && +ja.seq) || 0, seq) + 1;
-        ok = (await Conta.rpc("sol_guardar_chave_grupo", { p_grupo: ctx.gid, p_user: p.user_id, p_versao: seq, p_chave_embrulhada: await Cofre.embrulhar(p.chave_publica, ctx.para.raw, ctx.para.kv, ctx.para.fk) })) !== false;
+        ok = (await Conta.rpc("sol_guardar_chave_grupo", { p_grupo: ctx.gid, p_user: p.user_id, p_versao: seq, p_chave_embrulhada: await Cofre.embrulhar(p.chave_publica, ctx.para.raw, ctx.para.kv, ctx.para.fk) }, this.PRAZO_MS)) !== false;
         if (!ok) p = ((await todas()) || []).find((x) => x.user_id === p.user_id);   /* essa versão já existe: relê a maior */
       }
       if (!ok) throw this.erro(this.T.erroConferir, "entregar");
@@ -4554,24 +4586,32 @@ const Giro = {
       /* C11: uma parte interna que já não abria não para a troca: muda só o selo, e o item conta à parte */
       if (doc.enc) { try { doc.enc = await Vault.encStr(await Vault.decStr(doc.enc, k), para.vf); } catch (e) { (ctx.semInterna || (ctx.semInterna = new Set())).add(row.id); } }
       const novo = JSON.stringify(Object.assign({ c: 1, kv: para.kv, fk: para.fk }, await Cofre.cifrar(para.vf, new TextEncoder().encode(JSON.stringify(doc)))));
-      const r = await Conta.rest("PATCH", CloudDriver.url("vault", row.id) + "&versao=eq." + row.versao + "&apagado_em=is.null", { dados_cifrado: novo }, "return=representation");
+      const r = await Conta.rest("PATCH", CloudDriver.url("vault", row.id) + "&versao=eq." + row.versao + "&apagado_em=is.null", { dados_cifrado: novo }, "return=representation", this.PRAZO_MS);
       /* uma mudança deste aparelho esperando na fila fica a valer (ela sobe por cima, com a versão nova) */
       if (r && r[0]) { await CloudDriver.aceitarCofre(row.id, r[0], !CloudDriver.fila.has("vault|" + row.id)); return "feito"; }
-      row = await CloudDriver.linha("vault", row.id);   /* mudou no meio: relê e tenta de novo */
+      row = await CloudDriver.linha("vault", row.id, this.PRAZO_MS);   /* mudou no meio: relê e tenta de novo */
     }
     throw this.erro(this.T.erroConferir, "linha");
   },
-  /* o código de emergência: refeito com a nova (com o código de agora — etapa E7) ou deixa de valer (apagado e sem o conteúdo: no
-     fim o chefe faz um novo). "sem" | "refeito" | "invalidado" */
+  /* o código de emergência (seção 4, D-E4): com o código de agora (digitado na confirmação ou no "Continuar"), ele continua valendo
+     — o MESMO código passa a fechar a nova, e o contato abre com o papel que já tem; sem ele (ou errado), deixa de valer (apagado e
+     sem o conteúdo: no fim o chefe faz um novo e entrega de novo). Já refeito (retomada) = nada a fazer. Cada gravação com a versão
+     lida (CAS). "sem" | "refeito" | "invalidado" */
   async emergencia(ctx) {
     ctx.andamento(0.9, this.T.codigo);
     for (let vez = 0; vez < 4; vez++) {
-      const l = await CloudDriver.linha("vault", "_em");
+      const l = await CloudDriver.linha("vault", "_em", this.PRAZO_MS);
       if (!l) return "sem";
       if (l.apagado_em) return l.dados_cifrado ? "sem" : "invalidado";   /* apagado antes da troca: fica como está (D-E6) */
-      let em = null; try { em = JSON.parse(l.dados_cifrado).d.em; } catch (e) {}
+      let o = null; try { o = JSON.parse(l.dados_cifrado); } catch (e) {}
+      const em = o && o.d && o.d.em;
       if (em && em.fk === ctx.para.fk && +em.kv === +ctx.para.kv) return "refeito";
-      const r = await Conta.rest("PATCH", CloudDriver.url("vault", "_em") + "&versao=eq." + l.versao, { apagado_em: new Date().toISOString(), dados_cifrado: null }, "return=representation");
+      /* o código só confere com o envelope da chave de antes (não abre as Senhas: só prova que é o código dele) */
+      const raw = ctx.op.codigoEm && ctx.de ? await Cofre.conferirCodigo(ctx.op.codigoEm, em, ctx.de.fk) : null;
+      let corpo = { apagado_em: new Date().toISOString(), dados_cifrado: null };
+      if (raw) { raw.fill(0); corpo = { dados_cifrado: JSON.stringify({ em: 1, d: Object.assign({}, o.d, { em: await Cofre.envelopeCom(ctx.op.codigoEm, ctx.para.raw, ctx.para.kv, ctx.para.fk) }) }) }; }
+      const r = await Conta.rest("PATCH", CloudDriver.url("vault", "_em") + "&versao=eq." + l.versao, corpo, "return=representation", this.PRAZO_MS);
+      if (r && r[0] && raw) { await CloudDriver.aceitarCofre("_em", r[0], true); return "refeito"; }
       if (r && r[0]) { await CloudDriver.receberCofre(r[0]); Cloud.audit("emergencia.invalidada", Cloud.myName()); return "invalidado"; }
     }
     throw this.erro(this.T.erroConferir, "emergencia");
@@ -4582,12 +4622,12 @@ const Giro = {
     const para = ctx.para, membros = {};
     for (const [u, e] of Object.entries(ctx.g.entregues || {})) membros[u] = { kid: e.kid, seq: e.seq, fk: para.fk };
     for (let vez = 0; ; vez++) {
-      const l = await CloudDriver.linha("settings", "cofre"), d = (l && l.dados) || {};
+      const l = await CloudDriver.linha("settings", "cofre", this.PRAZO_MS), d = (l && l.dados) || {};
       const pronto = d.fk === para.fk && +d.kv === para.kv && Object.keys(membros).every((u) => JSON.stringify((d.membros || {})[u]) === JSON.stringify(membros[u]));
       if (pronto) { await CloudDriver.aceitar("settings", "cofre", l, true); break; }
       if (!l || vez > 3 || (d.fk !== para.fk && d.fk !== ctx.g.de.fk)) throw this.erro(this.T.estranho, "registro");
       const dados = Object.assign({}, d, { fk: para.fk, kv: para.kv, membros: Object.assign({}, d.fk === para.fk ? d.membros : {}, membros) }, d.fk === para.fk ? {} : { giradoEm: new Date().toISOString(), giradoPor: ctx.uid });
-      const r = await Conta.rest("PATCH", CloudDriver.url("settings", "cofre") + "&versao=eq." + l.versao, { vis: "restrito", dados }, "return=representation");
+      const r = await Conta.rest("PATCH", CloudDriver.url("settings", "cofre") + "&versao=eq." + l.versao, { vis: "restrito", dados }, "return=representation", this.PRAZO_MS);
       if (r && r[0]) { await CloudDriver.aceitar("settings", "cofre", r[0], true); break; }
     }
     /* neste aparelho, pela porta única: a nova vira a do cadeado e a de antes vai para as velhas (o prox sai) */
@@ -4643,14 +4683,14 @@ const Giro = {
       if (k && (await abre(k, o))) { out.ok = false; out.tardias.push(row); } else out.estranhas.push(row.id);
     }
     /* o registro, e a nova embrulhada para mim nele, são a nova (os bytes iguais) */
-    const l = await CloudDriver.linha("settings", "cofre"), reg = (l && l.dados) || {};
+    const l = await CloudDriver.linha("settings", "cofre", this.PRAZO_MS), reg = (l && l.dados) || {};
     if (reg.fk !== para.fk || +reg.kv !== para.kv || !Object.values(reg.membros || {}).every((m) => m.fk === para.fk)) throw this.erro(this.T.estranho, "registro");
-    const minha = await Cofre.buscarMinha(ctx.sk, reg);
+    const minha = await Cofre.buscarMinha(ctx.sk, reg, this.PRAZO_MS);
     const igual = !!(minha && minha.fk === para.fk && +minha.kv === para.kv && minha.raw.length === para.raw.length && minha.raw.every((x, i) => x === para.raw[i]));
     if (minha) minha.raw.fill(0);
     if (!igual) { out.ok = false; out.falta = true; }
     /* o banco confere igual (sem a função ainda, as contas de cima valem sozinhas) */
-    let s = null; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: ctx.gid }); } catch (e) { if (!(e.status === 404 || e.code === "PGRST202")) throw e; }
+    let s = null; try { s = await Conta.rpc("sol_giro_situacao", { p_grupo: ctx.gid }, this.PRAZO_MS); } catch (e) { if (!(e.status === 404 || e.code === "PGRST202")) throw e; }
     if (s && +s.falta_entregar > 0) { out.ok = false; out.falta = true; }
     if (s && +s.vault_fora > out.estranhas.length + out.tardias.length + (out.emVelho ? 1 : 0)) out.ok = false;   /* o banco vê mais: confere de novo */
     /* os anexos deste aparelho: nenhum que ainda abra com a de antes */
@@ -4663,11 +4703,45 @@ const Giro = {
     if (ctx.semInterna) for (const id of ctx.semInterna) if (!out.semInterna.includes(id)) out.semInterna.push(id);
     return out;
   },
-  /* fim: a troca "feito" (os envelopes saem: a nova já está com cada um) e o histórico. E8 (C10): antes do "feito", as mensagens
-     velhas da Saúde para o MoneyTRIO; depois, o reenvio com a nova */
+  /* ---------- a ponte Saúde → MoneyTRIO (seção 5) ---------- */
+  /* as mensagens do Omni para o MoneyTRIO, desta família, ainda não lidas — direto na tabela (C10: a caixa do banco esconderia as
+     de quem desligou a ponte). [{id, tipo, dados, criado_em}], as mais velhas primeiro */
+  async ponteNaoLidas() {
+    let out = [];
+    for (let off = 0; ; off += 1000) {
+      const r = await Conta.rest("GET", "sol_ponte?grupo_id=eq." + S.family.id + "&para_app=eq.moneytrio&de_app=eq.omnilife-one&lido_em=is.null&select=id,tipo,dados,criado_em&order=criado_em.asc&limit=1000&offset=" + off, undefined, undefined, this.PRAZO_MS);
+      out = out.concat(r || []); if (!r || r.length < 1000) return out;
+    }
+  },
+  /* 5.1: quantos avisos da Saúde ainda esperam o MoneyTRIO (a situação do banco já conta; sem ela, pela tabela) */
+  async pontePendentes(s) {
+    if (s && s.ponte_pendentes != null) return +s.ponte_pendentes || 0;
+    return (await this.ponteNaoLidas()).filter((m) => m.dados && m.dados.cif).length;
+  },
+  /* C10/D-E10: os resumos da Saúde do Omni (de qualquer pessoa da família) que não estão na chave fk saem da fila do MoneyTRIO
+     (marcados como lidos): com a nova, ele nunca os abriria, e eles travariam o "Terminar a troca". Só os do Omni e só
+     saude-resumo; o resumo é sempre inteiro, e o reenvio com a nova o substitui. Também o descarte (E10) usa. Quantos marcou */
+  async marcarPonte(fk) {
+    let n = 0;
+    for (const m of await this.ponteNaoLidas()) {
+      if (m.tipo !== "saude-resumo") continue;
+      let f = null; try { f = JSON.parse(m.dados.cif).fk; } catch (e) {}
+      if (f === fk) continue;
+      if (await Conta.rpc("sol_ponte_marcar_lido", { p_id: m.id, p_app: "moneytrio" }, this.PRAZO_MS)) n++;
+    }
+    return n;
+  },
+  /* fim (F7): a troca "feito" (os envelopes saem: a nova já está com cada um) e o histórico. A ponte na ordem do C10: os resumos
+     velhos saem da fila do MoneyTRIO ANTES do "feito" (se o app cair logo depois, a retomada não faz mais nada: o descarte travaria
+     para sempre); o resumo vai de novo, inteiro e com a nova, logo depois (com a integração ligada; desligada, só marca). O
+     pendente fica anotado antes de tudo: se o app cair no meio, ele vai quando as Senhas abrirem de novo */
   async terminar(ctx, r) {
+    const mandar = SaudeMT.ligado() && SaudeMT.pode();
+    if (mandar) lsSet(LS.saudeMT, ctx.gid);
+    await this.marcarPonte(ctx.para.fk);
     await this.gravar(ctx, { estado: "feito", envelopes: {}, fim: new Date().toISOString(), erro: null, estranhas: r.estranhas.length });
     Cloud.audit("cofre.girado", Cloud.myName());
+    if (mandar) SaudeMT.agendar();
     ctx.andamento(1, "");
     return { em: ctx.g.em || null, estranhas: r.estranhas, semInterna: r.semInterna, anexos: ctx.anexos || null };
   },
@@ -4721,7 +4795,9 @@ const Giro = {
     if (!Cofre.aberto()) return toast(this.T.fechado, 5000);
     /* o mesmo tipo serve aos anexos deste aparelho (arrumarAparelho): sem troca minha pela metade, é isso que continua */
     const g = this.dados(this.local());
-    if (this.emCurso() && g && g.por === Conta.uid()) this.iniciar({}).catch(() => {}); else this.arrumarAparelho();
+    /* com o código de emergência ainda por refazer, quem continua é o cartão (ele pede o código de novo, opcional) */
+    if (this.emCurso() && g && g.por === Conta.uid()) { if (this.pedeCodigo(g)) { toast(this.T.continuar, 5000); scheduleRender(true); } else this.iniciar({}).catch(() => {}); }
+    else this.arrumarAparelho();
   },
   /* outro aparelho do mesmo chefe continua uma troca parada (3.6): só depois de PARADO_MS sem notícia, e só se, lida duas vezes com
      ASSUMIR_MS entre elas, ela não andou (a mesma versão). A vez passa com essa versão (CAS): se dois tentarem juntos, um fica.
@@ -4750,12 +4826,42 @@ const Giro = {
     const card = (txt, bts) => '<div class="card warnc" id="giroCartao" role="status"><p class="small">🔄 ' + txt + "</p>" + (bts ? '<div class="row">' + bts + "</div>" : "") + "</div>";
     if (daqui) {
       if (!aberto) return card(T.continuar + " " + T.fechado);
-      return card(T.continuar, '<button class="btn sm" data-act="conta.giro.continuar">' + T.btContinuar + "</button>" +
+      return card(T.continuar, this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.continuar">' + T.btContinuar + "</button>" +
         (g.estado === "preparado" ? '<button class="btn ghost sm" data-act="conta.giro.desistir">' + T.btDesistir + "</button>" : ""));
     }
     const min = Math.floor((Date.now() - (Date.parse(row.atualizado_em) || 0)) / 60e3);
-    if (!this.vivo(row) && st.como !== "familia") return card(T.parouEm(this.nomeAp(g), min) + (aberto ? "" : " " + T.fechado), aberto ? '<button class="btn sm" data-act="conta.giro.assumir">' + T.btAqui + "</button>" : "");
+    if (!this.vivo(row) && st.como !== "familia") return card(T.parouEm(this.nomeAp(g), min) + (aberto ? "" : " " + T.fechado), aberto ? this.campoCodigo(g) + '<button class="btn sm" data-act="conta.giro.assumir">' + T.btAqui + "</button>" : "");
     return card(this.vivo(row) ? this.jaTrocando(g) : T.erroOutroAp);
+  },
+  /* seção 4 (D-E4): a troca ainda não passou pelo código de emergência e ele existe, com a chave de antes. O código digitado na
+     confirmação só vive na memória (some ao recarregar): o "Continuar" pede de novo, opcional — com ele, o código continua valendo */
+  pedeCodigo(g) { const em = (DB.col("vault").get("_em") || {}).em; return !!(g && g.de && em && em.fk === g.de.fk && this.antesDoCodigo(g.estado)); },
+  campoCodigo(g) {
+    if (!this.pedeCodigo(g)) return "";
+    return '<label class="fld" style="flex-basis:100%"><span>🆘 ' + this.T.campoCodigo + '</span><input id="giroCodigo" autocomplete="off" autocapitalize="characters" spellcheck="false"></label><p class="tiny faint" style="flex-basis:100%">' + this.T.codigoAjuda + "</p>";
+  },
+  /* o op do botão do cartão: com o código do campo, conferido aqui (errado = não continua: nada de invalidar por um erro de digitação).
+     O campo é esvaziado na hora. {codigoEm?} | null */
+  async opDoCartao() {
+    const i = document.querySelector("#giroCodigo"), v = i ? i.value.trim() : ""; if (i) i.value = "";
+    if (!v) return {};
+    const g = this.dados(this.local()), raw = g && g.de ? await Cofre.conferirCodigo(v, null, g.de.fk) : null;
+    if (!raw) { toast(this.T.codigoErrado, 6000); return null; }
+    raw.fill(0);
+    return { codigoEm: v };
+  },
+  /* "Continuar" do cartão: a troca deste chefe, com o código do campo (se houver) */
+  async continuar() { const op = await this.opDoCartao(); if (op) this.iniciar(op).catch(() => {}); },
+  /* 2.27.0 (D-E4, C2): "Falta um passo" — a troca tirou a validade do código de emergência (não havia o código de agora) e ainda não
+     há outro, ou um código feito sem internet com a chave de antes está esperando para subir (ele nunca sobe assim). Só para o
+     chefe, com as Senhas abertas: o botão faz o código novo (Gov.makeEnvelope, com a chave de agora) */
+  cartaoCodigo() {
+    if (S.mode !== "cloud" || S.role !== "admin" || !Cofre.aberto() || this.rodando) return "";
+    const e = DB.col("vault").get("_em"), g = this.dados(this.local());
+    const preso = CloudDriver.fila.has("vault|_em") && e && e.em && e.em.fk !== Cofre.fk;
+    const semCodigo = g && g.estado === "feito" && g.em === "invalidado" && !(e && e.em && e.em.fk === Cofre.fk);
+    if (!preso && !semCodigo) return "";
+    return '<div class="card warnc" id="emFalta" role="status"><p class="small">' + this.T.emFalta + '</p><button class="btn sm" data-act="gov.env">' + this.T.btCodigoNovo + "</button></div>";
   },
   get T() {
     return {
@@ -4805,17 +4911,25 @@ const Giro = {
       desistiuOk: tt("Pronto: a troca foi desfeita. Nada mudou.", "Done: the change was undone. Nothing changed."),
       sairPausa: tt("A troca de segurança para agora e continua de onde parou quando você entrar de novo. Sair mesmo assim?", "The security change stops now and continues where it stopped when you sign in again. Sign out anyway?"),
       bloquearPausa: tt("A troca de segurança para agora e continua de onde parou quando você abrir as Senhas da casa de novo. Bloquear mesmo assim?", "The security change stops now and continues where it stopped when you open the vault again. Lock anyway?"),
-      zeroGiro: tt("Termine antes a troca de segurança num aparelho seu, ou peça ajuda pelo 💬.", "First finish the security change on one of your devices, or ask for help with 💬.")
+      zeroGiro: tt("Termine antes a troca de segurança num aparelho seu, ou peça ajuda pelo 💬.", "First finish the security change on one of your devices, or ask for help with 💬."),
+      /* o código de emergência (8.1, 8.3) */
+      campoCodigo: tt("Código de emergência atual (opcional)", "Current emergency code (optional)"),
+      codigoAjuda: tt("Se você tem o código de emergência à mão, digite: ele continua valendo. Se não, no fim você faz um novo e entrega de novo à pessoa de confiança.", "If you have the emergency code at hand, type it: it keeps working. If not, at the end you make a new one and hand it over again to your trusted person."),
+      codigoErrado: tt("Esse código de emergência não confere. Confira e digite de novo, ou deixe em branco.", "That emergency code doesn't match. Check it and type it again, or leave it blank."),
+      emFalta: tt("🆘 Falta um passo: faça o código de emergência novo e entregue à sua pessoa de confiança (no papel ou por mensagem). O código antigo não vale mais: peça para ela jogar fora.", "🆘 One step left: make the new emergency code and hand it to your trusted person (on paper or by message). The old code no longer works: ask them to throw it away."),
+      btCodigoNovo: tt("🆘 Fazer o código novo", "🆘 Make the new code"),
+      emSem: tt("Ainda não há um código de emergência que valha. Peça o código a um chefe da família.", "There's no valid emergency code yet. Ask a family head for the code.")
     };
   }
 };
 /* a troca pela metade (cartão das Senhas da casa): conta.* — nunca some com os interruptores (deixar a família misturada não pode
    ficar sem botão) */
-ACT["conta.giro.continuar"] = () => { Giro.iniciar({}).catch(() => {}); };
+ACT["conta.giro.continuar"] = () => Giro.continuar();
 ACT["conta.giro.assumir"] = async () => {
+  const op = await Giro.opDoCartao(); if (!op) return;
   const b = document.querySelector('[data-act="conta.giro.assumir"]'); if (b) { b.disabled = true; b.textContent = "⏳"; }
   const r = await Giro.assumir();
-  if (r.ok) Giro.iniciar({}).catch(() => {}); else { toast(r.texto, 6000); scheduleRender(true); }
+  if (r.ok) Giro.iniciar(op).catch(() => {}); else { toast(r.texto, 6000); scheduleRender(true); }
 };
 ACT["conta.giro.desistir"] = async () => {
   if (!(await confirmBox(Giro.T.desistirPergunta, Giro.T.btDesistir))) return;
@@ -6502,6 +6616,14 @@ const SaudeMT = {
   async enviar() {
     if (!this.ligado() || !this.pode() || !this.pendente()) return false;
     if (!Cofre.aberto() || !Cofre.vf || !navigator.onLine) return false;
+    /* 2.27.0 (Parte E, 5.2): nunca no meio da troca de segurança nem com a chave de antes — fica pendente, como com as Senhas
+       fechadas, e vai com a nova quando a troca terminar ou este aparelho adotar a nova (o usarChave manda o que ficou). Decide
+       pelo banco (C13): a cópia daqui pode estar atrasada (numa rede lenta o aparelho abre com a de antes e adota segundos
+       depois). Sem resposta do banco, não manda. Família sem registro nem troca: como antes */
+    if ((Cofre.registro() || {}).fk || Giro.local()) {
+      const b = await Cofre.noBanco();
+      if (Giro.emCurso(b.giro) || !Cofre.ehAtual(b.reg, Cofre.kv, Cofre.fk) || !Cofre.aberto()) return false;
+    }
     const txt = new TextEncoder().encode(JSON.stringify(this.resumo()));
     const cif = JSON.stringify(Object.assign({ c: 1, kv: Cofre.kv, fk: Cofre.fk }, await Cofre.cifrar(Cofre.vf, txt)));
     await Conta.rpc("sol_ponte_enviar", { p_de: "omnilife-one", p_para: "moneytrio", p_tipo: "saude-resumo", p_dados: { v: 1, cif }, p_grupo: S.family.id });
@@ -12770,7 +12892,8 @@ const Gov = {
     m.el.querySelector("#emcp").onclick = () => copiarSegredo(code);
   },
   async openWithCode() {
-    const env = DB.col("vault").get("_em"); if (!env) return toast(tt("Nenhum código de emergência foi criado ainda.", "No emergency code was created for this vault."));
+    /* 2.27.0: sem envelope (nunca feito, ou deixou de valer na troca de segurança): o código que a pessoa tem não abre mais */
+    const env = DB.col("vault").get("_em"); if (!env) return toast(Giro.T.emSem, 6000);
     if (!env.em) return toast(tt("Este código é de antes da versão 2.15.0: peça um código novo a um chefe.", "This code is from before version 2.15.0: ask a head for a new code."), 5000);
     const code = await askText(tt("Abrir com o código de emergência", "Open the vault with the emergency code"), tt("Código recebido", "Code you received"), ""); if (!code) return;
     toast("⏳ " + tt("Conferindo…", "Checking…"), 2500);

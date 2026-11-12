@@ -79,6 +79,18 @@
           a troca pausa sem gravar no cadeado novo com a chave de antes do aparelho, e "Continuar" termina com a mesma nova
      C16  uma troca esquecida no "preparado" há mais de 24 h vale como desistida; a próxima nasce por cima
      AR   o aparelho que adota a nova arruma os anexos dele (3.9) no Fundo
+   Etapa E7 (o código de emergência, seção 4, D-E4):
+     G4a  com o código de agora (digitado ao confirmar), ele continua valendo: o MESMO código abre a nova; o contato com o acesso
+          liberado abre e vê tudo; o código sai da memória logo depois do passo dele (C16) e nunca fica guardado
+     G4b  sem o código, deixa de valer; o chefe vê "Falta um passo" e "Fazer o código novo"; o código velho → "Ainda não há um código
+          de emergência que valha"; o novo abre. G4c: código errado = sem código
+     G4r  recarregou antes do código: o cartão "Continuar" pede o código de novo (errado não continua). G4j: já refeito, não mexe
+     G4f  um código feito sem internet com a de antes nunca sobe; "Fazer o código novo" sobe por cima, sem item a mais
+   Etapa E8 (a ponte Saúde → MoneyTRIO, seção 5, C10, D-E10):
+     G13  antes, quantos avisos esperam o MoneyTRIO (pela tabela); durante a troca nada vai (pendente); no fim, os velhos do Omni
+          marcados ANTES do "feito" e o resumo de novo com a nova; o outro aparelho manda o pendente com a nova. G13d: desligada,
+          só marca. G13r: rede lenta ao abrir, o pendente nunca vai com a de antes. G13b: o app cai logo depois do "feito"
+     PZ   a rede pendura no meio da troca: cada chamada tem prazo, "Parou sem internet…", e "Tentar de novo" termina
    Cada parte começa do mesmo banco (a foto depois do prepararChaves e das Senhas da casa de mentira). Só uma parte: SO=SQL,G3
    Uso: node teste/rodar.js   ·   sozinho: BASE=http://localhost:8099 node teste/giro-omni.js */
 const crypto = require('crypto');
@@ -317,6 +329,37 @@ async function cortarRede(A, sim) { if (sim) { await A.ctx.route(SB + '/**', cor
 const trocaNoBanco = (campos) => Object.assign({ v: 1, vis: 'restrito', estado: 'recifrando', por: ANA, ap: 'aparelho-de-mentira', apNome: 'Outro aparelho', de: { kv: 1, fk: FK0 }, para: { kv: 2, fk: 'fk-de-mentira' },
   inicio: agora(), batida: agora(), total: 0, feitos: 0, voltas: 0, estranhas: 0, em: null, envelopes: {}, entregues: {}, fim: null, erro: null }, campos);
 
+/* ---------------- etapa E7: o código de emergência ---------------- */
+/* o aparelho do contato de emergência (o Davi, com o acesso já liberado em omni_cofre_liberado): entra e vai às Senhas da casa */
+async function emergenciaPronta(p) {
+  await entrarOmni(p, DAVI); await quieto(p);
+  await p.evaluate(() => go('house', 'vault'));
+  await p.waitForFunction(() => S.route && S.route.sub === 'vault' && document.querySelector('[data-act="gov.emcode"]') && DB.col('vault').get('_em'), null, { timeout: 20000 });
+  await vigiarAvisos(p);
+}
+/* "Abrir com o código" pela tela (o askText do Gov.openWithCode): {aberto, fk, janela (abriu o campo?), avisos} */
+async function codigoPelaTela(p, codigo) {
+  await p.evaluate(() => { window.__av = []; });
+  await p.click('[data-act="gov.emcode"]');
+  const janela = await p.waitForSelector('.modal #askv', { timeout: 2500 }).then(() => true, () => false);
+  if (janela) { await p.fill('.modal #askv', codigo); await p.click('.modal:has(#askv) [data-ok]'); }
+  await esperar(p, () => Cofre.aberto() || (window.__av || []).some((t) => /incorreto|Ainda não há/.test(t)), null, 15000);
+  await espere(300);
+  return Object.assign({ janela }, await p.evaluate(() => ({ aberto: Cofre.aberto(), fk: Cofre.fk, avisos: (window.__av || []).join(' | ') })));
+}
+/* ---------------- etapa E8: a ponte Saúde → MoneyTRIO ---------------- */
+/* uma mensagem da ponte no banco de mentira: por padrão, um resumo da Saúde do Omni para o MoneyTRIO, não lido, fechado com a de antes */
+const msgPonte = (id, user, extra) => Object.assign({ id, de_app: 'omnilife-one', para_app: 'moneytrio', tipo: 'saude-resumo', grupo_id: GID, user_id: user,
+  dados: { v: 1, cif: JSON.stringify({ c: 1, kv: 1, fk: FK0, iv: 'eA==', ct: 'eQ==' }) }, criado_em: '2026-11-0' + (2 + db.sol_ponte.length) + 'T12:00:00.000Z', lido_em: null, lido_por: null }, extra);
+const ponteDe = (id) => db.sol_ponte.find((x) => x.id === id);
+/* os sol_ponte_enviar desde marca: [{user, fk, kv}] (o fk em claro do que foi mandado) */
+const enviosDesde = (marca) => M.log.slice(marca).filter((x) => /rpc\/sol_ponte_enviar$/.test(x.caminho) && x.corpo).map((x) => { let o = {}; try { o = JSON.parse(x.corpo.p_dados.cif); } catch (e) {} return { user: x.quem, fk: o.fk, kv: o.kv }; });
+/* liga "Saúde → MoneyTRIO" (⚙ → Integrações) para a família, sem mandar nada agora */
+const ligarSaude = async (p) => { await p.evaluate(async () => { await DB.saveSetting({ mt: Object.assign({}, Bridge.cfg(), { saude: true }) }); }); await subir(p); };
+/* "a rede pendura": o banco de mentira faz o pedido, mas a resposta nunca volta ao aparelho */
+const engolir = (route) => supabase({ request: () => route.request(), fulfill: async () => {} });
+/* os títulos que a lista das Senhas da casa mostra (o contato de emergência não vê pelo DB.all: a lista é a da tela) */
+const naTela = async (p) => { await esperar(p, () => document.querySelectorAll('#vlist .li .t').length > 0, null, 8000); return p.evaluate(() => [...document.querySelectorAll('#vlist .li .t')].map((x) => x.textContent)); };
 /* a CF que está com a pessoa (a versão mais alta dela em sol_grupo_chaves), aberta em Node com M.PKCS8: {raw, kv, fk} | null */
 async function chaveDaPessoa(uid) {
   const c = db.sol_grupo_chaves.filter((x) => x.grupo_id === GID && x.user_id === uid).sort((a, b) => b.versao - a.versao)[0];
@@ -1848,8 +1891,373 @@ async function linhaCom(raw, kv, fk, titulo, rawInterna) {
     conferir(JSON.stringify(an.fARlocal) === JSON.stringify(an0.fARlocal), 'AR. o anexo que não é da família ficou como estava');
   });
 
+  /* ================= G4a (etapa E7): o código de emergência continua valendo (digitado na confirmação) ================= */
+  await parte('G4a', 'Com o código de emergência de agora (digitado ao confirmar), ele continua valendo: o MESMO código passa a abrir a chave nova; o contato com o acesso liberado abre com o papel que já tem; o código nunca fica guardado', async (novo) => {
+    db.omni_cofre_liberado.push({ grupo_id: GID, user_id: DAVI, liberado_em: agora() });
+    const A = await novo('G4a-ana', { vp: 'computador' }), a = A.p;
+    const E = await novo('G4a-davi', { vp: 'celular' }), e = E.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await emergenciaPronta(e);
+    const em0 = JSON.parse(linha('vault', '_em').dados_cifrado), hist0 = db.omni_historico.length;
+    /* o código digitado com outra cara (minúsculas, espaços no lugar dos traços): a mesma limpeza do abrir pelo código */
+    const digitado = CODIGO_EM.toLowerCase().replace(/-/g, ' ');
+    await a.evaluate(() => { const o = Giro.virar; window.__opNoVirar = null; Giro.virar = async function (ctx) { window.__opNoVirar = Object.keys(ctx.op); return o.apply(this, arguments); }; });
+    const marca = M.log.length;
+    const r = await a.evaluate(async (cod) => {
+      window.__op = { novo: true, codigoEm: cod };
+      try { const r = await Giro.executar(() => {}, {}, window.__op); return { ok: true, r: JSON.parse(JSON.stringify(r)), op: Object.keys(window.__op) }; } catch (er) { return { erro: er.message, op: Object.keys(window.__op) }; }
+    }, digitado);
+    const gd = linha('settings', 'giro').dados, fkN = gd.para && gd.para.fk, n = await chaveDaPessoa(ANA), l = linha('vault', '_em');
+    const o = l && l.dados_cifrado ? JSON.parse(l.dados_cifrado) : null, em = o && o.d && o.d.em;
+    let aberto = null; try { aberto = await decifrar(await kdf(CODIGO_EM, em.sal), em); } catch (er) {}
+    conferir(r.ok && r.r.em === 'refeito' && gd.em === 'refeito' && gd.estado === 'feito' && l && !l.apagado_em && em && em.fk === fkN && em.kv === 2 && em.sal !== em0.d.em.sal && aberto && igual(aberto, n.raw),
+      'G4a. o código de emergência continua valendo: o envelope agora guarda a chave nova (fk novo, kv 2, sal novo) e abre com o MESMO código (' + JSON.stringify([r.erro || (r.r && r.r.em), gd.em, em && em.fk === fkN]) + ')');
+    conferir(o && o.em === 1 && o.d.at === em0.d.at && o.d.vis === 'restrito' && Object.keys(o.d).sort().join() === 'at,em,vis' && !(await abre(async () => decifrar(await kdf('ZZZZ-ZZZZ-ZZZZ-ZZZZ', em.sal), em))),
+      'G4a. o envelope no formato de sempre ({em:1, d:{em, at, vis}}); outro código não abre');
+    const pe = M.log.slice(marca).filter((x) => x.metodo === 'PATCH' && /colecao=eq\.vault&id=eq\._em/.test(x.caminho));
+    conferir(pe.length === 1 && /versao=eq\.\d+/.test(pe[0].caminho) && Object.keys(pe[0].corpo).join() === 'dados_cifrado' && !db.omni_historico.slice(hist0).some((h) => h.acao === 'emergencia.invalidada'),
+      'G4a. uma gravação só, com a versão lida (CAS) e só o texto; nada de "deixou de valer" no histórico');
+    conferir(r.ok && JSON.stringify(r.op) === '["novo"]' && JSON.stringify(await a.evaluate(() => window.__opNoVirar)) === '["novo"]',
+      'C16. o código digitado sai da memória da troca logo depois do código de emergência (já não estava lá ao virar; o "Tentar de novo" do Fundo guarda o op)');
+    /* o código nunca vai para lugar nenhum: o aparelho, o banco, o histórico, a troca, o console */
+    const formas = [CODIGO_EM, digitado, CODIGO_EM.replace(/-/g, '')], vazou = [];
+    const st = await a.evaluate(() => { const o = []; for (const s of [localStorage, sessionStorage]) for (let i = 0; i < s.length; i++) o.push(s.key(i) + '=' + s.getItem(s.key(i))); return o.join('\n'); });
+    if (formas.some((f) => st.includes(f))) vazou.push('aparelho');
+    if (formas.some((f) => JSON.stringify(M.log.slice(marca)).includes(f))) vazou.push('pedidos ao banco');
+    if (formas.some((f) => JSON.stringify(db.omni_docs).includes(f) || JSON.stringify(db.omni_historico).includes(f))) vazou.push('banco');
+    if (A.lixo.console.some((t) => formas.some((f) => t.includes(f)))) vazou.push('console');
+    conferir(!vazou.length, 'G4a. o código de emergência nunca em localStorage, sessionStorage, nos pedidos ao banco, no banco (troca, histórico) nem no console (' + vazou.join() + ')');
+    /* o contato de emergência (acesso liberado) abre com o MESMO código, que agora abre a chave nova */
+    await e.evaluate(() => Cloud.poll());
+    const chegou = await esperar(e, (fk) => { const v = DB.col('vault').get('_em'); return !!(v && v.em && v.em.fk === fk); }, fkN, 20000);
+    const rE = await codigoPelaTela(e, CODIGO_EM), tE = await naTela(e);
+    conferir(chegou && rE.aberto && rE.fk === fkN && ITENS.every((x) => tE.includes(x[1])) && /Senhas da casa abertas/.test(rE.avisos),
+      'G4a. o contato de emergência abre as Senhas da casa com o MESMO código e vê os 6 itens (já com a chave nova) (' + JSON.stringify([chegou, rE, tE]) + ')');
+  });
+
+  /* ================= G4b (etapa E7): sem o código, ele deixa de valer; "Fazer o código novo" ================= */
+  await parte('G4b', 'Sem o código de emergência: ele deixa de valer (apagado e sem o conteúdo); o chefe vê "Falta um passo" com "Fazer o código novo"; o contato com o código velho ouve que não há código que valha; o código novo abre', async (novo) => {
+    db.omni_cofre_liberado.push({ grupo_id: GID, user_id: DAVI, liberado_em: agora() });
+    const A = await novo('G4b-ana', { vp: 'celular' }), a = A.p;
+    const E = await novo('G4b-davi', { vp: 'celular' }), e = E.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await emergenciaPronta(e);
+    conferir(!(await a.$('#emFalta')), 'G4b. antes da troca, nenhum "Falta um passo"');
+    const r = await girar(a);
+    const gd = linha('settings', 'giro').dados, fkN = gd.para.fk, l = linha('vault', '_em');
+    conferir(r.ok && r.r.em === 'invalidado' && gd.em === 'invalidado' && !!l.apagado_em && l.dados_cifrado === null && db.omni_historico.some((h) => h.acao === 'emergencia.invalidada'),
+      'G4b. sem o código: o código de emergência deixa de valer — apagado e sem o conteúdo (e o histórico avisa os chefes)');
+    await a.evaluate(() => render()); await espere(300);
+    const card = await a.evaluate(() => { const x = document.querySelector('#emFalta'); return x ? x.innerText.replace(/\s+/g, ' ').trim() : ''; });
+    conferir(/Falta um passo: faça o código de emergência novo/.test(card) && /O código antigo não vale mais/.test(card) && !!(await a.$('#emFalta [data-act="gov.env"]')) && /Fazer o código novo/.test(card),
+      'G4b. o chefe vê "🆘 Falta um passo…" com o botão "🆘 Fazer o código novo" (' + card + ')');
+    /* o contato com o código velho */
+    await e.evaluate(() => Cloud.poll());
+    const sumiu = await esperar(e, () => !DB.col('vault').get('_em'), null, 20000);
+    const r1 = await codigoPelaTela(e, CODIGO_EM);
+    conferir(sumiu && !r1.janela && !r1.aberto && /Ainda não há um código de emergência que valha\. Peça o código a um chefe da família\./.test(r1.avisos),
+      'G4b. o contato com o código velho: "Ainda não há um código de emergência que valha. Peça o código a um chefe da família." (nem pede o código) (' + JSON.stringify(r1) + ')');
+    /* o chefe faz o código novo pelo cartão */
+    await a.click('#emFalta [data-act="gov.env"]');
+    await a.waitForSelector('.modal [data-yes]', { timeout: 5000 }); await a.click('.modal [data-yes]');
+    await a.waitForSelector('.modal .codebig', { timeout: 15000 });
+    const novoCod = await a.evaluate(() => document.querySelector('.modal .codebig').textContent.trim());
+    await a.click('.modal:has(.codebig) [data-x]').catch(() => {});
+    const subiu = await ate(() => { const x = linha('vault', '_em'); try { return !x.apagado_em && JSON.parse(x.dados_cifrado).d.em.fk === fkN; } catch (er) { return false; } }, 15000);
+    const em = subiu ? JSON.parse(linha('vault', '_em').dados_cifrado).d.em : null, n = await chaveDaPessoa(ANA);
+    let ab = null; try { ab = await decifrar(await kdf(novoCod, em.sal), em); } catch (er) {}
+    await a.evaluate(() => render()); await espere(300);
+    conferir(subiu && ab && igual(ab, n.raw) && novoCod !== CODIGO_EM && !(await a.$('#emFalta')),
+      'G4b. "Fazer o código novo": o código novo guarda a chave nova e o "Falta um passo" some');
+    await e.evaluate(() => Cloud.poll());
+    await esperar(e, (fk) => { const v = DB.col('vault').get('_em'); return !!(v && v.em && v.em.fk === fk); }, fkN, 20000);
+    const r2 = await codigoPelaTela(e, CODIGO_EM);
+    conferir(r2.janela && !r2.aberto && /Código incorreto/.test(r2.avisos), 'G4b. o código velho não abre mais (' + r2.avisos + ')');
+    const r3 = await codigoPelaTela(e, novoCod), tE = r3.aberto ? await naTela(e) : [];
+    conferir(r3.aberto && r3.fk === fkN && ITENS.every((x) => tE.includes(x[1])), 'G4b. o código novo abre (com a chave nova) e o contato vê os 6 itens (' + JSON.stringify([r3, tE]) + ')');
+  });
+
+  /* ================= G4c (etapa E7): código errado = como sem código ================= */
+  await parte('G4c', 'Um código de emergência errado na troca vale como sem código: ele deixa de valer (nada é refeito com um código que não é o dele)', async (novo) => {
+    const A = await novo('G4c-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    /* o conferirCodigo só confere: não abre as Senhas da casa, e só vale com o envelope da chave pedida */
+    const emOutra = JSON.parse(await envelopeEm(CODIGO_EM, new Uint8Array(crypto.randomBytes(32)), 1, 'fk-outra')).d.em;
+    await contarUsar(a);
+    const cc = await a.evaluate(async ([cod, emOutra]) => {
+      const antes = [Cofre.fk, Cofre.kv, Cofre.outras.length].join();
+      const certo = await Cofre.conferirCodigo(cod), errado = await Cofre.conferirCodigo('AAAA-BBBB-CCCC-DDDD'), outra = await Cofre.conferirCodigo(cod, emOutra), outraCerta = await Cofre.conferirCodigo(cod, emOutra, 'fk-outra');
+      const r = { certo: !!certo && certo.length === 32, errado, outra, outraCerta: !!outraCerta, igual: [Cofre.fk, Cofre.kv, Cofre.outras.length].join() === antes, usar: window.__usar };
+      if (certo) certo.fill(0); if (outraCerta) outraCerta.fill(0); return r;
+    }, [CODIGO_EM, emOutra]);
+    conferir(cc.certo && cc.errado === null && cc.outra === null && cc.outraCerta && cc.igual && cc.usar === 0,
+      'G4c. Cofre.conferirCodigo só confere: o código certo abre o envelope daqui, o errado não; o envelope de outra chave só vale pedindo aquela chave; nada é aberto nas Senhas (' + JSON.stringify(cc) + ')');
+    const r = await girar(a, { novo: true, codigoEm: 'AAAA-BBBB-CCCC-DDDD' }), l = linha('vault', '_em');
+    conferir(r.ok && r.r.em === 'invalidado' && !!l.apagado_em && l.dados_cifrado === null, 'G4c. código errado: o código de emergência deixa de valer (apagado e sem o conteúdo) (' + JSON.stringify(r.erro || r.r.em) + ')');
+  });
+
+  /* ================= G4r (etapa E7): recarregou antes do código; o "Continuar" pede de novo ================= */
+  await parte('G4r', 'O app recarrega antes do código de emergência (o código só vivia na memória): o cartão "Continuar" pede o código de novo (opcional); um código errado não continua; o certo faz ele continuar valendo', async (novo) => {
+    const A = await novo('G4r-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    a.removeAllListeners('dialog');
+    a.on('dialog', (d) => { if (d.type() === 'beforeunload') d.accept().catch(() => {}); else { A.lixo.nativos.push(d.type() + ': ' + d.message()); d.dismiss().catch(() => {}); } });
+    let recarregou = null;
+    M.depoisDe = { 'PATCH vault': 3, acao: () => { recarregou = a.reload().catch(() => {}); } };
+    await a.evaluate(() => { Giro.PAUSA_MS = 200; go('house', 'vault'); });
+    await pelaPilula(a, { novo: true, codigoEm: CODIGO_EM });
+    await ate(() => recarregou, 20000); await recarregou;
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    await espere(800); await quieto(a); await senhasDaCasa(a);
+    const ra = await abrirPeloPin(a, PIN_A);
+    /* a pílula "foi interrompido" com as Senhas já abertas: "Continuar de onde parou" não segue sozinha (o código não está mais
+       na memória): leva ao cartão, que pede o código */
+    await vigiarAvisos(a);
+    const bt = await a.waitForSelector('.dgo-tarefa button[aria-label="Continuar de onde parou"]', { timeout: 10000 }).then(() => true, () => false);
+    if (bt) await a.click('.dgo-tarefa button[aria-label="Continuar de onde parou"]');
+    await espere(1200);
+    const parado = await a.evaluate(() => !Giro.rodando) && linha('settings', 'giro').dados.estado === 'recifrando';
+    await esperar(a, () => !!document.querySelector('#giroCartao #giroCodigo'), null, 8000);
+    const c = await cartaoGiro(a), gd0 = linha('settings', 'giro').dados;
+    conferir(ra.ok && bt && parado && gd0.estado === 'recifrando' && /A troca ficou pela metade/.test(await avisos(a)) && /Código de emergência atual \(opcional\)/.test(c) && /ele continua valendo/.test(c) && !!(await a.$('#giroCartao [data-act="conta.giro.continuar"]')),
+      'G4r. recarregou no meio: "Continuar de onde parou" não segue sozinha; o cartão "Continuar" pede o código de emergência de novo, opcional (' + JSON.stringify([bt, parado]) + ' ' + c + ')');
+    await a.evaluate(() => { window.__av = []; Giro.PAUSA_MS = 0; });
+    const marca = M.log.length;
+    await a.fill('#giroCodigo', 'AAAA-BBBB-CCCC-DDDD'); await a.click('#giroCartao [data-act="conta.giro.continuar"]');
+    await espere(1500);
+    conferir(/Esse código de emergência não confere/.test(await avisos(a)) && linha('settings', 'giro').dados.estado === 'recifrando' && !M.log.slice(marca).some((x) => x.metodo === 'PATCH') && await a.evaluate(() => !Giro.rodando && document.querySelector('#giroCodigo').value === ''),
+      'G4r. um código errado: "Esse código de emergência não confere…", nada continua (nenhuma gravação) e o campo fica vazio');
+    await a.fill('#giroCodigo', CODIGO_EM); await a.click('#giroCartao [data-act="conta.giro.continuar"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 30000);
+    const gd = linha('settings', 'giro').dados, l = linha('vault', '_em'), em = JSON.parse(l.dados_cifrado).d.em, n = await chaveDaPessoa(ANA);
+    let ab = null; try { ab = await decifrar(await kdf(CODIGO_EM, em.sal), em); } catch (er) {}
+    conferir(fim && gd.em === 'refeito' && em.fk === gd.para.fk && ab && igual(ab, n.raw), 'G4r. com o código certo, a troca termina e ele continua valendo (abre a chave nova)');
+  });
+
+  /* ================= G4j (etapa E7): já refeito antes de parar ================= */
+  await parte('G4j', 'O app para logo depois de refazer o código de emergência (antes de anotar): "Continuar" não pede o código e não mexe nele de novo ("já refeito")', async (novo) => {
+    const A = await novo('G4j-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await a.evaluate(() => { const o = Giro.emergencia; window.__f3 = null; Giro.emergencia = async function () { const r = await o.apply(this, arguments); window.__f3 = r; return new Promise(() => {}); }; });
+    await comecar(a, { novo: true, codigoEm: CODIGO_EM });
+    await esperar(a, () => !!window.__f3, null, 20000);
+    const f3 = await a.evaluate(() => window.__f3), l0 = JSON.stringify(linha('vault', '_em'));
+    await a.reload().catch(() => {});
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    await espere(800); await quieto(a); await senhasDaCasa(a);
+    const ra = await abrirPeloPin(a, PIN_A);
+    await esperar(a, () => !!document.querySelector('#giroCartao [data-act="conta.giro.continuar"]'), null, 8000);
+    const semCampo = !(await a.$('#giroCodigo')), est = linha('settings', 'giro').dados.estado;
+    const marca = M.log.length;
+    await a.click('#giroCartao [data-act="conta.giro.continuar"]');
+    const fim = await ateA(async () => linha('settings', 'giro').dados.estado === 'feito', 30000);
+    const pe = M.log.slice(marca).filter((x) => x.metodo === 'PATCH' && /id=eq\._em/.test(x.caminho));
+    conferir(f3 === 'refeito' && est === 'emergencia' && ra.ok && semCampo && fim && linha('settings', 'giro').dados.em === 'refeito' && JSON.stringify(linha('vault', '_em')) === l0 && !pe.length,
+      'G4j. parou com o código já refeito: "Continuar" não pede o código, não mexe nele de novo e termina com "refeito" (' + JSON.stringify([f3, est, semCampo, fim, pe.length]) + ')');
+  });
+
+  /* ================= G4k (etapa E7, C16): continuar depois do passo do código com um código na memória ================= */
+  await parte('G4k', 'C16: continuar uma troca que já passou do código de emergência com um código na memória (o "Tentar de novo" guarda o op): no fim, o código não fica no op', async (novo) => {
+    const A = await novo('G4k-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await a.evaluate(() => { const o = Giro.virar; window.__vira = false; Giro.virar = async function () { window.__vira = true; return new Promise(() => {}); }; window.__virarDeVerdade = o; });
+    await comecar(a, { novo: true });
+    await esperar(a, () => window.__vira, null, 20000);
+    await a.reload().catch(() => {});
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    await espere(800); await quieto(a); await senhasDaCasa(a);
+    const ra = await abrirPeloPin(a, PIN_A), est = linha('settings', 'giro').dados.estado;
+    const r = await a.evaluate(async (cod) => { window.__op = { codigoEm: cod }; try { await Giro.executar(() => {}, {}, window.__op); return { ok: true, op: Object.keys(window.__op) }; } catch (e) { return { erro: e.message, op: Object.keys(window.__op) }; } }, CODIGO_EM);
+    conferir(ra.ok && est === 'virando' && r.ok && JSON.stringify(r.op) === '[]' && linha('settings', 'giro').dados.estado === 'feito',
+      'C16. a troca continuou de depois do código de emergência: termina, e o código não fica no op (' + JSON.stringify([est, r]) + ')');
+  });
+
+  /* ================= G4f (etapa E7, pendência da E4): um código feito com a chave de antes esperando na fila ================= */
+  await parte('G4f', 'Um código de emergência feito sem internet com a chave de antes nunca sobe; depois de adotar a nova, o chefe vê "Falta um passo" e "Fazer o código novo" sobe já com a nova, por cima, sem item a mais', async (novo) => {
+    const B = await novo('G4f-ana-computador', { vp: 'computador' }), b = B.p;
+    await abertoComVelha(b, ANA, PIN_A);
+    await semRede(B.ctx, true);
+    const fe = await b.evaluate(async () => { const cod = await Cofre.envelope(); for (let i = 0; i < 30 && !CloudDriver.fila.has('vault|_em'); i++) await new Promise((r) => setTimeout(r, 100)); return !!cod && CloudDriver.fila.has('vault|_em') && DB.col('vault').get('_em').em.fk; });
+    const nova = await trocaAMao();
+    const em1 = JSON.stringify(linha('vault', '_em')), ids0 = idsVault();
+    await semRede(B.ctx, false);
+    await b.evaluate(() => Cloud.poll());
+    const adotou = await esperar(b, (fk) => Cofre.fk === fk && !Cofre._conf, FKN, 20000);
+    await subir(b); await b.evaluate(() => render()); await espere(400);
+    const card = await b.evaluate(() => { const x = document.querySelector('#emFalta'); return x ? x.innerText.replace(/\s+/g, ' ').trim() : ''; });
+    conferir(fe === FK0 && adotou && JSON.stringify(linha('vault', '_em')) === em1 && await b.evaluate(() => CloudDriver.fila.has('vault|_em')) && /Falta um passo/.test(card),
+      'G4f. o código feito sem internet com a de antes não sobe (o do banco fica); o chefe vê "Falta um passo" (' + card + ')');
+    await b.click('#emFalta [data-act="gov.env"]');
+    await b.waitForSelector('.modal [data-yes]', { timeout: 5000 }); await b.click('.modal [data-yes]');
+    await b.waitForSelector('.modal .codebig', { timeout: 15000 });
+    const novoCod = await b.evaluate(() => document.querySelector('.modal .codebig').textContent.trim());
+    await b.click('.modal:has(.codebig) [data-x]').catch(() => {});
+    const subiu = await ate(() => { try { return JSON.parse(linha('vault', '_em').dados_cifrado).d.em.sal !== JSON.parse(JSON.parse(em1).dados_cifrado).d.em.sal; } catch (er) { return false; } }, 15000);
+    await subir(b); await espere(500);
+    const em = JSON.parse(linha('vault', '_em').dados_cifrado).d.em;
+    let ab = null; try { ab = await decifrar(await kdf(novoCod, em.sal), em); } catch (er) {}
+    await b.evaluate(() => render()); await espere(300);
+    conferir(subiu && em.fk === FKN && ab && igual(ab, nova) && idsVault() === ids0 && await b.evaluate(() => !CloudDriver.fila.has('vault|_em')) && !(await b.$('#emFalta')),
+      'G4f. "Fazer o código novo" sobe já, com a nova, por cima do de antes (o mais novo vale), sem item a mais; o "Falta um passo" some (' + JSON.stringify([subiu, em.fk, !!ab, idsVault()]) + ')');
+  });
+
+  /* ================= G4o (etapa E7): dois códigos de emergência ao mesmo tempo ================= */
+  await parte('G4o', 'Dois códigos de emergência feitos ao mesmo tempo (um sem internet): vale o feito por último — o de antes nunca passa por cima do mais novo, e nenhum vira um item a mais', async (novo) => {
+    const B = await novo('G4o-ana-computador', { vp: 'computador' }), b = B.p;
+    await abertoComVelha(b, ANA, PIN_A);
+    await semRede(B.ctx, true);
+    const feito = await b.evaluate(async () => { const cod = await Cofre.envelope(); for (let i = 0; i < 30 && !CloudDriver.fila.has('vault|_em'); i++) await new Promise((r) => setTimeout(r, 100)); return !!cod && CloudDriver.fila.has('vault|_em'); });
+    await espere(50);
+    /* outro chefe faz um código depois, com internet */
+    gravarDoc('vault', '_em', { dados_cifrado: await envelopeEm('YYYY-YYYY-YYYY-YYYY', VELHA, 1, FK0) }, BIA);
+    const l1 = JSON.stringify(linha('vault', '_em')), ids0 = idsVault();
+    await vigiarAvisos(b);
+    await semRede(B.ctx, false);
+    await subir(b, false, null); await espere(600);
+    const local = await b.evaluate(() => { const v = DB.col('vault').get('_em'); return v && v.em && v.em.sal; });
+    conferir(feito && JSON.stringify(linha('vault', '_em')) === l1 && idsVault() === ids0 && local === JSON.parse(JSON.parse(l1).dados_cifrado).d.em.sal && await b.evaluate(() => !CloudDriver.fila.has('vault|_em')) && /mais novo: vale o dele/.test(await avisos(b)),
+      'G4o. o código feito antes, sem internet, não passa por cima do mais novo do outro chefe: fica o dele (também neste aparelho), sem item a mais, e um aviso diz isso');
+  });
+
+  /* ================= G13 (etapa E8): a ponte Saúde → MoneyTRIO ================= */
+  await parte('G13', 'A ponte Saúde → MoneyTRIO: antes, os avisos que esperam o MoneyTRIO aparecem (a tabela, não a caixa); durante a troca nada vai (fica pendente, nos dois aparelhos); no fim, os resumos velhos do Omni saem da fila do MoneyTRIO ANTES do "feito" e o resumo vai de novo com a nova', async (novo) => {
+    const A = await novo('G13-ana', { vp: 'computador' }), a = A.p;
+    const C = await novo('G13-bia', { vp: 'celular' }), c = C.p;
+    db.sol_ponte.push(msgPonte('pA', ANA), msgPonte('pB', BIA), msgPonte('pLida', ANA, { lido_em: '2026-11-01T12:00:00.000Z', lido_por: BIA }),
+      msgPonte('pTipo', ANA, { tipo: 'outra-coisa', dados: { v: 1 } }), msgPonte('pMT', ANA, { de_app: 'moneytrio', para_app: 'omnilife-one', dados: { v: 1 } }));
+    const fixos0 = JSON.stringify(['pLida', 'pTipo', 'pMT'].map(ponteDe));
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(c, BIA, PIN_B);
+    await ligarSaude(a);
+    await c.evaluate(() => Cloud.poll()); await esperar(c, () => SaudeMT.ligado(), null, 15000);
+    /* antes: quantos esperam o MoneyTRIO — também os de quem desligou a ponte (a caixa do banco os esconderia: C10) */
+    const p0 = await a.evaluate(async () => { const p = await Giro.pode(); return { ok: p.ok, ponte: p.ponte, rest: await Giro.pontePendentes() }; });
+    db.sol_ponte_config.push({ user_id: ANA, de_app: 'omnilife-one', para_app: 'moneytrio', ligado: false });
+    const p1 = await a.evaluate(async () => ({ caixa: (await Conta.rpc('sol_ponte_minha_caixa', { p_app: 'moneytrio', p_so_nao_lidas: true, p_limite: 500 })).length, rest: await Giro.pontePendentes() }));
+    db.sol_ponte_config.splice(0, db.sol_ponte_config.length);
+    conferir(p0.ok && p0.ponte === 2 && p0.rest === 2 && p1.caixa === 0 && p1.rest === 2,
+      'G13. antes: 2 avisos da Saúde esperando o MoneyTRIO (pela situação e pela tabela); com a ponte desligada, a caixa do banco esconde e a tabela não (C10) (' + JSON.stringify([p0, p1]) + ')');
+    /* durante a troca: nada vai, nos dois aparelhos (fica pendente) */
+    await a.evaluate(() => { Giro.PAUSA_MS = 300; });
+    const marca = M.log.length;
+    await comecar(a);
+    await esperar(a, () => (window.__passos || []).some((t) => /^Senhas: 2 de/.test(t)), null, 20000);
+    /* um aparelho já com a nova manda um resumo no meio (fica: o MoneyTRIO abre) */
+    const fkNova = linha('settings', 'giro').dados.para.fk;
+    db.sol_ponte.push(msgPonte('pNova', BIA, { dados: { v: 1, cif: JSON.stringify({ c: 1, kv: 2, fk: fkNova, iv: 'eA==', ct: 'eQ==' }) } }));
+    const durA = await a.evaluate(async () => { SaudeMT.agendar(); const r = await SaudeMT.enviar(); return { r, pend: SaudeMT.pendente(), fk: Cofre.fk }; });
+    const durC = await c.evaluate(async () => { SaudeMT.agendar(); const r = await SaudeMT.enviar(); return { r, pend: SaudeMT.pendente() }; });
+    const nDur = db.sol_ponte.length;
+    conferir(durA.r === false && durA.pend && durA.fk === FK0 && durC.r === false && durC.pend && nDur === 6,
+      'G13. durante a troca, o resumo da Saúde não vai (nem do aparelho que troca, ainda com a de antes, nem do outro): fica pendente (' + JSON.stringify([durA, durC, nDur]) + ')');
+    /* a conferência demora mais que o envio que o virar agenda (1,5 s depois do usarChave, ainda "conferindo"): ele não pode ir */
+    await a.evaluate(() => { Giro.PAUSA_MS = 0; const o = Giro.conferir; Giro.conferir = async function () { await new Promise((x) => setTimeout(x, 2500)); return o.apply(this, arguments); }; });
+    const r = await resultado(a, 40000);
+    const gd = linha('settings', 'giro').dados, fkN = gd.para.fk, n = await chaveDaPessoa(ANA);
+    await ate(() => db.sol_ponte.length > 6, 8000);
+    const log = M.log.slice(marca);
+    const iMarca = log.map((x, i) => (/sol_ponte_marcar_lido/.test(x.caminho) ? i : -1)).filter((i) => i >= 0);
+    const iFeito = log.findIndex((x) => x.metodo === 'PATCH' && /id=eq\.giro/.test(x.caminho) && x.corpo && x.corpo.dados && x.corpo.dados.estado === 'feito');
+    const iEnv = log.findIndex((x) => /sol_ponte_enviar/.test(x.caminho));
+    conferir(r && r.ok && gd.estado === 'feito' && ponteDe('pA').lido_em && ponteDe('pA').lido_por === ANA && ponteDe('pB').lido_em && ponteDe('pB').lido_por === ANA && JSON.stringify(['pLida', 'pTipo', 'pMT'].map(ponteDe)) === fixos0 && !ponteDe('pNova').lido_em,
+      'G13. no fim: os 2 resumos velhos do Omni (da Ana e da Bia) marcados como lidos; o já lido, o de outro tipo, o que veio do MoneyTRIO e o que já está na nova ficam como estavam');
+    conferir(iMarca.length === 2 && iFeito > iMarca[1] && iEnv > iFeito, 'C10. a ordem: marca os velhos → "feito" → manda o resumo de novo (nada foi mandado antes, nem o que o virar agendou durante a conferência) (' + JSON.stringify([iMarca, iFeito, iEnv]) + ')');
+    const nova = db.sol_ponte.filter((x) => !['pA', 'pB', 'pLida', 'pTipo', 'pMT', 'pNova'].includes(x.id)), o = nova[0] && JSON.parse(nova[0].dados.cif);
+    let resumo = null; try { resumo = JSON.parse(new TextDecoder().decode(await decifrar(n.raw, o))); } catch (er) {}
+    conferir(nova.length === 1 && nova[0].user_id === ANA && nova[0].tipo === 'saude-resumo' && !nova[0].lido_em && o.fk === fkN && o.kv === 2 && resumo && resumo.v === 1 && Array.isArray(resumo.pessoas) && !(await abre(() => decifrar(VELHA, o))),
+      'G13. o resumo vai de novo, inteiro, com a chave nova (o MoneyTRIO, já com ela, abre; a de antes não)');
+    conferir(situacao().ponte_outra === 0 && situacao().ponte_pendentes === 2 && await a.evaluate(() => !SaudeMT.pendente()), 'G13. sol_giro_situacao: ponte_outra 0 (o "Terminar a troca" não trava na ponte); nada pendente aqui');
+    /* o outro aparelho adota e manda o que ficou pendente — com a nova */
+    await c.evaluate(() => Cloud.poll());
+    await esperar(c, (fk) => Cofre.fk === fk, fkN, 20000);
+    const foi = await esperar(c, () => !SaudeMT.pendente(), null, 15000);
+    const env = enviosDesde(marca);
+    conferir(foi && env.length === 2 && env.every((x) => x.fk === fkN) && db.sol_ponte.filter((x) => x.user_id === BIA && !x.lido_em && x.id !== 'pNova').length === 1,
+      'G13. a Bia adota a nova e o resumo que ficou pendente vai — com a nova; nada foi mandado com a de antes (' + JSON.stringify(env) + ')');
+  });
+
+  /* ================= G13d (etapa E8): integração desligada = só marca ================= */
+  await parte('G13d', 'Com a integração Saúde → MoneyTRIO desligada (e a ponte desligada para a Ana): a troca só marca os resumos velhos (achados pela tabela), sem mandar nada', async (novo) => {
+    const A = await novo('G13d-ana', { vp: 'celular' }), a = A.p;
+    db.sol_ponte.push(msgPonte('pA', ANA), msgPonte('pB', BIA));
+    db.sol_ponte_config.push({ user_id: ANA, de_app: 'omnilife-one', para_app: 'moneytrio', ligado: false });
+    await abertoComVelha(a, ANA, PIN_A);
+    const marca = M.log.length, r = await girar(a);
+    conferir(r.ok && ponteDe('pA').lido_em && ponteDe('pB').lido_em && !enviosDesde(marca).length && db.sol_ponte.length === 2 && situacao().ponte_outra === 0 && await a.evaluate(() => !SaudeMT.pendente()),
+      'G13d. desligada: os 2 resumos velhos marcados (mesmo com a ponte desligada para quem trocou), nada mandado, nada pendente');
+  });
+
+  /* ================= G13r (etapa E8): rede lenta ao abrir — nunca manda com a de antes ================= */
+  await parte('G13r', 'Rede lenta ao abrir depois da troca (o aparelho abre com a de antes e adota segundos depois): o resumo pendente não vai com a de antes; vai com a nova logo depois de adotar', async (novo) => {
+    const A = await novo('G13r-ana', { vp: 'celular' }), a = A.p;
+    const C = await novo('G13r-bia', { vp: 'celular' }), c = C.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await abertoComVelha(c, BIA, PIN_B);
+    await ligarSaude(a);
+    await c.evaluate(() => Cloud.poll()); await esperar(c, () => SaudeMT.ligado(), null, 15000);
+    await c.evaluate(() => { Cofre.trancar(); lsSet(LS.saudeMT, S.family.id); });   /* fechada, com uma mudança da Saúde esperando */
+    await cortarRede(C, true);   /* sem internet durante a troca: a cópia daqui do registro fica a de antes */
+    const r = await girar(a), fkN = linha('settings', 'giro').dados.para.fk;
+    const marca = M.log.length;
+    /* volta com a rede lenta: tudo que a Bia lê de omni_docs demora 2,5 s (o registro e o que o app puxa), e ela abre logo */
+    await C.ctx.route(SB + '/rest/v1/omni_docs?*', async (route) => { if (route.request().method() === 'GET') await espere(2500); return supabase(route); });
+    await cortarRede(C, false);
+    const ra = await abrirPeloPin(c, PIN_B);
+    const abriu = await c.evaluate(() => Cofre.fk);
+    await esperar(c, (fk) => Cofre.fk === fk, fkN, 20000);
+    const foi = await esperar(c, () => !SaudeMT.pendente(), null, 20000);
+    const todos = enviosDesde(marca), env = todos.filter((x) => x.user === BIA);
+    conferir(r.ok && ra.ok && abriu === FK0 && foi && env.length === 1 && todos.every((x) => x.fk === fkN),
+      'G13r. abriu com a de antes (a rede lenta) e o resumo pendente esperou: foi uma vez, com a nova, depois de adotar (' + JSON.stringify([abriu === FK0, foi, env]) + ')');
+  });
+
+  /* ================= G13b (etapa E8, C10): o app cai logo depois do "feito" ================= */
+  await parte('G13b', 'C10: o app cai logo depois de gravar "feito": o resumo velho já estava marcado (o "Terminar a troca" não trava na ponte), e ao abrir de novo o resumo vai com a nova (o pendente foi anotado antes)', async (novo) => {
+    const A = await novo('G13b-ana', { vp: 'celular' }), a = A.p;
+    db.sol_ponte.push(msgPonte('pA', ANA));
+    await abertoComVelha(a, ANA, PIN_A);
+    await ligarSaude(a);
+    a.removeAllListeners('dialog');
+    a.on('dialog', (d) => { if (d.type() === 'beforeunload') d.accept().catch(() => {}); else { A.lixo.nativos.push(d.type() + ': ' + d.message()); d.dismiss().catch(() => {}); } });
+    await a.evaluate(() => { const o = Giro.gravarDoc; window.__feito = false; Giro.gravarDoc = async function (row, dados) { const l = await o.apply(this, arguments); if (dados && dados.estado === 'feito') { window.__feito = true; return new Promise(() => {}); } return l; }; });
+    await comecar(a);
+    await esperar(a, () => window.__feito, null, 30000);
+    const gd = linha('settings', 'giro').dados, fkN = gd.para.fk, pend = await a.evaluate(() => SaudeMT.pendente());
+    conferir(gd.estado === 'feito' && ponteDe('pA').lido_em && db.sol_ponte.length === 1 && situacao().ponte_outra === 0 && pend,
+      'C10. caiu logo depois do "feito": o resumo velho já estava marcado (ponte_outra 0), nada mandado ainda, e o pendente anotado (' + JSON.stringify([gd.estado, !!ponteDe('pA').lido_em, db.sol_ponte.length, pend]) + ')');
+    await a.reload().catch(() => {});
+    await a.waitForFunction(() => typeof S !== 'undefined' && S.booted && S.mode === 'cloud' && S.family, null, { timeout: 30000 });
+    await espere(500); await quieto(a); await senhasDaCasa(a);
+    const ra = await abrirPeloPin(a, PIN_A);
+    const foi = await ate(() => db.sol_ponte.length === 2, 15000), nova = db.sol_ponte[1], o = nova && JSON.parse(nova.dados.cif);
+    conferir(ra.ok && foi && o.fk === fkN && o.kv === 2 && await a.evaluate(() => !SaudeMT.pendente()), 'C10. abriu de novo: o resumo vai com a nova (uma vez)');
+    const d = descartar(ANA, 1);
+    conferir(d.n >= 2, 'C10. "Terminar a troca" não trava na ponte: o banco descarta as versões antigas (' + JSON.stringify(d) + ')');
+  });
+
+  /* ================= PZ (pendência da E6): rede pendurada no meio da troca ================= */
+  await parte('PZ', 'Rede pendurada no meio da troca (o banco faz, mas a resposta não volta): cada chamada tem prazo — a troca para com "Parou sem internet…" em vez de ficar parada para sempre, e "Tentar de novo" termina com a mesma nova', async (novo) => {
+    const A = await novo('PZ-ana', { vp: 'celular' }), a = A.p;
+    await abertoComVelha(a, ANA, PIN_A);
+    await a.evaluate(() => { Giro.PRAZO_MS = 1500; });
+    const ids0 = idsVault();
+    let segurar = null, segurou = 0;
+    await A.ctx.route(SB + '/**', (route) => { const q = route.request(); if (segurar && segurar(q)) { segurou++; segurar = null; return engolir(route); } return supabase(route); });
+    let n = 0;
+    segurar = (q) => q.method() === 'PATCH' && /colecao=eq\.vault/.test(q.url()) && !/id=eq\._em/.test(q.url()) && ++n === 3;
+    const t0 = Date.now(); await comecar(a); const r1 = await resultado(a, 20000), d1 = Date.now() - t0;
+    conferir(r1 && r1.motivo === 'rede' && r1.erro === 'Parou sem internet. Toque em Tentar de novo: continua de onde parou.' && segurou === 1 && d1 < 15000 && linha('settings', 'giro').dados.estado === 'recifrando',
+      'PZ. a resposta de uma linha não volta: a troca para em segundos com "Parou sem internet. Toque em Tentar de novo…" (' + JSON.stringify([r1, segurou, d1]) + ')');
+    segurar = (q) => q.method() === 'GET' && /colecao=eq\.vault&id=eq\._em&select=/.test(q.url());
+    await comecar(a, {}); const r2 = await resultado(a, 20000);
+    conferir(r2 && r2.motivo === 'rede' && segurou === 2 && linha('settings', 'giro').dados.estado === 'emergencia', 'PZ. a leitura do código de emergência não volta: para também, no passo dele (' + JSON.stringify([r2, segurou]) + ')');
+    const r3 = (await comecar(a, {}), await resultado(a, 30000)), gd = linha('settings', 'giro').dados;
+    conferir(r3 && r3.ok && gd.estado === 'feito' && gd.para.kv === 2 && comFk(gd.para.fk).length === 6 && !comFk(FK0).length && idsVault() === ids0,
+      'PZ. "Tentar de novo" termina com a mesma nova, sem item a mais (' + JSON.stringify(r3 && (r3.erro || 'ok')) + ')');
+  });
+
   const sujos = lixos.filter((l) => l.erros.length || l.nativos.length || l.fora.some((u) => /supabase/i.test(u)));
   conferir(!sujos.length, 'sem erro de script, sem diálogo nativo e nada fora do banco de mentira' + (sujos.length ? ': ' + sujos.map((l) => l.erros.concat(l.nativos).join(' | ')).join(' || ') : ''));
   conferir(!lixos.some((l) => l.console.some((t) => PINS.some((x) => t.includes(x)) || t.includes(CODIGO_EM))), 'nenhum PIN nem código de emergência no console');
-  await terminar(falhas, browser, 'Parte E, etapas E1-E6 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR)');
+  await terminar(falhas, browser, 'Parte E, etapas E1-E8 (SQL no mock, G5, G3, G3c, G11b, M1, M2, C12, N1, CH, G2, G2b, G3D, G3b, G9, G0, G1, G1c, C11, F0, G7a, G7t, D1, G8b, G8c, G8d, AN, FU, G7r, G7b, G7c, G7d, G8, G10, G10b, G7o, G10v, G7f, G7f2, C8, C16, AR, G4a, G4b, G4c, G4r, G4j, G4f, G13, G13d, G13r, G13b, PZ)');
 })().catch((e) => { console.error(e); process.exit(1); });
