@@ -2583,6 +2583,8 @@ const Cloud = {
       await Gov.tick();
       /* 2.27.0 (a): a chave da família mudou no banco? Com as Senhas abertas, este aparelho acompanha antes de liberar */
       if (Cofre.aberto()) await Cofre.conferirAoVivo();
+      /* revisão D2: uma troca de outro aparelho pela metade: o que ela já passou para a nova continua aparecendo aqui (só abrir) */
+      if (Cofre.aberto()) await Giro.abrirNova();
       /* 2.27.0 (3.9, C3): linhas que um aparelho atrasado gravou com uma chave de antes sobem para a atual (nunca no meio da troca) */
       if (Cofre.aberto()) await Giro.vigiar();
       /* cofre aberto aqui: libera a chave da família para quem preparou o cofre e ainda espera (a cada 2 min no máximo) */
@@ -3675,7 +3677,7 @@ const Cofre = {
       /* 2.27.0 (a): o registro do banco diz outra chave? A nova é adotada AQUI, antes do usarChave (que libera para os outros e
          manda a Saúde): nunca com a velha. A de agora vai junto, só para abrir */
       const n = await this.chaveNova(L, duk, f, 300);
-      if (n) await this.adotar(gid, n, duk);
+      if (n) { await this.adotar(gid, n, duk); SaudeMT.depoisDaTroca(); }
       /* as de antes da troca (L.fam[gid].velhas, fechadas pela chave deste aparelho) só abrem: o que ainda está fechado com elas
          (linhas e anexos) continua aparecendo. Uma que não abre fica de fora (a atual abre do mesmo jeito) */
       const atual = n ? n.raw : await this.decifrar(duk, f), outras = [];
@@ -3688,6 +3690,7 @@ const Cofre = {
       if (n) { toast("🔐 " + this.T().atualizou, 5000); setTimeout(() => Giro.arrumarAparelho(), 0); }   /* os anexos daqui vão para a nova */
       /* 3.9: depois de "Terminar a troca", as chaves de antes deste aparelho saem (quando nada daqui precisa mais delas) */
       else if ((f.velhas || []).length) setTimeout(() => Giro.soltarVelhas(), 0);
+      setTimeout(() => Giro.abrirNova(), 0);   /* revisão D2: com uma troca de outro aparelho pela metade, o já trocado aparece já */
       return { ok: true };
     }
     /* a chave desta família ainda não está neste aparelho: vem do banco, embrulhada para mim (precisa de internet) */
@@ -3844,7 +3847,7 @@ const Cofre = {
     const n = await this.chaveNova(L, duk, f), mesma = () => this.gid === gid && this.vf === vf;
     if (this.desatualizado !== antes) scheduleRender(true);
     let raw, kv, fk, lista;
-    if (n && mesma()) { await this.adotar(gid, n, duk); raw = n.raw; kv = n.kv; fk = n.fk; lista = this.depoisDe(f, n); }
+    if (n && mesma()) { await this.adotar(gid, n, duk); SaudeMT.depoisDaTroca(); raw = n.raw; kv = n.kv; fk = n.fk; lista = this.depoisDe(f, n); }
     /* outra aba (ou o abrir pelo PIN) já adotou: o cadeado daqui tem a do registro e a memória ainda não */
     else if (!n && !this.desatualizado && f.fk !== this.fk && mesma()) { raw = await this.decifrar(duk, f); kv = f.kv; fk = f.fk; lista = f.velhas || []; }
     else { if (n) n.raw.fill(0); return false; }
@@ -4770,7 +4773,8 @@ const Giro = {
   },
   /* C10/D-E10: os resumos da Saúde do Omni (de qualquer pessoa da família) que não estão na chave fk saem da fila do MoneyTRIO
      (marcados como lidos): com a nova, ele nunca os abriria, e eles travariam o "Terminar a troca". Só os do Omni e só
-     saude-resumo; o resumo é sempre inteiro, e o reenvio com a nova o substitui. Também o descarte (E10) usa. Quantos marcou */
+     saude-resumo. O resumo é inteiro, mas de cada aparelho (a Saúde não sobe): o reenvio do fim leva o deste, e cada outro
+     aparelho manda o dele de novo ao adotar a nova (SaudeMT.depoisDaTroca, revisão D3). Também o descarte (E10) usa. Quantos marcou */
   async marcarPonte(fk) {
     let n = 0;
     for (const m of await this.ponteNaoLidas()) {
@@ -5031,7 +5035,8 @@ const Giro = {
       if (n) toast("✓ " + T.apagouOk(n), 5000);
       this.trocarPelaTela();   /* confere tudo de novo (a lista dos que não abrem já sem eles) */
     };
-    /* "Conferir de novo": quantos avisos da Saúde ainda esperam o MoneyTRIO (seguir mesmo assim é permitido: o reenvio substitui) */
+    /* "Conferir de novo": quantos avisos da Saúde ainda esperam o MoneyTRIO (seguir mesmo assim é permitido: o fim da troca manda o
+       resumo deste aparelho de novo, e cada outro aparelho manda o dele ao adotar a nova — revisão D3) */
     el.addEventListener("click", async (e) => {
       if (!e.target.closest("#giroPonteBt")) return;
       const li = $m("#giroPonte"); li.textContent = T.conferindoBt;
@@ -5059,6 +5064,32 @@ const Giro = {
       this.iniciar(codigo ? { novo: true, codigoEm: codigo } : { novo: true }).catch(() => {});
     };
     return m;
+  },
+  /* revisão D2: uma troca em curso que este aparelho não está fazendo, já depois de a nova sair para a família (C5: ela chega a cada
+     chefe e responsável antes da primeira senha trocada). A nova entra no chaveiro só para ABRIR (Cofre.outras): as senhas que a
+     troca já passou para ela continuam aparecendo aqui, também com a troca parada (o chefe que começou pode ter perdido o aparelho).
+     Nunca fecha nada com ela e nada é gravado (nem no cadeado). Só a troca que sai da chave daqui e sobe a versão (C4). A chave
+     pessoal deste aparelho abre a nova uma vez; sem a nova para mim, tenta de novo depois de PARADO_MS. true = entrou */
+  _nova: null,
+  async abrirNova() {
+    if (this.rodando || !Cofre.aberto() || !isGuardian() || !Cofre.dukRaw || !navigator.onLine) return false;
+    const row = this.local(), g = this.dados(row);
+    if (!this.emCurso(row) || g.estado === "preparado" || !g.de || !g.para || g.de.fk !== Cofre.fk || !(+g.para.kv > +Cofre.kv) || Cofre.chaveDe(g.para.fk)) return false;
+    const t = this._nova; if (t && t.fk === g.para.fk && Date.now() - t.em < this.PARADO_MS) return false;
+    this._nova = { fk: g.para.fk, em: Date.now() };
+    const gid = Cofre.gid, vf = Cofre.vf;
+    let k = null;
+    try {
+      const L = await Cofre.local(); if (!L || !L.sk) return false;
+      const pk = await Cofre.decifrar(await Cofre.aes(Cofre.dukRaw), L.sk); let sk; try { sk = await Cofre.importarSk(pk); } finally { pk.fill(0); }
+      k = await Cofre.buscarMinha(sk, { fk: g.para.fk, kv: g.para.kv }, this.PRAZO_MS);
+      if (!k || k.fk !== g.para.fk || Cofre.gid !== gid || Cofre.vf !== vf || Cofre.chaveDe(k.fk)) return false;   /* (trancou no meio) */
+      Cofre.outras = Cofre.outras.concat([{ kv: k.kv, fk: k.fk, vf: await Cofre.aes(k.raw) }]);
+    } catch (e) { return false; }
+    finally { if (k) k.raw.fill(0); }
+    this._nova = null;
+    await CloudDriver.abrirCofre(true); scheduleRender(true);
+    return true;
   },
   ponteHtml(n) { return n > 0 ? "⚠️ " + this.T.ponteAntes(n) + ' <button type="button" class="btn ghost" id="giroPonteBt">' + this.T.btConferir + "</button>" : "✓ " + this.T.ponteOk; },
   /* 3.9 + C3: o vigia (no Cloud.poll). Uma linha que um aparelho atrasado gravou com uma chave de antes (que este aparelho ainda
@@ -5364,10 +5395,11 @@ const Giro = {
       muda2: tt("Seus outros aparelhos pedem o PIN uma vez para continuar abrindo.", "Your other devices ask for the PIN once to keep opening."),
       muda3: tt("Um aparelho que entrou aprovado pela família precisa ser aprovado de novo.", "A device that joined approved by the family needs to be approved again."),
       muda4: tt("O código de emergência muda. Se você tem o código à mão, digite abaixo: ele continua valendo. Se não, no fim você faz um novo e entrega de novo à pessoa de confiança.", "The emergency code changes. If you have the code at hand, type it below: it keeps working. If not, at the end you make a new one and hand it over again to your trusted person."),
-      muda5: tt("Cópias protegidas feitas antes desta troca deixam de abrir as senhas. No fim, faça uma cópia nova.", "Protected copies made before this change will stop opening the passwords. At the end, make a new copy."),
+      /* revisão D4: as cópias de antes deixam de trazer as senhas (e os anexos protegidos) logo que a troca acontece, não só no "Terminar" */
+      muda5: tt("Cópias protegidas feitas antes desta troca deixam de trazer de volta as senhas e os anexos protegidos (fotos de documentos, do carro, da apólice) logo que a troca acontece. No fim, faça uma cópia nova.", "Protected copies made before this change stop bringing back the passwords and the protected attachments (photos of documents, the car, the policy) as soon as the change happens. At the end, make a new copy."),
       btCopia: tt("💾 Fazer uma cópia protegida antes", "💾 Make a protected copy first"),
       /* C5.3: o aviso honesto — a cópia não salva as senhas sozinha */
-      copiaAviso: tt("Atenção: a cópia guarda o resto do app, mas as Senhas da casa vão nela trancadas pelo cadeado da família — ela não traz as senhas de volta sozinha. E, depois que a troca terminar, cópias antigas não abrem mais as senhas.", "Note: the copy keeps the rest of the app, but the home passwords go in it locked by the family lock — it doesn't bring the passwords back by itself. And once the change is finished, old copies no longer open the passwords."),
+      copiaAviso: tt("Atenção: a cópia guarda o resto do app, mas as Senhas da casa e os anexos protegidos (fotos de documentos, do carro, da apólice) vão nela trancados pelo cadeado da família — ela não os traz de volta sozinha. E, logo que a troca acontecer, esta cópia já não traz de volta as senhas nem esses anexos.", "Note: the copy keeps the rest of the app, but the home passwords and the protected attachments (photos of documents, the car, the policy) go in it locked by the family lock — it doesn't bring them back by itself. And as soon as the change happens, this copy no longer brings back the passwords or those attachments."),
       /* C11 */
       naoAbrem: (n) => tt(n + (n > 1 ? " itens" : " item") + " das Senhas da casa já não " + (n > 1 ? "abrem" : "abre") + " (" + (n > 1 ? "estragaram" : "estragou") + " antes, não por causa desta troca). Isso não atrapalha a troca, mas impede o último passo, “Terminar a troca”. Se não precisa " + (n > 1 ? "deles" : "dele") + ", apague.",
         n + (n > 1 ? " items" : " item") + " in the vault no longer " + (n > 1 ? "open" : "opens") + " (broken before, not because of this change). This doesn't get in the way of the change, but it blocks the last step, “Finish the change”. If you don't need " + (n > 1 ? "them" : "it") + ", delete " + (n > 1 ? "them" : "it") + "."),
@@ -5383,8 +5415,8 @@ const Giro = {
       roteiroAps: tt("Todos os aparelhos da família (os meus e os dos outros chefes e responsáveis) abriram o OmniLifeONE depois da atualização.", "All family devices (mine and the other heads' and guardians') opened OmniLifeONE after the update."),
       roteiroRede: tt("Estou com internet (de preferência Wi-Fi) e o aparelho está na tomada.", "I'm online (Wi-Fi if possible) and the device is plugged in."),
       /* C5.2: sem outro caminho para a chave pessoal (outro aparelho da conta, a digital em todos os aparelhos, o kit) */
-      semCaminho: tt("⚠️ Importante: só este aparelho consegue abrir as Senhas da casa por você. Você não tem outro aparelho seu que entrou pela sua conta, nem a digital em todos os aparelhos, nem o kit de emergência ligado. Se este aparelho quebrar, sumir ou for apagado no meio da troca, você pode ficar sem abrir as senhas. O mais seguro é antes ligar o kit de emergência (aqui em Avançado) ou entrar em outro aparelho seu.",
-        "⚠️ Important: only this device can open the vault for you. You have no other device of yours that joined with your account, no fingerprint on all devices and no emergency kit turned on. If this device breaks, gets lost or erased during the change, you may be left unable to open the passwords. The safest is to first turn on the emergency kit (here in Advanced) or sign in on another device of yours."),
+      semCaminho: tt("⚠️ Importante: só este aparelho consegue abrir as Senhas da casa por você. Você não tem outro aparelho seu que entrou pela sua conta, nem a digital em todos os aparelhos, nem o kit de emergência ligado. Se este aparelho quebrar, sumir ou for apagado no meio da troca, você fica sem abrir as senhas e, se não houver outro chefe na família, a troca não tem como terminar: a família fica sem poder aprovar aparelhos novos e algumas senhas podem sumir de alguns aparelhos. O mais seguro é antes ligar o kit de emergência (aqui em Avançado) ou entrar em outro aparelho seu.",
+        "⚠️ Important: only this device can open the vault for you. You have no other device of yours that joined with your account, no fingerprint on all devices and no emergency kit turned on. If this device breaks, gets lost or erased during the change, you lose access to the passwords and, if there's no other head in the family, the change has no way to finish: the family can't approve new devices and some passwords may disappear from some devices. The safest is to first turn on the emergency kit (here in Advanced) or sign in on another device of yours."),
       semCaminhoCheck: tt("Entendi o risco e quero trocar só com este aparelho", "I understand the risk and want to change it with this device only"),
       check: tt("Entendi e quero trocar agora", "I understand and want to change it now"),
       digitar: tt("Para confirmar, digite TROCAR", "To confirm, type CHANGE"),
@@ -5397,18 +5429,19 @@ const Giro = {
       fimTit: tt("✓ A família está mais segura", "✓ The family is safer"),
       fimTexto: tt("Tudo foi trocado e conferido. As senhas continuam as mesmas.", "Everything was changed and checked. Your passwords stay the same."),
       emRefeito: tt("O código de emergência continua o mesmo.", "The emergency code stays the same."),
-      copiaNova: tt("💾 Faça uma cópia protegida nova: as de antes não abrem mais as senhas.", "💾 Make a new protected copy: the old ones no longer open the passwords."),
+      copiaNova: tt("💾 Faça uma cópia protegida nova: as de antes não trazem mais de volta as senhas nem os anexos protegidos.", "💾 Make a new protected copy: the old ones no longer bring back the passwords or the protected attachments."),
       btCopiaNova: tt("💾 Fazer uma cópia protegida", "💾 Make a protected copy"),
       estranhas: (n) => tt(n + (n > 1 ? " itens não puderam ser trocados porque já não abriam antes. Eles continuam guardados." : " item não pôde ser trocado porque já não abria antes. Ele continua guardado."), n + (n > 1 ? " items couldn't be changed because they already didn't open before. They're still kept." : " item couldn't be changed because it already didn't open before. It's still kept.")),
       btEntendi: tt("Entendi", "Got it"),
       /* para os outros chefes e responsáveis (8.5) e a troca esquecida (C16) */
       outroTrocando: tt("Um chefe da família está trocando a chave de segurança (alguns minutos). Algumas senhas podem não aparecer até terminar. Não precisa fazer nada.", "A family head is changing the security key (a few minutes). Some passwords may not show until it finishes. Nothing to do."),
-      outroParado: tt("A troca de segurança parou no meio. O chefe que começou precisa continuar.", "The security change stopped halfway. The head who started it needs to continue."),
+      /* revisão D2: o chefe que começou pode ter perdido o aparelho; outro chefe também pode continuar (revisão S2) */
+      outroParado: tt("A troca de segurança parou no meio. Um chefe da família precisa continuar (o que começou ou outro chefe).", "The security change stopped halfway. A family head needs to continue it (the one who started it or another head)."),
       esquecida: (h) => tt("A troca de segurança começou e parou antes de mudar qualquer coisa. Se o chefe que começou não continuar, ela se desfaz sozinha em " + h + " h.", "The security change started and stopped before changing anything. If the head who started it doesn't continue, it undoes itself in " + h + " h."),
       /* "Terminar a troca" (8.8, D-E7; C16: nada de "servidor") */
       btTerminar: tt("🧹 Terminar a troca (apagar as versões antigas)", "🧹 Finish the change (delete the old versions)"),
       terminarTit: tt("🧹 Terminar a troca", "🧹 Finish the change"),
-      terminarTexto: tt("Depois disso, nada antigo abre mais as senhas, nem cópias antigas. Faça antes de convidar alguém novo para a família.", "After this, nothing old opens the passwords anymore, not even old copies. Do it before inviting someone new to the family."),
+      terminarTexto: tt("Depois disso, a versão antiga é apagada de vez: nada antigo abre mais as senhas, nem para quem tiver uma cópia de antes da troca. Faça antes de convidar alguém novo para a família.", "After this, the old version is deleted for good: nothing old opens the passwords anymore, not even for someone holding a copy from before the change. Do it before inviting someone new to the family."),
       depois: tt("Quando as Senhas da casa tiverem sido abertas nos seus outros aparelhos, nos dos outros chefes e responsáveis e no MoneyTRIO, toque em “Terminar a troca”.", "Once the vault has been opened on your other devices, on the other heads' and guardians' devices and in MoneyTRIO, tap “Finish the change”."),
       velhaDepois: tt("Um aparelho da família com o OmniLifeONE desatualizado entregou a versão antiga de novo. Atualize o app em todos os aparelhos da família (ou tire o aparelho desatualizado) e toque de novo em “Terminar a troca”.", "A family device with an outdated OmniLifeONE handed out the old version again. Update the app on every family device (or remove the outdated one) and tap “Finish the change” again."),
       terminarCheck: tt("Entendi e quero terminar agora", "I understand and want to finish now"),
@@ -7127,6 +7160,10 @@ const SaudeMT = {
   chave(h) { const pl = (h && h.plan) || {}; return [pl.operator || "", pl.valid || "", (h && h.doctor) || ""].join("|"); },
   mudou(antes, depois) { if (this.chave(antes) !== this.chave(depois)) this.agendar(); },
   agendar() { if (!this.ligado() || !this.pode()) return; lsSet(LS.saudeMT, S.family.id); this.enviar().catch(() => {}); },
+  /* 2.27.0 (revisão D3): a troca de segurança tira da fila do MoneyTRIO os resumos de antes de TODOS os aparelhos (C10), mas a Saúde
+     é de cada aparelho (NUVEM_LOCAL) e o reenvio do fim leva só a do aparelho que trocou. Ao adotar a chave nova, este aparelho manda
+     de novo o resumo DELE (fica pendente; o usarChave manda, já com a nova) — só se tem algo a mandar */
+  depoisDaTroca() { try { if (this.ligado() && this.pode() && this.resumo().pessoas.length) lsSet(LS.saudeMT, S.family.id); } catch (e) {} },
   pendente() { return !!S.family && lsGet(LS.saudeMT, "") === S.family.id; },
   /* true = enviado; false = ficou para depois (Senhas da casa fechadas, sem internet, opção desligada) */
   async enviar() {
@@ -16657,6 +16694,13 @@ const Restore = {
     }
     const dados = this.remap(data, mapa);
     let n = 0; const restaurados = [];
+    /* 2.27.0 (revisão D4): na nuvem, com as Senhas abertas, um item das Senhas da casa que a cópia traz trancado por um cadeado que
+       não é o de agora (a cópia é de antes da troca de segurança, ou de outra família) não volta: ele ficaria só neste aparelho, sem
+       subir nem aparecer (e um código de emergência assim ficaria preso na fila). Também não conta como restaurado: o aviso diz
+       quantos não voltaram. A cópia de um cofre de antes da 2.15.0 (com _meta) continua como antes ("Trazer as senhas antigas") */
+    const legado = (dados.vault || []).some((d) => d && d.id === "_meta");
+    const naoVolta = async (doc) => S.mode === "cloud" && Cofre.aberto() && !legado && (doc.id === "_em" ? !!doc.em && doc.em.fk !== Cofre.fk : await Cofre.antigo(doc));
+    let naoVoltou = 0;
     for (const c of COLS) for (const doc of dados[c] || []) {
       if (c === "vault" && !opt.gate && !isGuardian()) continue;
       if (this.daChave(c, doc)) continue;
@@ -16674,17 +16718,25 @@ const Restore = {
         if (c === "health" || c === "settings") { const m = this.completar(cur, doc); if (JSON.stringify(m) !== JSON.stringify(cur)) { await DB.put(c, m, true); n++; } continue; }
         if (String(doc.updatedAt || "") <= String(cur.updatedAt || "")) continue;
       }
+      if (c === "vault" && (await naoVolta(doc))) { naoVoltou++; continue; }
       await this.gravar(c, doc); n++;
     }
-    for (const id in files) { const m = DB.col("files").get(id); if (m) { try { await DB.driver.putFile(id, b64ToBlob(files[id], m.enc ? "application/octet-stream" : m.type), m); } catch (e) {} } }
+    /* 2.27.0 (revisão D1): o arquivo da cópia só entra quando a ficha daqui é a dele (o mesmo iv). A troca de segurança fecha os
+       anexos deste aparelho de novo (outro iv, outra chave) e não muda a data da ficha: por cima deles, o arquivo de antes não
+       abriria mais com a ficha de agora, e o anexo sumiria do único lugar onde ele existe */
+    const fichas = new Map((dados.files || []).map((d) => [d.id, d]));
+    for (const id in files) { const m = DB.col("files").get(id), c = fichas.get(id); if (m && (!m.enc || (c && c.enc && c.enc.iv === m.enc.iv))) { try { await DB.driver.putFile(id, b64ToBlob(files[id], m.enc ? "application/octet-stream" : m.type), m); } catch (e) {} } }
     /* digital veio de outro endereço: avisa na primeira entrada de cada perfil */
     const comBio = new Set((o.bio || []).map((pid) => mapa[pid] || pid));
     S.prefs.bioRelink = Object.assign({}, S.prefs.bioRelink || {});
     restaurados.forEach((pid) => { if (comBio.has(pid) && !Bio.profId(pid)) S.prefs.bioRelink[pid] = 1; });
     savePrefs();
     try { ChangeLog.add("restore", "copia", "restaurou", null, { modo, registros: n, protegida, quando: new Date().toISOString() }); } catch (e) {}
-    toast(n + (opt.migrar ? tt(" registros levados para a nuvem ✓", " records moved to the cloud ✓") : tt(" registros restaurados ✓", " records restored ✓")) + (modo === "juntar" && Object.keys(casa.mapa).length ? tt(" — ninguém duplicado.", " — nobody duplicated.") : ""), 5000);
-    return { modo, mapa, owner: o.owner ? (mapa[o.owner.id] || o.owner.id) : null };
+    const semVolta = !naoVoltou ? "" : " " + (naoVoltou > 1
+      ? tt(naoVoltou + " itens das Senhas da casa não voltaram: na cópia eles estão trancados por um cadeado que não é o de agora (por exemplo, a cópia é de antes da troca de segurança).", naoVoltou + " vault items didn't come back: in the copy they're locked by a lock that isn't the current one (for example, the copy is from before the security change).")
+      : tt("1 item das Senhas da casa não voltou: na cópia ele está trancado por um cadeado que não é o de agora (por exemplo, a cópia é de antes da troca de segurança).", "1 vault item didn't come back: in the copy it's locked by a lock that isn't the current one (for example, the copy is from before the security change)."));
+    toast(n + (opt.migrar ? tt(" registros levados para a nuvem ✓", " records moved to the cloud ✓") : tt(" registros restaurados ✓", " records restored ✓")) + (modo === "juntar" && Object.keys(casa.mapa).length ? tt(" — ninguém duplicado.", " — nobody duplicated.") : "") + semVolta, naoVoltou ? 10000 : 5000);
+    return { modo, mapa, owner: o.owner ? (mapa[o.owner.id] || o.owner.id) : null, naoVoltou };
   }
 };
 

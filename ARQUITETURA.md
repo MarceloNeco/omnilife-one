@@ -266,7 +266,9 @@ sem framework: HTML, CSS e JavaScript puros.
   - **A ponte Saúde → MoneyTRIO** (C10/D-E10): durante a troca (e com a chave daqui atrasada) o `SaudeMT.enviar` não manda (fica
     pendente). No F7, na ordem: anota o pendente → `Giro.marcarPonte(nova)` marca como lidas as `saude-resumo` DO OMNI que não estão
     na nova (achadas por REST em `sol_ponte`, `Giro.ponteNaoLidas`: a caixa do banco esconderia as de quem desligou a ponte) →
-    `feito` → reenvia o resumo inteiro com a nova. Marcar antes do "feito" é o que impede o descarte de travar para sempre.
+    `feito` → reenvia o resumo inteiro com a nova. Marcar antes do "feito" é o que impede o descarte de travar para sempre. A Saúde é
+    de cada aparelho (não sobe) e o reenvio leva só a do aparelho que trocou: cada outro aparelho, ao adotar a nova, manda o resumo
+    DELE de novo (`SaudeMT.depoisDaTroca`, só se tem algo da Saúde — revisão D3).
   - **"🧹 Terminar a troca"** (item d, D-E7: botão separado, no fim e no Avançado; `Giro.descartar`): `Giro.faltaDescartar` diz o que
     falta (para leigo) antes de confirmar; "Entendi", TROCAR e o PIN; `sol_descartar_chaves_antigas(p_grupo, p_ate_versao = maior
     − 1)`; `descartar:ponte` → marca de novo e tenta uma vez (C10); `descartar:giro` com a troca "feito" no banco → regrava a troca
@@ -281,6 +283,10 @@ sem framework: HTML, CSS e JavaScript puros.
     `Cloud.poll`, sem PIN, aviso "🔐 As Senhas da casa foram atualizadas neste …"). Sem a chave pessoal (aprovado pela família):
     `Cofre.desatualizado = "semChave"` → cartão "precisa ser aprovado de novo" com o botão; reaprovado, o `montar` leva as de antes e
     o `prox` (`levarVelha`, C8). Depois de adotar, `Giro.arrumarAparelho` passa os anexos deste aparelho para a nova (no Fundo).
+    **Troca de outro aparelho pela metade** (revisão D2): depois do "preparado" a nova já está em `sol_minha_chave_grupo` para cada
+    chefe e responsável (C5); `Giro.abrirNova` (no `Cloud.poll` e ao abrir) a põe no chaveiro só para ABRIR — o que a troca já passou
+    para ela continua aparecendo, também com a troca parada (só se ela sai da chave daqui e sobe a versão; nada fechado com ela,
+    nada gravado). Um aparelho aprovado pela família (sem a chave pessoal) continua sem ver o que já foi trocado.
   - **O vigia** (`Giro.vigiar`, no `Cloud.poll`): as linhas que um aparelho atrasado gravou com uma chave de antes sobem para a
     atual (por `trocarLinha`, CAS). **Nunca** com a troca em curso nem rodando, e só se a chave daqui é a do registro do banco (C3).
   - **Nunca devolver uma chave velha** (as guardas): `Cofre._distribuir` (decide pelo registro DO BANCO, confere de novo antes de
@@ -293,6 +299,11 @@ sem framework: HTML, CSS e JavaScript puros.
     (`CloudDriver.bancoDoEnvio` + `cadeadoDoBanco`: o que está na fila fechado com a de antes é fechado de novo com a do registro do
     banco antes de subir, ou espera; o `_em` velho nunca sobe; o conflito "só de cadeado" não duplica — `Cofre.mesmoConteudo`); um
     item cuja linha nova não abre sai da tela (C14). A cópia protegida não leva nem traz o registro e a troca (`Restore.daChave`, C12).
+    **Restaurar uma cópia de antes da troca** (revisões D1 e D4): o arquivo de um anexo só entra se a ficha daqui é a da cópia (o
+    mesmo `iv`) — a troca fecha os anexos daqui de novo e o arquivo de antes, por cima, não abriria mais; e, na nuvem com as Senhas
+    abertas, um item das Senhas da casa (ou o `_em`) trancado por um cadeado que não é o de agora não volta (não fica preso só no
+    aparelho) e o aviso diz quantos não voltaram (a cópia de um cofre de antes da 2.15.0, com `_meta`, continua como antes). Os
+    textos dizem que as cópias de antes deixam de trazer as senhas e os anexos protegidos logo que a troca acontece.
     **Um aparelho com o app de antes** (2.26, que não acompanha a troca: uma aba antiga aberta) depois de "Terminar a troca" entrega
     a chave antiga de novo a todos os chefes e responsáveis (inclusive a quem entrou depois) e marca o registro com ela — o app de
     antes não se corrige daqui. O `_distribuir` do primeiro aparelho atualizado que libera percebe esse rastro (revisão S3): entrega
@@ -318,7 +329,7 @@ sem framework: HTML, CSS e JavaScript puros.
     descarte no banco e enquanto algo daqui ainda depende dela; aplicar SQL pelo app ou por quem constrói.
   - Testes (no banco de mentira `teste/mock-sol.js`, que faz o mesmo que os dois SQL): `teste/giro-omni.js` (as partes de E1 a E11:
     o mock × o SQL, o chaveiro, perceber a nova, a troca e cada queda, o Fundo, o `_em`, a ponte, as telas, o descarte, G7e e D8;
-    e RS1–RS4, da revisão de segurança);
+    e RS1–RS4, da revisão de segurança, e RD1–RD4, da revisão de dados);
     `teste/sql-giro.js` (os dois SQL DE VERDADE num Postgres local, só com `PGLITE=<pasta>`; sem ela, "PULADO"); e
     `teste/giro-moneytrio-omni.js` (o G6: o MoneyTRIO 3.66 de verdade acompanha a troca — `buscarMinha`, `conferirCf`, a ponte com o
     resumo novo, o velho marcado pelo Omni, as finanças da família continuam abrindo; só com `MONEYTRIO=<pasta do investify-me>`;
