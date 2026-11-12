@@ -2111,6 +2111,8 @@ const CloudDriver = {
     const key = col + "|" + id;
     if (col === "comsg") return this.enviarCombinado(id);
     if (col === "vault" && op.op !== "del") return this.enviarCofre(id);
+    /* 2.27.0 (C4): o registro da chave e o estado da troca não se apagam pelo app (sem o registro nasceria uma segunda chave) */
+    if (op.op === "del" && col === "settings" && (id === "cofre" || id === "giro")) return this.recarregar(col, id);
     if (op.op === "del") {
       const r = await Conta.rest("PATCH", this.url(col, id), { apagado_em: new Date().toISOString() }, "return=representation");
       if (!r || !r.length) { const l = await this.linha(col, id); if (l && !l.apagado_em) throw this.erro(tt("sem permissão para apagar", "not allowed to delete"), 403); }
@@ -2123,6 +2125,14 @@ const CloudDriver = {
     }
     for (let vez = 0; vez < 4; vez++) {
       rec = this.recs.get(key); if (!rec || !this.gid) return;
+      /* 2.27.0: a chave da família só muda pela troca, direto no banco. Pela fila, o estado da troca nunca sobe, e o registro do
+         cofre nunca anda para trás (C4: a kv só sobe; outra fk com kv igual ou menor é recusada). Um aparelho velho, ou sem a
+         cópia do registro, voltaria a família para a chave antiga: fica o do banco */
+      if (col === "settings" && id === "giro") return this.recarregar(col, id);
+      if (col === "settings" && id === "cofre") {
+        const l = await this.linha(col, id), d = l && l.dados, m = rec.doc || {};
+        if (d && d.fk && ((+m.kv || 0) < (+d.kv || 0) || ((+m.kv || 0) === (+d.kv || 0) && m.fk !== d.fk))) { await this.aceitar(col, id, l, true); return; }
+      }
       const corpo = this.paraServidor(col, rec.doc);
       if (rec.versao) {
         const r = await Conta.rest("PATCH", this.url(col, id) + "&versao=eq." + rec.versao, Object.assign({ apagado_em: null }, corpo), "return=representation");
@@ -3414,6 +3424,22 @@ const Cofre = {
     return p;
   },
   registro() { return DB.col("settings").get("cofre") || null; },   /* { fk, kv, membros: { uid: { kid, seq, fk } } } — sem segredo */
+  /* 2.27.0: o registro e a troca como estão NO BANCO (C13: quem entrega a chave da família decide por ele; a cópia daqui fica para
+     trás quando há uma mudança dela esperando na fila). Sem resposta do banco, lança erro: aí não se entrega nada.
+     {reg: dados do registro (mesmo apagado: ele ainda diz qual é a chave) | null, giro: a linha da troca | null} */
+  async noBanco() {
+    const rows = await Conta.rest("GET", "omni_docs?grupo_id=eq." + S.family.id + "&colecao=eq.settings&id=in.(cofre,giro)&select=id,vis,dados,versao,atualizado_em,apagado_em", undefined, undefined, 8000);
+    const de = (id) => (rows || []).find((r) => r.id === id) || null, c = de("cofre");
+    return { reg: c && c.dados && c.dados.fk ? c.dados : null, giro: de("giro") };
+  },
+  /* (b) a chave {kv, fk} é a do registro? Sem registro (família nova), é. Uma de outro fk, ou mais velha, nunca é entregue nem fecha */
+  ehAtual(reg, kv, fk) { return !reg || !reg.fk || (reg.fk === fk && (+reg.kv || 0) <= (+kv || 0)); },
+  /* mudar as Senhas da casa: nunca no meio da troca (viva) nem com a chave velha neste aparelho. {ok} | {texto} */
+  podeMudar() {
+    if (Giro.vivo()) return { texto: Giro.T.mudarEspere };
+    if (this.aberto() && !this.ehAtual(this.registro(), this.kv, this.fk)) return { texto: Giro.T.mudarVelho };
+    return { ok: true };
+  },
   /* ---------- cripto ---------- */
   rnd(n) { return crypto.getRandomValues(new Uint8Array(n)); },
   id() { return b64FromBuf(this.rnd(9)).replace(/[+/=]/g, ""); },
@@ -3447,6 +3473,8 @@ const Cofre = {
      "_em" (envelope de emergência) já vem cifrado pelo código de emergência: vai como está, para o contato abrir sem a CF. */
   async selar(doc) {
     const d = JSON.parse(JSON.stringify(doc)); delete d.id;
+    /* última porta: só a chave atual fecha (nada sai daqui fechado com a velha, nem no meio da troca) */
+    const pm = this.podeMudar(); if (!pm.ok) throw new Error(pm.texto);
     if (doc.id === "_em") return JSON.stringify({ em: 1, d });
     if (!this.aberto()) throw new Error(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first."));
     return JSON.stringify(Object.assign({ c: 1, kv: this.kv, fk: this.fk }, await this.cifrar(this.vf, new TextEncoder().encode(JSON.stringify(d)))));
@@ -3643,20 +3671,31 @@ const Cofre = {
   },
   async _distribuir() {
     try { await CloudDriver.pull(); } catch (e) {}   /* o registro mais novo antes de decidir para quem falta */
-    if (!this.aberto()) return;
+    /* (b) nunca devolver uma chave velha: só entrega a chave que o registro DO BANCO diz (C13) e nada durante a troca (aí só a
+       troca entrega). Conferido de novo antes de cada entrega e antes de subir o registro: ele pode virar no meio. Sem resposta
+       do banco, não entrega */
+    const banco = async () => {
+      if (!this.aberto()) return null;
+      let b; try { b = await this.noBanco(); } catch (e) { return null; }
+      return this.aberto() && !Giro.emCurso(b.giro) && this.ehAtual(b.reg, this.kv, this.fk) ? b : null;
+    };
+    const b = await banco(); if (!b) return;
     const pubs = await Conta.rpc("sol_chaves_publicas_do_grupo", { p_grupo: S.family.id });
-    const reg = JSON.parse(JSON.stringify(this.registro() || { id: "cofre", vis: "restrito", fk: this.fk, kv: this.kv, membros: {} }));
+    /* para quem falta: pelo registro do banco (o daqui só quando o banco ainda não tem nenhum) */
+    const reg = JSON.parse(JSON.stringify(b.reg ? Object.assign({ id: "cofre", vis: "restrito" }, b.reg) : this.registro() || { id: "cofre", vis: "restrito", fk: this.fk, kv: this.kv, membros: {} }));
     reg.membros = reg.membros || {}; let mudou = !this.registro();
+    /* D-E1: a chave da família só para chefe e responsável (o MoneyTRIO e as Integrações prometem isso) */
     for (const p of pubs || []) {
       if (!["chefe", "responsavel"].includes(p.papel) || !p.chave_publica || !p.chave_publica.kid) continue;
       const m = reg.membros[p.user_id]; if (m && m.kid === p.chave_publica.kid && m.fk === this.fk) continue;
       const seq = Math.max(p.ultima_versao || 0, (m && m.seq) || 0) + 1;
+      if (!(await banco())) return;
       try {
         await Conta.rpc("sol_guardar_chave_grupo", { p_grupo: S.family.id, p_user: p.user_id, p_versao: seq, p_chave_embrulhada: await this.embrulhar(p.chave_publica, this.vfRaw, this.kv, this.fk) });
         reg.membros[p.user_id] = { kid: p.chave_publica.kid, seq, fk: this.fk }; mudou = true;
       } catch (e) { console.warn("cofre: liberar para", p.apelido, e); }
     }
-    if (mudou) await DB.put("settings", reg, true);   /* sobe pela fila (em instantes) */
+    if (mudou && (await banco())) await DB.put("settings", reg, true);   /* sobe pela fila (em instantes) */
   },
   /* ---------- montar o cadeado deste aparelho (2.26.0: aprovado pelo outro aparelho, pela família, pelo código antigo, ou conta nova) ----------
      pkcs8: a chave pessoal (null quando a família aprovou: aí vem só a chave da família em fam = {raw, kv, fk}). conta = {segredo,
@@ -3674,7 +3713,12 @@ const Cofre = {
     if (!r && pkcs8) { try { r = await this.buscarMinha(await this.importarSk(pkcs8)); } catch (e) {} }
     if (!r && novaCF) {
       let reg = this.registro();
-      if (!reg || !reg.fk) { try { const l = await CloudDriver.linha("settings", "cofre"); if (l && !l.apagado_em && l.dados && l.dados.fk) reg = l.dados; } catch (e) {} }
+      /* 2.27.0 (6.1, C4): sem resposta do banco não dá para saber se a família já tem chave — nada muda (antes nascia uma
+         segunda chave numa falha de rede). Um registro apagado ainda diz que a família tem chave */
+      if (!reg || !reg.fk) {
+        let l; try { l = await CloudDriver.linha("settings", "cofre"); } catch (e) { dukRaw.fill(0); return { erro: "rede" }; }
+        if (l && l.dados && l.dados.fk) reg = l.dados;
+      }
       if (!reg || !reg.fk) { r = { raw: this.rnd(32), kv: 1, fk: this.id() }; nova = true; }
     }
     if (r) L.fam[gid] = Object.assign({ kv: r.kv, fk: r.fk }, await this.cifrar(duk, r.raw));
@@ -3726,6 +3770,8 @@ const Cofre = {
     try { await this.publicarPub(par); } catch (e) { par.pkcs8.fill(0); if (zero && novo && ap) Sol.apTirar(ap).catch(() => {}); return { erro: "rede" }; }
     if (novo && !zero) { try { ap = await Sol.apRegistrar("primeiro"); } catch (e) {} }
     const r = await this.montar(par.pkcs8, null, pin, novo ? "primeiro" : L0.como || "primeiro", ap, conta, true); par.pkcs8.fill(0);
+    /* sem resposta do banco para saber se a família já tem chave: o cadeado daqui não mudou; o lugar novo na lista sai (K19) */
+    if (r.erro === "rede") { if (novo && ap) Sol.apTirar(ap).catch(() => {}); return { erro: "rede" }; }
     if (ap && !conta) {
       const sal = SolProto.novoSalConta();
       let d = null; try { d = await Sol.pinDefinir(await SolProto.verificador(pin, sal), sal, null, ap); } catch (e) {}
@@ -3768,6 +3814,7 @@ const Cofre = {
   /* ---------- contato de emergência: envelope com a CF cifrada pelo código de emergência ---------- */
   async envelope() {
     if (!this.aberto()) return toast(tt("Abra as Senhas da casa primeiro (Casa → Senhas da casa).", "Open the vault first (Home → Vault)."));
+    const pm = this.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);   /* o código novo nunca fecha a chave velha */
     const code = Cloud.newCode(16).replace(/(.{4})(?=.)/g, "$1-"), sal = b64FromBuf(this.rnd(16));
     const em = Object.assign({ sal, iter: COFRE_ITER, kv: this.kv, fk: this.fk }, await this.cifrar(await this.kdf(code.replace(/-/g, ""), sal, COFRE_ITER), this.vfRaw));
     await DB.put("vault", { id: "_em", em, at: new Date().toISOString(), vis: "restrito" });
@@ -3787,6 +3834,7 @@ const Cofre = {
   temLegado() { const r = CloudDriver.recs.get("vault|_meta"); return !!(r && r.doc && !r.cif); },
   async trazerLegado() {
     if (!this.aberto()) return;
+    const pm = this.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);
     const L = this.legado(), meta = L.get("_meta"); if (!meta) return toast(tt("Não há senhas antigas neste aparelho.", "No old vault on this device."));
     const itens = [...L.values()].filter((v) => v.id !== "_meta" && v.id !== "_em" && v.enc);
     const pw = await askText("🔐 " + tt("Trazer as senhas antigas", "Bring the old vault"), tt("Senha que abria o cofre antigo (" + itens.length + " itens)", "Old vault master password (" + itens.length + " items)"), "", "password");
@@ -3918,6 +3966,35 @@ ACT["cofre.pin"] = async () => {
 ACT["cofre.digital"] = async () => TelaConta.abrirCasa(await Cofre.destrancarDigital(), "", true);
 
 /* =====================================================================
+   TROCAR A CHAVE DE SEGURANÇA DA FAMÍLIA (2.27.0, Parte E). O estado da troca é settings/giro em omni_docs: em claro, sem
+   segredo, gravado só por REST com a versão conferida (nunca pela fila). Por enquanto, só o que as guardas usam ("durante a
+   troca, só a troca entrega a chave e ninguém muda as Senhas da casa").
+   ===================================================================== */
+const Giro = {
+  PARADO_MS: 3 * 60e3,   /* sem notícia há mais que isso = a troca parou (gancho dos testes) */
+  /* os dados da troca de uma linha do banco ({vis, dados, atualizado_em, apagado_em}). Só vale a "restrito" (C9: um adulto
+     comum cria settings como "publico"; uma troca falsa não pode travar a família) */
+  dados(row) { return row && !row.apagado_em && row.vis === "restrito" && row.dados && row.dados.v === 1 ? row.dados : null; },
+  /* a cópia deste aparelho, no formato da linha do banco */
+  local() { const r = CloudDriver.recs.get("settings|giro"); return r && r.base ? { vis: r.vis, dados: r.base, atualizado_em: r.at, apagado_em: null } : null; },
+  /* há troca começada e não terminada (row: a linha lida do banco; sem ela, a cópia daqui) */
+  emCurso(row) { const g = this.dados(row === undefined ? this.local() : row); return !!(g && g.estado && !["feito", "desistiu"].includes(g.estado)); },
+  /* em curso e com notícia recente (parada, mudar com a chave de antes é seguro: quem continuar troca depois) */
+  vivo(row) { row = row === undefined ? this.local() : row; return this.emCurso(row) && Date.now() - (Date.parse(row.atualizado_em) || 0) < this.PARADO_MS; },
+  get T() {
+    return {
+      aprovarEspere: tt("Espere a troca de segurança terminar para aprovar (alguns minutos).", "Wait for the security change to finish before approving (a few minutes)."),
+      aprovarVelho: tt("Este aparelho ainda está com a versão antiga das Senhas da casa. Abra pelo PIN com internet e tente de novo.", "This device still has the old version of the vault. Open it with the PIN, online, and try again."),
+      aprovarNaoPode: tt("Quem pediu não é chefe nem responsável desta família: as Senhas da casa são só deles. Recuse este pedido.", "The person asking is not a head or guardian of this family: the home passwords are only theirs. Decline this request."),
+      aprovarRede: tt("Sem internet para conferir as Senhas da casa. Ligue a internet e tente de novo.", "No internet to check the vault. Turn on the internet and try again."),
+      recebeuVelha: tt("O aparelho que aprovou estava com a versão antiga. Peça de novo, aprovando por um aparelho atualizado.", "The approving device had the old version. Ask again, approving from an updated device."),
+      mudarEspere: tt("Espere a troca de segurança terminar para mudar as senhas (alguns minutos).", "Wait for the security change to finish before changing passwords (a few minutes)."),
+      mudarVelho: tt("Este aparelho precisa da atualização das Senhas da casa. Abra pelo PIN com internet.", "This device needs the vault update. Open it with the PIN, online.")
+    };
+  }
+};
+
+/* =====================================================================
    APARELHOS DA CONTA (sol-ap-v2) — 2.26.0. Cada aparelho que abre as Senhas da casa tem um lugar na lista da conta
    (sol_aparelhos, a mesma do MoneyTRIO). Aqui: entrar na lista e conferir se não foi tirado em outro aparelho.
    ===================================================================== */
@@ -4042,6 +4119,12 @@ const Aparelhos = {
     if (p.tipo === "familia") {
       const f = (L.fam || {})[p.grupo_id];
       if (!f || !S.family || p.grupo_id !== S.family.id) return { texto: tt("Esta família não está aberta neste aparelho.", "This family is not open on this device.") };
+      /* D-E1 (C7): a chave da família só vai para chefe ou responsável desta família (a tela já recusa; esta é a última porta) */
+      if (!this.podeFamilia(p)) return { texto: Giro.T.aprovarNaoPode };
+      /* (b): nunca a chave velha, nem no meio da troca — conferido no banco (C13); sem resposta dele, não entrega */
+      let b; try { b = await Cofre.noBanco(); } catch (e) { return { texto: Giro.T.aprovarRede }; }
+      if (Giro.emCurso(b.giro)) return { texto: Giro.T.aprovarEspere };
+      if (!Cofre.ehAtual(b.reg, f.kv, f.fk)) return { texto: Giro.T.aprovarVelho };
       const cf = await Cofre.decifrar(duk, f);
       return { c: SolProto.cargaFamilia(p.grupo_id, f.kv, f.fk, cf), zerar: () => cf.fill(0) };
     }
@@ -4222,6 +4305,15 @@ const Aparelhos = {
      → a família aberta → o PIN das chaves de IA acompanha. O lugar antigo deste aparelho na lista sai ("Esqueci o PIN"),
      também em "Falta liberar" (K15); quem desiste do PIN não fica com a linha nova na lista (K19) nem perde o cadeado de antes. */
   async receber(carga, apId, como) {
+    /* (b): a chave da família que chegou tem de ser a do registro do banco. Velha → não monta (o pedido já foi usado: pede de
+       novo, aprovando por um aparelho atualizado). Sem internet para conferir, monta como antes (o aparelho percebe depois) */
+    if (carga.tipo === "familia") {
+      let b = null; try { b = await Cofre.noBanco(); } catch (e) {}
+      if (b && !Cofre.ehAtual(b.reg, carga.kv, carga.fk)) {
+        carga.cf.fill(0); if (apId) Sol.apTirar(apId).catch(() => {});
+        Jornada.limpar(); return TelaConta.acabou("velha", "familia", {});
+      }
+    }
     const velho = await Cofre.local(), apVelho = velho && velho.ap, uid = Conta.uid();
     const fam = carga.tipo === "familia" ? { raw: carga.cf, kv: carga.kv, fk: carga.fk } : null;
     const f = await TelaConta.pinDepoisDeAprovado(apId, (pin, conta) => Cofre.montar(fam ? null : carga.sk, fam, pin, como, apId, conta), como);
@@ -4768,6 +4860,7 @@ const TelaConta = {
       naoAbriu: [tt("Não abriu", "Did not open"), tt("A resposta não abriu neste aparelho. Peça de novo.", "The answer did not open on this device. Ask again.")],
       alterado: [tt("Não abriu", "Did not open"), "⚠️ " + tt("A resposta não confere com os 6 números. Nada foi usado. Peça de novo.", "The answer does not match the 6 numbers. Nothing was used. Ask again.")],
       pronto: [tt("Ainda não está pronto", "Not ready yet"), tt("A aprovação pelo outro aparelho ainda está sendo ligada.", "Approval from another device is still being switched on.")],
+      velha: [tt("Não abriu", "Did not open"), Giro.T.recebeuVelha],
       erro: [tt("Não deu para pedir", "Could not request"), esc(Conta.explicar(e))]
     }[tipo];
     const deNovo = tipo !== "pronto" && tipo !== "erro";
@@ -9443,6 +9536,7 @@ const Cars = {
       company: s.seguradora || o.company || "", valid: s.fim || o.valid || "", phone: o.phone || (f1 ? f1.n : ""), carId: c.id });
     /* nada mudou: não regrava (na nuvem, regravar à toa vira conflito quando dois responsáveis mexem no carro) */
     if (v && Object.keys(payload).every((k) => payload[k] === o[k])) return v.id;
+    const pm = Cofre.podeMudar(); if (!pm.ok) throw new Error(pm.texto);   /* 2.27.0: nem no meio da troca, nem com a chave velha */
     const d = await DB.put("vault", Object.assign({}, v || {}, { kind: "seguro", enc: await Vault.encObj(payload), files: (v && v.files) || [], vis: "restrito" }), true);
     return d.id;
   },
@@ -11297,6 +11391,7 @@ function escolherTipoCofre() {
   });
 }
 async function editVault(v, kindNovo) {
+  const pm = Cofre.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);   /* 2.27.0: nem no meio da troca, nem com a chave velha */
   let o = { kind: kindNovo || "senha" };
   if (v) { try { o = Object.assign({ kind: v.kind }, await Vault.decObj(v.enc)); } catch (e) { return toast(tt("Não consegui abrir.", "Could not decrypt.")); } }
   o.kind = vtKind(o.kind)[0];
@@ -14880,6 +14975,9 @@ ACT["mt.save"] = () => DB.saveSetting({ mt: Object.assign({}, Bridge.cfg(), { gr
    ===================================================================== */
 const Restore = {
   ITER: 310000,
+  /* 2.27.0 (C12): o registro da chave da família e o estado da troca nunca vão numa cópia nem voltam dela (uma cópia de antes
+     da troca voltaria a família para a chave antiga ou encheria de novo o que a troca esvaziou) */
+  daChave(c, doc) { return c === "settings" && !!doc && (doc.id === "cofre" || doc.id === "giro"); },
   async kdf(secret, salt) {
     const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(String(secret)), "PBKDF2", false, ["deriveKey"]);
     return crypto.subtle.deriveKey({ name: "PBKDF2", salt: bufFromB64(salt), iterations: this.ITER, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt", "wrapKey", "unwrapKey"]);
@@ -15068,6 +15166,7 @@ const Restore = {
     let n = 0; const restaurados = [];
     for (const c of COLS) for (const doc of dados[c] || []) {
       if (c === "vault" && !opt.gate && !isGuardian()) continue;
+      if (this.daChave(c, doc)) continue;
       const cur = DB.col(c).get(doc.id);
       if (c === "people") {
         if (cur && modo === "juntar") {
@@ -15230,7 +15329,7 @@ ACT["users.merge"] = async () => {
 /* fonte (opcional) = { data } de outro lugar, ex.: a cópia antiga "só neste aparelho" quando a família já está na nuvem */
 async function backupJSON(withFiles, fonte) {
   const out = { app: APP_NAME, v: 1, at: new Date().toISOString(), data: {} };
-  COLS.forEach((c) => (out.data[c] = fonte ? (fonte.data[c] || []) : DB.raw(c)));
+  COLS.forEach((c) => (out.data[c] = (fonte ? (fonte.data[c] || []) : DB.raw(c)).filter((d) => !Restore.daChave(c, d))));
   if (withFiles) { out.files = {}; for (const m of (fonte ? fonte.data.files || [] : DB.raw("files"))) { try { const b = await DB.driver.getFile(m.id, m); if (b) out.files[m.id] = await blobToB64(b); } catch (e) {} } }
   return JSON.stringify(out);
 }

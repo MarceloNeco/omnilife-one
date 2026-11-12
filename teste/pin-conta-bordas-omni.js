@@ -123,6 +123,9 @@ async function janelaPin(p) {
   L = await local(k); const ctAntes = L.ct;
   /* o aviso é um toast de 5 s: guardado quando aparece (com o computador ocupado, ler a tela depois das idas e voltas o perdia) */
   await k.evaluate(() => { window.__avisos = []; const t = document.querySelector('#toasts'); new MutationObserver(() => window.__avisos.push(t.textContent)).observe(t, { childList: true, subtree: true }); });
+  /* "sem o SQL" também no banco de mentira: um sol_pin_* que já estava a caminho (o Cloud.poll confere o PIN da conta) responderia
+     200 e religaria o sinal no meio do K12 (o Sol.rpc marca "ligado" a cada resposta boa) */
+  M.semPin = true; await k.waitForTimeout(400);
   await k.evaluate(() => { document.querySelector('#toasts').innerHTML = ''; Sol.ligadoPin = false; window.__novo = 0; const f = TelaConta.formPin; TelaConta.formPin = function (op) { window.__novo++; return f.call(this, op); }; window.__troca = TelaConta.trocarPin(); });
   await k.waitForTimeout(1500);
   const k12 = await k.evaluate(async () => ({ prova: !!document.querySelector('.modal #ppin'), form: !!document.querySelector('.modal #pcAtual, .modal #pcP1'), novo: window.__novo }));
@@ -133,7 +136,7 @@ async function janelaPin(p) {
   const bom12 = ok12 && !k12.prova && !k12.form && k12.novo === 0 && r12 === false && L.ct === ctAntes && /Para trocar o PIN da conta, ligue a internet/.test(avisos12);
   conferir(bom12, 'K12. "Trocar o PIN" sem o SQL do PIN da conta: só diz para ligar a internet; o PIN deste aparelho não muda' +
     (bom12 ? '' : ' — ' + JSON.stringify({ ok12, k12, r12, igual: L.ct === ctAntes, avisos: avisos12 })));
-  await k.evaluate(() => { Sol.ligadoPin = null; });
+  await k.evaluate(() => { Sol.ligadoPin = null; }); M.semPin = false;
 
   /* ---------- tirado da conta: criar/trocar o PIN da conta não diz "Sem conexão" ---------- */
   console.log('Tirado: um aparelho fora da lista da conta tenta criar ou trocar o PIN da conta');

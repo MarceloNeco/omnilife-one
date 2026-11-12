@@ -24,6 +24,14 @@
    responde "user_banned", como o Supabase para conta bloqueada), atrasoLogout (ms: o logout demora a responder; a hora da
    resposta fica em logoutRespondido — para conferir que o "Sair" espera o servidor antes de recarregar), log (toda chamada
    recebida) e acessos.
+   Parte E (2.27.0, "Trocar a chave de segurança da família"): sol_giro_situacao e sol_descartar_chaves_antigas fazem O MESMO
+   que scratchpad/pin-e/sol_descartar_chaves_antigas.sql (o SQL da plataforma; mesmas regras e mesmos erros "giro:"/"descartar:");
+   semGiroSql (as duas "não existem": 404 PGRST202), soChefeGiro (o gatilho do SQL do Omni, D-E3/C4: só o chefe muda fk/kv do
+   settings/cofre e grava o settings/giro, a kv só sobe, e os dois não se apagam), depoisDe ({"PATCH vault": n, acao}: depois do
+   n-ésimo PATCH em omni_docs daquela coleção, chama acao() — para derrubar um aparelho no meio), PKCS8 ({uid: chave privada}: só
+   para o teste abrir em Node o que foi embrulhado) e cfVelha (a CF de antes da troca). A ponte é a de verdade (sol_ponte_minha_caixa
+   das mais velhas, até 500; sol_ponte_marcar_lido; sol_ponte_config; leitura por REST como a RLS deixa) e money_migracao existe
+   (só pelas funções). prepararChaves({soPub: [DAVI]}) dá a chave pública (sem a CF) a quem entra depois.
    PESSOAS, SENHAS, CÓDIGOS E CHAVES: TUDO FICTÍCIO, feito só para teste (nada de dado de gente de verdade).
    ===================================================================== */
 'use strict';
@@ -53,7 +61,8 @@ const PESSOAS = {
    pode adiantar (M.relogio += 11 * 60e3) para um pedido vencer. */
 const M = {
   _desvio: 0, get relogio() { return Date.now() + this._desvio; }, set relogio(v) { this._desvio = v - Date.now(); },
-  ataque: null, ATACANTE: null, TARDE: null, falhar: {}, semPin: false, semAp: false, semDelete: false, banidas: {}, atrasoLogout: 0, logoutRespondido: 0, log: [], acessos: [] };
+  ataque: null, ATACANTE: null, TARDE: null, falhar: {}, semPin: false, semAp: false, semDelete: false, banidas: {}, atrasoLogout: 0, logoutRespondido: 0, log: [], acessos: [],
+  semGiroSql: false, soChefeGiro: false, depoisDe: null, PKCS8: {}, cfVelha: null };
 let _ultimo = 0;
 /* hora do banco em texto; sempre crescente (o cursor do omni_docs depende da ordem de atualizado_em) */
 const agora = () => { _ultimo = Math.max(M.relogio, _ultimo + 1); return new Date(_ultimo).toISOString(); };
@@ -65,7 +74,7 @@ const db = {
   sol_grupos: [{ id: GID, tipo: 'familia', nome: 'Família Teste', criado_por: ANA, criado_em: '2026-10-01T12:00:00.000Z', encerrado_em: null, governanca: 'omnilife-one', dono: ANA }],
   sol_grupo_membros: Object.keys(PESSOAS).map((u, i) => ({ id: uuid(), grupo_id: GID, user_id: u, perfil_id: PESSOAS[u].perfil, apelido: PESSOAS[u].nome, papel: PESSOAS[u].papel,
     status: 'ativo', convidado_por: u === ANA ? null : ANA, entrou_em: '2026-10-0' + (i + 1) + 'T12:00:00.000Z', saiu_em: null })),
-  sol_grupo_convites: [], sol_chave_publica: [], sol_grupo_chaves: [], sol_ponte: [],
+  sol_grupo_convites: [], sol_chave_publica: [], sol_grupo_chaves: [], sol_ponte: [], sol_ponte_config: [],
   /* plataforma (aparelhos, pedidos, passkeys e PIN da conta: só pelas funções) */
   sol_aparelhos: [], sol_acesso_pedidos: [], sol_passkeys: [], sol_pin_conta: [], sol_aparelho_pin: [],
   /* OmniLifeONE */
@@ -74,11 +83,11 @@ const db = {
   omni_pedidos_entrada: [], omni_pedidos_verificacao: [], omni_convite_info: [], omni_chave_privada: [],
   /* MoneyTRIO (o mesmo banco serve o teste cruzado). money_chaves e money_visao: as chaves próprias da família no MoneyTRIO
      3.66 ("dois cofres", supabase/2026-11-12-moneytrio-escopos.sql do MoneyTRIO), só o que o MoneyTRIO lê ao abrir e ao aprovar */
-  money_docs: [], user_settings: [], money_chaves: [], money_visao: [] };
+  money_docs: [], user_settings: [], money_chaves: [], money_visao: [], money_migracao: [] };
 /* não existem por REST (o app só chega nelas pelas funções), mesmo estando aqui para o teste conferir */
-const SO_FUNCOES = ['sol_aparelhos', 'sol_acesso_pedidos', 'sol_passkeys', 'sol_pin_conta', 'sol_aparelho_pin', 'sol_grupo_chaves', 'sol_ponte'];
+const SO_FUNCOES = ['sol_aparelhos', 'sol_acesso_pedidos', 'sol_passkeys', 'sol_pin_conta', 'sol_aparelho_pin', 'sol_grupo_chaves', 'sol_ponte_config', 'money_migracao'];
 /* o que o papel "authenticated" pode fazer em cada tabela (2026-10-23-grants-explicitos.sql): G ler, P criar, U mudar, D apagar */
-const GRANT = { sol_grupos: 'G', sol_grupo_membros: 'G', sol_grupo_convites: 'G', sol_chave_publica: 'G',
+const GRANT = { sol_grupos: 'G', sol_grupo_membros: 'G', sol_grupo_convites: 'G', sol_chave_publica: 'G', sol_ponte: 'G',
   omni_familia: 'G', omni_docs: 'GPU', omni_combinados: 'GP', omni_historico: 'GP', omni_governanca: 'G', omni_cofre_liberado: 'G',
   omni_aparelhos: 'GPUD', omni_pedidos_entrada: 'G', omni_pedidos_verificacao: 'G', omni_convite_info: 'G', omni_chave_privada: 'GPUD',
   money_docs: 'GPU', user_settings: 'GPU', money_chaves: 'G', money_visao: 'G' };
@@ -104,6 +113,8 @@ const RLS = {
   sol_grupo_membros: { ver: (me, r) => membro(me, r.grupo_id) },
   sol_grupo_convites: { ver: (me, r) => resp(me, r.grupo_id) },
   sol_chave_publica: { ver: (me, r) => r.user_id === me || db.sol_grupo_membros.some((b) => b.user_id === r.user_id && b.status === 'ativo' && membro(me, b.grupo_id)) },
+  /* a ponte: o dono da linha ou um membro do grupo lê (o banco só deixa ler; mensagem nunca se apaga) */
+  sol_ponte: { ver: (me, r) => r.user_id === me || (!!r.grupo_id && membro(me, r.grupo_id)) },
   omni_familia: { ver: (me, r) => membro(me, r.grupo_id) },
   omni_docs: { ver: (me, r) => membro(me, r.grupo_id) && (r.colecao === 'vault' ? resp(me, r.grupo_id) || liberado(me, r.grupo_id) : r.vis === 'publico' || resp(me, r.grupo_id)),
     criar: docOk, mudar: docOk },
@@ -201,6 +212,106 @@ async function respostaDoAtacante(p) {
   return { v: 2, iv: b64(iv), ct: b64(await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: utf8(p.id) }, k, utf8(JSON.stringify(carga)))) };
 }
 
+/* ---------------- a troca da chave da família (Parte E, 2.27.0) ----------------
+   As duas funções de scratchpad/pin-e/sol_descartar_chaves_antigas.sql (o SQL da plataforma, para o chat do MoneyTRIO), no MESMO
+   jeito: as mesmas tabelas, a mesma ordem das conferências e os mesmos erros. Os ajudantes imitam o jsonb do Postgres: o ->>
+   (texto), o -> (undefined = NULL do SQL), o ? (tem a chave), o = (NULL nunca é igual) e o pg_input_is_valid(…, 'jsonb'). */
+const jTxt = (x) => (x === undefined || x === null ? null : typeof x === 'object' ? JSON.stringify(x) : String(x));
+const jCampo = (j, k) => (j && typeof j === 'object' && !Array.isArray(j) && Object.prototype.hasOwnProperty.call(j, k) ? j[k] : undefined);
+const jTem = (j, k) => (Array.isArray(j) ? j.includes(k) : j && typeof j === 'object' ? Object.prototype.hasOwnProperty.call(j, k) : j === k);
+const jTipo = (j) => (j === undefined ? null : j === null ? 'null' : Array.isArray(j) ? 'array' : typeof j);
+const jIgual = (a, b) => a !== undefined && b !== undefined && (typeof a === 'number' && typeof b === 'number' ? a === b : JSON.stringify(a) === JSON.stringify(b));
+const jDistinto = (a, b) => !(a === undefined && b === undefined) && !jIgual(a, b);
+const jLer = (t) => { if (typeof t !== 'string') return undefined; try { return JSON.parse(t); } catch (e) { return undefined; } };
+const ponteLigada = (u, de, para) => { const c = db.sol_ponte_config.find((x) => x.user_id === u && x.de_app === de && x.para_app === para); return c ? c.ligado !== false : true; };
+const docVivo = (g, col, id) => db.omni_docs.find((d) => d.grupo_id === g && d.colecao === col && d.id === id && !d.apagado_em);
+const maiorVersao = (g, u) => { const vs = db.sol_grupo_chaves.filter((c) => c.grupo_id === g && (u === undefined || c.user_id === u)).map((c) => c.versao); return vs.length ? Math.max(...vs) : undefined; };
+/* sol_giro_situacao(p_grupo): só números e sim/não. Só o chefe */
+function giroSituacao(me, g) {
+  if (!g || papel(me, g) !== 'chefe') throw erro('giro:chefe Só o chefe da família vê isto.', 403, '42501');
+  const lr = docVivo(g, 'settings', 'cofre'), lg = docVivo(g, 'settings', 'giro');
+  const reg = lr && lr.dados != null ? lr.dados : undefined, giro = lg && lg.dados != null ? lg.dados : undefined;
+  const fk = jTxt(jCampo(reg, 'fk')), kv = jCampo(reg, 'kv'), maior = maiorVersao(g);
+  const para = jCampo(giro, 'para'), de = jCampo(giro, 'de'), deFk = jTxt(jCampo(de, 'fk')) || '';
+  /* restrito, gravado por último por um chefe ativo (atualizado_por vem do gatilho do banco) e troca de verdade (de.fk ≠ atual) */
+  const giroOk = !!lg && jTxt(jCampo(giro, 'estado')) === 'feito' && fk !== null && jTxt(jCampo(para, 'fk')) === fk && jIgual(jCampo(para, 'kv'), kv) &&
+    deFk !== '' && deFk !== fk && lg.vis === 'restrito' &&
+    db.sol_grupo_membros.some((m) => m.grupo_id === g && m.user_id === lg.atualizado_por && m.status === 'ativo' && m.papel === 'chefe');
+  /* Senhas da casa: vivas fora da CF do registro (o _em velho e forma desconhecida contam); apagadas que ainda guardam texto */
+  const naCf = (o) => fk !== null && jTxt(jCampo(o, 'fk')) === fk && jIgual(jCampo(o, 'kv'), kv);
+  let vault = 0, apag = 0;
+  for (const d of db.omni_docs.filter((x) => x.grupo_id === g && x.colecao === 'vault')) {
+    const j = jLer(d.dados_cifrado);
+    if (!d.apagado_em) { if (!(jTem(j, 'c') ? naCf(j) : jTem(j, 'em') ? naCf(jCampo(jCampo(j, 'd'), 'em')) : false)) vault++; }
+    else if (d.dados_cifrado != null && !(jTem(j, 'c') && fk !== null && jTxt(jCampo(j, 'fk')) === fk)) apag++;
+  }
+  /* ponte: não lidas do grupo com conteúdo fechado, e as fechadas com outra CF (direto na tabela: sem o filtro da sol_ponte_config) */
+  let pp = 0, po = 0;
+  for (const p of db.sol_ponte.filter((x) => x.grupo_id === g && x.lido_em == null && jTem(x.dados, 'cif'))) {
+    pp++; if (!(fk !== null && jTxt(jCampo(jLer(jTxt(jCampo(p.dados, 'cif'))), 'fk')) === fk)) po++;
+  }
+  /* MoneyTRIO: ainda há linha viva com a CF? a migração foi registrada? (dados_cifrado nulo não entra no "not like") */
+  const moneyUsa = db.money_docs.some((d) => d.grupo_id === g);
+  const moneyCf = db.money_docs.filter((d) => d.grupo_id === g && !d.apagado_em && d.dados_cifrado != null && !String(d.dados_cifrado).startsWith('{"c":1,"m":')).length;
+  const moneyOk = !moneyUsa || db.money_migracao.some((x) => x.grupo_id === g);
+  /* quem precisa da CF atual e não está com ela: membro ativo COM chave pública que é chefe ou responsável, ou que já recebeu a
+     atual (giro.entregues, ou o registro com a fk atual). "Está com ela" = no registro com a fk atual, a kid da pública e a seq =
+     a maior versão dela */
+  const entregues = jCampo(giro, 'entregues'), membros = jCampo(reg, 'membros');
+  let falta = 0;
+  for (const m of db.sol_grupo_membros.filter((x) => x.grupo_id === g && x.status === 'ativo' && x.user_id)) {
+    const k = db.sol_chave_publica.find((x) => x.user_id === m.user_id); if (!k) continue;
+    const e = jCampo(membros, m.user_id), comAtual = fk !== null && jTxt(jCampo(e, 'fk')) === fk;
+    if (!(['chefe', 'responsavel'].includes(m.papel) || jTem(entregues, m.user_id) || comAtual)) continue;
+    const mx = maiorVersao(g, m.user_id);
+    if (!(comAtual && jTxt(jCampo(e, 'kid')) === jTxt(jCampo(k.chave_publica, 'kid')) && jTipo(jCampo(e, 'seq')) === 'number' && mx !== undefined && jCampo(e, 'seq') === mx)) falta++;
+  }
+  return { registro: (fk || '') !== '' && jTipo(kv) === 'number', maior_versao: maior === undefined ? 0 : maior, vault_fora: vault, vault_apagadas_com_texto: apag,
+    ponte_pendentes: pp, ponte_outra: po, money_usa: moneyUsa, money_cf: moneyCf, money_migrado: moneyOk, falta_entregar: falta,
+    giro: jTxt(jCampo(giro, 'estado')), giro_ok: giroOk };
+}
+/* sol_descartar_chaves_antigas(p_grupo, p_ate_versao) → quantas linhas apagou. Só o chefe, só depois da troca conferida; nunca a
+   versão em uso de cada pessoa nem as mais novas */
+function giroDescartar(me, g, ate) {
+  if (!g || papel(me, g) !== 'chefe') throw erro('descartar:chefe Só o chefe da família descarta as chaves antigas.', 403, '42501');
+  if (ate == null || +ate < 1) throw erro('descartar:versao Diga até qual versão descartar (1 ou mais).', 400, '22023');
+  ate = +ate;
+  const lr = docVivo(g, 'settings', 'cofre'), reg = lr && lr.dados != null ? lr.dados : undefined, fk = jTxt(jCampo(reg, 'fk'));
+  if ((fk || '') === '' || jTipo(jCampo(reg, 'kv')) !== 'number') throw erro('descartar:registro A família ainda não tem o registro da chave.', 403, '42501');
+  const s = giroSituacao(me, g);
+  if (ate >= s.maior_versao) throw erro('descartar:versao Não há chave antiga para descartar: a versão pedida é a mais nova (ou mais nova que ela).', 400, '22023');
+  if (!s.giro_ok) throw erro('descartar:giro A troca da chave de segurança ainda não terminou ou não foi conferida.', 403, '42501');
+  if (s.vault_fora > 0) throw erro('descartar:vault Ainda há senhas fechadas com a chave antiga (ou o código de emergência não foi refeito).', 403, '42501');
+  if (s.ponte_outra > 0) throw erro('descartar:ponte Há mensagens da Saúde para o MoneyTRIO, ainda não lidas, fechadas com a chave antiga.', 403, '42501');
+  if (s.money_cf > 0 || !s.money_migrado) throw erro('descartar:money O MoneyTRIO ainda não terminou a preparação da família.', 403, '42501');
+  if (s.falta_entregar > 0) throw erro('descartar:membros Falta entregar a chave nova para ' + s.falta_entregar + ' pessoa(s) da família.', 403, '42501');
+  /* de cada pessoa ativa com a CF atual no registro: só o que é mais velho que a versão em uso; de quem saiu, ou não tem a atual
+     no registro: tudo até p_ate_versao */
+  const emUso = (c) => db.sol_grupo_membros.some((m) => m.grupo_id === g && m.user_id === c.user_id && m.status === 'ativo' &&
+    (() => { const e = jCampo(jCampo(reg, 'membros'), m.user_id); return jTxt(jCampo(e, 'fk')) === fk && jTipo(jCampo(e, 'seq')) === 'number' && c.versao >= jCampo(e, 'seq'); })());
+  const sai = db.sol_grupo_chaves.filter((c) => c.grupo_id === g && c.versao <= ate && !emUso(c));
+  sai.forEach((c) => db.sol_grupo_chaves.splice(db.sol_grupo_chaves.indexOf(c), 1));
+  return sai.length;
+}
+/* M.soChefeGiro: o gatilho do SQL do Omni (D-E3, C4), antes de gravar settings/cofre ou settings/giro (por REST e pelo
+   omni_mudar_campos, que é security invoker). null = deixa; senão o erro do RAISE. antes = a linha de antes (null = criar) */
+function gatilhoGiro(me, novo, antes) {
+  if (!M.soChefeGiro || novo.colecao !== 'settings' || !['cofre', 'giro'].includes(novo.id)) return null;
+  const nega = (msg) => erro(msg, 403, '42501');
+  if (novo.id === 'giro' && !chefe(me, novo.grupo_id)) return nega('Só o chefe da família troca a chave de segurança.');
+  if (novo.id === 'cofre' && antes) {
+    const nd = novo.dados == null ? undefined : novo.dados, od = antes.dados == null ? undefined : antes.dados;
+    if (jDistinto(jCampo(nd, 'fk'), jCampo(od, 'fk')) || jDistinto(jCampo(nd, 'kv'), jCampo(od, 'kv'))) {
+      if (!chefe(me, novo.grupo_id)) return nega('Só o chefe da família troca a chave de segurança.');
+      /* uma CF por versão, e a versão só sobe (um aparelho velho nunca volta o registro) */
+      if (jTipo(jCampo(nd, 'kv')) !== 'number' || (jTipo(jCampo(od, 'kv')) === 'number' && jCampo(nd, 'kv') <= jCampo(od, 'kv'))) return nega('A versão da chave de segurança só pode subir.');
+    }
+  }
+  /* o registro da chave e o estado da troca não se apagam pelo app (C4: sem o registro, nasceria uma segunda CF) */
+  if (novo.apagado_em && !(antes && antes.apagado_em)) return nega('O registro da chave de segurança não se apaga.');
+  return null;
+}
+
 /* ---------------- funções do banco (RPC). (me, corpo) → resultado; lança erro(...) como o RAISE do SQL ---------------- */
 const rpcs = {
   minha_conta_encerrada: () => false, sol_registrar_uso: () => true,
@@ -232,12 +343,24 @@ const rpcs = {
   },
   sol_minha_chave_grupo: (me, c) => membro(me, c.p_grupo) ? db.sol_grupo_chaves.filter((x) => x.grupo_id === c.p_grupo && x.user_id === me).sort((a, b) => b.versao - a.versao)
     .map((x) => ({ versao: x.versao, chave_embrulhada: x.chave_embrulhada, embrulhada_por: x.embrulhada_por, criado_em: x.criado_em })) : [],
-  /* ponte entre apps: guarda (a caixa do MoneyTRIO continua vazia, como no mock dele) */
+  /* ponte entre apps (a base da plataforma, banco.md §7): guarda; desligada em sol_ponte_config, não guarda (null) */
   sol_ponte_enviar: (me, c) => {
     if (c.p_grupo && !membro(me, c.p_grupo)) throw erro('Só membros do grupo enviam para o grupo', 403, '42501');
-    const id = uuid(); db.sol_ponte.push({ id, de_app: c.p_de, para_app: c.p_para, tipo: c.p_tipo, grupo_id: c.p_grupo || null, user_id: me, dados: c.p_dados || {}, criado_em: agora(), lido_em: null }); return id;
+    if (!ponteLigada(me, c.p_de, c.p_para)) return null;
+    const id = uuid(); db.sol_ponte.push({ id, de_app: c.p_de, para_app: c.p_para, tipo: c.p_tipo, grupo_id: c.p_grupo || null, user_id: me, dados: c.p_dados || {}, criado_em: agora(), lido_em: null, lido_por: null }); return id;
   },
-  sol_ponte_minha_caixa: () => [], sol_ponte_marcar_lido: () => true,
+  /* as mais VELHAS primeiro, até 500 (padrão 100); do dono ou do grupo de que sou membro; esconde o que eu desliguei */
+  sol_ponte_minha_caixa: (me, c) => db.sol_ponte.filter((p) => p.para_app === c.p_app && (p.user_id === me || (!!p.grupo_id && membro(me, p.grupo_id))) && ponteLigada(me, p.de_app, p.para_app) &&
+    (c.p_so_nao_lidas === false || p.lido_em == null)).sort((a, b) => (a.criado_em < b.criado_em ? -1 : a.criado_em > b.criado_em ? 1 : 0))
+    .slice(0, Math.max(1, Math.min(c.p_limite == null ? 100 : +c.p_limite, 500))).map((p) => JSON.parse(JSON.stringify(p))),
+  /* qualquer membro do grupo marca como lida uma mensagem do grupo (p_app é filtro, não permissão) */
+  sol_ponte_marcar_lido: (me, c) => {
+    const p = db.sol_ponte.find((x) => x.id === c.p_id && x.para_app === c.p_app && x.lido_em == null && (x.user_id === me || (!!x.grupo_id && membro(me, x.grupo_id))));
+    if (p) Object.assign(p, { lido_em: agora(), lido_por: me }); return !!p;
+  },
+  /* a troca da chave da família (Parte E): o mesmo que o SQL da plataforma (giroSituacao/giroDescartar, abaixo) */
+  sol_giro_situacao: (me, c) => giroSituacao(me, c.p_grupo),
+  sol_descartar_chaves_antigas: (me, c) => giroDescartar(me, c.p_grupo, c.p_ate_versao),
   /* MoneyTRIO 3.66: a minha visão e a lista (só para quem vê tudo), como money_visao()/money_visoes() do SQL */
   money_visao: (me, c) => visaoMoney(me, c.p_grupo),
   money_visoes: (me, c) => visaoMoney(me, c.p_grupo) !== 'tudo' ? [] : db.sol_grupo_membros.filter((m) => m.grupo_id === c.p_grupo && m.status === 'ativo' && m.user_id)
@@ -247,7 +370,8 @@ const rpcs = {
     const r = db.omni_docs.find((d) => d.grupo_id === c.p_grupo && d.colecao === c.p_colecao && d.id === c.p_id && d.dados);
     if (!r || !pode('omni_docs', 'ver', me, r) || !pode('omni_docs', 'mudar', me, r)) throw erro('Registro não encontrado ou sem permissão.');
     const mesclar = (a, b) => { const o = Object.assign({}, a || {}); for (const [k, v] of Object.entries(b || {})) { if (v === null) delete o[k]; else if (v && typeof v === 'object' && !Array.isArray(v) && o[k] && typeof o[k] === 'object' && !Array.isArray(o[k])) o[k] = mesclar(o[k], v); else o[k] = v; } return o; };
-    const antes = Object.assign({}, r); r.dados = mesclar(r.dados, c.p_campos); gatilho('omni_docs', r, me, antes); return r.versao;
+    const dados = mesclar(r.dados, c.p_campos), nao = gatilhoGiro(me, Object.assign({}, r, { dados }), r); if (nao) throw nao;
+    const antes = Object.assign({}, r); r.dados = dados; gatilho('omni_docs', r, me, antes); return r.versao;
   },
   /* ---- aparelhos e pedidos: as regras de supabase/2026-11-07-sol-aparelhos.sql ---- */
   sol_pedido_criar: (me, c) => {
@@ -372,6 +496,13 @@ async function supabase(route) {
   let corpo = null; try { corpo = req.postData() ? JSON.parse(req.postData()) : null; } catch (e) {}
   const p = url.pathname, me = quem(req), prm = url.searchParams, prefer = req.headers()['prefer'] || '';
   M.log.push({ metodo, caminho: p + url.search, corpo, quem: me, t: Date.now() });
+  /* M.depoisDe = {"PATCH vault": n, acao}: depois de RESPONDER o n-ésimo daquele método em omni_docs daquela coleção, chama acao()
+     uma vez (o teste derruba o aparelho no meio de uma troca) */
+  const depois = (resposta) => {
+    const ch = metodo + ' ' + String(prm.get('colecao') || (corpo && corpo.colecao) || '').replace(/^eq\./, ''), d = M.depoisDe;
+    if (p === '/rest/v1/omni_docs' && d && typeof d[ch] === 'number' && --d[ch] === 0) { M.depoisDe = null; Promise.resolve(resposta).then(() => {}, () => {}).then(() => setTimeout(() => d.acao(), 0)); }
+    return resposta;
+  };
   /* entrar, renovar, sair */
   if (p === '/auth/v1/token') {
     if (prm.get('grant_type') === 'password') {
@@ -401,7 +532,8 @@ async function supabase(route) {
   /* funções */
   const rpc = p.match(/^\/rest\/v1\/rpc\/(\w+)$/);
   if (rpc) {
-    const nome = rpc[1], desligada = (M.semPin && /^sol_pin_/.test(nome)) || (M.semAp && /^sol_(pedido|aparelho|passkey)/.test(nome));
+    const nome = rpc[1], desligada = (M.semPin && /^sol_pin_/.test(nome)) || (M.semAp && /^sol_(pedido|aparelho|passkey)/.test(nome)) ||
+      (M.semGiroSql && /^sol_(giro_situacao|descartar_chaves_antigas)$/.test(nome));
     const f = desligada ? null : rpcs[nome];
     if (!f) return json(404, { code: 'PGRST202', message: 'Could not find the function public.' + nome + ' in the schema cache' });
     if (M.falhar[nome] > 0) { M.falhar[nome]--; return json(503, { message: 'falha de mentira (a rede caiu no meio)' }); }
@@ -425,17 +557,21 @@ async function supabase(route) {
         if (/ignore-duplicates/.test(prefer)) continue;
         if (!/merge-duplicates/.test(prefer)) return json(409, { code: '23505', message: 'duplicate key value violates unique constraint "' + t + '_pkey"' });
         if (!pode(t, 'mudar', me, ja)) return json(403, { code: '42501', message: 'new row violates row-level security policy for table "' + t + '"' });
+        const nao = t === 'omni_docs' && gatilhoGiro(me, Object.assign({}, ja, r), ja); if (nao) return json(nao.st, nao.o);
         const antes = Object.assign({}, ja); Object.assign(ja, r); gatilho(t, ja, me, antes); feitas.push(ja); continue;
       }
       if (!pode(t, 'criar', me, r)) return json(403, { code: '42501', message: 'new row violates row-level security policy for table "' + t + '"' });
+      const nao = t === 'omni_docs' && gatilhoGiro(me, r, null); if (nao) return json(nao.st, nao.o);
       gatilho(t, r, me, null); db[t].push(r); feitas.push(r);
     }
-    return /return=representation/.test(prefer) ? json(201, JSON.parse(JSON.stringify(feitas))) : route.fulfill({ status: 201, headers: cab, body: '' });
+    return depois(/return=representation/.test(prefer) ? json(201, JSON.parse(JSON.stringify(feitas))) : route.fulfill({ status: 201, headers: cab, body: '' }));
   }
   if (metodo === 'PATCH') {
     const alvo = filtrar(vejo().filter((r) => pode(t, 'mudar', me, r)), prm);
+    /* o gatilho recusa a linha: o comando inteiro falha (nada muda) */
+    for (const r of t === 'omni_docs' ? alvo : []) { const nao = gatilhoGiro(me, Object.assign({}, r, corpo), r); if (nao) return depois(json(nao.st, nao.o)); }
     alvo.forEach((r) => { const antes = Object.assign({}, r); Object.assign(r, corpo); gatilho(t, r, me, antes); });
-    return /return=representation/.test(prefer) ? json(200, JSON.parse(JSON.stringify(alvo))) : route.fulfill({ status: 204, headers: cab, body: '' });
+    return depois(/return=representation/.test(prefer) ? json(200, JSON.parse(JSON.stringify(alvo))) : route.fulfill({ status: 204, headers: cab, body: '' }));
   }
   if (metodo === 'DELETE') {
     const alvo = filtrar(vejo().filter((r) => pode(t, 'apagar', me, r)), prm);
@@ -449,18 +585,24 @@ async function supabase(route) {
    Para cada chefe/responsável (menos os de op.semChaves; padrão: [CRIS]): par RSA-OAEP 3072 (pública com kid em sol_chave_publica; privada
    fechada pelo código de recuperação em omni_chave_privada, PBKDF2 600 mil) e a CF da família embrulhada para a pública
    (sol_grupo_chaves). O registro do cofre ("settings/cofre" em omni_docs: fk, kv e quem já recebeu) vai junto, como o app sobe.
-   Também prepara o atacante dos testes de ataque (par ECDH, nonce, CF e chave pessoal falsas). Chamar uma vez por teste. */
+   Também prepara o atacante dos testes de ataque (par ECDH, nonce, CF e chave pessoal falsas). Chamar uma vez por teste.
+   Parte E: M.PKCS8[uid] = a chave privada de cada um (só o teste usa, para abrir em Node o que foi embrulhado), M.cfVelha = esta
+   CF (a "de antes" de uma troca) e op.soPub = quem ganha só a chave pública (sem a CF nem a cópia no kit), como quem entra depois. */
 async function prepararChaves(op) {
   op = op || {};
-  const sem = op.semChaves || [CRIS], fk = 'fk-teste', kv = 1;
+  const sem = op.semChaves || [CRIS], soPub = op.soPub || [], fk = 'fk-teste', kv = 1;
   CF_RAW = crypto.webcrypto.getRandomValues(new Uint8Array(32));
+  M.PKCS8 = {}; M.cfVelha = new Uint8Array(CF_RAW);
   const membros = {};
   for (const uid of Object.keys(PESSOAS)) {
-    if (!['chefe', 'responsavel'].includes(PESSOAS[uid].papel) || sem.includes(uid)) continue;
+    const so = soPub.includes(uid);
+    if (!so && (!['chefe', 'responsavel'].includes(PESSOAS[uid].papel) || sem.includes(uid))) continue;
     const par = await subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 3072, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt']);
     const j = await subtle.exportKey('jwk', par.publicKey), kid = b64(crypto.randomBytes(9)).replace(/[+/=]/g, '');
     const pub = { kty: j.kty, n: j.n, e: j.e, alg: 'RSA-OAEP-256', kid };
     const pkcs8 = new Uint8Array(await subtle.exportKey('pkcs8', par.privateKey)), sal = b64(crypto.randomBytes(16));
+    M.PKCS8[uid] = pkcs8;
+    if (so) { const h = agora(); db.sol_chave_publica.push({ user_id: uid, algoritmo: 'RSA-OAEP-256', chave_publica: pub, criado_em: h, atualizado_em: h }); continue; }
     const base = await subtle.importKey('raw', utf8(normCode(PESSOAS[uid].codigo)), 'PBKDF2', false, ['deriveKey']);
     const k = await subtle.deriveKey({ name: 'PBKDF2', salt: unb64(sal), iterations: 600000, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
     const iv = crypto.randomBytes(12), h = agora();
