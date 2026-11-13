@@ -235,12 +235,15 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   conferir(cap.n === 12 && cap.primeira && cap.arquivos === 1 && cap.cheia === 1, 'galeria com 11 e duas fotos guardadas ao mesmo tempo: uma entra, a outra fica de fora (sem arquivo guardado) e as mais antigas ficam (' + JSON.stringify(cap) + ')');
 
   /* ---------- vacinas e cuidados ---------- */
+  /* a data posta em "última vez" de cada cuidado: o esperado sai dela (não de "hoje" na hora de conferir, que pode já ser o dia
+     seguinte se a meia-noite passar no meio — revisão final E da 2.27.0: falhou assim numa suíte às 00:00) */
+  const ultimas = {};
   const cuidado = async (rot, ultima) => {
     await p.click('#screen [data-act="pet.cuidado"]');
     await p.waitForSelector('.menu', { timeout: 4000 });
     await p.locator('.menu button', { hasText: rot }).first().click();
     const ok = await modal(p, '[name="interval"]');
-    if (ultima != null) await p.fill('.modal [name="last"]', await p.evaluate((n) => addDays(today(), -n), ultima));
+    if (ultima != null) { ultimas[rot] = await p.evaluate((n) => addDays(today(), -n), ultima); await p.fill('.modal [name="last"]', ultimas[rot]); }
     await salvar(p, '[name="interval"]');
     return ok;
   };
@@ -274,7 +277,9 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   const cs = await p.evaluate((id) => Pets.cuidados(id).map((m) => ({ id: m.id, t: m.title, tipo: m.petTipo, cat: m.cat, pet: m.pet, iv: +m.interval, next: m.next, d: m._days })), pid);
   const C = (t) => cs.find((x) => x.tipo === t) || {};
   conferir(cs.length === 4 && cs.every((x) => x.cat === 'pet' && x.pet === pid) && C('vacina').iv === 365 && C('vermifugo').iv === 90 && C('antipulgas').iv === 30 && C('banho').iv === 45, 'vacina (365 d), vermífugo (90), antipulgas (30) e banho (45) são manutenções do pet (cat "pet", pet = id)');
-  conferir(C('vacina').t === 'Vacina anual — Bolinha de Teste' && C('vacina').d === 65, 'título com o nome do pet e a próxima calculada da última vez');
+  /* a próxima = a última vez (posta 300 dias antes de hoje) + 365 dias, e os dias que faltam contados de hoje (65 no mesmo dia) */
+  const espVac = await p.evaluate((u) => { const n = addDays(u, 365); return { next: n, d: diffDays(today(), n), mesmoDia: addDays(u, 300) === today() }; }, ultimas['Vacina anual']);
+  conferir(C('vacina').t === 'Vacina anual — Bolinha de Teste' && C('vacina').next === espVac.next && C('vacina').d === espVac.d && (!espVac.mesmoDia || C('vacina').d === 65), 'título com o nome do pet e a próxima calculada da última vez');
   const sino = await p.evaluate(() => Alerts.list().find((a) => /Antipulgas/.test(a.t)));
   conferir(sino && sino.go[0] === 'pets' && sino.go[2] === pid, 'antipulgas vencendo em 2 dias aparece no 🔔 e leva à ficha do pet');
   conferir(await p.evaluate(() => Agenda.occurrences(today(), addDays(today(), 90), { extras: true }).some((o) => /Vacina anual — Bolinha/.test(o.title))), 'e as datas entram na agenda');
@@ -310,12 +315,13 @@ const tamanho = (p, fid) => p.evaluate(async (fid) => { const b = await Files.bl
   await p.fill('.modal [name="sacoKg"]', '3'); await p.fill('.modal [name="gRefeicao"]', '25'); await p.fill('.modal [name="refeicoesDia"]', '3');
   await p.fill('.modal [name="compradoEm"]', D.c); await p.fill('.modal [name="sacos"]', '4'); await p.fill('.modal [name="validade"]', D.v);
   await salvar(p, '[name="sacoKg"]');
-  const rc = await p.evaluate((id) => { const c = Pets.racaoCalc(DB.get('people', id).pet.racao); return Object.assign({ acabaEsp: addDays(today(), 150) }, c); }, pid);
+  /* o esperado sai da data da compra posta acima (não de "hoje" agora: a meia-noite pode ter passado no meio) */
+  const rc = await p.evaluate(([id, c0]) => { const c = Pets.racaoCalc(DB.get('people', id).pet.racao); return Object.assign({ acabaEsp: addDays(c0, 160) }, c); }, [pid, D.c]);
   conferir(rc.diario === 75 && rc.diasSaco === 40 && rc.dias === 160 && rc.acabaEm === rc.acabaEsp, 'conta: 75 g por dia, cada saco de 3 kg dura 40 dias, 4 sacos = 160 dias, acaba em compra + 160');
   conferir(rc.vence === true && rc.maxSacos === 2, 'a validade chega antes de acabar: no máximo 2 sacos ((validade − compra) / 40)');
   const rTxt = await p.evaluate(() => document.querySelector('#pracao').textContent);
   conferir(/dura ~160 dias/.test(rTxt) && /Acaba em/.test(rTxt) && /vence antes de acabar/.test(rTxt) && /no máximo 2 sacos/.test(rTxt), 'o cartão mostra "dura ~160 dias", quando acaba e ⚠️ "compre no máximo 2 sacos"');
-  const lemb = await p.evaluate((id) => { const m = DB.raw('maint').find((x) => x.pet === id && x.petTipo === 'racao'); return m && { id: m.id, t: m.title, next: m.next, cat: m.cat, esp: addDays(today(), 143), lista: Maint.list().some((x) => x.id === m.id) }; }, pid);
+  const lemb = await p.evaluate(([id, c0]) => { const m = DB.raw('maint').find((x) => x.pet === id && x.petTipo === 'racao'); return m && { id: m.id, t: m.title, next: m.next, cat: m.cat, esp: addDays(c0, 160 - 7), lista: Maint.list().some((x) => x.id === m.id) }; }, [pid, D.c]);
   conferir(lemb && lemb.t === 'Comprar ração — Bolinha de Teste' && lemb.cat === 'pet' && lemb.next === lemb.esp && lemb.lista, 'aviso automático "Comprar ração — Bolinha de Teste" uma semana antes de acabar, pelas manutenções');
   conferir(lemb && lemb.id === 'racao-' + pid, 'o aviso da ração tem id fixo por pet (dois celulares gravam o mesmo registro, não dois avisos)');
   /* calculadora da promoção */

@@ -26,6 +26,7 @@ sem framework: HTML, CSS e JavaScript puros.
 | `PLANO-SUPABASE-OmniLifeONE.md` | Plano da ida para a conta e o banco SolverONE (Supabase): tabela por parte do app, o que fica no aparelho, cifrado (C7), modo sem internet, pontos do contrato | Sim |
 | `supabase/omnilife-one-v1.sql` | Tabelas `omni_*`, regras de acesso (RLS), funções e LGPD no banco da plataforma. Roda depois da base comum do RootifyONE (`sol_*`, com `sol_grupos.governanca`); confere a base antes de criar qualquer coisa | Só com revisão (C10); nunca rodar antes da revisão |
 | `supabase/2026-10-23-grants-explicitos.sql` | Permissões explícitas por papel das `omni_*` (diretriz "Permissões explícitas no Supabase"): parte A só GRANT, igual ao banco lido em 22/Out/2026 (não muda nada no projeto); parte C opt-in do Supabase. Idempotente | Não: mudança de permissão vai num script novo datado |
+| `supabase/2026-11-12-sol-giro-chaves.sql`, `supabase/2026-11-12-omni-giro-so-chefe.sql` | A troca da chave de segurança da família (2.27.0): o primeiro é da **plataforma** (`sol_giro_situacao`, `sol_descartar_chaves_antigas`) e vai pelo chat do MoneyTRIO; o segundo é do Omni (gatilho "só o chefe muda a chave, a versão só sobe, o registro e a troca não se apagam"). Os dois testados no PGlite (`teste/sql-giro.js`) | Não daqui: **o dono aplica** no Supabase (o da plataforma depois da revisão do MoneyTRIO) |
 | `teste/sql-grants.js`, `teste/sql-grants-legado.json` | Verificador master do rootify-one (1.0.1, copiado igual): todo CREATE em `public` precisa de GRANT no mesmo arquivo; a lista de exceção guarda o `omnilife-one-v1.sql`, aplicado antes de 30/Out/2026. Roda no `teste/rodar.js` | O verificador, não (mudar no rootify-one e copiar); a lista, sim |
 | `LEIA-ME-OmniLifeONE.html` | Passo a passo para o dono do app | Sim |
 | `ARQUITETURA.md`, `CREDITOS.md` | Este briefing e as licenças de terceiros | Sim |
@@ -109,13 +110,17 @@ sem framework: HTML, CSS e JavaScript puros.
   oferecida → confirmação → apaga a store `docs` e só os arquivos dessa família). Na família da nuvem, ⚙ → Nuvem mostra a
   cópia antiga mesmo se nunca levada (`_temLocal`): levar para esta família ou apagar (oferece levar e a cópia antes).
 - `Cofre` (v2.15.0, Etapa 2c) — **cofre ponta a ponta** (diretriz "Cofre de senhas e entrada sem internet"). Peças:
-  - **Chave do cofre da família (CF)**: 32 bytes aleatórios (`kv`, `fk` = id da chave). Cifra cada registro do cofre
+  - **Chave do cofre da família (CF)**: 32 bytes aleatórios (`kv` = a versão, `fk` = id da chave; desde a 2.27.0 pode haver mais de
+    uma: a atual fecha, as de antes só abrem — o chaveiro). Cifra cada registro do cofre
     (`selar`/`abrir`, AES-GCM 256). Vai para cada chefe/responsável embrulhada com a chave pública dele (`embrulhar`, RSA-OAEP 3072
     SHA-256, `sol_guardar_chave_grupo`); quem tem o cofre aberto libera para quem falta (`distribuir`, ao abrir e no `poll`, no
     máximo a cada 2 min; registro sem segredo em `settings/cofre` = `{ fk, kv, membros: { uid: { kid, seq, fk } } }`; antes de
-    decidir, `distribuir` puxa o mais novo, e conflito nesse registro **nunca vira pergunta** — `CloudDriver.enviar` fica com o deste
-    aparelho; se faltar alguém, a próxima liberação embrulha de novo). Mínimo
-    privilégio: só chefe e responsável recebem a CF; o contato de emergência abre pelo envelope `_em`.
+    decidir, `distribuir` puxa o mais novo, e conflito nesse registro **nunca vira pergunta**; se faltar alguém, a próxima liberação
+    embrulha de novo). **Desde a 2.27.0 a CF pode ser trocada** pelo chefe ("Trocar a chave de segurança da família", ver "Troca da
+    chave de segurança da família (2.27.0)"): o registro ganhou `giradoEm`, `giradoPor` e `descarte`, só anda para a frente (o
+    `CloudDriver.enviar` fica com o do BANCO quando o da fila tem `kv` menor ou a mesma `kv` com outra `fk`; nunca sobe apagado) e
+    o `_distribuir` decide pelo registro do banco. Mínimo
+    privilégio: só chefe e responsável recebem a CF (D-E1 da 2.27.0 confirma); o contato de emergência abre pelo envelope `_em`.
   - **Par da pessoa**: `novoPar()`; pública em `sol_publicar_minha_chave` (JWK com `kid`); privada (pkcs8) cifrada com o
     **código de recuperação do cofre** (`Restore.code()`, PBKDF2-SHA256 600 mil) em `omni_chave_privada`. O código aparece uma
     vez (`mostrarCodigo`, "Anotei"); `novoCodigo()` troca.
@@ -194,6 +199,162 @@ sem framework: HTML, CSS e JavaScript puros.
     `aparelhos-omni.js`, `pin-conta-omni.js`, `pin-conta-bordas-omni.js`, `sair-omni.js`, `seguranca-aparelhos-omni.js`,
     `kit-passkey-omni.js`, `revisao-final-omni.js` e o cruzado `aparelhos-cruzado-omni.js` (abre o MoneyTRIO de verdade quando
     `MONEYTRIO=<pasta do investify-me>`; sem ela, "PULADO").
+- **Troca da chave de segurança da família (2.27.0)** — a Parte E do pedido do MoneyTRIO (v3): "🔄 Trocar a chave de segurança
+  da família" troca a CF por uma nova, **só quando um chefe toca e confirma** (abrir o app 2.27.0 não muda nada guardado: o G0 do
+  `teste/giro-omni.js` confere byte a byte). Recifra as linhas VIVAS das Senhas da casa (as duas camadas: o selo e a parte interna
+  `enc`), os anexos deste aparelho e o código de emergência (`_em`). As linhas já apagadas ficam como estão (D-E6: "não mexa no que
+  já está salvo"). Tudo no objeto **`Giro`** (entre o `Cofre` e o `Aparelhos`) e em mudanças no `Cofre`, `CloudDriver`, `Files`,
+  `Aparelhos`, `SaudeMT`, `Trava`, `Saida`, `TelaConta`, `Gov`, `AUDIT_TXT`/`GOV_SENS` e `Cloud.poll`.
+  - **O chaveiro** (`Cofre.outras = [{kv, fk, vf}]`, `Cofre.chaveDe(fk)`): a atual (`Cofre.vf/kv/fk`) é a **única que fecha**
+    (`selar`, `Files.save`, `envelope`, `SaudeMT`); as de antes só ABREM. Cada linha diz em claro com que `fk` foi fechada
+    (`{c:1, kv, fk, iv, ct}`): `abrir` escolhe a chave por ela e, se abriu com uma de antes, passa a parte interna para a atual só
+    na memória. `usarChave(raw, kv, fk, outras)` troca tudo junto (sem `await` no meio); `trancar` zera também as `outras`. No
+    aparelho, `L.fam[gid]` ganhou `velhas` (as de antes, fechadas pela chave do aparelho, **até 2** — `Cofre.depoisDe`) e `prox` (a
+    nova, só no aparelho que troca, durante a troca). Anexos: `enc.fk` (com que chave) e `enc.antes` (no meio de recifrar); o
+    `Files.blob` tenta a do `enc.fk`, a atual e as de antes.
+  - **O registro** `settings/cofre` (`omni_docs`, em claro, restrito): `{vis, fk, kv, membros:{uid:{kid, seq, fk}}, giradoEm,
+    giradoPor, descarte:{ate, em, fk}}`. É o **único interruptor**: um aparelho só adota a CF cujo `fk` é o do registro e com `kv`
+    igual ou maior que a dele (`Cofre.ehAtual`; uma `kv` menor nunca, nem que o registro mande — C4 → cartão "Algo nas Senhas da
+    casa não confere"). O `descarte` vale só se `descarte.fk === fk` (uma troca nova traz o botão de volta) e sem `descarte.velha`
+    (revisão S3: um aparelho com o app de antes entregou a chave antiga depois do descarte — abaixo, em "Nunca devolver").
+  - **A troca** `settings/giro` (restrito; `Giro.dados` ignora outra coisa — C9): `{v:1, estado, por, ap, nav, apNome, de:{kv,fk},
+    para:{kv,fk}, inicio, batida, total, feitos, voltas, estranhas, em, envelopes:{uid chefe: a nova embrulhada}, entregues:{uid:{kid,
+    seq}}, fim, erro}`. Gravada **só por REST com `versao=eq.`** (CAS, `Giro.gravarDoc`/`Giro.gravar`; sem linha = POST, e o banco
+    recusa o segundo), nunca pela fila (o `CloudDriver.enviar` recusa e recarrega). Estados: `preparado` → `entregando` →
+    `recifrando` → `emergencia` → `virando` → `conferindo` → `feito` (ou `desistiu`). `Giro.emCurso()` = fora de feito/desistiu
+    (um `preparado` sem notícia há mais de 24 h vale como desistido — C16); `Giro.vivo()` = em curso e com notícia há menos de
+    `PARADO_MS` (3 min). `nav` = o número deste navegador (aprovado de novo no meio, ele continua sendo o mesmo — C8).
+  - **As fases** (`Giro._executar`, na ordem do C5): **F0** `Giro.pode()` — só chefe (D-E8: qualquer chefe), internet, Senhas
+    abertas com a chave pessoal neste aparelho, nada do cofre nem `settings|cofre` na fila, o registro do banco = o deste aparelho,
+    a `sol_giro_situacao` existe (sem ela, botão desligado: "Ainda não dá: falta uma atualização do SolverONE.", C6/D-E9, nenhum
+    caminho manual), o MoneyTRIO migrado (`money_migrado`, `money_cf === 0`), nenhuma linha viva de outra chave (`vault_fora`); a
+    lista dos itens que já não abrem (`naoAbrem`, C11) e os avisos da Saúde esperando (`ponte`) vão para a tela. **F1**
+    `preparar` — `kvN` = a maior conhecida + 1, `fkN` nova, a nova embrulhada para cada CHEFE (`envelopes`); POST da troca; depois
+    `guardarProx` (`L.fam[gid].prox`); `Cloud.audit("cofre.giro")`. **F4 antes das linhas** `entregar` — a nova embrulhada para
+    cada chefe e responsável com chave pública (D-E1), `seq` = a maior + 1, anotada em `entregues`: daqui em diante a família já tem
+    a nova e "Desistir" não vale mais. **F2** `recifrar` — as vivas (menos `_em`), cada uma por `trocarLinha` (CAS próprio:
+    `versao=eq.` + `apagado_em=is.null`, só o texto, nunca pela fila; já na nova = pula; a parte interna que não abre = só o selo,
+    `semInterna`; o que não abre = "estranha", fica), batida a cada 10 linhas; depois `Cofre.recifrarAnexos` (três gravações: nada
+    se perde se o app fechar no meio). **F3** `emergencia` (o `_em`, abaixo). **F5** `virar` — o registro com a nova (CAS), depois
+    `Cofre.adotar` e `usarChave(nova, …, [as de antes])`. **F6** `conferirAte`/`conferir` — relido do banco: toda viva na nova (as
+    duas camadas) e nenhuma abrindo com a de antes (até 3 voltas de recifrar o que um aparelho atrasado gravou no meio), o `_em`,
+    o registro, a minha embrulhada, `falta_entregar === 0` e os anexos daqui. **F7** `terminar` (a ponte, abaixo) → `feito`,
+    `envelopes:{}`, `Cloud.audit("cofre.girado")`.
+  - **No Fundo** (`Giro.iniciar` → `DGO.fundo`, tipo `chave-familia`, "Deixando a família mais segura"): pílula com o andamento,
+    tela acesa (Wake Lock), aviso antes de fechar, `podeCancelar: false`, resultado onde a pessoa estiver (`mostrarFim`). Uma aba só
+    (Web Lock `omnilife-giro|<gid>`: "Já está trocando em outra janela deste aparelho."). **Pausa** (D-E2): as Senhas fechadas (5 min
+    sem toque NÃO trancam com a troca rodando — `Trava.ocioso` —, salvo enquanto ela só espera a internet, `Giro.semInternet`: revisão
+    R4; app escondido 30 s, `pagehide`, "Bloquear agora" e Sair trancam) →
+    `Giro.parar` para no fim da linha com "Parou porque as Senhas fecharam…"; ao abrir pelo PIN, o cartão "Continuar" (`Giro.cartao`,
+    nas Senhas da casa e no Avançado; não depende da pílula). Sem internet: "Esperando a internet…" e segue sozinha. **Prazo**:
+    cada chamada da troca tem `Giro.PRAZO_MS` (30 s) — rede pendurada vira "Parou sem internet. Toque em ↻…" (tudo é CAS e
+    idempotente). Todo texto que a troca lança tem menos de 80 caracteres (a pílula só mostra o motivo assim; revisão de telas T3).
+    **Revisão de telas (T1):** o `_rodar` redesenha ao começar (o ↻ da pílula chama o `executar` sem passar pelo `iniciar`) e o
+    cartão some com a troca andando (`Giro.andando`: rodando aqui ou o trabalho `giro-<gid>` ativo no Fundo); "Continuar" de um
+    cartão que ficou na tela não começa outra: `Giro.juntar` entrega o código de emergência à troca que anda (antes do passo dele,
+    `ctx.emLido`) ou avisa que ele já passou (no fim, o código novo). "Continuar neste aparelho" fica desligado, dizendo que está
+    conferindo, durante as duas leituras (`Giro._assumindo`, revisão T7). **Assumir** (`Giro.assumir`): outro aparelho do MESMO chefe, com a chave pessoal, depois de `PARADO_MS` sem
+    notícia e de duas leituras iguais com 20 s entre elas; continua com a MESMA nova (do `prox`, do envelope ou de
+    `sol_minha_chave_grupo`, onde ela já está desde o F4 — C5). Quem perdeu a vez guarda a nova dele em `velhas` (C1). **Outro chefe**
+    (revisão S2, D-E8): a troca de OUTRO chefe que já passou do "preparado" e está sem notícia há mais de `Giro.OUTRO_MS` (1 h,
+    `Giro.deOutroParada`) também pode ser continuada por qualquer chefe, num aparelho que entrou pela conta (cartão "Outro chefe da
+    família começou a troca… você (também chefe) pode continuar neste aparelho", no lugar do aviso), com a mesma nova (envelope ou
+    `sol_minha_chave_grupo`); no "preparado" vale o C16 (se desfaz sozinha). **"Continuar" só anda para a frente** (revisão S1, C4):
+    o `retomar` exige `de` = o registro do banco e `para.kv` maior que a dele (ou o registro já em `para`); senão "Algo nas Senhas
+    da casa não confere" e nada muda. O `virar` também nunca baixa a `kv` do registro.
+  - **O `_em`** (D-E4): com o código de agora (digitado na confirmação ou no cartão "Continuar", conferido antes por
+    `Cofre.conferirCodigo` — errado não segue), `Cofre.envelopeCom` fecha a nova com o MESMO código ("refeito": o contato não
+    precisa de nada); sem ele, o `_em` fica apagado e sem conteúdo ("invalidado", `Cloud.audit("emergencia.invalidada")`) e o fim (e
+    o `Cofre.view`) mostram "🆘 Falta um passo" com "Fazer o código novo". O código só vive na memória e sai do `op` logo depois do
+    F3 (`esquecerCodigo`, C16) — e também quando a troca para por um motivo que "Tentar de novo" não resolve (`Giro.NAO_VOLTA`:
+    trocando em outro aparelho, falta a atualização do SolverONE, não é chefe…; revisão S4). `Gov.openWithCode` sem `_em`: "Ainda não
+    há um código de emergência que valha…".
+  - **A ponte Saúde → MoneyTRIO** (C10/D-E10): durante a troca (e com a chave daqui atrasada) o `SaudeMT.enviar` não manda (fica
+    pendente; o cartão de Integrações diz o que segura — a troca, ou o que falta a este aparelho —, `SaudeMT.esperaTexto`, revisões R2/R3). No F7, na ordem: anota o pendente → `Giro.marcarPonte(nova)` marca como lidas as `saude-resumo` DO OMNI que não estão
+    na nova (achadas por REST em `sol_ponte`, `Giro.ponteNaoLidas`: a caixa do banco esconderia as de quem desligou a ponte) →
+    `feito` → reenvia o resumo inteiro com a nova. Marcar antes do "feito" é o que impede o descarte de travar para sempre. A Saúde é
+    de cada aparelho (não sobe) e o reenvio leva só a do aparelho que trocou: cada outro aparelho, ao adotar a nova, manda o resumo
+    DELE de novo (`SaudeMT.depoisDaTroca`, só se tem algo da Saúde — revisão D3).
+  - **"🧹 Terminar a troca"** (item d, D-E7: botão separado, no fim e no Avançado; `Giro.descartar`): `Giro.faltaDescartar` diz o que
+    falta (para leigo) antes de confirmar; "Entendi", TROCAR e o PIN; `sol_descartar_chaves_antigas(p_grupo, p_ate_versao = maior
+    − 1)`; `descartar:ponte` → marca de novo e tenta uma vez (C10); `descartar:giro` com a troca "feito" no banco → regrava a troca
+    (CAS) e tenta uma vez (C9); depois `anotarDescarte` (`descarte {ate, em, fk}`, CAS) e `Cloud.audit("cofre.descartado")`. Itens
+    que não abrem impedem: "Apagar os itens que não abrem" (só com o PIN; nunca uma linha de chave desconhecida); quando só eles estão
+    fora, a lista não manda "esperar 1 minuto" (revisão T12). Depois do PIN, "⏳ Terminando…" até a resposta (`Giro._terminando`, T8).
+    Enquanto falta terminar, o chefe vê nas Senhas da casa o lembrete "Falta terminar a troca de segurança" com o botão
+    (`Giro.lembrete`), o "Trocar…" de novo fica em segundo plano no Avançado e o fim diz onde o botão fica (revisão T9).
+    **Ajuda** (revisão T4): o tópico `HELP["chave-seguranca"]` (o que é, a ordem D-E11, Continuar, o código novo, "Terminar a troca"
+    e onde ficam), na busca 🔎, no ❓ do AssistONE em ⚙ → Segurança e aparelhos e no "❔ Como funciona" do botão, da confirmação e do fim
+    (`ACT["conta.ajuda"]`: `conta.*`, não some com os interruptores, como os outros botões da página).
+    **Soltar as de antes** (`Giro.soltarVelhas`, na abertura pelo PIN/digital e logo depois do descarte): só com o descarte desta
+    chave no registro DO BANCO e quando nada daqui precisa dela (nenhuma linha na fila ou no banco local, nenhum anexo — um anexo
+    ainda nela vai para a nova pelo `Giro.arrumarAparelho` e solta na próxima abertura).
+  - **Perceber a chave nova** (cada aparelho): `Cofre.chaveNova` (o registro do BANCO, pedido já no começo do abrir —
+    `olharRegistro` —, com 300 ms de folga: numa rede lenta abre com a que tem e adota quando ele chega), `Cofre.adotar` (a de antes
+    vai para `velhas`, o `prox` de outra troca fica), `Cofre.comChaveDoAparelho` (ao abrir) e `Cofre.conferirAoVivo` (no
+    `Cloud.poll`, sem PIN, aviso "🔐 As Senhas da casa foram atualizadas neste …"). Sem a chave pessoal (aprovado pela família):
+    `Cofre.desatualizado = "semChave"` → cartão "precisa ser aprovado de novo" com o botão (desatualizado, a lista vazia diz que as
+    senhas continuam guardadas e quando voltam, e o "＋ Guardar" fica desligado — revisão T2); reaprovado, o `montar` leva as de antes e
+    o `prox` (`levarVelha`, C8). Depois de adotar, `Giro.arrumarAparelho` passa os anexos deste aparelho para a nova (no Fundo).
+    **Troca de outro aparelho pela metade** (revisão D2): depois do "preparado" a nova já está em `sol_minha_chave_grupo` para cada
+    chefe e responsável (C5); `Giro.abrirNova` (no `Cloud.poll` e ao abrir) a põe no chaveiro só para ABRIR — o que a troca já passou
+    para ela continua aparecendo, também com a troca parada (só se ela sai da chave daqui e sobe a versão; nada fechado com ela,
+    nada gravado). Um aparelho aprovado pela família (sem a chave pessoal) continua sem ver o que já foi trocado.
+  - **"Tirar este aparelho" no meio da troca** (revisão R1, o mesmo cuidado do "Começar do zero" do C8): com a troca DESTE chefe
+    pela metade e a chave pessoal neste aparelho, `Saida.tirarEste` não tira se não há outro jeito de ela voltar (`Giro.outroCaminho`,
+    C5.2: outro aparelho que entrou pela conta, a digital em todos os aparelhos ou o kit) — as senhas já trocadas se perderiam; o aviso
+    manda terminar a troca ou ligar o kit. Com outro caminho, pergunta como antes e, no aparelho da troca, avisa que ela para e continua
+    no outro. Um aparelho que entrou pela família (sem a chave pessoal) sai como antes.
+  - **O vigia** (`Giro.vigiar`, no `Cloud.poll`): as linhas que um aparelho atrasado gravou com uma chave de antes sobem para a
+    atual (por `trocarLinha`, CAS). **Nunca** com a troca em curso nem rodando, e só se a chave daqui é a do registro do banco (C3).
+  - **Nunca devolver uma chave velha** (as guardas): `Cofre._distribuir` (decide pelo registro DO BANCO, confere de novo antes de
+    cada `sol_guardar_chave_grupo` e do `DB.put`, nada durante a troca, só chefe e responsável); `CloudDriver.enviar` (o registro da
+    fila só anda para a frente; `settings/giro` nunca pela fila; `settings/cofre|giro` não se apagam pela fila); `Aparelhos.carga`
+    "família" (`podeFamilia`; troca em curso → "Espere a troca de segurança terminar…", ou, parada, "…parou no meio. Só dá para aprovar
+    depois que um chefe terminar a troca." — revisão R2; chave que não é a do registro do banco → o texto que resolve ali,
+    `Cofre.velhoTexto`: "precisa ser aprovado de novo" sem a chave pessoal, "Falta um chefe ou responsável abrir…" (revisão T15),
+    "não confere" (o cartão com o 💬, T17), ou "Este aparelho ainda está com a versão antiga… Abra pelo PIN" só para quem tem a chave pessoal e ainda não viu a nova — revisão R3; sem resposta
+    → não entrega); `Aparelhos.receber` (carga com chave velha não monta:
+    "O aparelho que aprovou estava com a versão antiga…"); `Cofre.podeMudar` + `selar` (troca viva ou chave daqui atrasada → nada se
+    fecha, com o mesmo `Cofre.velhoTexto` — revisão R3; `editVault`, `Cofre.envelope`, `trazerLegado`, `Cars.edit` ao ABRIR — C14); o **reseal** no envio
+    (`CloudDriver.bancoDoEnvio` + `cadeadoDoBanco`: o que está na fila fechado com a de antes é fechado de novo com a do registro do
+    banco antes de subir, ou espera; o `_em` velho nunca sobe; o conflito "só de cadeado" não duplica — `Cofre.mesmoConteudo`); um
+    item cuja linha nova não abre sai da tela (C14). A cópia protegida não leva nem traz o registro e a troca (`Restore.daChave`, C12).
+    **Restaurar uma cópia de antes da troca** (revisões D1 e D4): o arquivo de um anexo só entra se a ficha daqui é a da cópia (o
+    mesmo `iv`) — a troca fecha os anexos daqui de novo e o arquivo de antes, por cima, não abriria mais; e, na nuvem com as Senhas
+    abertas, um item das Senhas da casa (ou o `_em`) trancado por um cadeado que não é o de agora não volta (não fica preso só no
+    aparelho) e o aviso diz quantos não voltaram (a cópia de um cofre de antes da 2.15.0, com `_meta`, continua como antes). Os
+    textos dizem que as cópias de antes deixam de trazer as senhas e os anexos protegidos logo que a troca acontece.
+    **Um aparelho com o app de antes** (2.26, que não acompanha a troca: uma aba antiga aberta) depois de "Terminar a troca" entrega
+    a chave antiga de novo a todos os chefes e responsáveis (inclusive a quem entrou depois) e marca o registro com ela — o app de
+    antes não se corrige daqui. O `_distribuir` do primeiro aparelho atualizado que libera percebe esse rastro (revisão S3): entrega
+    a de agora de novo, anota `descarte.velha` (o "Terminar a troca" volta, com o porquê, para apagar o que foi entregue) e avisa os
+    chefes e responsáveis (`Cloud.audit("cofre.velha")`, no `GOV_SENS`). A caixa do roteiro e o texto do "Terminar a troca" pedem os
+    aparelhos de TODOS os chefes e responsáveis atualizados.
+  - **Os dois SQL** (nenhum é aplicado pelo app nem por quem constrói): `supabase/2026-11-12-sol-giro-chaves.sql` — **da plataforma,
+    vai pelo chat do MoneyTRIO** e o dono aplica no Supabase: `sol_giro_situacao(p_grupo)` (só números e sim/não: linhas vivas fora
+    da chave, ponte, MoneyTRIO migrado, quem falta receber, a troca conferida) e `sol_descartar_chaves_antigas(p_grupo,
+    p_ate_versao)` (só chefe; só com a troca "feito" e conferida, gravada por um chefe, restrita; protege a versão em uso de CADA
+    pessoa; erros `descartar:<motivo>`). `supabase/2026-11-12-omni-giro-so-chefe.sql` (D-E3, **o dono aplica**; o app funciona com
+    e sem ele): gatilho em `omni_docs` — só o chefe muda `fk`/`kv` do `settings/cofre`, a `kv` só sobe, só o chefe grava a troca, e
+    os dois não se apagam pelo app. Os dois com GRANT no mesmo arquivo (`teste/sql-grants.js`) e testados de verdade no PGlite.
+  - **A ordem** (D-E11): Omni 2.27.0 aberto em todos os aparelhos → o MoneyTRIO conclui a preparação dos "dois cofres" → trocar →
+    abrir os outros aparelhos (os de todos os chefes e responsáveis) e o MoneyTRIO (pelo PIN, com internet) → "Terminar a troca" →
+    só então a pessoa nova. O app impõe a
+    parte do MoneyTRIO (o botão não abre a confirmação sem a migração); o resto é a caixa do roteiro e o texto do "Terminar a troca".
+  - **Nunca (2.27.0):** trocar a chave sem o chefe tocar e confirmar (TROCAR + PIN); mexer em linha já apagada; gravar a troca ou
+    uma linha trocada pela fila (sempre CAS por REST); entregar, aprovar "pela família" ou fechar qualquer coisa com uma chave que não
+    é a do registro do banco; aceitar uma chave de `kv` menor; trocar linhas no vigia com a troca em curso; marcar como lidas
+    mensagens da ponte que não são `saude-resumo` do Omni; pôr a chave nova, a de antes ou o código de emergência em
+    localStorage/sessionStorage/console/histórico/URL; "Desistir" depois de a nova ir para a família; soltar uma chave de antes sem o
+    descarte no banco e enquanto algo daqui ainda depende dela; aplicar SQL pelo app ou por quem constrói.
+  - Testes (no banco de mentira `teste/mock-sol.js`, que faz o mesmo que os dois SQL): `teste/giro-omni.js` (as partes de E1 a E11:
+    o mock × o SQL, o chaveiro, perceber a nova, a troca e cada queda, o Fundo, o `_em`, a ponte, as telas, o descarte, G7e e D8;
+    e RS1–RS4, da revisão de segurança, e RD1–RD4, da revisão de dados);
+    `teste/sql-giro.js` (os dois SQL DE VERDADE num Postgres local, só com `PGLITE=<pasta>`; sem ela, "PULADO"); e
+    `teste/giro-moneytrio-omni.js` (o G6: o MoneyTRIO 3.66 de verdade acompanha a troca — `buscarMinha`, `conferirCf`, a ponte com o
+    resumo novo, o velho marcado pelo Omni, as finanças da família continuam abrindo; só com `MONEYTRIO=<pasta do investify-me>`;
+    sem ela, "PULADO").
 - `Trava` (v2.15.0) — tranca o cofre (os dois modos): 5 min sem toque/tecla (`ocioso`), 30 s fora do app (3 min logo depois de
   escolher foto/arquivo, `Trava.escolhendo`), confere ao voltar (o celular congela o relógio em segundo plano) e no `pagehide`.
   Apaga a chave antiga que a "biometria" das versões até a 2.14.x guardava no aparelho (`kv vaultKey:*`).
@@ -466,7 +627,9 @@ sem framework: HTML, CSS e JavaScript puros.
   de quem tem plano, validade ou médico (pet com `especie: "pet"`); cifrado com a CF (`Cofre.vf`, formato `{c:1, kv, fk, iv, ct}`)
   e enviado por `Conta.rpc("sol_ponte_enviar", {p_de:'omnilife-one', p_para:'moneytrio', p_tipo:'saude-resumo', p_dados:{v:1, cif}, p_grupo})`.
   Dispara ao ligar e em `Health.edit` quando muda operadora, validade ou médico (`SaudeMT.chave`); Senhas da casa fechadas →
-  pendente em `LS.saudeMT` (por família) e envio em `Cofre.usarChave`. Teste: `teste/saude-moneytrio-omni.js`.
+  pendente em `LS.saudeMT` (por família) e envio em `Cofre.usarChave`. **2.27.0:** com registro do cofre, decide pelo BANCO
+  (`Cofre.noBanco`): troca em curso, ou a chave daqui não é a do registro → não manda (fica pendente; vai com a nova). Teste:
+  `teste/saude-moneytrio-omni.js` (e o G13 do `teste/giro-omni.js`).
 - `ChangeLog`, `Telem` — registro de alterações local e relatório de erros com consentimento. Na tela (2.15.3), `LOG_COL` dá o
   nome da parte do app ("Lista de compras", "Pessoas") e `logLegivel()` mostra os valores em vez do JSON; o CSV continua completo.
 - `Gov` — governança da família (nuvem): pedidos em `omni_governanca` (lidos no `poll`, `Gov.setList`) — `hd_<uid>` (rebaixar/remover chefe: outro chefe aprova ou vale em 48 h sem veto), `tr_<grupo>` (passar a criação: troca no aceite), `em_<uid>` (acesso de emergência ao cofre com espera). Tudo por funções: `omni_pedir_mudanca_chefe`, `omni_aprovar_pedido`, `omni_vetar_pedido`, `omni_cancelar_pedido_gov`, `omni_propor_transferencia`, `omni_responder_transferencia`, `omni_pedir_emergencia`; `Gov.tick()` chama `omni_executar_pedidos` (chefe) e `omni_liberar_emergencia` (contato) quando há algo vencido. Desde a 2.15.0 o código de emergência abre o cofre da nuvem (envelope `_em` com a chave do cofre; ver `Cofre`); quando o acesso é liberado, o `poll` refaz a cópia para o contato receber o cofre cifrado.
