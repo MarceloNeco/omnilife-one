@@ -1,5 +1,24 @@
 [
  {
+  "v": "2.27.0",
+  "d": "2026-11-12",
+  "hora": "22:20:00",
+  "pt": [
+   "🔄 Novo, só para o chefe da família: ⚙ → Segurança e aparelhos → Avançado → \"Trocar a chave de segurança da família\". Troca o cadeado das Senhas da casa por um novo (as senhas continuam as mesmas). Use antes de convidar uma pessoa nova ou se alguém de fora pode ter visto o cadeado antigo. Nada muda sem você confirmar com TROCAR e o PIN.",
+   "⏳ A troca anda sozinha, com a pílula de andamento e a tela acesa. Se parar no meio (sem internet, app fechado), nada se perde: nas Senhas da casa aparece \"Continuar\", neste ou em outro aparelho seu. O código de emergência continua valendo se você o digitar; se não, o app ajuda a fazer o novo.",
+   "📱 Os outros chefes e responsáveis recebem o cadeado novo sozinhos ao abrir as Senhas da casa, e o MoneyTRIO acompanha a troca. Um aparelho que ficou para trás diz o que fazer.",
+   "🧹 No fim, \"Terminar a troca\" apaga a versão antiga de vez, quando todos já estão com a nova (se ainda não dá, a janela diz o que falta). Ajuda passo a passo no AssistONE: \"Trocar a chave de segurança da família\".",
+   "ℹ️ O botão fica desligado até chegar uma atualização do SolverONE (\"Ainda não dá: falta uma atualização do SolverONE.\")."
+  ],
+  "en": [
+   "🔄 New, for the family head only: ⚙ → Security and devices → Advanced → \"Change the family security key\". It swaps the Home passwords lock for a new one (the passwords stay the same). Use it before inviting a new person or if someone outside may have seen the old lock. Nothing changes until you confirm with CHANGE and the PIN.",
+   "⏳ The change runs by itself, with the progress pill and the screen kept on. If it stops halfway (no internet, app closed), nothing is lost: Home passwords shows \"Continue\", on this or another device of yours. The emergency code keeps working if you type it; if not, the app helps you make a new one.",
+   "📱 The other heads and guardians get the new lock by themselves when they open Home passwords, and MoneyTRIO follows the change. A device that fell behind says what to do.",
+   "🧹 At the end, \"Finish the change\" deletes the old version for good, once everyone has the new one (if it can't yet, the window says what's missing). Step-by-step help in AssistONE: \"Change the family security key\".",
+   "ℹ️ The button stays off until a SolverONE update arrives (\"Not yet: a SolverONE update is missing.\")."
+  ]
+ },
+ {
   "v": "2.26.0",
   "d": "2026-11-12",
   "hora": "02:35:00",
