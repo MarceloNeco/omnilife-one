@@ -65,6 +65,16 @@
        nada gravado antes do OK; OK: a nota/bilhete trancados com nome neutro e a marca gar, os números nas Senhas da casa;
        Senhas fechadas na leitura ou com a janela aberta: números descartados; bilhete reemitido (vale o mais novo); 📷 da ficha
        já ligado; criança e função desligada recusam; EN
+     G7 — 📥 trazer garantias prontas (o arquivo "omnilife.garantias" v1)
+     - o cartão só para o responsável; bloqueios (nada é escolhido nem gravado): quem não é responsável, função desligada, troca
+       da chave da família andando, Senhas da casa fechadas (pede a senha ali mesmo; sem abrir, nada); recusas que não gravam
+       nada: versão 2, __proto__, arquivo quebrado (mensagem fixa), um item ruim recusa o arquivo inteiro, "PDF" que é HTML e
+       57 MB (recusado sem ler)
+     - o resumo antes de gravar (novas, com números, papéis, saiu de casa; o nome escapado); no Fundo, tudo ou nada: os papéis com
+       nome neutro e a marca gar, os números e valores trancados nas Senhas da casa, o objeto novo "importado" com o ref do
+       arquivo, o atendimento e o defeito; "saiu de casa" só como histórico (sem aviso); "reemitida" e "cancelada"; o ref
+       "constructor" entra; o que já está no app (pelo ref) fica de fora; um papel que não grava ou as Senhas que fecham no meio
+       desfazem tudo; no fim, o pedido de apagar o arquivo do celular; EN
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -1635,6 +1645,184 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await fecharJanelas(p);
   conferir(!lixo.erros.length && !lixo.nativos.length, 'G6: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     G7 — 📥 trazer garantias prontas (o arquivo "omnilife.garantias")
+     ===================================================================== */
+  console.log('\n— G7: 📥 trazer garantias prontas (arquivo)');
+  await fecharJanelas(p);
+  await p.evaluate((papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); S.garF = 'valendo'; go('garantias'); }, papel0);
+  await p.waitForTimeout(400);
+  const hoje7 = await p.evaluate(() => today());
+  const d7 = (n) => new Date(Date.parse(hoje7 + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  const SEMNUM7 = { pedido: '', bilhete: '', serie: '', chaveNF: '', valorCent: null, precoCent: null, pagamento: '', cartaoFinal: '' };
+  const IT7 = (o) => fundir(EX.itens[0], o), ARQ7 = (itens, o) => Object.assign({ formato: 'omnilife.garantias', versao: 1, geradoEm: hoje7, itens }, o || {});
+  const BIL7 = 'BILHETE-G7-0007';
+  /* o exemplo do desenho (com o folheto e o manual), uma coisa que saiu de casa (sem ela, a de fábrica acabaria em 5 dias: teria
+     aviso), um bilhete "reemitida" com o ref "constructor" e um "cancelada" com lixo no nome */
+  const OK7 = ARQ7([
+    IT7({ arquivos: [{ tipo: 'termo', base64: PDF64 }, { tipo: 'manual', base64: JPG64 }] }),
+    IT7({ ref: 'exemplo-0002', nome: 'Purificador Antigo Exemplo', compra: { data: d7(-360) }, fabrica: { meses: null, fim: d7(5) }, saiu: { como: 'doado', em: d7(-30), obs: 'Doado a um parente' }, protegido: SEMNUM7, atendimentos: [], obs: '' }),
+    IT7({ ref: 'constructor', nome: 'Caixa de Som Exemplo', estendida: { situacao: 'reemitida' }, protegido: Object.assign({}, SEMNUM7, { bilhete: BIL7 }), atendimentos: [], obs: '' }),
+    IT7({ ref: 'exemplo-0004', nome: 'Tablet Exemplo ' + XSS, estendida: { situacao: 'cancelada' }, protegido: SEMNUM7, atendimentos: [], obs: '' })
+  ]);
+  /* o arquivo escolhido (Files.pick de mentira): f.text() conta as leituras; o Files.save pode falhar ou fechar as Senhas da casa na vez n */
+  await p.evaluate(() => {
+    window.__g7 = { picks: 0, leu: 0, arq: null, saves: 0, falhaNo: 0, fecharNo: 0, save0: Files.save };
+    Files.pick = async () => { window.__g7.picks++; return window.__g7.arq ? [window.__g7.arq] : []; };
+    window.__arq7 = (texto, tam) => { const f = new File([texto], 'garantias.json', { type: 'application/json' }), t0 = f.text.bind(f); f.text = () => { window.__g7.leu++; return t0(); }; if (tam) Object.defineProperty(f, 'size', { value: tam }); return f; };
+    Files.save = async function (file, opt) {
+      const g = window.__g7; g.saves++;
+      if (g.falhaNo && g.saves === g.falhaNo) return null;   /* como o Files.save faz quando não consegue (ex.: grande demais) */
+      const id = await g.save0.call(Files, file, opt);
+      if (g.fecharNo && g.saves === g.fecharNo) Vault.lock();
+      return id;
+    };
+  });
+  const estado7 = () => p.evaluate(() => ({ things: DB.raw('things').length, files: DB.raw('files').length, vault: DB.raw('vault').length, picks: window.__g7.picks, leu: window.__g7.leu,
+    refs: DB.raw('things').map((t) => (t.garantia && t.garantia.ref) || '').filter(Boolean) }));
+  const igual7 = (a, b) => a.things === b.things && a.files === b.files && a.vault === b.vault;
+  /* toca em 📥 com o arquivo e espera a janela de confirmação (dlg) ou um aviso (toasts) */
+  const trazer7 = async (arq, tam) => {
+    await p.evaluate((a) => { window.__g7.arq = a.arq == null ? null : window.__arq7(typeof a.arq === 'string' ? a.arq : JSON.stringify(a.arq), a.tam); document.querySelectorAll('#toasts .toast').forEach((x) => x.remove()); window.__toasts6.length = 0; (ACT['gar.importar'] || (() => {}))({}); }, { arq, tam: tam || 0 });
+    await p.waitForFunction(() => !!document.querySelector('dialog[open] [data-yes]') || window.__toasts6.length > 0, null, { timeout: 6000 }).catch(() => {});
+    return p.evaluate(() => { const d = document.querySelector('dialog[open]'); return { dlg: !!(d && d.querySelector('[data-yes]')), txt: d ? d.innerText : '', toasts: window.__toasts6.join(' | ') }; });
+  };
+  /* "📥 Trazer" na confirmação; espera a janela do fim (com o pedido de apagar o arquivo) ou um aviso */
+  const confirmar7 = async () => {
+    await p.click('dialog[open] [data-yes]');
+    await p.waitForFunction(() => /Apague agora|Delete the file/.test((document.querySelector('dialog[open]') || {}).innerText || '') || /Nada foi trazido|Nothing was brought/.test(window.__toasts6.join(' ')), null, { timeout: 20000 }).catch(() => {});
+    const r = await p.evaluate(() => { const d = document.querySelector('dialog[open]'); return { fim: d ? d.innerText : '', toasts: window.__toasts6.join(' | ') }; });
+    await p.click('dialog[open] [data-x]:not(.xbtn)').catch(() => {}); await p.waitForTimeout(300); await fecharJanelas(p);
+    return r;
+  };
+
+  /* ---------- o cartão: só o responsável ---------- */
+  const bt7 = await p.evaluate(() => { const b = document.querySelector('#screen [data-act="gar.importar"]'); return b ? { txt: (b.closest('.card') || b).innerText, h: Math.round(b.getBoundingClientRect().height) } : null; });
+  conferir(bt7 && /📥 Trazer garantias prontas \(arquivo\)/.test(bt7.txt) && bt7.h >= 44, 'G7. a lista tem o cartão "📥 Trazer garantias prontas (arquivo)", com o botão de 44 px (responsável)' + (bt7 ? '' : ' (não achei)'));
+  await p.evaluate(() => { S.role = 'adulto'; go('garantias'); }); await p.waitForTimeout(400);
+  const btMem7 = await p.evaluate(() => !!document.querySelector('#screen [data-act="gar.importar"]'));
+  await p.evaluate(() => { S.role = 'crianca'; go('garantias'); }); await p.waitForTimeout(400);
+  const btCri7 = await p.evaluate(() => !!document.querySelector('#screen [data-act="gar.importar"]'));
+  conferir(!btMem7 && !btCri7, 'G7. quem não é responsável (adulto ou criança) não tem o 📥');
+
+  /* ---------- bloqueios: nada é lido nem gravado ---------- */
+  let e0 = await estado7();
+  await p.evaluate(() => { S.role = 'adulto'; });
+  let r7 = await trazer7(OK7);
+  let e1 = await estado7();
+  conferir(!r7.dlg && /responsável/.test(r7.toasts) && e1.picks === e0.picks && igual7(e0, e1), 'G7. bloqueio: quem não é responsável não escolhe arquivo (' + r7.toasts + ')');
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  await p.evaluate(() => { window.__on7 = Rec.on; Rec.on = (id) => id !== 'casa.garantias' && window.__on7.call(Rec, id); });
+  r7 = await trazer7(OK7); e1 = await estado7();
+  await p.evaluate(() => { Rec.on = window.__on7; });
+  conferir(!r7.dlg && e1.picks === e0.picks && igual7(e0, e1), 'G7. bloqueio: com Garantias desligada no RootifyONE, não roda');
+  await p.evaluate(() => { window.__vivo7 = Giro.vivo; Giro.vivo = () => true; });
+  r7 = await trazer7(OK7); e1 = await estado7();
+  const espere7 = await p.evaluate(() => Giro.T.mudarEspere);
+  await p.evaluate(() => { Giro.vivo = window.__vivo7; });
+  conferir(!r7.dlg && r7.toasts.includes(espere7) && e1.picks === e0.picks && igual7(e0, e1), 'G7. bloqueio: com a troca da chave da família andando, "espere a troca terminar" e nada é escolhido (' + r7.toasts + ')');
+  r7 = await trazer7(Object.assign({}, OK7, { versao: 2 })); e1 = await estado7();
+  conferir(!r7.dlg && /versão mais nova\. Atualize o app/.test(r7.toasts) && igual7(e0, e1), 'G7. bloqueio: arquivo "versao: 2" → "Atualize o app" e nada gravado (' + r7.toasts + ')');
+  r7 = await trazer7('{"formato":"omnilife.garantias","versao":1,"itens":[{"ref":"exemplo-0001","nome":"X","__proto__":{"ok":1}}]}'); e1 = await estado7();
+  conferir(!r7.dlg && /não aceita \(como __proto__\)/.test(r7.toasts) && igual7(e0, e1), 'G7. recusa: "__proto__" no arquivo → recusado e nada gravado (' + r7.toasts + ')');
+  r7 = await trazer7('{"formato":"omnilife.garantias","versao":1,"itens":[' + PEDIDO); e1 = await estado7();
+  conferir(!r7.dlg && /não está no formato certo/.test(r7.toasts) && !r7.toasts.includes(PEDIDO) && igual7(e0, e1), 'G7. recusa: arquivo quebrado → mensagem fixa (sem um pedaço do arquivo)');
+  r7 = await trazer7(ARQ7([IT7({ ref: 'g7-bom' }), IT7({ ref: 'g7-ruim', nome: 'Purificador Ruim', compra: { data: '2024-02-30' } })])); e1 = await estado7();
+  conferir(!r7.dlg && /Item 2, 'Purificador Ruim': data da compra inválida/.test(r7.toasts) && igual7(e0, e1) && !e1.refs.includes('g7-bom'), 'G7. recusa: o arquivo inteiro é conferido antes — o 2º item com data inválida recusa tudo, e nem o 1º (bom) é gravado (' + r7.toasts + ')');
+  r7 = await trazer7(ARQ7([IT7({ arquivos: [{ tipo: 'termo', base64: HTML64 }] })])); e1 = await estado7();
+  conferir(!r7.dlg && /só PDF, JPG ou PNG/.test(r7.toasts) && igual7(e0, e1), 'G7. recusa: "PDF" que é uma página HTML → recusado e nada gravado (' + r7.toasts + ')');
+  const leu0 = (await estado7()).leu;
+  r7 = await trazer7(OK7, 57 * 1048576); e1 = await estado7();
+  conferir(!r7.dlg && /56 MB/.test(r7.toasts) && e1.leu === leu0 && igual7(e0, e1), 'G7. recusa: arquivo de 57 MB → recusado sem ler (' + r7.toasts + ', leituras ' + (e1.leu - leu0) + ')');
+  /* Senhas da casa fechadas: pede a senha ali mesmo; sem abrir, nada é trazido */
+  await p.evaluate(() => Vault.lock()); await p.waitForTimeout(200);
+  r7 = await trazer7(OK7);
+  let pediu7 = false;
+  if (r7.dlg) { await p.click('dialog[open] [data-yes]'); pediu7 = await p.waitForSelector('dialog[open] #askv', { timeout: 5000 }).then(() => true, () => false); if (pediu7) await p.click('dialog[open]:has(#askv) [data-x]:not(.xbtn)').catch(() => {}); }
+  await p.waitForFunction(() => /Nada foi trazido/.test(window.__toasts6.join(' ')), null, { timeout: 5000 }).catch(() => {});
+  e1 = await estado7();
+  const tSen7 = await p.evaluate(() => window.__toasts6.join(' | '));
+  conferir(r7.dlg && pediu7 && /Nada foi trazido/.test(tSen7) && igual7(e0, e1), 'G7. bloqueio: com as Senhas da casa fechadas, pede a senha ali mesmo; sem abrir, nada é trazido (' + tSen7 + ')');
+  await fecharJanelas(p);
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); }); await p.waitForTimeout(200);
+
+  /* ---------- o caminho certo ---------- */
+  const fundo0 = await p.evaluate(() => window.__g6.fundo.length);
+  e0 = await estado7();
+  r7 = await trazer7(OK7);
+  conferir(r7.dlg && /Vai trazer/.test(r7.txt) && /4 garantias novas/.test(r7.txt) && /Purificador Exemplo/.test(r7.txt) && /2 com números ou valores \(vão trancados nas Senhas da casa\)/.test(r7.txt) && /2 papéis/.test(r7.txt) && /1 saiu de casa \(fica só como histórico, sem avisos\)/.test(r7.txt),
+    'G7. antes de gravar, o resumo: 4 novas (com os nomes), 2 com números (trancados), 2 papéis e 1 que saiu de casa (' + r7.txt.replace(/\s+/g, ' ').slice(0, 300) + ')');
+  conferir(!(await p.evaluate(() => !!window.__xss || [...document.querySelectorAll('dialog[open] [onerror]')].length)) && /Tablet Exemplo <img/.test(r7.txt), 'G7. o resumo escapa o nome (o <img onerror> aparece como texto)');
+  const antesOK7 = await estado7();
+  conferir(igual7(e0, antesOK7), 'G7. nada é gravado antes do "Trazer"');
+  const fim7 = r7.dlg ? await confirmar7() : { fim: '', toasts: '' };
+  conferir(/✅ 4 garantias trazidas/.test(fim7.fim) && /Apague agora o arquivo do celular \(Arquivos → Downloads\): ele tem os números abertos/.test(fim7.fim), 'G7. no fim: "✅ 4 garantias trazidas" e o pedido de apagar o arquivo do celular (' + (fim7.fim || fim7.toasts).replace(/\s+/g, ' ').slice(0, 200) + ')');
+  const s7 = await p.evaluate(async (a) => {
+    const por = (ref) => DB.raw('things').filter((t) => t.garantia && t.garantia.ref === ref);
+    const um = async (ref) => {
+      const L = por(ref), t = L[0]; if (!t) return { n: 0, g: { compra: {}, estendida: {}, finais: {}, atendimentos: [], defeitos: [] }, arq: [] };
+      let o = null; try { o = await Garantias.segredo(t); } catch (e) {}
+      const v = DB.col('vault').get('gv_' + t.id), g = t.garantia, sit = GarCalc.situacao(Garantias.ler(t), today());
+      const arq = [];
+      for (const x of g.arquivos || []) { const m = Files.meta(x.id) || {}; let txt = ''; try { txt = (await (await Files.blob(x.id)).text()).slice(0, 8); } catch (e) {} arq.push({ tipo: x.tipo, hash: x.hash, name: m.name, enc: !!m.enc, vis: m.vis, gar: m.gar, txt }); }
+      return { n: L.length, id: t.id, name: t.name, place: t.place, vis: t.vis, g, o, v: v ? { vis: v.vis, kind: v.kind, enc: typeof v.enc } : null, sit: sit && sit.k, arq };
+    };
+    return { a: await um('exemplo-0001'), b: await um('exemplo-0002'), c: await um('constructor'), d: await um('exemplo-0004'), marcos: Garantias.marcos(today()).map((m) => m.nome), sel: Garantias.seletor(), things: JSON.stringify(DB.raw('things')), vault: JSON.stringify(DB.raw('vault')), files: JSON.stringify(DB.raw('files')) };
+  }, {});
+  const A7 = s7.a, B7 = s7.b, C7 = s7.c, D7 = s7.d;
+  conferir(A7.n === 1 && A7.name === 'Purificador Exemplo' && A7.place === '' && A7.vis === 'familia' && A7.g.v === 1 && A7.g.ref === 'exemplo-0001' && A7.g.origem === 'importado' && A7.g.marca === 'Marca Exemplo' && A7.g.compra.data === '2024-03-10' && A7.g.estendida.meses === 24,
+    'G7. o exemplo vira uma coisa nova: sem lugar, "Toda a família", com o ref do arquivo e "importado" (' + JSON.stringify(A7.g && { ref: A7.g.ref, origem: A7.g.origem }) + ')');
+  conferir(A7.o && A7.o.pedido === PEDIDO && A7.o.chaveNF === CHAVE && A7.o.valorCent === '50000' && A7.o.precoCent === '9990' && A7.o.pagamento === 'cartao' && A7.o.cartaoFinal === '0000' && A7.o.garantiaDe === A7.id && A7.v && A7.v.vis === 'restrito' && A7.v.kind === 'seguro' && A7.g.vaultId === 'gv_' + A7.id,
+    'G7. ... o pedido, a chave, o valor, o preço, o pagamento e o final do cartão vão trancados nas Senhas da casa (item "gv_", só responsáveis)');
+  conferir(A7.g.finais && A7.g.finais.pedido === '0001' && !s7.things.includes(PEDIDO) && !s7.things.includes(CHAVE) && !s7.things.includes('"valorCent"') && !s7.vault.includes(PEDIDO) && !s7.vault.includes(BIL7), 'G7. ... no objeto só o final ("0001"); nenhum número nem valor em claro nos objetos ou nas Senhas');
+  const at7 = (A7.g.atendimentos || [])[0] || {}, df7 = (A7.g.defeitos || [])[0] || {};
+  conferir(at7.id && at7.protocolo === 'PROT-0001' && at7.com === 'Central Exemplo' && at7.situacao === 'aberto' && df7.id && df7.desc === 'Botão Exemplo' && at7.defeito === df7.id, 'G7. ... o atendimento (com o protocolo) e o defeito ligado a ele');
+  conferir(A7.arq.length === 2 && A7.arq[0].tipo === 'termo' && A7.arq[0].name === 'folheto.pdf' && A7.arq[1].tipo === 'manual' && A7.arq[1].name === 'manual.jpg' && A7.arq.every((x) => !x.enc && x.vis === 'familia' && x.gar === A7.id && /^[0-9a-f]{64}$/.test(x.hash)) && A7.arq[0].txt.startsWith('%PDF'),
+    'G7. ... o folheto e o manual guardados com nome neutro, a marca gar, o SHA-256 e o "Quem vê" do objeto (' + JSON.stringify(A7.arq.map((x) => [x.name, x.enc, x.vis, !!x.gar])) + ')');
+  conferir(B7.n === 1 && B7.g.saiu && B7.g.saiu.como === 'doado' && B7.sit === 'saiu' && !s7.marcos.includes('Purificador Antigo Exemplo') && !s7.sel.includes('Purificador Antigo Exemplo') && !B7.v,
+    'G7. "saiu de casa" (D-G9): a coisa doada entra só como histórico — sem aviso (mesmo com a de fábrica acabando em 5 dias) e fora do "O que estragou?" (' + JSON.stringify({ sit: B7.sit, marcos: s7.marcos }) + ')');
+  conferir(C7.n === 1 && C7.name === 'Caixa de Som Exemplo' && C7.g.estendida.cancelada === false && /bilhete reemitido/.test(C7.g.obs) && C7.o && C7.o.number === BIL7 && C7.g.finais.bilhete === '0007',
+    'G7. o ref "constructor" entra (os refs do app ficam num Set); "reemitida" fica valendo, com "bilhete reemitido", e o número do bilhete vai para as Senhas');
+  conferir(D7.n === 1 && D7.g.estendida.cancelada === true && !D7.v, 'G7. "cancelada" entra como estendida cancelada (sem números: nada nas Senhas)');
+  e1 = await estado7();
+  conferir(e1.things === e0.things + 4 && e1.files === e0.files + 2 && e1.vault === e0.vault + 2, 'G7. foram gravadas 4 coisas, 2 papéis e 2 itens das Senhas (' + JSON.stringify({ things: e1.things - e0.things, files: e1.files - e0.files, vault: e1.vault - e0.vault }) + ')');
+  const fundo7 = await p.evaluate((n) => window.__g6.fundo.slice(n), fundo0);
+  conferir(fundo7.some((x) => /"tipo":"importar"/.test(x) && /"podeCancelar":false/.test(x)) && !sobra6(fundo7.join('\n'), [PEDIDO, CHAVE, BIL7]).length, 'G7. a gravação roda no Fundo ("importar", sem ✕: tudo ou nada) e o resultado não leva nenhum número');
+  await limpo('G7. a lista com as garantias trazidas');
+
+  /* ---------- de novo: o que já está no app fica de fora (pelo ref) ---------- */
+  e0 = await estado7();
+  r7 = await trazer7(OK7); e1 = await estado7();
+  conferir(!r7.dlg && /já estão no app/.test(r7.toasts) && /Apague/.test(r7.toasts) && igual7(e0, e1), 'G7. o mesmo arquivo de novo: "já estão no app", nada gravado (e o lembrete de apagar o arquivo) (' + r7.toasts + ')');
+  await p.evaluate(() => setLang('en')); await p.waitForTimeout(200);
+  r7 = await trazer7(ARQ7([IT7({}), IT7({ ref: 'exemplo-0005', nome: 'Ventilador Exemplo', protegido: SEMNUM7, atendimentos: [], arquivos: [] })]));
+  conferir(r7.dlg && /1 new warranty/.test(r7.txt) && /1 is already in the app and is left out/.test(r7.txt) && /Ventilador Exemplo/.test(r7.txt) && !/Vai trazer|garantias novas/.test(r7.txt), 'G7. EN: o resumo em inglês, com a que já está no app de fora (' + r7.txt.replace(/\s+/g, ' ').slice(0, 200) + ')');
+  const fimEn7 = r7.dlg ? await confirmar7() : { fim: '' };
+  conferir(/Delete the file from your phone now/.test(fimEn7.fim), 'G7. EN: o pedido de apagar o arquivo em inglês');
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(200);
+  e1 = await estado7();
+  conferir(e1.things === e0.things + 1 && e1.refs.filter((x) => x === 'exemplo-0001').length === 1 && e1.refs.includes('exemplo-0005'), 'G7. só a nova entra; a que já estava (mesmo ref) não é repetida');
+
+  /* ---------- tudo ou nada ---------- */
+  const FALHA7 = (pre) => ARQ7([IT7({ ref: pre + '-0001', nome: 'Falha Um Exemplo', arquivos: [{ tipo: 'termo', base64: PDF64 }] }), IT7({ ref: pre + '-0002', nome: 'Falha Dois Exemplo', arquivos: [{ tipo: 'manual', base64: JPG64 }], protegido: SEMNUM7 })]);
+  e0 = await estado7();
+  await p.evaluate(() => { window.__g7.falhaNo = window.__g7.saves + 2; });
+  r7 = await trazer7(FALHA7('falha'));
+  const fimF7 = r7.dlg ? await confirmar7() : { toasts: '' };
+  await p.evaluate(() => { window.__g7.falhaNo = 0; });
+  e1 = await estado7();
+  conferir(r7.dlg && /Nada foi trazido/.test(fimF7.toasts) && igual7(e0, e1) && !e1.refs.some((x) => /^falha-/.test(x)), 'G7. tudo ou nada: o 2º papel não grava → o 1º papel, os números nas Senhas e a 1ª coisa são desfeitos (' + JSON.stringify({ things: e1.things - e0.things, files: e1.files - e0.files, vault: e1.vault - e0.vault }) + ')');
+  e0 = await estado7();
+  await p.evaluate(() => { window.__g7.fecharNo = window.__g7.saves + 1; });
+  r7 = await trazer7(FALHA7('fecha'));
+  const fimS7 = r7.dlg ? await confirmar7() : { toasts: '' };
+  await p.evaluate(() => { window.__g7.fecharNo = 0; });
+  e1 = await estado7();
+  conferir(r7.dlg && /Nada foi trazido/.test(fimS7.toasts) && /Senhas da casa fecharam/.test(fimS7.toasts) && igual7(e0, e1) && !e1.refs.some((x) => /^fecha-/.test(x)), 'G7. tudo ou nada: as Senhas da casa fecham no meio → nada fica (' + fimS7.toasts + ')');
+  await p.evaluate(async () => { Files.save = window.__g7.save0; if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123'); });
+  await fecharJanelas(p);
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'G7: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -1720,5 +1908,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada)');
 })().catch((e) => { console.error(e); process.exit(1); });

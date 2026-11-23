@@ -14294,6 +14294,102 @@ const Garantias = {
     }
     await DB.put("things", t);
     return t;
+  },
+  /* ---------- G7: 📥 trazer garantias prontas (o arquivo "omnilife.garantias" v1; molde do Cars.importar) ---------- */
+  /* o arquivo traz os números abertos: depois de trazer, ele não deve ficar no celular */
+  _apague() { return tt("Apague agora o arquivo do celular (Arquivos → Downloads): ele tem os números abertos.", "Delete the file from your phone now (Files → Downloads): it has the numbers in plain sight.", "Borra ahora el archivo del móvil (Archivos → Descargas): tiene los números a la vista."); },
+  /* o cartão da lista: só o responsável (os números e os valores vão trancados nas Senhas da casa) */
+  cartaoTrazer() {
+    if (!isGuardian() || !canVault()) return "";
+    return '<div class="card tight gar-trazer"><h4>📥 ' + tt("Trazer garantias prontas (arquivo)", "Bring in ready-made warranties (file)", "Traer garantías ya hechas (archivo)") + '</h4><p class="small muted">' +
+      tt("Recebeu um arquivo .json de garantias? Toque aqui para trazer todas de uma vez. Os números e os valores entram trancados nas Senhas da casa.", "Got a .json file of warranties? Tap here to bring them all in at once. The numbers and amounts go in locked in the vault.", "¿Te han pasado un archivo .json de garantías? Toca aquí para traerlas todas de una vez. Los números y los importes entran bajo llave en las Contraseñas de casa.") +
+      '</p><button class="btn ghost" data-act="gar.importar">📥 ' + tt("Escolher o arquivo", "Choose the file", "Elegir el archivo") + "</button></div>";
+  },
+  irParaCasa() {
+    return confirmBox(esc(tt("Antes, abra ou crie as 🔐 Senhas da casa: é lá que os números e os valores das garantias ficam trancados. Depois volte aqui em 🧾 Garantias.", "First open or set up the 🔐 vault: that's where the warranties' numbers and amounts stay locked. Then come back here to 🧾 Warranties.", "Antes, abre o crea las 🔐 Contraseñas de casa: ahí quedan bajo llave los números y los importes de las garantías. Después vuelve aquí, a 🧾 Garantías.")),
+      tt("Ir para as Senhas da casa", "Go to the vault", "Ir a las Contraseñas de casa")).then((ok) => { if (ok) go("house", "vault"); });
+  },
+  /* o que vai entrar: o ref que já está no app fica de fora (num Set: com um objeto, o ref "constructor" pareceria já existir) */
+  resumo(itens) {
+    const ja = new Set();
+    DB.all("things").forEach((t) => { try { const g = this.ler(t), r = g && !g._novo ? g.ref : t.garantia && typeof t.garantia.ref === "string" ? t.garantia.ref : ""; if (r) ja.add(r); } catch (e) {} });
+    const novos = itens.filter((x) => !ja.has(x.ref)), n = novos.length, m = itens.length - n;
+    const k = novos.filter((x) => GAR_SEC.some((c) => x.protegido[c] !== "" && x.protegido[c] != null)).length, f = novos.reduce((s, x) => s + x.arquivos.length, 0), s = novos.filter((x) => x.garantia.saiu).length;
+    const nomes = novos.slice(0, 5).map((x) => x.nome).join(", ") + (n > 5 ? tt(" e mais " + (n - 5), " and " + (n - 5) + " more", " y " + (n - 5) + " más") : "");
+    const L = [n ? "📥 " + (n === 1 ? tt("1 garantia nova: ", "1 new warranty: ", "1 garantía nueva: ") : tt(n + " garantias novas: ", n + " new warranties: ", n + " garantías nuevas: ")) + nomes : "",
+      m ? "⏭️ " + (m === 1 ? tt("1 já está no app e fica de fora", "1 is already in the app and is left out", "1 ya está en la app y se queda fuera") : tt(m + " já estão no app e ficam de fora", m + " are already in the app and are left out", m + " ya están en la app y se quedan fuera")) : "",
+      k ? "🔐 " + tt(k + " com números ou valores (vão trancados nas Senhas da casa)", k + " with numbers or amounts (they go in locked in the vault)", k + " con números o importes (van bajo llave en las Contraseñas de casa)") : "",
+      f ? "📎 " + (f === 1 ? tt("1 papel (folheto ou manual)", "1 document (warranty leaflet or manual)", "1 documento (folleto de garantía o manual)") : tt(f + " papéis (folheto ou manual)", f + " documents (warranty leaflets or manuals)", f + " documentos (folletos de garantía o manuales)")) : "",
+      s ? "📦 " + (s === 1 ? tt("1 saiu de casa (fica só como histórico, sem avisos)", "1 is no longer at home (kept as history only, with no alerts)", "1 ya no está en casa (queda solo como historial, sin avisos)") : tt(s + " saíram de casa (ficam só como histórico, sem avisos)", s + " are no longer at home (kept as history only, with no alerts)", s + " ya no están en casa (quedan solo como historial, sin avisos)")) : ""];
+    return { novos, pulados: m, html: L.filter(Boolean).map(esc).join("<br>") };
+  },
+  /* tudo ou nada (como o Cars.gravar): para cada garantia, os papéis → os números nas Senhas da casa → o objeto novo. Cada
+     gravação entra em "feitos"; se algo falhar no meio (um papel que não grava, as Senhas que fecham, a troca da chave que
+     começa), tudo o que já foi gravado é desfeito */
+  async gravar(novos, andamento) {
+    const feitos = [];
+    const pode = () => {
+      if (!S.vaultKey) throw new Error(tt("as Senhas da casa fecharam no meio. Abra de novo e traga o arquivo outra vez.", "the vault closed halfway through. Open it again and bring the file in again.", "las Contraseñas de casa se cerraron a mitad. Vuelve a abrirlas y trae el archivo otra vez."));
+      const pm = Cofre.podeMudar(); if (!pm.ok) throw new Error(pm.texto);
+      Trava.tocar();   /* gravar conta como uso: as Senhas não fecham sozinhas no meio */
+    };
+    try {
+      for (let i = 0; i < novos.length; i++) {
+        const x = novos[i], id = uid(), g = JSON.parse(JSON.stringify(x.garantia)), t = { id, name: x.nome, place: "", vis: "familia", tags: [], garantia: g };
+        pode();
+        for (const a of x.arquivos) {
+          const f = new File([Uint8Array.from(atob(a.base64), (ch) => ch.charCodeAt(0))], a.nome, { type: a.mime });
+          const fid = await Files.save(f, { encrypt: false, vis: "familia", raw: true });   /* folheto e manual: com o "Quem vê" do objeto */
+          if (!fid) throw new Error(tt("não consegui guardar um papel de '", "couldn't store a document of '", "no he podido guardar un documento de '") + x.nome + "'");
+          feitos.push(["files", fid]);
+          await DB.put("files", Object.assign({}, Files.meta(fid), { gar: id }), true);   /* a marca: apagar o objeto leva o papel junto */
+          const hash = await Batch.hash(f);
+          g.arquivos.push({ id: fid, tipo: a.tipo, hash: /^[0-9a-f]+$/.test(hash) ? hash : "", em: today(), emitidoEm: "", antigo: false });
+        }
+        pode();
+        const vid = await this.guardarSegredo(t, x.protegido);
+        if (vid) { feitos.push(["vault", vid]); g.vaultId = vid; }
+        await DB.put("things", t, true); feitos.push(["things", id]);
+        if (andamento) andamento((i + 1) / novos.length, tt("Trazendo ", "Bringing in ", "Trayendo ") + (i + 1) + "/" + novos.length);
+      }
+    } catch (e) {
+      for (const [col, id] of feitos.reverse()) { try { if (col === "files") await Files.remove(id); else await DB.del(col, id); } catch (e2) {} }
+      scheduleRender(true);
+      throw e;
+    }
+    scheduleRender(true);
+    return { n: novos.length };   /* o resultado do Fundo: nenhum número */
+  },
+  /* 📥: responsável, com as Senhas da casa abertas (abre ali mesmo) e sem troca da chave andando; o arquivo inteiro é conferido
+     antes de gravar qualquer coisa, e a pessoa vê o resumo antes */
+  async importar() {
+    if (!isGuardian()) return toast(tt("Só um responsável traz garantias prontas: os números e os valores ficam trancados nas Senhas da casa.", "Only a guardian can bring in ready-made warranties: the numbers and amounts stay locked in the vault.", "Solo un responsable puede traer garantías ya hechas: los números y los importes quedan bajo llave en las Contraseñas de casa."));
+    if (!Rec.ok("garantias")) return Rec.avisar();
+    const pm = Cofre.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);   /* no meio da troca da chave da família: espere terminar */
+    if (!S.vaultKey && (await Cars.abrirCasaPossivel()) === false) return this.irParaCasa();
+    const [f] = (await Files.pick(".json,application/json", false)) || []; if (!f) return;
+    /* grande demais: recusa antes de ler (o arquivo inteiro iria para a memória) */
+    if (f.size > 56 * 1048576) return toast(tt("O arquivo passa de 56 MB: é grande demais para trazer.", "The file is over 56 MB: it's too big to bring in.", "El archivo supera los 56 MB: es demasiado grande para traerlo."), 6000);
+    let texto = ""; try { texto = await f.text(); } catch (e) { return toast(tt("Não deu para ler o arquivo.", "Couldn't read the file.", "No se ha podido leer el archivo."), 6000); }
+    const r = this.validar(texto); texto = "";
+    if (!r.ok) return toast(r.erro, 8000);
+    const res = this.resumo(r.itens);
+    if (!res.novos.length) return toast((r.itens.length === 1 ? tt("Esta garantia já está no app: nada foi trazido.", "This warranty is already in the app: nothing was brought in.", "Esta garantía ya está en la app: no se ha traído nada.")
+      : tt("As " + r.itens.length + " garantias deste arquivo já estão no app: nada foi trazido.", "The " + r.itens.length + " warranties in this file are already in the app: nothing was brought in.", "Las " + r.itens.length + " garantías de este archivo ya están en la app: no se ha traído nada.")) + " " + this._apague(), 8000);
+    if (!(await confirmBox("<b>" + esc(tt("Vai trazer:", "This will add:", "Se va a traer:")) + "</b><br>" + res.html, "📥 " + tt("Trazer", "Bring them in", "Traer")))) return;
+    if (!S.vaultKey) {
+      const ok = await Cars.abrirCasa({ pt: "Para trancar os números e os valores das garantias.", en: "To lock the warranties' numbers and amounts." });
+      if (ok === null) return this.irParaCasa();
+      if (!ok) return toast(tt("Nada foi trazido. Quando quiser, toque de novo em 📥.", "Nothing was brought in. Tap 📥 again whenever you want.", "No se ha traído nada. Cuando quieras, vuelve a tocar 📥."), 5000);
+    }
+    const pm2 = Cofre.podeMudar(); if (!pm2.ok) return toast(pm2.texto, 6000);
+    const rota = location.hash, executar = (andamento) => this.gravar(res.novos, andamento);
+    try {
+      const o = window.DGO && DGO.fundo && DGO.fundo.iniciar ? await DGO.fundo.iniciar({ tipo: "importar", titulo: tt("Trazendo as garantias", "Bringing in the warranties", "Trayendo las garantías"), rota, aindaNaTela: () => location.hash === rota, podeCancelar: false, tentarDeNovo: false, executar }) : await executar(null);
+      const n = (o && o.n) || res.novos.length;
+      modal({ title: "📥 " + tt("Garantias trazidas", "Warranties brought in", "Garantías traídas"), body: "<p>✅ " + esc(n === 1 ? tt("1 garantia trazida.", "1 warranty brought in.", "1 garantía traída.") : tt(n + " garantias trazidas.", n + " warranties brought in.", n + " garantías traídas.")) + '</p><div class="note">🗑️ <b>' + esc(this._apague()) + "</b></div>",
+        foot: '<button class="btn" data-x>' + tt("Entendi", "Got it", "Entendido") + "</button>" });
+    } catch (e) { toast(tt("Nada foi trazido: ", "Nothing was brought in: ", "No se ha traído nada: ") + ((e && e.message) || e), 7000); }
   }
 };
 /* aba própria 🧾 Garantias (D-G1), no ☰ em "Casa, carro e papéis" */
@@ -14305,7 +14401,7 @@ SCREENS.garantias = {
       '<button type="button" data-act="go" data-tab="garantias" data-sub="' + s[0] + '"' + ((s[0] === "estragou") === est ? ' class="active" aria-pressed="true"' : ' aria-pressed="false"') + ">" + s[1] + "</button>").join("") + "</div>";
     return '<div class="gar"><div class="pagehead"><div><h1>🧾 ' + tt("Garantias", "Warranties", "Garantías") + '</h1><div class="sub">' + tt("O que tem garantia em casa, até quando vale e o que fazer quando estraga", "What has a warranty at home, how long it lasts and what to do when it breaks", "Qué tiene garantía en casa, hasta cuándo dura y qué hacer cuando se estropea") + "</div></div>" +
       (G && G.total && Garantias.podeEditar() ? '<div class="row"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + '</button><button class="btn ghost" data-act="gar.foto">📷 ' + tt("Ler nota ou bilhete", "Read invoice or certificate", "Leer factura o certificado") + "</button></div>" : "") + "</div>" + seg +
-      (ficha ? Garantias.view(arg) : est ? Garantias.estragou(arg) + Garantias.rodape() : (isGuardian() && S.vaultKey ? '<div id="garsobras"></div>' : "") + Garantias.listView(G) + Garantias.rodape()) + "</div>";
+      (ficha ? Garantias.view(arg) : est ? Garantias.estragou(arg) + Garantias.rodape() : (isGuardian() && S.vaultKey ? '<div id="garsobras"></div>' : "") + Garantias.listView(G) + Garantias.cartaoTrazer() + Garantias.rodape()) + "</div>";
   },
   after(root, sub, arg) { if (sub === "ficha" && arg) Garantias.after(root, arg); else Garantias.sobrasCartao(root); }
 };
@@ -14320,6 +14416,7 @@ ACT["gar.papel"] = (d) => Garantias.addPapel(d.id, d.tipo);
 ACT["gar.foto"] = (d) => Garantias.lerArquivos(d && d.id);
 ACT["gar.papeldel"] = (d) => Garantias.tirarPapel(d.id, d.ref);
 ACT["gar.sobras"] = () => Garantias.tirarSobras();
+ACT["gar.importar"] = () => Garantias.importar();
 ACT["gar.abrircasa"] = async () => { const ok = await Cars.abrirCasa({ pt: "Para ver os números da garantia.", en: "To see the warranty numbers." }); if (ok === null) return toast(tt("Antes, abra ou crie as 🔐 Senhas da casa (Casa → Senhas da casa).", "First open or set up the 🔐 vault (House → Home passwords).", "Antes, abre o crea las 🔐 Contraseñas de casa (Casa → Contraseñas de casa)."), 6000); if (ok) render(); };
 /* ===== fim de GARANTIAS ===== */
 
