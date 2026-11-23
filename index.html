@@ -616,6 +616,10 @@ body:not(.booted) .apfaixa{display:none}
 .giro .check input{width:22px;height:22px;flex:none;margin:0}
 .giro ul{margin:4px 0 10px 20px;padding:0}
 .giro ul li{margin:4px 0}
+/* 2.28.0: 🧾 Garantias — alvos de 44 px (o .seg padrão tem uns 33 px); os 4 filtros em duas linhas no celular (sem rolar para o lado) e numa só no computador */
+.gar .seg button,.gar .linkbtn,.gar details.more>summary{min-height:44px}
+.gar .seg.garf{flex-wrap:wrap;border-radius:14px}
+.gar .seg.garf button{flex:1 1 150px;border-radius:11px}
 .giro .note{margin:10px 0}
 .giro .note .btn{margin:4px 0 6px}
 /* "🔒 Bloquear agora" com a explicação pequena embaixo (no lugar do antigo "🔒 Fechar") */
@@ -1210,7 +1214,7 @@ const LIBS = {
 };
 
 /* ---------- ícones de traço (desenhados para o OmniLifeONE; iguais em todo aparelho, ao contrário de emoji) ---------- */
-const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "cars": "<path d=\"M4 16.5v-4l2-5.2A2 2 0 0 1 7.9 6h8.2a2 2 0 0 1 1.9 1.3l2 5.2v4z\"/><path d=\"M6.5 16.5V19M17.5 16.5V19M4 12.5h16\"/><circle cx=\"8\" cy=\"14.5\" r=\"1\"/><circle cx=\"16\" cy=\"14.5\" r=\"1\"/>", "pets": "<path d=\"M12 13.2c-2.7 0-5 2.7-5 5 0 1.5 1.2 2.3 2.5 2.3 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5c1.3 0 2.5-.8 2.5-2.3 0-2.3-2.3-5-5-5z\"/><circle cx=\"5.6\" cy=\"10.6\" r=\"1.9\"/><circle cx=\"9.3\" cy=\"6.4\" r=\"2\"/><circle cx=\"14.7\" cy=\"6.4\" r=\"2\"/><circle cx=\"18.4\" cy=\"10.6\" r=\"1.9\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "reset": "<path d=\"M4 4v5h5\"/><path d=\"M5.3 14.5A7.5 7.5 0 1 0 6.6 7L4 9\"/>", "grip": "<circle cx=\"9\" cy=\"6\" r=\"1.2\"/><circle cx=\"15\" cy=\"6\" r=\"1.2\"/><circle cx=\"9\" cy=\"12\" r=\"1.2\"/><circle cx=\"15\" cy=\"12\" r=\"1.2\"/><circle cx=\"9\" cy=\"18\" r=\"1.2\"/><circle cx=\"15\" cy=\"18\" r=\"1.2\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
+const ICONS = {"home": "<path d=\"M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/>", "inbox": "<path d=\"M3 13h5l2 3h4l2-3h5\"/><path d=\"M5.5 5h13l2.5 8v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z\"/>", "shop": "<circle cx=\"9\" cy=\"20\" r=\"1.4\"/><circle cx=\"18\" cy=\"20\" r=\"1.4\"/><path d=\"M2 3h3l2.4 11.2a1 1 0 0 0 1 .8h9.3a1 1 0 0 0 1-.8L21 7H6\"/>", "agenda": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2.5\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/>", "contacts": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2.5\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/><path d=\"M8 17c.8-2 2.3-3 4-3s3.2 1 4 3\"/>", "health": "<path d=\"M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.4C19.5 15.4 12 20 12 20z\"/>", "security": "<path d=\"M12 3l7.5 3v6c0 4.6-3.2 7.7-7.5 9-4.3-1.3-7.5-4.4-7.5-9V6z\"/><path d=\"M9 12l2.2 2.2L15.5 10\"/>", "house": "<circle cx=\"8\" cy=\"15\" r=\"4\"/><path d=\"M11 12l9-9M17 6l3 3M14.5 8.5l2 2\"/>", "cars": "<path d=\"M4 16.5v-4l2-5.2A2 2 0 0 1 7.9 6h8.2a2 2 0 0 1 1.9 1.3l2 5.2v4z\"/><path d=\"M6.5 16.5V19M17.5 16.5V19M4 12.5h16\"/><circle cx=\"8\" cy=\"14.5\" r=\"1\"/><circle cx=\"16\" cy=\"14.5\" r=\"1\"/>", "pets": "<path d=\"M12 13.2c-2.7 0-5 2.7-5 5 0 1.5 1.2 2.3 2.5 2.3 1 0 1.6-.5 2.5-.5s1.5.5 2.5.5c1.3 0 2.5-.8 2.5-2.3 0-2.3-2.3-5-5-5z\"/><circle cx=\"5.6\" cy=\"10.6\" r=\"1.9\"/><circle cx=\"9.3\" cy=\"6.4\" r=\"2\"/><circle cx=\"14.7\" cy=\"6.4\" r=\"2\"/><circle cx=\"18.4\" cy=\"10.6\" r=\"1.9\"/>", "garantias": "<path d=\"M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5-2 1.5z\"/><path d=\"M9 8h6M9 12h6M9 16h4\"/>", "docs": "<path d=\"M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z\"/><path d=\"M14 3v5h5M8.5 13h7M8.5 17h5\"/>", "family": "<circle cx=\"9\" cy=\"8\" r=\"3\"/><circle cx=\"17\" cy=\"9.5\" r=\"2.4\"/><path d=\"M3 20c.6-3.4 3-5 6-5s5.4 1.6 6 5M15.5 15.3c2.6-.4 4.8 1.1 5.5 4.2\"/>", "settings": "<path d=\"M12.00 5.00 L13.79 2.98 L15.52 3.50 L15.89 6.18 L16.95 7.05 L19.65 6.89 L20.50 8.48 L18.87 10.63 L19.00 12.00 L21.02 13.79 L20.50 15.52 L17.82 15.89 L16.95 16.95 L17.11 19.65 L15.52 20.50 L13.37 18.87 L12.00 19.00 L10.21 21.02 L8.48 20.50 L8.11 17.82 L7.05 16.95 L4.35 17.11 L3.50 15.52 L5.13 13.37 L5.00 12.00 L2.98 10.21 L3.50 8.48 L6.18 8.11 L7.05 7.05 L6.89 4.35 L8.48 3.50 L10.63 5.13Z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/>", "search": "<circle cx=\"11\" cy=\"11\" r=\"6.5\"/><path d=\"M20 20l-4.2-4.2\"/>", "user": "<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 21c1-4 4.2-6 8-6s7 2 8 6\"/>", "menu": "<path d=\"M4 6.5h16M4 12h16M4 17.5h16\"/>", "bell": "<path d=\"M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z\"/><path d=\"M10 20.5a2 2 0 0 0 4 0\"/>", "zap": "<path d=\"M13 2 4 14h7l-1 8 9-12h-7z\"/>", "sos": "<path d=\"M12 3.5 2.5 20h19z\"/><path d=\"M12 10v4.5M12 17.3v.2\"/>", "pin": "<path d=\"M12 21s-7-6.2-7-11.2a7 7 0 0 1 14 0C19 14.8 12 21 12 21z\"/><circle cx=\"12\" cy=\"10\" r=\"2.5\"/>", "leave": "<path d=\"M5 12h14M13 6l6 6-6 6\"/>", "mic": "<rect x=\"9\" y=\"3\" width=\"6\" height=\"11\" rx=\"3\"/><path d=\"M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "chev": "<path d=\"M9 5l7 7-7 7\"/>", "share": "<path d=\"M12 3v12M7 8l5-5 5 5\"/><path d=\"M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6\"/>", "apps": "<rect x=\"4\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"4\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"4\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/><rect x=\"14\" y=\"14\" width=\"6\" height=\"6\" rx=\"1.5\"/>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"/>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z\"/>", "spark": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"/><path d=\"M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z\"/>", "where": "<circle cx=\"10.5\" cy=\"10.5\" r=\"6\"/><path d=\"M19.5 19.5l-4.6-4.6M8 10.5h5M10.5 8v5\"/>", "help": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.5 9.3a2.6 2.6 0 0 1 5 1c0 1.8-2.5 2.2-2.5 3.9M12 17.2v.3\"/>", "ads": "<path d=\"M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z\"/><path d=\"M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11\"/>", "speaker": "<path d=\"M4 10v4h3l5 4V6L7 10z\"/><path d=\"M15.5 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11\"/>", "monitor": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/>", "reset": "<path d=\"M4 4v5h5\"/><path d=\"M5.3 14.5A7.5 7.5 0 1 0 6.6 7L4 9\"/>", "grip": "<circle cx=\"9\" cy=\"6\" r=\"1.2\"/><circle cx=\"15\" cy=\"6\" r=\"1.2\"/><circle cx=\"9\" cy=\"12\" r=\"1.2\"/><circle cx=\"15\" cy=\"12\" r=\"1.2\"/><circle cx=\"9\" cy=\"18\" r=\"1.2\"/><circle cx=\"15\" cy=\"18\" r=\"1.2\"/>", "list": "<path d=\"M9 6h11M9 12h11M9 18h11\"/><circle cx=\"4.5\" cy=\"6\" r=\"1\"/><circle cx=\"4.5\" cy=\"12\" r=\"1\"/><circle cx=\"4.5\" cy=\"18\" r=\"1\"/>"};
 function ico(name, cls) { const p = ICONS[name]; if (!p) return ""; return '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p + "</svg>"; }
 /* ---------- estado global ---------- */
 const S = {
@@ -1713,7 +1717,7 @@ function canTab(tab) {
   if (tab === "docs") return c.seeDocs;
   if (tab === "contacts") return c.seeContacts;
   if (tab === "agenda") return c.seeAgenda;
-  if (tab === "house" || tab === "cars" || tab === "pets") return c.seeHouse;
+  if (tab === "house" || tab === "cars" || tab === "pets" || tab === "garantias") return c.seeHouse;
   return !["family_admin"].includes(tab);
 }
 
@@ -1761,7 +1765,7 @@ const Fb = {
 window.OmniFeedbackTela = () => Fb.tela();
 ACT["fb.open"] = (d) => Fb.abrir(d.erro ? { categoria: "erro", erro: d.erro } : null);
 const Rec = {
-  TAB: { inbox: "inbox", shop: "compras", agenda: "agenda", contacts: "contatos", health: "saude", security: "seguranca", house: "casa", cars: "veiculos", pets: "pets", docs: "documentos", family: "familia" },
+  TAB: { inbox: "inbox", shop: "compras", agenda: "agenda", contacts: "contatos", health: "saude", security: "seguranca", house: "casa", cars: "veiculos", pets: "pets", garantias: "casa.garantias", docs: "documentos", family: "familia" },
   /* parte de cada aba ("" = a parte que abre quando a aba abre sem parte) */
   SUB: { "shop/pantry": "compras.despensa", "shop/requests": "compras.pedidos", "shop/scan": "compras.foto", "shop/stores": "compras.onde-comprar",
     "agenda/escola": "agenda.escola", "agenda/tasks": "agenda.tarefas", "agenda/reminders": "agenda.lembretes", "agenda/routine": "agenda.rotina", "agenda/load": "agenda.delegometro", "agenda/handover": "agenda.assume-casa",
@@ -1774,9 +1778,9 @@ const Rec = {
     "scan": "compras compras.foto", "stores": "compras compras.onde-comprar", "ev": "agenda", "cal": "agenda", "school": "agenda agenda.escola", "task": "agenda agenda.tarefas", "rem": "agenda agenda.lembretes",
     "load": "agenda agenda.delegometro", "ho": "agenda agenda.assume-casa", "ct": "contatos", "health": "saude", "chk": "seguranca seguranca.cheguei", "vigia": "seguranca seguranca.vigilante",
     "ah": "seguranca seguranca.alertas", "mc": "seguranca seguranca.alertas", "where": "casa casa.onde-esta", "mt": "casa casa.manutencao", "cofre": "casa casa.senhas", "vault": "casa casa.senhas",
-    "guide": "casa casa.guias", "car": "veiculos casa.veiculos", "vida": "veiculos casa.veiculos veiculos.vida", "pet": "pets", "doc": "documentos", "fb": "feedback" },
+    "guide": "casa casa.guias", "car": "veiculos casa.veiculos", "vida": "veiculos casa.veiculos veiculos.vida", "pet": "pets", "gar": "casa.garantias", "doc": "documentos", "fb": "feedback" },
   /* ajuda (busca 🔎) de uma função desligada também some */
-  AJUDA: { rotas: ["agenda", "deslocamento"], clima: ["clima"], escola: ["agenda", "agenda.escola"], veiculos: ["veiculos", "casa.veiculos"], pets: ["pets"], assistone: ["assistone"], inbox: ["inbox"], familia: ["familia"], "familia-seguranca": ["familia"], "chave-seguranca": ["casa", "casa.senhas"],
+  AJUDA: { rotas: ["agenda", "deslocamento"], clima: ["clima"], escola: ["agenda", "agenda.escola"], veiculos: ["veiculos", "casa.veiculos"], pets: ["pets"], garantias: ["casa.garantias"], assistone: ["assistone"], inbox: ["inbox"], familia: ["familia"], "familia-seguranca": ["familia"], "chave-seguranca": ["casa", "casa.senhas"],
     cheguei: ["seguranca", "seguranca.cheguei"], vigia: ["seguranca", "seguranca.vigilante"], alertas: ["seguranca", "seguranca.alertas"], "alertas-telegram": ["seguranca", "seguranca.alertas"], "alertas-whatsapp": ["seguranca", "seguranca.alertas"] },
   /* nunca bloqueados: trancar, parar e desconectar sempre funcionam (segurança da família) */
   SEMPRE: ["cofre.desconectar", "vault.lock", "vigia.stop", "vigia.mute", "ho.end"],
@@ -7973,6 +7977,7 @@ const TABS = () => [
   { id: "security", ic: "🛡️", t: tt("Segurança", "Safety") },
   { id: "house", ic: "🏡", t: tt("Casa", "House") },
   { id: "cars", ic: "🚗", t: tt("Veículos", "Vehicles") },
+  { id: "garantias", ic: "🧾", t: tt("Garantias", "Warranties", "Garantías") },
   { id: "pets", ic: "🐾", t: tt("Pets", "Pets") },
   { id: "docs", ic: "🗂️", t: tt("Documentos", "Documents") },
   { id: "family", ic: "👨‍👩‍👧", t: tt("Família", "Family") },
@@ -8011,6 +8016,7 @@ const DRAWER_SUBS = () => ({
   security: [["cheguei", "✅ " + tt("Cheguei", "Check-in")], ["vigia", "👁 " + tt("Modo Vigilante", "Watch mode")], ["alertas", "📣 " + tt("Alertas", "Alerts")]],
   house: [["where", tt("Onde está?", "Where is it?")], ["maint", tt("Manutenção", "Maintenance")], ["vault", tt("Senhas da casa", "Home passwords")], ["guides", tt("Guias", "Guides")]],
   cars: [["lista", tt("Carros", "Cars")], ["vida", tt("Vida do carro", "Car history")]],
+  garantias: [["lista", tt("Lista", "List", "Lista")]],
   settings: [["general", tt("Geral", "General")], ["ai", "IA"], ["a11y", tt("Acessibilidade", "Accessibility")], ["net", tt("Rede e dados", "Network & data")], ["offline", tt("Instalar app para acessar sem internet", "Install the app to use offline")], ["cloud", tt("Nuvem", "Cloud")], ["alerts", tt("Avisos", "Alerts")], ["data", tt("Dados", "Data")], ["versions", tt("Versões & Novidades", "Versions & What's new")]].concat(typeof Weather !== "undefined" && Weather.visible() ? [["clima", tt("Clima", "Weather")]] : [])
 });
 /* A gaveta ☰ é uma janela da janela comum (janela.js): o <dialog> cobre a tela com o fundo escuro e a gaveta desliza
@@ -13028,6 +13034,10 @@ const GarCalc = {
   /* só o final de um número ("final 0001"): o número inteiro fica nas Senhas da casa */
   final4(s) { return typeof s === "string" ? s.replace(/[^0-9A-Za-z]/g, "").slice(-4) : ""; }
 };
+/* quando as regras (CDC, Lei 15.040/2024, SUSEP e CNSP) foram conferidas na fonte: aparece no rodapé da aba */
+const GAR_REGRAS_EM = "2026-11-23";
+/* em que filtro da lista cada situação entra; "Em 30 dias" sai do próximo fim, não da situação, e "Faltam dados" fica no topo */
+const GAR_FILTROS = { valendo: ["fabrica", "estendida", "talvezEst", "lei", "reclamado", "defeito"], vai: ["espera"], acabaram: ["encerrados"] };
 const Garantias = {
   /* link do app da seguradora ou da loja: só https (nada de "javascript:"); confere de novo ao desenhar */
   https(x) { try { return typeof x === "string" && new URL(x).protocol === "https:"; } catch (e) { return false; } },
@@ -13160,8 +13170,91 @@ const Garantias = {
           saiu: s ? { como: en(s.como, GAR_ENUM.como, tt("como saiu de casa", "how it left home", "cómo salió de casa")), em: data(s.em, tt("data em que saiu de casa", "date it left home", "fecha en que salió de casa")), obs: txt(s.obs, 1000, tt("observação de quando saiu", "note on leaving", "nota de cuando salió")) } : null,
           finais: { pedido: GarCalc.final4(pedido), bilhete: GarCalc.final4(bilhete), serie: GarCalc.final4(serie) }, arquivos: [], assistencia: "", defeitos, atendimentos, origem: "importado", obs } };
     } catch (e) { if (e && e.garErro) return { erro: e.garErro }; throw e; }
+  },
+  /* ---------- a aba 🧾 Garantias: a lista ---------- */
+  /* quem cadastra: todo adulto; criança vê e não muda (como na Casa) */
+  podeEditar() { return !isChild(); },
+  /* as garantias que esta pessoa pode ver (o "Quem vê" do objeto vale: DB.all, nunca DB.raw), com a situação de hoje. Try por
+     objeto: um registro estragado fica de fora e não derruba a lista, a 🔍 nem o AssistONE */
+  itens(hoje) {
+    const out = [];
+    DB.all("things").forEach((t) => {
+      try {
+        const g = this.ler(t); if (!g) return;
+        if (g._novo) { out.push({ t, g, novo: true, sit: null, pf: null, dias: null }); return; }
+        const sit = GarCalc.situacao(g, hoje), pf = GarCalc.proximoFim(g, hoje);
+        if (sit) out.push({ t, g, sit, pf, dias: pf ? GarCalc.diasEntre(hoje, pf) : null });
+      } catch (e) { console.error(e); }
+    });
+    return out;
+  },
+  /* a lista em grupos. O que acaba primeiro vem antes (em "Vai começar", o que começa primeiro); nas que acabaram, a que
+     acabou por último. Sem data, no fim */
+  grupos(hoje) {
+    const L = this.itens(hoje), de = (ks) => L.filter((x) => x.sit && ks.includes(x.sit.k));
+    const nome = (a, b) => String(a.t.name || "").localeCompare(String(b.t.name || ""));
+    const por = (f, desc) => (a, b) => { const x = f(a) || "", y = f(b) || ""; return x === y ? nome(a, b) : !x ? 1 : !y ? -1 : (x < y) !== !!desc ? -1 : 1; };
+    return {
+      total: L.length, novos: L.filter((x) => x.novo).sort(nome), faltam: de(["faltam", "faltaFim"]).sort(nome),
+      valendo: de(GAR_FILTROS.valendo).sort(por((x) => x.pf)),
+      em30: L.filter((x) => x.dias != null && x.dias >= 0 && x.dias <= 30).sort(por((x) => x.pf)),
+      vai: de(GAR_FILTROS.vai).sort(por((x) => x.sit.ate)),
+      acabaram: de(GAR_FILTROS.acabaram).sort(por((x) => x.sit.ate, true)),
+      saiu: de(["saiu"]).sort(por((x) => x.sit.desde, true))
+    };
+  },
+  /* uma linha: nome; marca, modelo e "comprado em Mar/2024"; a frase curta e "em N dias" (até 30). Nenhum número */
+  linha(x) {
+    const t = x.t, g = x.g, c = g.compra || {}, mes = (d) => (MON[S.lang] || MON.en)[+d.slice(5, 7) - 1] + "/" + d.slice(0, 4);
+    const quando = c.data ? tt("comprado em ", "bought in ", "comprado en ") + mes(c.data) : c.entrega ? tt("recebido em ", "received in ", "recibido en ") + mes(c.entrega) : "";
+    const prazo = x.dias == null || x.dias > 30 ? "" : "⏰ " + (x.dias === 0 ? tt("hoje", "today", "hoy") : x.dias === 1 ? tt("amanhã", "tomorrow", "mañana") : tt("em " + x.dias + " dias", "in " + x.dias + " days", "en " + x.dias + " días"));
+    const st = x.novo ? "🔄 " + tt("Feita num app mais novo: atualize o app para ver", "Made in a newer app: update the app to see it", "Hecha en una app más nueva: actualiza la app para verla") : GarCalc.curta(x.sit);
+    const md = [g.marca, g.modelo].filter(Boolean).join(" ");
+    return '<div class="li click" data-act="go" data-tab="garantias" data-sub="ficha" data-arg="' + esc(t.id) + '"><div class="ico" aria-hidden="true">🧾</div><div class="main"><div class="t">' + esc(t.name || tt("(sem nome)", "(no name)", "(sin nombre)")) + "</div>" +
+      (md || quando ? '<div class="s">' + esc([md, quando].filter(Boolean).join(" · ")) + "</div>" : "") + '<div class="s">' + esc([st, prazo].filter(Boolean).join(" · ")) + '</div></div><span class="faint" aria-hidden="true">›</span></div>';
+  },
+  /* "Faltam dados" e as feitas num app mais novo ficam sempre no topo; depois os 4 filtros (S.garF) com a contagem */
+  listView(G) {
+    const ed = this.podeEditar();
+    if (!G.total) return '<div class="card"><div class="empty"><div class="e" aria-hidden="true">🧾</div><p>' + (ed ? tt("Nenhuma garantia ainda. Toque em ＋ e escreva só o nome e a data da compra.", "No warranties yet. Tap ＋ and just type the name and the purchase date.", "Todavía no hay garantías. Toca ＋ y escribe solo el nombre y la fecha de compra.") : tt("Nenhuma garantia ainda.", "No warranties yet.", "Todavía no hay garantías.")) + "</p>" +
+      (ed ? '<button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + "</button>" : "") + "</div></div>";
+    const linhas = (L) => '<div class="list">' + L.map((x) => this.linha(x)).join("") + "</div>";
+    const topo = (cls, tit, L) => (L.length ? '<div class="card warnc ' + cls + '"><h3>' + tit + " (" + L.length + ")</h3>" + linhas(L) + "</div>" : "");
+    const fs = [["valendo", "✅ " + tt("Valendo", "Active", "En vigor"), G.valendo.length], ["em30", "⏰ " + tt("Em 30 dias", "Within 30 days", "En 30 días"), G.em30.length],
+      ["vai", "⏳ " + tt("Vai começar", "Starting soon", "Va a empezar"), G.vai.length], ["acabaram", "— " + tt("Acabaram", "Ended", "Terminadas"), G.acabaram.length + G.saiu.length]];
+    const f = fs.some((x) => x[0] === S.garF) ? S.garF : "valendo", L = G[f], saiu = f === "acabaram" && G.saiu.length;
+    return topo("gar-novos", "🔄 " + tt("Feitas num app mais novo", "Made in a newer app", "Hechas en una app más nueva"), G.novos) + topo("gar-faltam", "⚠️ " + tt("Faltam dados", "Missing details", "Faltan datos"), G.faltam) +
+      '<div class="seg garf" role="group" aria-label="' + tt("Filtrar as garantias", "Filter the warranties", "Filtrar las garantías") + '">' + fs.map((x) => '<button type="button" data-act="gar.filtro" data-f="' + x[0] + '"' + (x[0] === f ? ' class="active" aria-pressed="true"' : ' aria-pressed="false"') + ">" + x[1] + ' <span class="badge">' + x[2] + "</span></button>").join("") + "</div>" +
+      '<div class="card gar-lista"><p class="tiny muted">≈ = ' + tt("conta do app; confira no folheto ou no bilhete", "the app's estimate; check the warranty leaflet or the insurance certificate", "cálculo de la app; compruébalo en el folleto de garantía o en el certificado del seguro") + "</p>" +
+      (L.length ? linhas(L) : saiu ? "" : '<div class="empty small">' + tt("Nada neste filtro.", "Nothing in this filter.", "No hay nada en este filtro.") + "</div>") +
+      (saiu ? '<div class="gar-saiu">' + moreBox("📦 " + tt("Saíram de casa", "No longer at home", "Ya no están en casa") + " (" + G.saiu.length + ")", linhas(G.saiu)) + "</div>" : "") + "</div>";
+  },
+  /* rodapé de uma linha (o que vale é o folheto e o bilhete; não é assessoria jurídica) e, aberto, de onde vêm as regras */
+  rodape() {
+    return '<div class="note gar-rodape" style="margin-top:12px"><div>📌 ' + tt("Datas ≈ com o que você informou; vale o folheto e o bilhete. Não é assessoria jurídica.", "≈ dates are based on what you entered; the warranty leaflet and the insurance certificate are what count. This isn't legal advice.", "Fechas ≈ según lo que has indicado; lo que cuenta es lo que pone el folleto de garantía y el certificado del seguro. No es asesoramiento jurídico.") + "</div>" +
+      moreBox("ⓘ " + tt("De onde vêm as regras", "Where the rules come from", "De dónde salen las reglas"), "<p>" + tt("Pela lei brasileira (CDC arts. 18, 24, 26 e 50; Lei 15.040/2024; Circ. SUSEP 659/2022; Res. CNSP 496/2026), conferido em ", "Under Brazilian consumer law (CDC arts. 18, 24, 26 and 50; Law 15,040/2024; SUSEP Circular 659/2022; CNSP Resolution 496/2026), checked on ", "Según la ley de consumo brasileña (CDC arts. 18, 24, 26 y 50; Ley 15.040/2024; Circular SUSEP 659/2022; Resolución CNSP 496/2026), comprobado el ") + fmtDate(GAR_REGRAS_EM) + ".</p>") + "</div>";
+  },
+  /* para a 🔍: "🧾 nome · situação · loja". Nunca um número, nem o final */
+  busca() {
+    return this.itens(today()).map((x) => ({ id: x.t.id, t: x.t.name || "", s: [x.novo ? tt("Atualize o app para ver", "Update the app to see it", "Actualiza la app para verla") : GarCalc.curta(x.sit), x.g.compra && x.g.compra.loja].filter(Boolean).join(" · "),
+      q: [x.g.marca, x.g.modelo, x.g.compra && x.g.compra.loja, tt("garantia estendida nota fiscal seguro", "warranty extended invoice insurance", "garantía extendida factura seguro")].filter(Boolean).join(" ") }));
+  },
+  /* AssistONE desta tela (AOne.HERE) e a dica da tela (AOne.TIPS) */
+  AQUI() {
+    return [tt("Garantias", "Warranties", "Garantías"), tt("Até quando vale cada garantia: a de fábrica, o prazo da lei para reclamar e a estendida. Para começar, basta o nome da coisa e a data da compra.", "How long each warranty lasts: the factory one, the legal deadline to complain and the extended one. To start, just the item's name and the purchase date.", "Hasta cuándo dura cada garantía: la de fábrica, el plazo legal para reclamar y la extendida. Para empezar, basta con el nombre de la cosa y la fecha de compra."),
+      [["⏰ " + tt("O que vence?", "What's ending?", "¿Qué vence?"), () => { S.garF = "em30"; go("garantias", "lista"); }, 1], ["❓ " + tt("Como funciona", "How it works", "Cómo funciona"), () => Help.open("garantias")]]];
+  },
+  DICA() { return tt("Dica: basta o nome da coisa e a data da compra. Eu conto até quando vale cada garantia e mostro o que vence nos próximos 30 dias.", "Tip: the item's name and the purchase date are enough. I work out how long each warranty lasts and show what ends in the next 30 days.", "Consejo: basta con el nombre de la cosa y la fecha de compra. Calculo hasta cuándo dura cada garantía y te enseño lo que vence en los próximos 30 días."); }
+};
+/* aba própria 🧾 Garantias (D-G1), no ☰ em "Casa, carro e papéis" */
+SCREENS.garantias = {
+  render() {
+    const G = Garantias.grupos(today());
+    return '<div class="gar"><div class="pagehead"><div><h1>🧾 ' + tt("Garantias", "Warranties", "Garantías") + '</h1><div class="sub">' + tt("O que tem garantia em casa, até quando vale e o que fazer quando estraga", "What has a warranty at home, how long it lasts and what to do when it breaks", "Qué tiene garantía en casa, hasta cuándo dura y qué hacer cuando se estropea") + "</div></div>" +
+      (G.total && Garantias.podeEditar() ? '<div class="row"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + "</button></div>" : "") + "</div>" + Garantias.listView(G) + Garantias.rodape() + "</div>";
   }
 };
+ACT["gar.filtro"] = (d) => { S.garF = d.f; render(); };
 /* ===== fim de GARANTIAS ===== */
 
 /* ---------- telas ---------- */
@@ -15494,7 +15587,7 @@ const Search = {
   sources() {
     const out = [];
     const add = (grp, ic, t, s, fn, extra) => out.push({ grp, ic, t: t || "", s: s || "", fn, q: norm([t, s, extra].filter(Boolean).join(" ")) });
-    const G = (k) => ({ fn: tt("Funções", "Features"), pp: tt("Pessoas", "People"), ct: tt("Contatos", "Contacts"), sh: tt("Compras e despensa", "Shopping & pantry"), ag: tt("Agenda, tarefas e lembretes", "Calendar, tasks & reminders"), ms: tt("Recados", "Messages"), dc: tt("Documentos", "Documents"), hs: tt("Casa", "Home"), hp: tt("Ajuda", "Help") })[k];
+    const G = (k) => ({ fn: tt("Funções", "Features"), pp: tt("Pessoas", "People"), ct: tt("Contatos", "Contacts"), sh: tt("Compras e despensa", "Shopping & pantry"), ag: tt("Agenda, tarefas e lembretes", "Calendar, tasks & reminders"), ms: tt("Recados", "Messages"), dc: tt("Documentos", "Documents"), hs: tt("Casa", "Home"), gr: tt("Garantias", "Warranties", "Garantías"), hp: tt("Ajuda", "Help") })[k];
     const subs = DRAWER_SUBS();
     TABS().filter((t) => canTab(t.id) && Rec.ok(t.id)).forEach((t) => { add(G("fn"), t.ic, t.t, "", () => go(t.id)); (subs[t.id] || []).filter((x) => Rec.ok(t.id, x[0])).forEach((x) => add(G("fn"), t.ic, t.t + " → " + x[1].replace(/^\S+\s/, (m) => /\p{Extended_Pictographic}/u.test(m) ? "" : m), "", () => go(t.id, x[0]))); });
     if (Rec.ok("security", "cheguei")) add(G("fn"), "✅", tt("Avisar que cheguei", "Check in"), tt("Segurança", "Safety"), () => Cheguei.arrive());
@@ -15523,6 +15616,7 @@ const Search = {
     if (Rec.ok("house", "where")) DB.all("things").forEach((t) => add(G("hs"), "🔹", t.name, tt("Onde está?", "Where is it?"), () => ACT["where.open"]({ type: "thing", id: t.id }), (t.tags || []).join(" ")));
     if (Rec.ok("house", "maint")) Maint.list().forEach((m) => add(G("hs"), m.pet ? "🐾" : "🛠", m.title, tt("manutenção", "maintenance"), () => (m.pet && Rec.ok("pets") && Pets.get(m.pet) ? go("pets", "ficha", m.pet) : go("house", "maint"))));
     if (Rec.ok("cars")) Cars.list().forEach((c) => add(G("hs"), "🚗", c.name, [Cars.desc(c), (c.seguro || {}).seguradora].filter(Boolean).join(" · "), () => go("cars", "ficha", c.id), tt("carro veiculo seguro apolice franquia assistencia guincho revisao", "car vehicle insurance policy deductible assistance towing service")));
+    if (Rec.ok("garantias") && canTab("garantias")) Garantias.busca().forEach((b) => add(G("gr"), "🧾", b.t, b.s, () => go("garantias", "ficha", b.id), b.q));
     const H = HELP(); Object.keys(H).filter((k) => (Rec.AJUDA[k] || []).every((id) => Rec.on(id))).forEach((k) => add(G("hp"), "❓", H[k].t.replace(/<[^>]+>/g, ""), "", () => Help.open(k), H[k].steps.join(" ").replace(/<[^>]+>/g, "")));
     return out;
   },
@@ -15635,6 +15729,7 @@ const AOne = {
       house: [tt("Casa", "Home"), tt("Onde está cada coisa, manutenção e as senhas da casa. O carro agora tem a aba própria: 🚗 Veículos.", "Where things are, maintenance and the house vault. The car now has its own tab: 🚗 Vehicles."), [["🔎 " + tt("Onde está?", "Where is it?"), G("house", "where"), 1], ["🛠 " + tt("Manutenção", "Maintenance"), G("house", "maint")], ["🚗 " + tt("Veículos", "Vehicles"), G("cars")]]],
       cars: [tt("Veículos", "Vehicles"), tt("O carro, o seguro, a revisão e a Vida do carro: tire foto da nota e eu anoto o que foi feito e aviso se já foi trocado há pouco.", "The car, its insurance, service and the car's history: snap the invoice and I log what was done and warn if it was replaced recently."), (Rec.ok("cars", "vida") && !isChild() ? [["📷 " + tt("Foto da nota ou orçamento", "Invoice or quote photo"), () => ACT["vida.foto"]({}), 1], ["🔧 " + tt("Vida do carro", "Car history"), G("cars", "vida")]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("veiculos")]])],
       docs: [tt("Documentos", "Documents"), tt("Mande várias fotos ou PDFs de uma vez; eu aviso se algum estiver repetido.", "Send many photos or PDFs at once; I'll flag duplicates."), [["📚 " + tt("Enviar vários de uma vez", "Upload many at once"), A("doc.batch"), 1], ["➕ " + tt("Novo documento", "New document"), A("doc.new")]]],
+      garantias: Garantias.AQUI(),
       pets: [tt("Pets", "Pets"), tt("A ficha de cada bicho: fotos, cuidados com aviso (vacina, aquário, gaiola, terrário…), ração que avisa antes de acabar (e se vence antes), saúde, peso e o guia para quem cuida.", "Each pet's record: photos, care reminders (vaccines, aquarium, cage, enclosure…), food that warns before it runs out (and if it expires first), health, weight and the guide for the carer."), (Pets.podeEditar() ? [["＋ " + tt("Cadastrar pet", "Add a pet"), A("pet.new"), 1]] : []).concat([["❓ " + tt("Como funciona", "How it works"), H("pets")]])],
       family: [tt("Família", "Family"), tt("Pessoas, logins, convites, papéis dos responsáveis, duas casas e controle parental.", "People, logins, invites, guardian roles, two homes and parental controls."), [["➕ " + (Rec.ok("pets") ? tt("Pessoa", "Person") : tt("Pessoa ou pet", "Person or pet")), A("person.new"), 1]].concat(Rec.ok("pets") ? [["🐾 " + tt("Cadastrar pet", "Add a pet"), A("pet.new")]] : []).concat([["🛡 " + tt("Administração segura", "Safe administration"), H("familia-seguranca")], ["❓ " + tt("Como convidar alguém", "How to invite someone"), H("familia")]])],
       settings: [tt("Configurações", "Settings"), tt("Idioma, tema, IA, acessibilidade, avisos, instalar o app para acessar sem internet e versões & novidades.", "Language, theme, AI, accessibility, alerts, installing the app to use offline, and versions & what's new."), [["🤖 " + tt("Configurar a IA", "Set up AI"), G("settings", "ai"), 1], ["♿ " + tt("Acessibilidade", "Accessibility"), G("settings", "a11y")], [(Offline.pc() ? "💻 " : "📲 ") + tt("Instalar app para acessar sem internet", "Install the app to use offline"), G("settings", "offline")]]]
@@ -15809,7 +15904,8 @@ const AOne = {
       security: tt("Dica: “Cheguei” avisa a família em um toque, com hora e, se quiser, localização.", "Tip: “Check in” tells the family in one tap, with time and optional location."),
       inbox: tt("Dica: recados, avisos e “Cheguei” chegam todos aqui, numa caixa só.", "Tip: messages, alerts and check-ins all land here, in one box."),
       settings: tt("Dica: em IA você liga o microfone no computador e a leitura de documentos. Há opções grátis.", "Tip: in AI you enable the mic on computers and document reading. Free options exist."),
-      house: tt("Dica: use “Onde está?” para lembrar onde guardou as coisas da casa.", "Tip: use “Where is it?” to remember where things are kept.")
+      house: tt("Dica: use “Onde está?” para lembrar onde guardou as coisas da casa.", "Tip: use “Where is it?” to remember where things are kept."),
+      garantias: Garantias.DICA()
     };
   },
   tipFor(tab) {
@@ -16236,7 +16332,7 @@ ACT["msg.open"] = (d) => Msgs.open(d.id);
 const DRAWER_GROUPS = () => [
   { id: "dia", t: tt("Dia a dia", "Everyday"), tabs: ["home", "shop", "agenda", "inbox"] },
   { id: "cuidar", t: tt("Cuidar da família", "Family care"), tabs: ["security", "health", "family", "pets", "contacts"] },
-  { id: "casa", t: tt("Casa, carro e papéis", "Home, car & papers"), tabs: ["house", "cars", "docs"] },
+  { id: "casa", t: tt("Casa, carro e papéis", "Home, car & papers"), tabs: ["house", "cars", "garantias", "docs"] },
   { id: "app", t: tt("Configurações", "Settings"), tabs: ["settings", "ads"] }
 ];
 const LANGSW = () => '<div class="langsw" role="group" aria-label="Idioma / Language"><button type="button" data-l="pt" class="' + (S.lang === "pt" ? "on" : "") + '">PT</button><button type="button" data-l="en" class="' + (S.lang === "en" ? "on" : "") + '">EN</button></div>';

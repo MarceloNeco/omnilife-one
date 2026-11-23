@@ -350,6 +350,17 @@
    }
   },
   {
+   "id": "casa.garantias",
+   "nome": {
+    "pt": "🧾 Garantias (de fábrica, prazo da lei, estendida e o que fazer quando estraga)",
+    "en": "🧾 Warranties (factory, legal deadline, extended and what to do when something breaks)"
+   },
+   "onde": {
+    "pt": "Aba própria 🧾 Garantias (☰ › Casa, carro e papéis), em todos os planos: a garantia de cada coisa da casa (ligada ao objeto do Onde está?), até quando vale a de fábrica, o prazo da lei para reclamar e a estendida (seguro), com os filtros Valendo, Em 30 dias, Vai começar e Acabaram, e \"Faltam dados\" no topo. Os números do pedido, do bilhete e da série, a nota e o valor pago ficam trancados nas Senhas da casa; nada vai ao MoneyTRIO. Desligado: some do ☰, da barra de baixo, da busca e dos botões; pelo endereço aparece \"Função desligada por enquanto\".",
+    "en": "Its own 🧾 Warranties tab (☰ › Home, car & papers), on every plan: the warranty of each item at home (linked to the Where is it? item), how long the factory warranty, the legal deadline to complain and the extended warranty (insurance) last, with the filters Active, Within 30 days, Starting soon and Ended, and \"Missing details\" at the top. Order, certificate and serial numbers, the invoice and the amount paid stay locked in Home passwords; nothing goes to MoneyTRIO. Off: hidden from the ☰, the bottom bar, search and buttons; opening it by address shows \"Feature turned off for now\"."
+   }
+  },
+  {
    "id": "documentos",
    "nome": {
     "pt": "🗂️ Documentos da família",

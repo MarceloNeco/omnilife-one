@@ -12,8 +12,18 @@
      - B0, versão antiga: editar o objeto pelo ✏️ do Onde está? e marcar na planta mantêm a garantia; o merge3 da nuvem
        mantém o campo que só um lado tem, soma atendimentos com ids diferentes e o mesmo objeto nos 2 celulares dá o mesmo ref
      - nada vai ao MoneyTRIO (Bridge.post, sol_ponte); console, Telem e o registro do objeto sem CPF, chave ou pedido
+     G2 — a aba 🧾 Garantias e a lista
+     - a aba depois de 🚗 Veículos (TABS, ícone, ☰ "Casa, carro e papéis", barra de atalhos), o id casa.garantias do RootifyONE
+       (Rec e recursos-do-app.json); desligada: some do ☰, da barra e da 🔍, e o endereço mostra "Função desligada"
+     - a lista: vazia ("Toque em ＋…"), "Faltam dados" e "versão mais nova" sempre no topo, os 4 filtros com contagem (Valendo,
+       Em 30 dias — 30 entra, 31 não —, Vai começar, Acabaram com "Saíram de casa" fechado), a ordem (o que acaba primeiro;
+       o que começa primeiro; o que acabou por último), a linha (marca, modelo, "comprado em", a frase curta, "em N dias"),
+       o "≈" e o rodapé; "Só responsáveis" fora para quem não é responsável; criança vê sem ＋; criança sem "ver a Casa" não
+       vê a aba; 🔍 "🧾 nome · situação · loja" sem número, levando à ficha; AssistONE e dica; 💬 sabe a tela; o lixo
+       não quebra; 390 px sem rolagem lateral e todo alvo de toque com 44 px, em PT e EN
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
+const fs = require('fs'), path = require('path');
 const { falhas, conferir } = criarConferir();
 const CPF = '123.456.789-00', PEDIDO = 'PEDIDO-EXEMPLO-0001', CHAVE = '35240312345678000190550010000012341000123456';
 const XSS = '<img src=x onerror="window.__xss=1">';
@@ -264,7 +274,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await p.waitForFunction(() => S.booted, null, { timeout: 15000 });
   await p.waitForTimeout(600); await fecharJanelas(p);
   await p.evaluate(async () => {
-    await Vault.setup('senha-de-mentira-123'); AOne.save({ hello: 1, tips: { house: 1, cars: 1 } });
+    await Vault.setup('senha-de-mentira-123'); AOne.save({ hello: 1, tips: { house: 1, cars: 1, garantias: 1 } });
     S.prefs.telem = true;
     window.__mt = []; Bridge.post = (m) => { window.__mt.push(m); };
     window.__rpc = []; const rpc0 = Conta.rpc.bind(Conta); Conta.rpc = (n, a) => { window.__rpc.push(n); return rpc0(n, a); };
@@ -371,6 +381,161 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(m3.c.conf === 0 && m3.c.refA === 'gar_th1' && m3.c.refB === 'gar_th1' && m3.c.v, 'nuvem: o mesmo objeto nos 2 celulares tem o mesmo ref e o mesmo item das Senhas, sem conflito');
   conferir(m3.d.length === 1 && m3.d[0] === 'garantia.obs', 'nuvem: se os dois mudam o mesmo texto, o conflito é só daquele campo (nunca do ref)');
 
+  /* =====================================================================
+     G2 — a aba 🧾 Garantias e a lista
+     ===================================================================== */
+  console.log('\n— G2: a aba 🧾 Garantias e a lista');
+  const aba = await p.evaluate(() => {
+    const ts = TABS().map((t) => t.id), subs = DRAWER_SUBS().garantias || [];
+    return { depois: ts.includes('garantias') && ts.indexOf('garantias') === ts.indexOf('cars') + 1, ic: !!ICONS.garantias, vis: visibleTabs().some((t) => t.id === 'garantias'),
+      casa: (DRAWER_GROUPS().find((g) => g.id === 'casa') || {}).tabs, barra: BarEd.choices().some((t) => t.id === 'garantias'),
+      rec: Rec.TAB.garantias, acao: Rec.acao('gar.filtro'), ajuda: (Rec.AJUDA.garantias || []).join(','), subs: subs.map((x) => x[0]) };
+  });
+  conferir(aba.depois && aba.ic && aba.vis, 'a aba 🧾 Garantias existe, com ícone próprio, logo depois de 🚗 Veículos');
+  conferir(JSON.stringify(aba.casa) === JSON.stringify(['house', 'cars', 'garantias', 'docs']), 'no ☰, no grupo "Casa, carro e papéis", depois de Veículos (' + JSON.stringify(aba.casa) + ')');
+  conferir(aba.barra, 'dá para pôr a aba na barra de atalhos');
+  conferir(aba.rec === 'casa.garantias' && aba.acao === 'casa.garantias' && aba.ajuda === 'casa.garantias' && aba.subs.includes('lista'), 'RootifyONE: a aba, os botões gar.* e a ajuda com o id casa.garantias (D-G6); a parte "Lista" no ☰');
+  const recs = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'recursos-do-app.json'), 'utf8')).recursos, iG = recs.findIndex((r) => r.id === 'casa.garantias'), iP = recs.findIndex((r) => r.id === 'pets');
+  conferir(iG > 0 && iG === iP + 1 && /Garantias/.test(recs[iG].nome.pt) && /Warranties/.test(recs[iG].nome.en) && /Função desligada/.test(recs[iG].onde.pt) && /turned off/.test(recs[iG].onde.en), 'recursos-do-app.json: casa.garantias (PT e EN) logo depois de pets');
+  await p.evaluate(() => go('home')); await p.waitForTimeout(300);
+  await p.click('#hambbtn'); await p.waitForTimeout(400);
+  const gav = await p.evaluate(() => [...document.querySelectorAll('#drawer .ditem[data-dtab]')].map((b) => b.dataset.dtab));
+  conferir(gav.includes('garantias') && gav.indexOf('garantias') === gav.indexOf('cars') + 1, 'o ☰ mostra 🧾 Garantias logo abaixo de 🚗 Veículos');
+  await fecharJanelas(p); await p.waitForTimeout(200);
+
+  /* a lista abre com o lixo da G1, o objeto do B0 e mais dois com <img onerror> no nome, na marca, no modelo e na loja */
+  await p.evaluate(async (XSS) => {
+    await DB.put('things', { name: 'Lixo G2a ' + XSS, place: '', tags: [], vis: 'familia', garantia: { v: 1, marca: XSS, modelo: XSS, compra: { data: GarCalc.somaDias(today(), -10), loja: XSS }, fabrica: { meses: 12 } } }, true);
+    await DB.put('things', { name: 'Lixo G2b ' + XSS, place: '', tags: [], vis: 'familia', garantia: { v: 1, marca: XSS } }, true);
+    S.garF = 'valendo'; go('garantias');
+  }, XSS); await p.waitForTimeout(600);
+  await limpo('🧾 Garantias (lista com o lixo, Valendo)');
+  const lx = await p.evaluate(() => ({ novos: (document.querySelector('#screen .gar-novos') || {}).textContent || '', faltam: (document.querySelector('#screen .gar-faltam') || {}).textContent || '', lista: (document.querySelector('#screen .gar-lista') || {}).textContent || '', fb: Fb.tela() }));
+  conferir(/Lixo 3/.test(lx.novos) && /atualize/i.test(lx.novos), 'garantia gravada por um app mais novo (v 99): aparece no topo, com "atualize o app"');
+  conferir(/Lixo 5/.test(lx.faltam) && /Lixo G2b <img/.test(lx.faltam) && /Lixo G2a <img/.test(lx.lista), 'garantia estragada vai para "Faltam dados"; o <img onerror> aparece como texto, sem rodar');
+  conferir(lx.fb.tela === 'garantias' && lx.fb.titulo === 'Garantias', '💬 "Dar uma opinião" sabe que a tela é a de Garantias (' + JSON.stringify(lx.fb) + ')');
+  await p.evaluate(() => { S.garF = 'acabaram'; go('garantias'); }); await p.waitForTimeout(500);
+  await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(200);
+  await limpo('🧾 Garantias (lista com o lixo, Acabaram e "Saíram de casa" aberto)');
+  conferir(await p.evaluate(() => /Lixo 1 <img/.test((document.querySelector('#screen .gar-saiu') || {}).textContent || '')), 'o lixo com "saiu" de mentira fica em "Saíram de casa", sem quebrar');
+  await p.evaluate(() => Search.open()); await p.waitForSelector('#gsq', { timeout: 5000 }); await p.fill('#gsq', 'Lixo G2'); await p.waitForTimeout(500);
+  conferir(await p.evaluate(() => [...document.querySelectorAll('#gsr .gsi')].filter((b) => /Lixo G2a/.test(b.textContent)).length === 2), '🔍 acha o lixo na Casa e em Garantias'); await limpo('🔍 Buscar (garantias com lixo)'); await fecharJanelas(p);
+
+  /* sem nenhuma garantia */
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('garantias'); }); await p.waitForTimeout(500);
+  const vz = await p.evaluate(() => ({ txt: document.querySelector('#screen').textContent, mais: document.querySelectorAll('#screen [data-act="gar.new"]').length }));
+  conferir(/Nenhuma garantia ainda\. Toque em ＋ e escreva só o nome e a data da compra\./.test(vz.txt) && vz.mais === 1, 'sem garantia: "Nenhuma garantia ainda. Toque em ＋ e escreva só o nome e a data da compra." e um ＋');
+
+  /* as garantias de mentira, com datas a partir de hoje */
+  const fx = await p.evaluate(async () => {
+    const h = today(), d = (n) => GarCalc.somaDias(h, n);
+    const novo = async (name, garantia, vis) => (await DB.put('things', Object.assign({ name, place: '', tags: [], vis: vis || 'familia' }, garantia === undefined ? {} : { garantia }), true)).id;
+    const fab = (fim, o) => Object.assign({ v: 1, compra: { data: d(-300), loja: 'Loja Exemplo' }, fabrica: { fim, legalInclusa: 'sim' } }, o || {});
+    return {
+      a: await novo('G2 Fab30', fab(d(30), { marca: 'Marca Exemplo', modelo: 'PX-100', finais: { pedido: '0001', bilhete: '', serie: '' } })),
+      b: await novo('G2 Fab31', fab(d(31))),
+      c: await novo('G2 Fab200', fab(d(200))),
+      i: await novo('G2 Restrita', fab(d(100)), 'restrito'),
+      e1: await novo('G2 Espera', { v: 1, compra: { data: d(-800) }, fabrica: { meses: 0 }, estendida: { tem: 'sim', inicio: d(10), fim: d(400) } }),
+      e2: await novo('G2 Espera logo', { v: 1, compra: { data: d(-800) }, fabrica: { meses: 0 }, estendida: { tem: 'sim', inicio: d(5), fim: d(500) } }),
+      f1: await novo('G2 Acabou recente', { v: 1, compra: { data: d(-800) }, fabrica: { meses: 12 } }),
+      f2: await novo('G2 Acabou antiga', { v: 1, compra: { data: d(-2000) }, fabrica: { meses: 12 } }),
+      s: await novo('G2 Doada', fab(d(30), { saiu: { como: 'doado', em: d(-10), obs: '' } })),
+      x: await novo('G2 Sem data', { v: 1 }),
+      n: await novo('G2 Nova versão', { v: 2, compra: { data: d(-10) } }),
+      o: await novo('G2 Objeto sem garantia')
+    };
+  });
+  const tela = (f) => p.evaluate((f) => {
+    if (f) { S.garF = f; go('garantias'); }
+    const scr = document.querySelector('#screen'), nomes = (sel) => [...scr.querySelectorAll(sel + ' .li .t')].map((e) => e.textContent.trim());
+    const seg = scr.querySelector('.garf'), falt = scr.querySelector('.gar-faltam'), nov = scr.querySelector('.gar-novos'), saiu = scr.querySelector('.gar-saiu details');
+    return { lista: nomes('.gar-lista > .list'), faltam: nomes('.gar-faltam'), novos: nomes('.gar-novos'), saiu: nomes('.gar-saiu'), saiuAberto: saiu ? saiu.open : null, saiuTit: saiu ? saiu.querySelector('summary').textContent : '',
+      filtros: seg ? [...seg.querySelectorAll('[data-f]')].map((b) => b.dataset.f + ':' + b.textContent.replace(/\s+/g, ' ').trim() + (b.classList.contains('active') ? '*' : '')) : [],
+      topo: !!(seg && falt && nov && (falt.compareDocumentPosition(seg) & Node.DOCUMENT_POSITION_FOLLOWING) && (nov.compareDocumentPosition(seg) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      txt: scr.textContent, linhas: [...scr.querySelectorAll('.gar-lista .li')].map((l) => [...l.querySelectorAll('.s')].map((e) => e.textContent).join(' | ')) };
+  }, f);
+  await p.evaluate(() => { S.garF = 'valendo'; go('garantias'); }); await p.waitForTimeout(500);
+  let L = await tela();
+  conferir(L.filtros.join(' / ') === 'valendo:✅ Valendo 4* / em30:⏰ Em 30 dias 1 / vai:⏳ Vai começar 2 / acabaram:— Acabaram 3', 'os 4 filtros com a contagem: ' + L.filtros.join(' / '));
+  conferir(L.lista.join('|') === 'G2 Fab30|G2 Fab31|G2 Restrita|G2 Fab200', 'Valendo: o que acaba primeiro vem antes (' + L.lista.join(', ') + ')');
+  conferir(L.faltam.join('|') === 'G2 Sem data' && L.novos.join('|') === 'G2 Nova versão' && L.topo, '"⚠️ Faltam dados (1)" e a de versão mais nova ficam no topo, antes dos filtros');
+  conferir(/⚠️ Faltam dados \(1\)/.test(L.txt) && !L.lista.includes('G2 Objeto sem garantia') && !/G2 Objeto sem garantia/.test(L.txt), 'objeto do Onde está? sem garantia fica fora da lista');
+  conferir(/^Marca Exemplo PX-100 · comprado em [A-Z][a-z]{2}\/\d{4} \| ✅ Fábrica até \d{2}\/[A-Z][a-z]{2}\/\d{4} · ⏰ em 30 dias$/.test(L.linhas[0]) && !/⏰/.test(L.linhas[1]), 'a linha: marca e modelo, "comprado em Mês/Ano", a frase curta e "em 30 dias" (só até 30) — ' + L.linhas[0]);
+  conferir((L.txt.match(/≈ = conta do app; confira no folheto ou no bilhete/g) || []).length === 1, '"≈ = conta do app; confira no folheto ou no bilhete" uma vez, no topo da lista');
+  conferir(/📌 Datas ≈ com o que você informou; vale o folheto e o bilhete\. Não é assessoria jurídica\./.test(L.txt) && /Pela lei brasileira \(CDC arts\. 18, 24, 26 e 50; Lei 15\.040\/2024; Circ\. SUSEP 659\/2022; Res\. CNSP 496\/2026\), conferido em 23\/Nov\/2026/.test(L.txt), 'rodapé de uma linha ("Não é assessoria jurídica") e as fontes, "pela lei brasileira", conferido em 23/Nov/2026');
+  conferir(await p.evaluate((id) => !!document.querySelector('#screen .gar-lista .li[data-act="go"][data-tab="garantias"][data-sub="ficha"][data-arg="' + id + '"]'), fx.a), 'tocar na linha leva à ficha (garantias/ficha/<id>)');
+  await p.click('#screen .garf [data-f="em30"]', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(400);
+  L = await tela();
+  conferir(L.lista.join('|') === 'G2 Fab30' && /em30:.*\*/.test(L.filtros[1]), 'Em 30 dias: a que acaba em 30 dias entra, a de 31 não');
+  await tela('vai'); await p.waitForTimeout(400); L = await tela();
+  conferir(L.lista.join('|') === 'G2 Espera logo|G2 Espera', 'Vai começar: só as estendidas que ainda não começaram, a que começa primeiro antes (' + L.lista.join(', ') + ')');
+  await tela('acabaram'); await p.waitForTimeout(400); L = await tela();
+  conferir(L.lista.join('|') === 'G2 Acabou recente|G2 Acabou antiga', 'Acabaram: a que acabou por último vem antes (' + L.lista.join(', ') + ')');
+  conferir(L.saiu.join('|') === 'G2 Doada' && L.saiuAberto === false && /📦 Saíram de casa \(1\)/.test(L.saiuTit) && /📦 Saiu de casa/.test(L.txt), 'Acabaram: "📦 Saíram de casa (1)" fechado, com a doada');
+  await tela('valendo'); await p.waitForTimeout(400); L = await tela();
+  conferir(!L.lista.some((n) => /Espera|Doada|Acabou|Sem data|Nova/.test(n)), 'Valendo não tem a que vai começar, a que saiu de casa, as que acabaram nem as do topo');
+
+  /* 🔍 */
+  const bu = await p.evaluate(() => {
+    const g = Search.find('G2 Fab30').find((x) => x.grp === 'Garantias'), todos = Search.sources().filter((x) => x.grp === 'Garantias');
+    return { g: g ? { t: g.t, s: g.s, grp: g.grp } : null, n: todos.length, nums: todos.filter((x) => /0001/.test(x.s + ' ' + x.q)).length, fn: Search.find('garantias').some((x) => x.t === 'Garantias' && x.grp === 'Funções') };
+  });
+  conferir(bu.g && bu.g.t === 'G2 Fab30' && /^✅ Fábrica até .* · Loja Exemplo$/.test(bu.g.s) && bu.g.grp === 'Garantias', '🔍 acha a garantia: "🧾 nome · situação · loja" (' + JSON.stringify(bu.g) + ')');
+  conferir(bu.n === 11 && !bu.nums && bu.fn, '🔍 traz as 11 garantias que esta pessoa vê, sem número (nem o final do pedido), e a função Garantias');
+  await p.evaluate(() => Search.find('G2 Fab30').find((x) => x.grp === 'Garantias').fn()); await p.waitForTimeout(300);
+  conferir(await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, fx.a), 'e o toque na 🔍 leva à ficha dela');
+
+  /* AssistONE e dica */
+  const ao = await p.evaluate(() => { const h = AOne.HERE().garantias, t = AOne.TIPS().garantias; return { t: h && h[0], frase: h && h[1], acts: h ? h[2].map((a) => a[0]) : [], tip: t }; });
+  conferir(ao.t === 'Garantias' && ao.acts.some((a) => /⏰ O que vence\?/.test(a)) && ao.acts.some((a) => /❓ Como funciona/.test(a)) && typeof ao.tip === 'string' && /data da compra/.test(ao.tip), 'AssistONE desta tela ("⏰ O que vence?", "❓ Como funciona") e a dica da tela (' + ao.acts.join(', ') + ')');
+  await p.evaluate(() => { S.garF = 'valendo'; go('garantias'); }); await p.waitForTimeout(400);
+  await p.evaluate(() => AOne.open()); await p.waitForTimeout(200);
+  conferir(await p.evaluate(() => /Garantias/.test((document.querySelector('.aone-here') || {}).textContent || '')), 'o balão do AssistONE mostra a ajuda desta tela');
+  await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /O que vence/.test(x[0])); AOne.close(); a[1](); }); await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => S.garF === 'em30' && S.route.tab === 'garantias' && !!document.querySelector('#screen .garf [data-f="em30"].active')), '"⏰ O que vence?" abre a lista no filtro "Em 30 dias"');
+
+  /* 390 px: nada passa da largura, todo alvo com 44 px */
+  const alvos = () => p.evaluate(() => {
+    const els = [...document.querySelectorAll('#screen .gar button, #screen .gar a[href], #screen .gar summary, #screen .gar [data-act], #screen .gar select, #screen .gar input')].filter((b) => { const r = b.getBoundingClientRect(); return r.width && r.height; });
+    return { n: els.length, peq: els.map((b) => { const r = b.getBoundingClientRect(); return r.height < 44 || r.width < 44 ? (b.innerText || b.tagName).replace(/\s+/g, ' ').trim().slice(0, 30) + ' (' + Math.round(r.width) + '×' + Math.round(r.height) + ')' : ''; }).filter(Boolean), larg: document.documentElement.scrollWidth <= innerWidth + 1, w: innerWidth };
+  });
+  for (const lang of ['pt', 'en']) for (const f of ['valendo', 'acabaram']) {
+    await p.evaluate((a) => { if (S.lang !== a.lang) setLang(a.lang); S.garF = a.f; go('garantias'); }, { lang, f }); await p.waitForTimeout(500);
+    await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(100);
+    const a = await alvos();
+    conferir(a.w === 390 && a.larg && a.n >= 6 && !a.peq.length, '390 px (' + lang.toUpperCase() + ', ' + f + '): nada passa da largura e os ' + a.n + ' alvos de toque têm 44 px' + (a.peq.length ? ': ' + a.peq.join(' · ') : ''));
+  }
+  const en = await p.evaluate(() => { S.garF = 'valendo'; go('garantias'); return new Promise((r) => setTimeout(() => r(document.querySelector('#screen').textContent), 400)); });
+  conferir(/Warranties/.test(en) && /Active/.test(en) && /Within 30 days/.test(en) && /Starting soon/.test(en) && /Ended/.test(en) && /Missing details/.test(en) && /Brazilian consumer law/.test(en) && /legal advice/.test(en) && /Factory until/.test(en) && /bought in/.test(en) && !/Faltam dados|Valendo|Vai começar|assessoria|comprado em/.test(en), 'EN: a tela em inglês (filtros, linha, rodapé com "Brazilian consumer law")');
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
+
+  /* quem vê: "Só responsáveis", criança, criança sem "ver a Casa" */
+  const papel0 = await p.evaluate(() => S.role);
+  await p.evaluate(() => { S.role = 'adulto'; S.garF = 'valendo'; go('garantias'); }); await p.waitForTimeout(500);
+  L = await tela();
+  const memBusca = await p.evaluate(() => Search.sources().filter((x) => x.grp === 'Garantias').map((x) => x.t));
+  conferir(L.lista.join('|') === 'G2 Fab30|G2 Fab31|G2 Fab200' && /valendo:✅ Valendo 3/.test(L.filtros[0]) && !/G2 Restrita/.test(L.txt) && !memBusca.includes('G2 Restrita') && memBusca.length === 10, '"Só responsáveis": quem não é responsável não vê na lista, na contagem nem na 🔍');
+  conferir(await p.evaluate(() => document.querySelectorAll('#screen [data-act="gar.new"]').length === 1), 'adulto que não é responsável também tem o ＋');
+  await p.evaluate(() => { S.role = 'crianca'; go('garantias'); }); await p.waitForTimeout(500);
+  const cri = await p.evaluate(() => ({ ok: canTab('garantias') && S.route.tab === 'garantias', mexe: [...document.querySelectorAll('#screen [data-act^="gar."]')].map((b) => b.dataset.act).filter((a) => a !== 'gar.filtro'), n: document.querySelectorAll('#screen .gar-lista .li').length }));
+  conferir(cri.ok && !cri.mexe.length && cri.n === 3, 'criança vê a lista (como a Casa) e não tem ＋ nem ✏️' + (cri.mexe.length ? ' (' + cri.mexe.join(', ') + ')' : ''));
+  await p.evaluate(() => { me().controls = Object.assign({}, me().controls, { seeHouse: false }); go('garantias'); }); await p.waitForTimeout(500);
+  const cri2 = await p.evaluate(() => ({ can: canTab('garantias'), vis: visibleTabs().some((t) => t.id === 'garantias'), tab: S.route.tab, busca: Search.sources().filter((x) => x.grp === 'Garantias' || x.ic === '🧾').length }));
+  conferir(!cri2.can && !cri2.vis && cri2.tab === 'home' && !cri2.busca, 'criança sem "ver a Casa": a aba some do menu e da 🔍, e o endereço volta ao Início (' + JSON.stringify(cri2) + ')');
+  await p.evaluate((papel) => { const c = Object.assign({}, me().controls); delete c.seeHouse; me().controls = c; S.role = papel; }, papel0);
+
+  /* desligada no RootifyONE */
+  await p.evaluate(() => { const o = SolverRecursos.ligado; window.__lig0 = o; SolverRecursos.ligado = function (id, d) { return id === 'casa.garantias' ? false : o.call(this, id, d); }; go('garantias'); }); await p.waitForTimeout(500);
+  const off = await p.evaluate(() => ({ txt: document.querySelector('#screen').textContent, vis: visibleTabs().some((t) => t.id === 'garantias'), barra: BarEd.choices().some((t) => t.id === 'garantias'), busca: Search.sources().filter((x) => x.ic === '🧾' || /^Garantias/.test(x.t)).map((x) => x.t) }));
+  await p.click('#hambbtn'); await p.waitForTimeout(400);
+  const gavOff = await p.evaluate(() => document.querySelectorAll('#drawer [data-dtab="garantias"]').length);
+  await fecharJanelas(p); await p.waitForTimeout(200);
+  conferir(/Função desligada por enquanto/.test(off.txt) && !off.vis && !off.barra && !off.busca.length && !gavOff, 'desligada no RootifyONE (casa.garantias): some do ☰, da barra e da 🔍, e o endereço mostra "Função desligada por enquanto"' + (off.busca.length ? ' (🔍: ' + off.busca.join(', ') + ')' : ''));
+  await p.evaluate(() => { SolverRecursos.ligado = window.__lig0; go('garantias'); }); await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => !!document.querySelector('#screen .gar-lista')), 'religada: a lista volta');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'G2: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -394,5 +559,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const logs = consoleTxt.join('\n') + fim.telem;
   conferir(![PEDIDO, CHAVE, CPF].some((x) => logs.includes(x)), 'console e Telem sem pedido, chave da nota ou CPF');
   conferir(!lixo.erros.length && !lixo.nativos.length, 'nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista)');
 })().catch((e) => { console.error(e); process.exit(1); });
