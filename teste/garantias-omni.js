@@ -52,6 +52,19 @@
        §1º), o "não" por escrito (Procon) e o da seguradora (Lei 15.040/2024), fora do art. 18
      - a assistência técnica: contato novo na categoria 🔧 (antes de "Outro"), ligado pelo id e mantido ao salvar; R1: a
        versão antiga troca a categoria e a ligação continua; criança, app mais novo e "saiu de casa" não gravam; 390 px; EN
+     G6 — ler a nota ou o bilhete (foto ou PDF) no Fundo
+     - D-G10: o leitor de PDF abre com isEvalSupported: false (CVE-2024-4367) e o tesseract.js tem a versão exata
+     - o filtro de dados pessoais (Garantias.mascarar) num DANFE, numa NFC-e e num bilhete de mentira: sai nome, CPF, endereço,
+       CEP, e-mail, telefone, nascimento, Segurado/Beneficiário, chave de 44 números (em 2 linhas, antes da regra do CPF e da do
+       telefone), IMEI, pedido, série e bilhete; ficam o código do modelo ("ABC1234"), o valor ("1.299,00"), o NCM, o 0800 e a loja
+     - a leitura no aparelho (Garantias.local), em duas passadas: números e datas no texto inteiro ("às 24h do dia X" = X + 1);
+       loja (só do emitente), produto e seguradora no texto filtrado ("Segurado" não vira seguradora); como acionar, do papel
+     - no Fundo: vários arquivos (uma conferência por arquivo, o repetido por SHA-256 conta 1; o já guardado não volta), OCR com
+       semTarefa, para a IA só o texto filtrado (nunca imagem; ✕ antes = nada vai), o resultado do Fundo sem números; a
+       conferência (🤖 Lido com a IA / 📱 Lido no aparelho; o que a IA sugere para acionar só entra com "Usar", e fica marcado);
+       nada gravado antes do OK; OK: a nota/bilhete trancados com nome neutro e a marca gar, os números nas Senhas da casa;
+       Senhas fechadas na leitura ou com a janela aberta: números descartados; bilhete reemitido (vale o mais novo); 📷 da ficha
+       já ligado; criança e função desligada recusam; EN
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -1359,6 +1372,269 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
   conferir(!lixo.erros.length && !lixo.nativos.length, 'G5: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     G6 — ler a nota ou o bilhete (foto ou PDF) no Fundo
+     ===================================================================== */
+  console.log('\n— G6: ler a nota ou o bilhete (foto ou PDF) no Fundo');
+  /* papéis de mentira: um DANFE (com a chave de 44 números quebrada em 2 linhas no meio de um grupo, como o OCR faz), uma NFC-e
+     (cupom, com o IMEI e o link do QR) e um bilhete de garantia estendida. Todo dado pessoal é de mentira (CPF com dígito errado) */
+  const NOME6 = 'FULANO EXEMPLO DE TAL', RUA6 = 'Rua das Flores Exemplo', CEP6 = '01234-567', MAIL6 = 'fulano.exemplo@example.com', FONE6 = '91234-5678', NASC6 = '01/02/1980', IMEI6 = '356938035643809';
+  const CHAVE65 = '35240312345678000190650010000012341000123456';
+  const DANFE6 = ['DANFE', 'DOCUMENTO AUXILIAR DA NOTA FISCAL ELETRÔNICA', 'IDENTIFICAÇÃO DO EMITENTE', 'LOJA EXEMPLO COMERCIO LTDA', 'AV. DAS LOJAS EXEMPLO, 1000 - CENTRO - SÃO PAULO/SP CEP 01000-000', 'CNPJ 12.345.678/0001-90',
+    'CHAVE DE ACESSO', '3524 0312 3456 7800 0190 5500 10', '00 0012 3410 0012 3456', 'NF-e Nº 000.012.345 SÉRIE 001',
+    'DESTINATÁRIO / REMETENTE', 'NOME / RAZÃO SOCIAL CNPJ / CPF DATA DA EMISSÃO', NOME6 + ' ' + CPF + ' 10/03/2024', 'ENDEREÇO BAIRRO / DISTRITO CEP DATA DA SAÍDA',
+    'RUA DAS FLORES EXEMPLO, 123 JARDIM EXEMPLO ' + CEP6 + ' 12/03/2024', 'MUNICÍPIO FONE / FAX UF', 'CIDADE EXEMPLO (11) ' + FONE6 + ' SP', 'FATURA', 'CÁLCULO DO IMPOSTO',
+    'VALOR TOTAL DOS PRODUTOS VALOR TOTAL DA NOTA', '1.299,00 1.299,00', 'DADOS DO PRODUTO / SERVIÇO', 'CÓDIGO DESCRIÇÃO NCM/SH CFOP UN QTD V.UNIT V.TOTAL',
+    '001 PURIFICADOR EXEMPLO ABC1234 84212100 5102 UN 1 1.299,00 1.299,00', 'DADOS ADICIONAIS', 'Pedido: ' + PEDIDO + '   Nº de série: ' + SERIE, 'Entregar para: ' + NOME6, 'E-mail: ' + MAIL6].join('\n');
+  const NFCE6 = ['LOJA EXEMPLO COMERCIO LTDA', 'CNPJ: 12.345.678/0001-90', 'AV. DAS LOJAS EXEMPLO, 1000 - CENTRO', 'Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica',
+    '001 SMARTPHONE EXEMPLO ABC1234 IMEI ' + IMEI6 + ' 1 UN X 1.299,00 1.299,00', 'Qtd. total de itens 1', 'Valor a pagar R$ 1.299,00', 'Cartão de Crédito 1.299,00',
+    'Consulte pela Chave de Acesso em https://www.nfce.fazenda.sp.gov.br/consulta', '3524 0312 3456 7800 0190 6500 1000 0012 3410 0012 3456',
+    'CONSUMIDOR - CPF ' + CPF + ' - ' + NOME6, RUA6 + ', 123 - Jardim Exemplo - Cidade Exemplo', 'NFC-e nº 000001234 Série 001 Emissão 10/03/2024 14:32:10',
+    'https://www.nfce.fazenda.sp.gov.br/qrcode?p=' + CHAVE65 + '|2|1|1|ABCDEF0123'].join('\n');
+  const bilhete6 = (o) => ['CERTIFICADO DE SEGURO - GARANTIA ESTENDIDA ORIGINAL', 'Seguradora: SEGURADORA EXEMPLO S.A.   CNPJ: 11.111.111/0001-11', 'Processo SUSEP nº 15414.900000/2019-00',
+    'Certificado nº ' + (o.num || BILHETE), 'Segurado: ' + NOME6 + '   CPF: ' + CPF, 'Data de nascimento: ' + NASC6, 'Endereço: ' + RUA6 + ', 123 - Jardim Exemplo   CEP: ' + CEP6,
+    'E-mail: ' + MAIL6 + '   Telefone: (11) ' + FONE6, 'Beneficiário: CICRANO EXEMPLO', 'Observação: entregue a Pessoa Teste na portaria', 'Representante de seguros: LOJA EXEMPLO COMERCIO LTDA',
+    'Bem segurado: Purificador Exemplo ABC1234   Nº de série: ' + SERIE, 'Valor do bem: R$ 1.299,00', 'Data da compra: ' + (o.compra || '10/03/2024'),
+    'Vigência: das 24h do dia ' + (o.de || '10/03/2025') + ' às 24h do dia ' + (o.ate || '10/03/2027'), 'Prazo de cobertura: 24 meses', 'Prêmio total: R$ 199,90',
+    'Data de emissão: ' + (o.emitido || '10/03/2024'), 'Para acionar: Central de atendimento 0800 000 0000   WhatsApp (11) 90000-0000', 'Acione também pelo site https://www.exemplo.com.br/sinistro'].join('\n');
+  const BILH6 = bilhete6({});
+  const PESSOAIS6 = [NOME6, 'FULANO', 'CICRANO', CPF, RUA6, 'RUA DAS FLORES', CEP6, MAIL6, FONE6, NASC6, 'Pessoa Teste', 'Jardim Exemplo', 'JARDIM EXEMPLO', 'Cidade Exemplo', 'CIDADE EXEMPLO'];
+  const NUMEROS6 = [PEDIDO, SERIE, BILHETE, IMEI6, CHAVE, CHAVE65, '0312', '3456', '7800', '0190', '5500', '3410'];
+  const sobra6 = (t, l) => l.filter((x) => String(t || '').includes(x));
+
+  /* ---------- D-G10: o leitor de PDF e o tesseract.js (para o app todo) ---------- */
+  const dg10 = await p.evaluate(async () => {
+    window.__pdfP = [];
+    /* pdf.js de mentira: grava como foi chamado e devolve o texto de window.__pdfTexto */
+    window.pdfjsLib = { GlobalWorkerOptions: {}, getDocument(o) { window.__pdfP.push({ isEval: o && o.isEvalSupported, temData: !!(o && o.data && o.data.byteLength) });
+      return { promise: Promise.resolve({ numPages: 1, getPage: async () => ({ getTextContent: async () => ({ items: String(window.__pdfTexto || 'Texto de mentira com mais de trinta letras para o leitor de PDF').split('\n').map((s) => ({ str: s, hasEOL: true })) }) }) }) }; } };
+    loadScript.cache = loadScript.cache || {}; loadScript.cache[LIBS.pdfjs] = Promise.resolve();
+    let txt = ''; try { txt = (await ShopImport.pdf(new File([new TextEncoder().encode('%PDF-1.4 x')], 'x.pdf', { type: 'application/pdf' }), () => {})).text; } catch (e) { txt = 'erro: ' + e.message; }
+    return { pedidos: window.__pdfP.slice(), txt, tess: LIBS.tesseract };
+  });
+  conferir(dg10.pedidos.length === 1 && dg10.pedidos[0].isEval === false && dg10.pedidos[0].temData && /Texto de mentira/.test(dg10.txt), 'G6 (D-G10). o leitor de PDF abre o arquivo com isEvalSupported: false (um PDF de golpe não roda código no app: CVE-2024-4367) (' + JSON.stringify(dg10.pedidos) + ')');
+  conferir(/\/npm\/tesseract\.js@\d+\.\d+\.\d+\//.test(dg10.tess), 'G6 (D-G10). o tesseract.js com a versão exata (' + dg10.tess + ')');
+
+  /* ---------- o filtro de dados pessoais (Garantias.mascarar) ---------- */
+  const m6 = await p.evaluate((a) => { try { return { d: Garantias.mascarar(a.d), n: Garantias.mascarar(a.n), b: Garantias.mascarar(a.b) }; } catch (e) { return { d: '', n: '', b: '', erro: e.message }; } }, { d: DANFE6, n: NFCE6, b: BILH6 });
+  for (const [k, nome] of [['d', 'a nota (DANFE)'], ['n', 'o cupom (NFC-e)'], ['b', 'o bilhete']]) {
+    const s = sobra6(m6[k], PESSOAIS6.concat(NUMEROS6));
+    conferir(m6[k] && !s.length, 'G6. o filtro tira de ' + nome + ' o nome, o CPF, o endereço, o CEP, o e-mail, o telefone, o nascimento, a chave, o pedido, a série, o IMEI e o bilhete' + (m6.erro ? ' (' + m6.erro + ')' : s.length ? ' (sobrou: ' + s.join(', ') + ')' : ''));
+    conferir(String(m6[k]).includes('ABC1234') && String(m6[k]).includes('1.299,00'), 'G6. ... e deixa o código do modelo ("ABC1234") e o valor ("1.299,00") em ' + nome);
+  }
+  conferir(!sobra6(m6.d, ['0012', '3456', '3410', '5500', '0312']).length && /\[numero\]/.test(m6.d), 'G6. a chave de 44 números quebrada em 2 linhas sai inteira (a regra dos números compridos vem antes da do CPF e da do telefone)');
+  conferir(m6.d.includes('84212100 5102') && m6.d.includes('LOJA EXEMPLO COMERCIO LTDA') && m6.d.includes('PURIFICADOR EXEMPLO') && m6.b.includes('SEGURADORA EXEMPLO S.A.') && m6.b.includes('0800 000 0000') && m6.b.includes('15414.900000/2019-00'),
+    'G6. ficam o NCM e o CFOP, a loja, o produto, a seguradora, o 0800 da empresa e o processo SUSEP');
+  conferir(/\[link\]/.test(m6.n) && !/qrcode\?p=/.test(m6.n) && /\[data\]/.test(m6.b) && /\[cep\]/.test(m6.b) && /Bem segurado: Purificador Exemplo/.test(m6.b), 'G6. o link da NFC-e vira [link], o nascimento [data], o CEP [cep]; "Bem segurado" (a coisa) não é tratado como pessoa');
+
+  /* ---------- a leitura no aparelho (Garantias.local), em duas passadas ---------- */
+  const SEG6 = 'CERTIFICADO DE SEGURO\nSEGURADO(A): ' + NOME6 + '\nCPF: ' + CPF + '\nBem segurado: SMARTPHONE EXEMPLO ' + CPF + ' IMEI ' + IMEI6 + '\nInício de vigência: 11/03/2025\nFim de vigência: 10/03/2026';
+  const l6 = await p.evaluate((a) => { try { return { d: Garantias.local(a.d), n: Garantias.local(a.n), b: Garantias.local(a.b), s: Garantias.local(a.s) }; } catch (e) { return { erro: e.message }; } }, { d: DANFE6, n: NFCE6, b: BILH6, s: SEG6 });
+  const ld = l6.d || {}, ln = l6.n || {}, lb = l6.b || {}, lsg = l6.s || {}, sec6 = (x) => x.sec || {};
+  conferir(ld.tipo === 'nota' && ld.data === '2024-03-10' && ld.loja === 'LOJA EXEMPLO COMERCIO LTDA' && ld.nome === 'PURIFICADOR EXEMPLO ABC1234' && sec6(ld).pedido === PEDIDO && sec6(ld).serie === SERIE && sec6(ld).chaveNF === CHAVE && sec6(ld).valor === 1299,
+    'G6. a nota (DANFE): a data da compra, a loja (do emitente), o produto, o pedido, a série, a chave (quebrada em 2 linhas) e o valor (' + JSON.stringify(Object.assign({}, ld, { sec: Object.keys(sec6(ld)) })) + ')');
+  conferir(ln.tipo === 'nota' && ln.data === '2024-03-10' && ln.loja === 'LOJA EXEMPLO COMERCIO LTDA' && ln.nome === 'SMARTPHONE EXEMPLO ABC1234' && sec6(ln).serie === IMEI6 && sec6(ln).chaveNF === CHAVE65 && sec6(ln).valor === 1299,
+    'G6. o cupom (NFC-e): a data, a loja, o produto, o IMEI (como série) e a chave do link do QR (' + JSON.stringify(Object.assign({}, ln, { sec: Object.keys(sec6(ln)) })) + ')');
+  conferir(lb.tipo === 'bilhete' && lb.seguradora === 'SEGURADORA EXEMPLO S.A.' && lb.quem === 'seguradora' && lb.loja === 'LOJA EXEMPLO COMERCIO LTDA' && lb.nome === 'Purificador Exemplo ABC1234' && lb.data === '2024-03-10' && lb.emitidoEm === '2024-03-10' && lb.fim === '2027-03-10' && lb.meses === 24 &&
+    sec6(lb).number === BILHETE && sec6(lb).serie === SERIE && sec6(lb).preco === 199.9 && sec6(lb).valor === 1299, 'G6. o bilhete: a seguradora, a loja, o produto, as datas, os meses, o número do bilhete, a série, o preço da estendida e o valor (' + JSON.stringify(Object.assign({}, lb, { sec: Object.keys(sec6(lb)) })) + ')');
+  conferir(lb.inicio === '2025-03-11' && lsg.inicio === '2025-03-11' && lsg.fim === '2026-03-10', 'G6. "das 24h do dia 10/03/2025" no começo = começa no dia seguinte (11/03/2025); sem o "24h", o dia escrito (' + lb.inicio + ', ' + lsg.inicio + ')');
+  conferir(lb.acionar && lb.acionar.tel === 'Central de atendimento: 0800 000 0000' && lb.acionar.whats === '(11) 90000-0000' && lb.acionar.app === 'https://www.exemplo.com.br/sinistro' && ld.acionar && !ld.acionar.app && !ln.acionar.app,
+    'G6. como acionar vem do próprio papel: o 0800, o WhatsApp e o site da seguradora (nunca o link da Fazenda) (' + JSON.stringify(lb.acionar) + ')');
+  conferir(lsg.tipo === 'bilhete' && !lsg.seguradora && lsg.quem === 'naosei', 'G6. "Segurado" (a pessoa) não vira seguradora (' + JSON.stringify({ seguradora: lsg.seguradora, quem: lsg.quem }) + ')');
+  conferir(lsg.nome === 'SMARTPHONE EXEMPLO' && sec6(lsg).serie === IMEI6, 'G6. o produto sai do texto filtrado: o CPF que o OCR juntou ao nome (outra coluna) some, e o IMEI vai só para os números protegidos (' + lsg.nome + ')');
+  const fora6 = [ld, ln, lb, lsg].map((x) => JSON.stringify(Object.assign({}, x, { sec: null }))).join(' ');
+  conferir(!l6.erro && !sobra6(fora6, PESSOAIS6.concat([PEDIDO, BILHETE, IMEI6, CHAVE, CHAVE65])).length, 'G6. nada fora dos números protegidos tem nome, CPF, endereço ou número' + (l6.erro ? ' (' + l6.erro + ')' : sobra6(fora6, PESSOAIS6).length ? ' (sobrou: ' + sobra6(fora6, PESSOAIS6.concat([PEDIDO, BILHETE, IMEI6, CHAVE, CHAVE65])).join(', ') + ')' : ''));
+  const re6 = await p.evaluate(() => { try { const r = (a, b) => Garantias._reemitido(a, b); return [r({ emitidoEm: '2024-03-10', inicio: '2025-03-11' }, { emitidoEm: '2024-05-01', inicio: '2025-03-11' }), r({ emitidoEm: '2024-05-01' }, { emitidoEm: '2024-03-10' }), r({ emitidoEm: '', inicio: '2025-03-11' }, { emitidoEm: '', inicio: '2025-04-01' }), r({ inicio: '2025-04-01' }, { inicio: '2025-03-11' })]; } catch (e) { return [e.message]; } });
+  conferir(bate(re6, [{ novo: true, semData: false }, { novo: false, semData: false }, { novo: true, semData: true }, { novo: false, semData: true }]), 'G6. bilhete reemitido: vale o de emissão mais nova; sem a data de emissão, o que começa por último, com aviso (' + JSON.stringify(re6) + ')');
+
+  /* ---------- a leitura no Fundo: 3 arquivos (a nota em PDF, o bilhete em foto e a mesma foto de novo) ---------- */
+  const IA_TEL = 'Central IA Exemplo: 0800 111 1111', IA_APP = 'https://ia.example.com/acionar';
+  await p.evaluate(async (a) => {
+    const foto = async (n) => { const cv = document.createElement('canvas'); cv.width = cv.height = n; return new Promise((r) => cv.toBlob(r, 'image/jpeg')); };
+    const b8 = await foto(8);
+    window.__f6 = { bil: new File([b8], 'bilhete ' + a.cpf + '.jpg', { type: 'image/jpeg' }), bil2: new File([b8], 'copia.jpg', { type: 'image/jpeg' }),
+      nota: new File([new TextEncoder().encode('%PDF-1.4\n% nota de mentira G6\n')], 'NF ' + a.cpf + '.pdf', { type: 'application/pdf' }),
+      re: new File([await foto(9)], 'reemitido.jpg', { type: 'image/jpeg' }), velho: new File([await foto(10)], 'antigo.jpg', { type: 'image/jpeg' }),
+      fecha: new File([await foto(11)], 'fecha.jpg', { type: 'image/jpeg' }), fecha2: new File([await foto(12)], 'fecha2.jpg', { type: 'image/jpeg' }), canc: new File([await foto(13)], 'cancela.jpg', { type: 'image/jpeg' }) };
+    window.__g6 = { ocr: [], ia: [], imgs: 0, fundo: [], picks: 0, escolha: [], texto: a.bilh, ia0: null, ocrAntes: null };
+    Files.pick = async () => { window.__g6.picks++; return window.__g6.escolha; };
+    OCR.read = async (f, cb, semTarefa) => { window.__g6.ocr.push(semTarefa); if (window.__g6.ocrAntes) await window.__g6.ocrAntes(); return window.__g6.texto; };
+    AI.on = () => true; Net.canAI = () => true;
+    AI.ask0 = async (prompt, imgs) => { window.__g6.ia.push(String(prompt)); window.__g6.imgs += (imgs || []).length; const r = window.__g6.ia0; return typeof r === 'function' ? r(String(prompt)) : r; };
+    if (DGO.fundo && DGO.fundo.aoMudar) DGO.fundo.aoMudar((ev, c) => { try { window.__g6.fundo.push(JSON.stringify(c)); } catch (e) {} });
+    /* os avisos (toast) somem em segundos: guarda o texto de cada um */
+    window.__toasts6 = []; new MutationObserver(() => document.querySelectorAll('#toasts .toast').forEach((x) => { if (!window.__toasts6.includes(x.textContent)) window.__toasts6.push(x.textContent); })).observe(document.querySelector('#toasts') || document.body, { childList: true, subtree: true, characterData: true });
+  }, { cpf: CPF, bilh: BILH6 });
+  const IA_NOTA = { tipo: 'nota', produto: 'Purificador Exemplo', marca: 'Marca Exemplo', modelo: 'ABC1234', loja: 'Loja Exemplo', dataCompra: '' };
+  const IA_BIL = { tipo: 'bilhete', produto: 'Purificador Exemplo', seguradora: 'Seguradora Exemplo S.A.', quem: 'seguradora', inicio: '2025-03-11', fim: '2027-03-10', meses: 24, emitidoEm: '2024-03-10', acionar: { tel: IA_TEL, whats: '', app: IA_APP } };
+  await p.evaluate((a) => { window.__g6.ia0 = (pr) => (/CERTIFICADO DE SEGURO/.test(pr) ? a.bil : a.nota); window.__pdfTexto = a.danfe; window.__g6.escolha = [window.__f6.nota, window.__f6.bil, window.__f6.bil2]; S.garF = 'valendo'; go('garantias'); }, { bil: IA_BIL, nota: IA_NOTA, danfe: DANFE6 });
+  await p.waitForTimeout(400);
+  conferir(!!(await p.$('#screen [data-act="gar.foto"]')), 'G6. a lista tem "📷 Ler nota ou bilhete" (responsável)');
+  const n6 = await p.evaluate(() => ({ t: JSON.stringify(DB.raw('things')), f: DB.raw('files').length, v: DB.raw('vault').length }));
+  await p.evaluate(() => { ACT['gar.foto']({}); });   /* sem esperar: a conferência seguraria o evaluate */
+  const conf6 = () => p.waitForSelector('dialog[open] [name="_tipo"]', { timeout: 12000 }).then(() => true, () => false);
+  const campos6 = () => p.evaluate(() => {
+    const m = document.querySelector('dialog[open]'); if (!m) return null;
+    const v = (n) => { const i = m.querySelector('[name="' + n + '"]'); return i ? (i.type === 'checkbox' ? i.checked : i.value) : null; };
+    const hint = (n) => { const i = m.querySelector('[name="' + n + '"]'), b = i && i.closest('.fld'), h = b && b.querySelector('.hint'); return h ? h.textContent : ''; };
+    const vis = (n) => { const i = m.querySelector('[name="' + n + '"]'); return !!i && !!(i.offsetWidth || i.offsetHeight); };
+    const usar = m.querySelector('[data-garia]'), sug = m.querySelector('.gar-sug');
+    return { txt: m.innerText, tipo: v('_tipo'), ligar: v('_ligar'), nome: v('name'), data: v('garantia.compra.data'), loja: v('garantia.compra.loja'), marca: v('garantia.marca'), modelo: v('garantia.modelo'),
+      seg: v('garantia.estendida.seguradora'), quem: v('garantia.estendida.quem'), ini: v('garantia.estendida.inicio'), fim: v('garantia.estendida.fim'), emit: v('garantia.estendida.emitidoEm'), meses: v('_estMeses'),
+      tel: v('garantia.estendida.acionar.tel'), whats: v('garantia.estendida.acionar.whats'), app: v('garantia.estendida.acionar.app'), guardar: v('_guardar'),
+      pedido: v('_sec.pedido'), number: v('_sec.number'), serie: v('_sec.serie'), chave: v('_sec.chaveNF'), valor: v('_sec.valor'), preco: v('_sec.preco'), nsec: m.querySelectorAll('[name^="_sec."]').length, vSec: vis('_sec.number'),
+      hNome: hint('name'), hData: hint('garantia.compra.data'), hSeg: hint('garantia.estendida.seguradora'), hTel: hint('garantia.estendida.acionar.tel'),
+      sug: sug ? sug.innerText : '', usar: usar ? Math.round(usar.getBoundingClientRect().height) : 0, larg: m.scrollWidth <= innerWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1,
+      fora: [...m.querySelectorAll('input, textarea, select')].filter((i) => !/^_sec\./.test(i.name)).map((i) => (i.tagName === 'SELECT' ? (i.selectedOptions[0] || {}).textContent : i.value)).join(' | ') };
+  });
+  const abriu6 = await conf6();
+  const antesOK6 = await p.evaluate(() => ({ t: JSON.stringify(DB.raw('things')), f: DB.raw('files').length, v: DB.raw('vault').length }));
+  conferir(abriu6 && antesOK6.t === n6.t && antesOK6.f === n6.f && antesOK6.v === n6.v, 'G6. a leitura roda no Fundo e abre a conferência; nada é gravado antes do OK');
+  const c61 = abriu6 ? await campos6() : {};
+  conferir(/1 de 2/.test(c61.txt || ''), 'G6. vários arquivos: uma conferência por arquivo ("1 de 2"); a mesma foto escolhida 2 vezes (mesmo SHA-256) conta 1');
+  conferir(c61.tipo === 'nota' && c61.nome === 'Purificador Exemplo' && c61.data === '2024-03-10' && c61.marca === 'Marca Exemplo' && c61.modelo === 'ABC1234' && c61.ligar === '' && c61.guardar === true,
+    'G6. a nota (PDF): o que é, a data da compra, a marca e o modelo; "Ligar a: Nova" e "Guardar este arquivo" marcado (' + JSON.stringify({ tipo: c61.tipo, nome: c61.nome, data: c61.data, ligar: c61.ligar }) + ')');
+  conferir(/🤖/.test(c61.hNome || '') && /Lido com a IA/.test(c61.hNome || '') && /📱/.test(c61.hData || '') && /Lido no aparelho/.test(c61.hData || ''), 'G6. cada campo lido diz de onde veio: "🤖 Lido com a IA" (o nome) e "📱 Lido no aparelho" (a data) (' + c61.hNome + ' / ' + c61.hData + ')');
+  conferir(c61.pedido === PEDIDO && c61.serie === SERIE && c61.chave === CHAVE && c61.valor === '1299', 'G6. com as Senhas da casa abertas (responsável), os números lidos aparecem na conferência, para conferir');
+  conferir(!sobra6(c61.fora, PESSOAIS6.concat([PEDIDO, SERIE, CHAVE])).length, 'G6. nos campos que não são protegidos, nada de nome, CPF, endereço ou número' + (sobra6(c61.fora, PESSOAIS6).length ? ' (' + sobra6(c61.fora, PESSOAIS6).join(', ') + ')' : ''));
+  if (abriu6) { await p.fill('dialog[open] [name="name"]', 'Purificador Exemplo G6'); await okForm(); }
+  const abriu62 = await p.waitForFunction(() => /2 de 2/.test((document.querySelector('dialog[open]') || {}).innerText || ''), null, { timeout: 8000 }).then(() => true, () => false);
+  const s61 = await p.evaluate(async () => {
+    const t = DB.raw('things').find((x) => x.name === 'Purificador Exemplo G6'); if (!t) return null;
+    const a = (t.garantia.arquivos || [])[0] || {}, m = Files.meta(a.id) || {}; let txt = ''; try { txt = await (await Files.blob(a.id)).text(); } catch (e) {}
+    let o = null; try { o = await Garantias.segredo(t); } catch (e) {}
+    return { id: t.id, g: t.garantia, vis: t.vis, a, m: { name: m.name, enc: !!m.enc, vis: m.vis, gar: m.gar }, txt, o, json: JSON.stringify(t), files: JSON.stringify(DB.raw('files')) };
+  });
+  const id61 = s61 ? s61.id : 'nenhum';
+  conferir(s61 && s61.g.v === 1 && s61.g.ref === 'gar_' + id61 && s61.g.compra.data === '2024-03-10' && s61.g.marca === 'Marca Exemplo' && s61.g.modelo === 'ABC1234' && s61.g.origem === 'foto' && s61.vis === 'familia',
+    'G6. OK: uma garantia nova com a data da compra, a marca, o modelo e "foto" (' + JSON.stringify(s61 && s61.g) + ')');
+  conferir(s61 && s61.m.enc && s61.m.vis === 'restrito' && s61.m.name === 'nota-fiscal.pdf' && s61.m.gar === id61 && s61.a.tipo === 'nota' && /^[0-9a-f]{64}$/.test(s61.a.hash) && s61.txt.startsWith('%PDF-1.4\n% nota de mentira G6'),
+    'G6. ... a nota guardada trancada (só um responsável abre), com o nome "nota-fiscal.pdf", a marca gar e o SHA-256 (' + JSON.stringify(s61 && Object.assign({}, s61.m, { tipo: s61.a.tipo })) + ')');
+  conferir(s61 && s61.o && s61.o.pedido === PEDIDO && s61.o.serie === SERIE && s61.o.chaveNF === CHAVE && s61.o.valorCent === '129900' && s61.g.finais.pedido === '0001' && s61.g.finais.serie === '0003',
+    'G6. ... os números e o valor só nas Senhas da casa (item "gv_"); no objeto, só os finais');
+  conferir(s61 && !sobra6(s61.json + s61.files, PESSOAIS6.concat([PEDIDO, SERIE, CHAVE])).length && !s61.json.includes('129900') && !s61.json.includes('1.299'), 'G6. ... no objeto e no registro do arquivo, nada de nome, CPF, endereço, número ou valor (nem o nome original do arquivo, com CPF)');
+  const c62 = abriu62 ? await campos6() : {};
+  conferir(abriu62 && c62.tipo === 'bilhete' && c62.seg === 'Seguradora Exemplo S.A.' && c62.quem === 'seguradora' && c62.ini === '2025-03-11' && c62.fim === '2027-03-10' && c62.emit === '2024-03-10' && c62.number === BILHETE && c62.preco === '199.9' && c62.vSec,
+    'G6. o bilhete (foto): a seguradora, o começo, o fim, a emissão, o número do bilhete e o preço (' + JSON.stringify({ seg: c62.seg, ini: c62.ini, fim: c62.fim, emit: c62.emit, preco: c62.preco }) + ')');
+  conferir(c62.tel === 'Central de atendimento: 0800 000 0000' && c62.whats === '(11) 90000-0000' && c62.app === 'https://www.exemplo.com.br/sinistro' && /📱/.test(c62.hTel || '') && !/0800 111 1111/.test(c62.tel || ''),
+    'G6. o telefone, o WhatsApp e o site vêm do próprio bilhete (📱), não da IA (' + c62.tel + ')');
+  conferir(/🤖 Sugerido pela IA — confira no bilhete/.test(c62.sug || '') && (c62.sug || '').includes('0800 111 1111') && /abre ia\.example\.com/.test(c62.sug || '') && c62.usar >= 44, 'G6. o que a IA sugeriu para acionar não preenche sozinho: "🤖 Sugerido pela IA — confira no bilhete", com o domínio do site e o botão "Usar" (44 px) (' + (c62.sug || '').replace(/\s+/g, ' ') + ')');
+  conferir(c62.larg, 'G6. a conferência cabe em 390 px (sem rolar para o lado)');
+  if (abriu62) { await p.selectOption('dialog[open] [name="_ligar"]', id61); await okForm(); }
+  await p.waitForTimeout(400);
+  const s62 = await p.evaluate(async (id) => {
+    const t = DB.get('things', id); if (!t) return null; const g = t.garantia, b = (g.arquivos || []).find((a) => a.tipo === 'bilhete') || {}, m = Files.meta(b.id) || {};
+    let o = null; try { o = await Garantias.segredo(t); } catch (e) {}
+    return { n: DB.raw('things').filter((x) => x.name === 'Purificador Exemplo G6').length, e: g.estendida, arq: (g.arquivos || []).map((a) => a.tipo + (a.antigo ? '*' : '')), m: { name: m.name, enc: !!m.enc, vis: m.vis, gar: m.gar }, b, o, finais: g.finais, rota: [S.route.tab, S.route.sub, S.route.arg].join('/') };
+  }, id61);
+  conferir(s62 && s62.n === 1 && s62.e.tem === 'sim' && s62.e.quem === 'seguradora' && s62.e.seguradora === 'Seguradora Exemplo S.A.' && s62.e.inicio === '2025-03-11' && s62.e.fim === '2027-03-10' && s62.e.emitidoEm === '2024-03-10' && s62.e.acionar.tel === 'Central de atendimento: 0800 000 0000' && s62.e.acionar.daIA === false,
+    'G6. "Ligar a" a garantia da nota: o bilhete entra nela (a estendida pela seguradora, com as datas e como acionar, sem marca de IA) (' + JSON.stringify(s62 && s62.e) + ')');
+  conferir(s62 && s62.arq.join(',') === 'nota,bilhete' && s62.m.enc && s62.m.vis === 'restrito' && s62.m.name === 'bilhete.jpg' && s62.m.gar === id61 && s62.b.emitidoEm === '2024-03-10' && s62.o && s62.o.number === BILHETE && s62.o.pedido === PEDIDO && s62.o.precoCent === '19990' && s62.finais.bilhete === '0002',
+    'G6. ... o bilhete trancado ("bilhete.jpg"), o número dele nas Senhas da casa junto do pedido que já estava, e o preço da estendida (' + JSON.stringify(s62 && { arq: s62.arq, m: s62.m }) + ')');
+  conferir(s62 && s62.rota === 'garantias/ficha/' + id61, 'G6. no fim, abre a ficha da garantia (' + (s62 && s62.rota) + ')');
+  const ia6 = await p.evaluate(() => ({ ia: window.__g6.ia.slice(), imgs: window.__g6.imgs, ocr: window.__g6.ocr.slice(), fundo: window.__g6.fundo.join('\n'), pdf: window.__pdfP.slice() }));
+  const iaSobra = sobra6(ia6.ia.join('\n'), PESSOAIS6.concat(NUMEROS6));
+  conferir(ia6.ia.length === 2 && !iaSobra.length && ia6.ia.every((x) => x.includes('ABC1234') && x.includes('1.299,00')), 'G6. para a IA vai só o texto filtrado: sem dado pessoal nem número, com o código do modelo e o valor' + (iaSobra.length ? ' (sobrou: ' + iaSobra.join(', ') + ')' : ' (' + ia6.ia.length + ' pedidos)'));
+  conferir(ia6.imgs === 0, 'G6. nenhuma imagem vai para a IA (só o texto)');
+  conferir(ia6.ocr.length === 1 && ia6.ocr[0] === true, 'G6. a foto é lida no aparelho (OCR) dentro do trabalho do Fundo (semTarefa), uma vez só: a foto repetida nem é lida (' + JSON.stringify(ia6.ocr) + ')');
+  conferir(ia6.pdf.length === 2 && ia6.pdf.every((x) => x.isEval === false), 'G6. o PDF da nota também abre com isEvalSupported: false');
+  conferir(!sobra6(ia6.fundo, [PEDIDO, SERIE, BILHETE, CHAVE]).length && ia6.fundo.length > 0, 'G6. o resultado do Fundo não leva nenhum número (eles ficam só na memória até a conferência)');
+
+  /* o mesmo arquivo de novo: já está guardado na garantia */
+  await p.evaluate(() => { window.__g6.escolha = [window.__f6.nota]; ACT['gar.foto']({}); });
+  await p.waitForFunction(() => window.__toasts6.some((t) => /já está guardad/.test(t)), null, { timeout: 10000 }).catch(() => {});
+  await p.waitForTimeout(400);
+  const deNovo = await p.evaluate(() => !!document.querySelector('dialog[open] [name="_tipo"]'));
+  const toastRep = await p.evaluate(() => window.__toasts6.join(' | '));
+  conferir(!deNovo && /já está guardad/.test(toastRep), 'G6. o mesmo arquivo de novo (mesmo SHA-256 de um papel já guardado): não abre outra conferência e avisa (' + toastRep.slice(-120) + ')');
+  if (deNovo) await fecharJanelas(p);
+
+  /* bilhete reemitido, pelo 📷 da ficha: o de emissão mais nova vale; "Usar" o que a IA sugeriu marca daIA */
+  await ficha(id61);
+  const bFicha = await p.$('#screen #garpap [data-act="gar.foto"][data-id="' + id61 + '"]');
+  conferir(!!bFicha, 'G6. a ficha tem "📷 Ler nota ou bilhete" nos papéis');
+  await p.evaluate((a) => { window.__g6.texto = a.texto; window.__g6.ia0 = Object.assign({}, a.ia, { emitidoEm: '2024-05-01', fim: '2027-05-10' }); window.__g6.escolha = [window.__f6.re]; }, { texto: bilhete6({ num: 'BILHETE-EXEMPLO-0004', emitido: '01/05/2024', ate: '10/05/2027' }), ia: IA_BIL });
+  if (bFicha) await bFicha.click();
+  const abriuRe = await conf6();
+  const cRe = abriuRe ? await campos6() : {};
+  conferir(abriuRe && cRe.ligar === id61 && cRe.nome === 'Purificador Exemplo G6' && !/\d de \d/.test(cRe.txt || ''), 'G6. pelo 📷 da ficha, a conferência já vem ligada àquela garantia (' + cRe.ligar + ')');
+  if (abriuRe) { await p.click('dialog[open] [data-garia]').catch(() => {}); await p.waitForTimeout(150); }
+  const cRe2 = abriuRe ? await campos6() : {};
+  conferir(cRe2.tel === IA_TEL && cRe2.app === IA_APP, 'G6. "Usar" põe nos campos o que a IA sugeriu (' + cRe2.tel + ')');
+  if (abriuRe) await okForm();
+  await p.waitForTimeout(400);
+  const sRe = await p.evaluate(async (id) => { const t = DB.get('things', id), g = t.garantia; let o = null; try { o = await Garantias.segredo(t); } catch (e) {} return { e: g.estendida, arq: g.arquivos.map((a) => a.tipo + ':' + (a.emitidoEm || '-') + (a.antigo ? ':antigo' : '')), o }; }, id61);
+  conferir(sRe.e.fim === '2027-05-10' && sRe.e.emitidoEm === '2024-05-01' && sRe.arq.join(',') === 'nota:-,bilhete:2024-03-10:antigo,bilhete:2024-05-01' && sRe.o && sRe.o.number === 'BILHETE-EXEMPLO-0004',
+    'G6. bilhete reemitido: o de emissão mais nova passa a valer (datas e número) e o de antes fica como "bilhete antigo" (' + sRe.arq.join(', ') + ')');
+  conferir(sRe.e.acionar.tel === IA_TEL && sRe.e.acionar.daIA === true, 'G6. ... como acionar veio da IA ("Usar"): fica marcado (daIA)');
+  await p.evaluate((id) => go('garantias', 'estragou', id), id61); await p.waitForTimeout(400);
+  const estIA = await p.evaluate(() => ((document.querySelector('#screen #gar-quem') || {}).innerText || '').replace(/\s+/g, ' '));
+  conferir(/🤖 Sugerido pela IA — confira no bilhete/.test(estIA) && estIA.includes('0800 111 1111'), 'G6. no "Estragou?", os botões que vieram da IA avisam: "🤖 Sugerido pela IA — confira no bilhete"');
+  /* um bilhete mais antigo chega depois: fica como antigo e não muda a estendida */
+  await p.evaluate((a) => { window.__g6.texto = a.texto; window.__g6.ia0 = null; window.__g6.escolha = [window.__f6.velho]; ACT['gar.foto']({ id: a.id }); }, { texto: bilhete6({ num: 'BILHETE-EXEMPLO-0005', emitido: '01/12/2023', ate: '10/03/2026', compra: '01/12/2023' }), id: id61 });
+  if (await conf6()) await okForm();
+  await p.waitForTimeout(400);
+  const sVe = await p.evaluate(async (id) => { const t = DB.get('things', id), g = t.garantia; let o = null; try { o = await Garantias.segredo(t); } catch (e) {} return { e: g.estendida, compra: g.compra.data, arq: g.arquivos.map((a) => a.tipo + ':' + (a.emitidoEm || '-') + (a.antigo ? ':antigo' : '')), o }; }, id61);
+  conferir(sVe.e.fim === '2027-05-10' && sVe.e.emitidoEm === '2024-05-01' && sVe.arq[3] === 'bilhete:2023-12-01:antigo' && sVe.o && sVe.o.number === 'BILHETE-EXEMPLO-0004' && sVe.compra === '2024-03-10', 'G6. um bilhete de emissão mais antiga lido depois fica como antigo e não muda nada do que já estava (a estendida, o número, a data da compra) (' + sVe.arq.join(', ') + ')');
+
+  /* sem IA, e as Senhas da casa fecham durante a leitura: os números são descartados antes de desenhar; o arquivo não é guardado sem abrir */
+  const ia0n = await p.evaluate(() => window.__g6.ia.length);
+  await p.evaluate((a) => { AI.on = () => false; window.__g6.texto = a.texto; window.__g6.escolha = [window.__f6.fecha]; window.__g6.ocrAntes = async () => { Vault.lock(); }; ACT['gar.foto']({}); }, { texto: BILH6 });
+  const abriuF = await conf6();
+  const cF = abriuF ? await campos6() : {};
+  await p.evaluate(() => { window.__g6.ocrAntes = null; });
+  conferir(abriuF && cF.nsec === 0 && /descartad/i.test(cF.txt || '') && cF.seg === 'SEGURADORA EXEMPLO S.A.', 'G6. as Senhas da casa fecharam durante a leitura: a conferência não tem os números (descartados) e diz por quê');
+  conferir(abriuF && !/🤖/.test(cF.txt + cF.hNome + cF.hSeg) && /📱/.test(cF.hSeg || '') && await p.evaluate((n) => window.__g6.ia.length === n, ia0n), 'G6. sem IA: nada vai para a IA e cada campo diz "📱 Lido no aparelho"');
+  const pede6 = p.waitForSelector('dialog[open] #askv', { timeout: 5000 }).then(() => true, () => false);
+  if (abriuF) { await p.fill('dialog[open] [name="name"]', 'G6 Senhas fechadas'); await p.click('dialog[open] [data-ok]'); }
+  const pediu6 = await pede6;
+  if (pediu6) await p.click('dialog[open]:has(#askv) [data-x]').catch(() => {});
+  await p.waitForTimeout(600);
+  const sF = await p.evaluate(() => { const t = DB.raw('things').find((x) => x.name === 'G6 Senhas fechadas'); return t ? { g: t.garantia, files: DB.raw('files').filter((f) => f.gar === t.id).length, v: !!DB.col('vault').get('gv_' + t.id), toast: window.__toasts6.join(' | ') } : null; });
+  conferir(pediu6 && sF && sF.g.estendida.seguradora === 'SEGURADORA EXEMPLO S.A.' && sF.files === 0 && !sF.v && !sF.g.vaultId && !Object.values(sF.g.finais || {}).some(Boolean) && (sF.g.arquivos || []).length === 0,
+    'G6. ... ao salvar, pede para abrir as Senhas ali mesmo; sem abrir, o arquivo não é guardado e o resto é (sem números) (' + JSON.stringify(sF && { files: sF.files, v: sF.v }) + ')');
+  conferir(sF && /não foi guardad/.test(sF.toast), 'G6. ... e avisa que o arquivo não foi guardado (' + (sF ? sF.toast.slice(-140) : '') + ')');
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); });
+
+  /* as Senhas da casa fecham com a conferência aberta (o relógio, como no formulário); em inglês */
+  await p.evaluate((a) => { setLang('en'); window.__g6.texto = a.texto; window.__g6.escolha = [window.__f6.fecha2]; ACT['gar.foto']({}); }, { texto: BILH6 });
+  const abriuF2 = await conf6();
+  const cF2a = abriuF2 ? await campos6() : {};
+  conferir(abriuF2 && /Check what was read/.test(cF2a.txt || '') && /Read on the device/.test(cF2a.hSeg || '') && !/Confira o que foi lido|Lido no aparelho/.test(cF2a.txt + cF2a.hSeg), 'G6. EN: a conferência em inglês');
+  if (abriuF2) { await p.evaluate(() => Vault.lock()); await p.waitForTimeout(1500); }
+  const cF2 = abriuF2 ? await campos6() : {};
+  conferir(abriuF2 && cF2a.number === BILHETE && cF2.number === '' && !cF2.vSec, 'G6. as Senhas fecham com a conferência aberta: os números somem dela');
+  if (abriuF2) { await p.fill('dialog[open] [name="name"]', 'G6 Fecharam na janela'); await p.setChecked('dialog[open] [name="_guardar"]', false); await okForm(); }
+  await p.evaluate(async () => { setLang('pt'); await Vault.unlock('senha-de-mentira-123'); }); await p.waitForTimeout(300);
+  const sF2 = await p.evaluate(() => { const t = DB.raw('things').find((x) => x.name === 'G6 Fecharam na janela'); return t ? { v: !!DB.col('vault').get('gv_' + t.id), finais: t.garantia.finais, files: DB.raw('files').filter((f) => f.gar === t.id).length } : null; });
+  conferir(sF2 && !sF2.v && !Object.values(sF2.finais || {}).some(Boolean) && sF2.files === 0, 'G6. ... e salvar não grava número nenhum (' + JSON.stringify(sF2) + ')');
+
+  /* ✕ na pílula no meio da leitura: nada vai para a IA e a conferência não abre */
+  const ia1n = await p.evaluate(() => window.__g6.ia.length);
+  const canc6 = await p.evaluate(async () => {
+    AI.on = () => true; window.__g6.escolha = [window.__f6.canc]; window.__g6.ocrAntes = () => new Promise((r) => setTimeout(r, 700));
+    ACT['gar.foto']({}); await new Promise((r) => setTimeout(r, 300));
+    const t = DGO.fundo.lista().find((x) => /nota ou o bilhete/.test(x.titulo || '')); if (t) DGO.fundo.cancelar(t.id);
+    await new Promise((r) => setTimeout(r, 1500)); window.__g6.ocrAntes = null;
+    return { achou: !!t, dlg: !!document.querySelector('dialog[open] [name="_tipo"]'), ia: window.__g6.ia.length };
+  });
+  conferir(canc6.achou && !canc6.dlg && canc6.ia === ia1n, 'G6. ✕ na pílula no meio da leitura: para na hora, nada vai para a IA e a conferência não abre (' + JSON.stringify(canc6) + ')');
+
+  /* quem não pode: criança, e a função desligada no RootifyONE */
+  const bloq6 = await p.evaluate(async (papel) => {
+    const pk0 = window.__g6.picks; window.__g6.escolha = [window.__f6.canc];
+    S.role = 'crianca'; go('garantias'); await new Promise((r) => setTimeout(r, 300));
+    const bt = !!document.querySelector('#screen [data-act="gar.foto"]'); await ACT['gar.foto']({});
+    S.role = papel; const pk1 = window.__g6.picks;
+    const on0 = Rec.on; Rec.on = (id) => id !== 'casa.garantias' && on0.call(Rec, id);
+    try { await ACT['gar.foto']({}); } finally { Rec.on = on0; }
+    await new Promise((r) => setTimeout(r, 300));
+    return { bt, crianca: pk1 - pk0, desligada: window.__g6.picks - pk1, dlg: !!document.querySelector('dialog[open] [name="_tipo"]') };
+  }, papel0);
+  conferir(!bloq6.bt && bloq6.crianca === 0 && bloq6.desligada === 0 && !bloq6.dlg, 'G6. criança não tem o 📷 e a leitura recusa; com Garantias desligada no RootifyONE, também não roda (' + JSON.stringify(bloq6) + ')');
+  await fecharJanelas(p);
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'G6: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -1444,5 +1720,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência)');
 })().catch((e) => { console.error(e); process.exit(1); });

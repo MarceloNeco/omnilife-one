@@ -1203,7 +1203,7 @@ const LS = {
 };
 const COLS = ["people","health","items","shop","requests","purchases","prices","events","routine","tasks","contacts","places","spots","school","things","maint","vault","guides","docs","files","settings","msgs","reminders","checkins","expects","coexp","comsg"];
 const LIBS = {
-  tesseract: "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js",
+  tesseract: "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",   /* versão exata (a mesma do diretrizes.js), D-G10 */
   tf: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js",
   coco: "https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js",
   jspdf: "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js",
@@ -9468,7 +9468,8 @@ const ShopImport = {
   async pdf(file, say) {
     if (!window.pdfjsLib && !(await Net.askHeavy(tt("Leitor de PDF", "PDF reader"), 1))) throw new Error(tt("Download adiado.", "Download postponed."));
     await loadScript(LIBS.pdfjs); pdfjsLib.GlobalWorkerOptions.workerSrc = LIBS.pdfjsWorker;
-    const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise; const out = { text: "", imgs: [] };
+    /* isEvalSupported: false — um PDF de golpe com uma fonte forjada não roda código dentro do app (CVE-2024-4367; D-G10) */
+    const doc = await pdfjsLib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise; const out = { text: "", imgs: [] };
     for (let p = 1; p <= Math.min(doc.numPages, 5); p++) {
       say(tt("Lendo o PDF, página ", "Reading the PDF, page ") + p + "…");
       const pg = await doc.getPage(p); const tc = await pg.getTextContent();
@@ -13235,7 +13236,7 @@ const Garantias = {
   listView(G) {
     const ed = this.podeEditar();
     if (!G.total) return '<div class="card"><div class="empty"><div class="e" aria-hidden="true">🧾</div><p>' + (ed ? tt("Nenhuma garantia ainda. Toque em ＋ e escreva só o nome e a data da compra.", "No warranties yet. Tap ＋ and just type the name and the purchase date.", "Todavía no hay garantías. Toca ＋ y escribe solo el nombre y la fecha de compra.") : tt("Nenhuma garantia ainda.", "No warranties yet.", "Todavía no hay garantías.")) + "</p>" +
-      (ed ? '<button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + "</button>" : "") + "</div></div>";
+      (ed ? '<div class="row" style="justify-content:center"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + '</button><button class="btn ghost" data-act="gar.foto">📷 ' + tt("Ler nota ou bilhete", "Read invoice or certificate", "Leer factura o certificado") + "</button></div>" : "") + "</div></div>";
     const linhas = (L) => '<div class="list">' + L.map((x) => this.linha(x)).join("") + "</div>";
     const topo = (cls, tit, L) => (L.length ? '<div class="card warnc ' + cls + '"><h3>' + tit + " (" + L.length + ")</h3>" + linhas(L) + "</div>" : "");
     const fs = [["valendo", "✅ " + tt("Valendo", "Active", "En vigor"), G.valendo.length], ["em30", "⏰ " + tt("Em 30 dias", "Within 30 days", "En 30 días"), G.em30.length],
@@ -13613,7 +13614,7 @@ const Garantias = {
         (abre ? '<button class="btn ghost" data-act="file.open" data-id="' + esc(a.id) + '">📂 ' + tt("Abrir", "Open", "Abrir") + "</button>" : "") + (pode && m ? '<button class="btn ghost" data-act="gar.papeldel" data-id="' + esc(a.id) + '" data-ref="' + tid + '" aria-label="' + tt("Apagar", "Delete", "Borrar") + '">🗑</button>' : "") + "</div>";
     }).join("");
     h += '<div class="card" id="garpap"><h3>📎 ' + tt("Papéis", "Documents", "Documentos") + "</h3>" + (pap ? '<div class="list">' + pap + "</div>" : '<p class="small muted">' + tt("Nenhum papel guardado ainda.", "No documents saved yet.", "Todavía no hay documentos guardados.") + "</p>") +
-      (pode ? '<div class="row" style="margin-top:8px">' + P.slice(0, 4).map((p) => '<button class="btn ghost" data-act="gar.papel" data-id="' + tid + '" data-tipo="' + p[0] + '">＋ ' + esc(p[2]) + "</button>").join("") + "</div>" : "") +
+      (pode ? '<div class="row" style="margin-top:8px">' + P.slice(0, 4).map((p) => '<button class="btn ghost" data-act="gar.papel" data-id="' + tid + '" data-tipo="' + p[0] + '">＋ ' + esc(p[2]) + "</button>").join("") + '<button class="btn ghost" data-act="gar.foto" data-id="' + tid + '">📷 ' + tt("Ler nota ou bilhete", "Read invoice or certificate", "Leer factura o certificado") + "</button></div>" : "") +
       '<p class="tiny faint" style="margin-top:6px">🔒 ' + tt("A nota e o bilhete ficam trancados (só um responsável abre); o folheto e o manual, com o “Quem vê” do objeto.", "The invoice and the certificate stay locked (only a guardian opens them); the leaflet and the manual follow the item's “Visible to”.", "La factura y el certificado del seguro quedan bajo llave (solo un responsable los abre); el folleto y el manual siguen el «Quién lo ve» del objeto.") + (S.mode === "cloud" ? " 📱 " + tt("Os papéis ficam só no aparelho onde foram guardados.", "Documents stay only on the device where they were saved.", "Los documentos quedan solo en el dispositivo donde se guardaron.") : "") + "</p></div>";
     /* G5: a assistência técnica e os atendimentos (com "saiu de casa", só o histórico) */
     if (!saiu) h += this._assistCard(t, g, pode);
@@ -13787,7 +13788,7 @@ const Garantias = {
     });
     if (onlyDigits(ac.whats).length >= 4) out.push('<a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(ac.whats) + '">💬 WhatsApp</a>');
     if (this.https(ac.app)) out.push('<a class="btn ghost" target="_blank" rel="noopener" href="' + esc(ac.app) + '">📲 ' + tt("Abrir o app ou site", "Open the app or website", "Abrir la app o la web") + " (" + tt("abre ", "opens ", "abre ") + esc(new URL(ac.app).hostname.replace(/^www\./, "")) + ")</a>");
-    return out.length ? '<div class="row gar-acionar" style="margin:8px 0">' + out.join("") + "</div>" : "";
+    return out.length ? '<div class="row gar-acionar" style="margin:8px 0">' + out.join("") + "</div>" + (ac.daIA ? '<p class="tiny muted gar-daia">🤖 ' + tt("Sugerido pela IA — confira no bilhete", "Suggested by the AI — check the certificate", "Sugerido por la IA — compruébalo en el certificado del seguro") + "</p>" : "") : "";
   },
   /* um contato (a assistência técnica) com 📞 e 💬 grandes */
   _contato(c) {
@@ -13931,6 +13932,368 @@ const Garantias = {
   async _ligarAssist(id, cid) {
     const t = DB.get("things", id); if (!t) return;
     await DB.put("things", Object.assign({}, t, { garantia: Object.assign({}, GarCalc._o(t.garantia), { assistencia: cid }) }));
+  },
+  /* ---------- G6: ler a nota ou o bilhete (foto ou PDF) no Fundo ----------
+     A foto é lida no aparelho (OCR). Para a IA (só se estiver ligada) vai só o texto, já filtrado (Garantias.mascarar), nunca a
+     imagem. Os números (pedido, bilhete, série, chave, valor) saem só da leitura no aparelho, ficam na memória até a conferência
+     e nunca no resultado do Fundo. Nada é gravado antes do OK da conferência */
+  /* tira o que é pessoal antes de o texto ir para a IA (o Vida.mascarar fica como está: ele também tira placa e chassi, e aqui
+     "ABC1234" é o código do modelo). A ordem importa: os números compridos saem antes da regra do CPF e da do telefone, que
+     comeriam pedaços da chave e deixariam o resto escapar */
+  mascarar(texto) {
+    let t = String(texto == null ? "" : texto);
+    const tira = (re, troca) => { t = t.replace(re, troca); };
+    const lit = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const letras = (w) => norm(w).split("").map((ch) => ({ a: "[aáàâãä]", e: "[eéèêë]", i: "[iíìîï]", o: "[oóòôõö]", u: "[uúùûü]", c: "[cç]", n: "[nñ]" })[ch] || lit(ch)).join("");
+    const solto = (ws) => new RegExp("(?<![\\p{L}\\d])" + ws.map(letras).join("\\s+") + "(?![\\p{L}\\d])", "giu");
+    const negocio = (v) => /ltda|\bme\b|eireli|s\/?a\b|s\.a\.|com[eé]rcio|magazine|lojas?\b|varejo|seguradora|companhia|\bcia\b/i.test(v);
+    const DATA = "\\b\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}\\b";
+    /* 1. a chave da nota, o IMEI e todo número comprido: 15 ou mais algarismos em grupos de 4 ou mais, com espaço, ponto ou quebra
+       de linha (o "O" que o OCR põe no lugar do 0 conta). Não come "1.299,00" nem o NCM com o CFOP */
+    tira(/(?<![\dA-Za-z])\d[\dOo]{2,}\d(?:[ \t.]*(?:\r?\n)?[ \t.]*\d[\dOo]{2,}\d)*(?![\dA-Za-z])/g, (m) => (m.replace(/[^\dOo]/g, "").length >= 15 ? "[numero]" : m));
+    /* 2. o link da NFC-e (leva a chave) */
+    tira(/\bhttps?:\/\/\S*(?:[?&]p=|chNFe=)\S*/gi, "[link]");
+    /* 3. o bloco do destinatário do DANFE: do título até o próximo título (ou 8 linhas) */
+    const L = t.split("\n"), FIM = /^\s*(fatura|duplicatas?|c[aá]lculo\s+do\s+imposto|transportador|dados\s+dos?\s+produtos?|dados\s+adicionais)/i;
+    for (let i = 0; i < L.length; i++) {
+      const tit = L[i].match(/^(\s*destinat[aá]rio(?:\s*\/\s*remetente)?)(?![ \t]*:)/i); if (!tit) continue;
+      L[i] = tit[1]; let j = i + 1;
+      while (j < L.length && j <= i + 8 && !FIM.test(L[j])) L[j++] = null;
+      if (j > i + 1) L[i + 1] = "[destinatário]";
+      i = j - 1;
+    }
+    t = L.filter((x) => x !== null).join("\n");
+    /* 4. quem compra, recebe ou é o segurado, e o endereço de entrega ("Bem segurado" é a coisa, não a pessoa); linha que começa
+       com o nome de uma rua é endereço */
+    const PES = "(?<!\\[)(\\b(?:nome\\s+do\\s+segurado\\b|(?<!(?:bem|objeto|item|produto)\\s)segurad[oa]s?\\b(?:\\s*\\(a\\))?|benefici[aá]rios?(?![\\p{L}])|titular\\b(?:\\s+do\\s+cart[aã]o\\b)?|comprador\\b(?:\\s*\\(a\\))?|recebedor\\b|entregar\\s+(?:para|em)\\b|endere[cç]o\\s+de\\s+entrega\\b|local\\s+de\\s+entrega\\b)";
+    const pes = (rot) => (/endere|local/i.test(rot) ? "[endereço]" : "[nome]");
+    tira(new RegExp(PES + "[ \\t]*:?[ \\t]*)(?![ \\t:]*\\[)([^\\n]*?)(?=[ \\t]{2,}|[ \\t]+[\\p{L}.]{2,}[ \\t]*:|$)", "gimu"), (m0, rot, val) => (!val.trim() ? m0 : rot + pes(rot)));
+    tira(new RegExp(PES + "[ \\t]*:[ \\t]*\\n)(?![^\\n]*[\\p{L}.]{2,}[ \\t]*:)([^\\n]+)", "gimu"), (m0, rot) => rot + pes(rot));
+    tira(/^[ \t]*(?:rua|r\.|av\.?|avenida|travessa|tv\.|alameda|al\.|estrada|rodovia|rod\.|pra[cç]a)\s[^\n]*$/gimu, "[endereço]");
+    /* 5. nascimento */
+    tira(/(\b(?:data\s+de\s+)?(?:nasc(?:imento)?|dt\.?\s*nasc)\.?[ \t]*:?[ \t]*)\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/gi, "$1[data]");
+    /* 6. CEP, com ou sem o rótulo */
+    tira(/(\bcep\b\.?[ \t]*:?[ \t]*)\d{5}-?\d{3}\b/gi, "$1[cep]");
+    tira(/\b\d{5}-\d{3}\b/g, "[cep]");
+    /* 7. pedido, série, IMEI e o número do bilhete (certificado, apólice), depois do rótulo */
+    const NUMS = { pedido: "[pedido]", serie: "[serie]", serial: "[serie]", imei: "[serie]", bilhete: "[bilhete]", certificado: "[bilhete]", apolice: "[bilhete]" };
+    tira(/(\b(?:(?:n[º°o]\.?|n[uú]m(?:ero)?\.?)\s*(?:d[eoa]\s+)?)?(pedido|s[ée]rie|serial|imei|bilhete|certificado|ap[oó]lice)\b(?:\s+d[eo]\s+seguro\b)?(?:\s+(?:n[º°o]\.?|n[uú]mero))?[ \t]*[:#]?[ \t]*)((?=[A-Za-z0-9.\/-]*\d)[A-Za-z0-9][A-Za-z0-9.\/-]{3,})/gi, (m0, rot, k) => rot + (NUMS[norm(k)] || "[numero]"));
+    /* 8. a parte geral do Vida.mascarar: CPF, o CNPJ depois de "CPF/CNPJ" (o da loja fica), e-mail, telefone de pessoa (o 0800 da
+       empresa fica), razão social, endereço e cliente, e os nomes da família */
+    tira(/(\bcpf\s*\/\s*cnpj\s*:?\s*)\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/gi, "$1[cnpj]");
+    tira(/\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-.\s]?\d{2}\b/g, "[cpf]");
+    tira(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[e-mail]");
+    tira(/(\b(?:tel(?:efone)?|fone|cel(?:ular)?|whats\s?app|contato)\b\.?\s*:?\s*)(?:\+?55\s*)?\(?\d{2}\)?[\s.-]?9?\s?\d{4}[\s.-]?\d{4}\b/gi, "$1[telefone]");
+    tira(/\(\d{2}\)\s?9?\d{4}[\s-]?\d{4}\b|\b\d{2}\s9?\s?\d{4}[\s-]\d{4}\b|\b9?\d{4}-\d{4}\b/g, "[telefone]");
+    tira(/^([^\n:]*\b(?:raz[aã]o\s+social|destinat[aá]rio|tomador)\b[^\n:]*\n)(?!\[)([^\n]+)$/gimu, (m0, cab, val) => {
+      if (negocio(val)) return m0; const k = val.search(new RegExp("\\[(cpf|cnpj)\\]|" + DATA)); return cab + "[nome]" + (k > 0 ? " " + val.slice(k) : "");
+    });
+    tira(/^([^\n:]*\bendere[cç]o\b[^\n:]*\n)(?!\[)([^\n]+)$/gimu, (m0, cab, val) => { const k = val.search(new RegExp(DATA)); return cab + "[endereço]" + (k > 0 ? " " + val.slice(k) : ""); });
+    const ROT = "(?<!\\[)(\\b(?:cliente|nome(?:\\s*\\/\\s*raz[aã]o\\s+social)?|raz[aã]o\\s+social|destinat[aá]rio|tomador|consumidor|propriet[aá]rio|respons[aá]vel|sra?\\.)(?:\\s+do\\s+cliente)?";
+    tira(new RegExp(ROT + "[ \\t]*:?[ \\t]*)(?![ \\t:]*\\[)([^\\n]*?)(?=[ \\t]{2,}|[ \\t]+[\\p{L}.]{2,}[ \\t]*:|$)", "gimu"), (m0, rot, val) => (!val.trim() || negocio(val) ? m0 : rot + "[nome]"));
+    tira(new RegExp(ROT + "[ \\t]*:[ \\t]*\\n)(?![^\\n]*(?:[\\p{L}.]{2,}[ \\t]*:|" + DATA + "|\\d,\\d{2}[ \\t]*$))([^\\n]+)", "gimu"), (m0, rot, val) => (negocio(val) ? m0 : rot + "[nome]"));
+    tira(/(?<!\[)((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)[ \t]*:?[ \t]*)(?![ \t:]*\[)([^\n]*?)(?=[ \t]{2,}|[ \t]+[\p{L}.]{2,}[ \t]*:|$)/gimu, (m0, rot, val) => (!val.trim() ? m0 : rot + "[endereço]"));
+    tira(/(?<!\[)((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)[ \t]*:[ \t]*\n)(?![^\n]*(?:[\p{L}.]{2,}[ \t]*:|\d,\d{2}[ \t]*$))([^\n]+)/gimu, "$1[endereço]");
+    try {
+      People.list().forEach((p) => {
+        const ws = String(p.name || "").split(/\s+/).filter((w) => norm(w).length >= 2);
+        if (ws.length > 1) tira(solto(ws), "[nome]");
+        ws.filter((w) => norm(w).length >= 4).forEach((w) => tira(solto([w]), "[nome]"));
+      });
+    } catch (e) {}
+    return t;
+  },
+  /* um texto curto para um campo aberto: sem as marcas do filtro ([nome], [cpf]…), sem pontas soltas e com pelo menos 2 letras */
+  _limpo(v, n) {
+    const s = String(v == null ? "" : v).replace(/\[[^\]\n]*\]/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s\-–—:|,.]+|[\s\-–—:|,]+$/g, "").trim().slice(0, n || 80);
+    return /\p{L}{2}/u.test(s) ? s : "";
+  },
+  /* a leitura no aparelho, sem IA, em duas passadas: (1) no texto inteiro, os números (que só vão para as Senhas da casa), as datas, o
+     valor e como acionar; (2) no texto já filtrado, a loja (só do emitente), o produto e a seguradora, que vão para campos abertos */
+  local(texto, filtrado) {
+    const t = String(texto == null ? "" : texto), m = filtrado == null ? this.mascarar(t) : String(filtrado);
+    const DATA = "(0?[1-9]|[12]\\d|3[01])[\\/.-](0?[1-9]|1[0-2])[\\/.-](\\d{4})(?!\\d)", PRECO = "(\\d{1,3}(?:\\.\\d{3})+,\\d{2}|\\d+,\\d{2})";
+    const datas = (s) => [...String(s || "").matchAll(new RegExp("\\b" + DATA, "g"))].map((x) => ({ iso: x[3] + "-" + pad(+x[2]) + "-" + pad(+x[1]), antes: String(s).slice(0, x.index) })).filter((x) => GarCalc.ehData(x.iso));
+    const apos = (rx, n) => { const x = t.match(rx); return x ? t.slice(x.index + x[0].length, x.index + x[0].length + (n || 120)) : ""; };
+    const naLinha = (rx) => { const x = t.match(rx); return x ? t.slice(x.index + x[0].length).split("\n")[0] : ""; };
+    const dataApos = (rx, n) => (datas(apos(rx, n))[0] || {}).iso || "";
+    /* "às 24h do dia X" no começo = começa no dia seguinte */
+    const inicioDe = (d) => (d ? (/24\s*h/i.test(d.antes) ? GarCalc.somaDias(d.iso, 1) : d.iso) || "" : "");
+    const valor = (rot) => { const x = t.match(new RegExp("(?:" + rot + ")[^\\d\\n]{0,40}?(?:\\n[^\\d\\n]{0,40}?)?(?:R\\$\\s*)?" + PRECO, "i")); return x ? Vida.valor(x[1]) : ""; };
+    const VAL = "((?=[A-Za-z0-9.\\/-]*\\d)[A-Za-z0-9][A-Za-z0-9.\\/-]{3,59})";
+    const num = (k) => { const x = t.match(new RegExp("(?:(?:n[º°o]\\.?|n[uú]m(?:ero)?\\.?)\\s*(?:d[eoa]\\s+)?)?(?:" + k + ")\\b(?:\\s+d[eo]\\s+seguro\\b)?(?:\\s+(?:n[º°o]\\.?|n[uú]mero))?[ \\t]*[:#]?[ \\t]*" + VAL, "i")); return x ? x[1].replace(/[.\/-]+$/, "") : ""; };
+    const bil = /bilhete|certificado\s+de\s+seguro|garantia\s+estendida|processo\s+susep|ap[oó]lice/i.test(t) && !/\bdanfe\b|\bnfc-?e\b|\bnf-e\b|documento\s+auxiliar|chave\s+de\s+acesso/i.test(t);
+    /* passada 1: o texto inteiro */
+    let chave = (t.match(/(?:[?&]p=|chNFe=)(\d{44})(?!\d)/i) || [])[1] || "";
+    if (!chave) { const x = t.match(/(?<![\dA-Za-z])(?:\d[ \t.\r\n]{0,3}){43}\d(?!\d)/); if (x) chave = x[0].replace(/\D/g, ""); }
+    const imei = (t.match(/\bimei\b[^\d\n]{0,12}(\d{15})(?!\d)/i) || [])[1] || "";
+    const emissao = dataApos(/data\s+d[ae]\s+emiss[aã]o|emiss[aã]o|emitid[oa]\s+em/i), compra = dataApos(/data\s+da\s+compra/i, 60);
+    const ini = naLinha(/in[ií]cio\s+d[ae]\s+(?:vig[eê]ncia|cobertura)/i), fimL = naLinha(/(?:fim|t[eé]rmino|final)\s+d[ae]\s+(?:vig[eê]ncia|cobertura)/i), per = datas(naLinha(/vig[eê]ncia|per[ií]odo\s+de\s+cobertura/i));
+    const inicio = inicioDe(datas(ini)[0] || per[0]), fim = (datas(fimL)[0] || per[1] || {}).iso || "";
+    const mEst = GarCalc._meses(+((t.match(/(?:estendida|vig[eê]ncia|prazo|cobertura)[^\n]{0,40}?\b(\d{1,3})\s*meses\b/i) || [])[1]) || NaN), mFab = GarCalc._meses(+((t.match(/garantia\s+(?:d[oa]\s+)?(?:fabricante|f[aá]brica)[^\n]{0,30}?\b(\d{1,3})\s*meses\b/i) || [])[1]) || NaN);
+    /* como acionar, do próprio papel: os números de central (0800, 4004…), o WhatsApp e o site (nunca o link da Fazenda) */
+    const tel = [], vistos = new Set();
+    t.split("\n").forEach((l) => {
+      for (const x of l.matchAll(/\b(0[358]00[\s.-]?\d{3}[\s.-]?\d{4}|[34]00[0-9][\s.-]?\d{4})\b/g)) {
+        const d = onlyDigits(x[1]); if (vistos.has(d) || tel.length >= 3) continue; vistos.add(d);
+        const antes = l.slice(0, x.index).split(":").pop().replace(/[\s\-–—|]+$/, "").trim();
+        tel.push((/sac|central|atendimento|sinistro|assist|acion|suporte|ouvidoria|seguradora|relacionamento/i.test(antes) ? antes.slice(-40) : tt("Central", "Call centre", "Central")) + ": " + x[1].trim());
+      }
+    });
+    const wl = t.split("\n").find((l) => /whats\s?app/i.test(l) && !/\bsegurad[oa]s?\b|cliente|comprador|titular|destinat|consumidor/i.test(l)) || "";
+    const whats = ((wl.match(/whats\s?app[^\d\n(+]{0,20}((?:\+?55\s*)?\(?\d{2}\)?\s?9?\s?\d{4}[\s.-]?\d{4})/i) || [])[1] || "").trim().slice(0, 30);
+    const app = ((t.match(/https:\/\/[^\s"'<>|]+/gi) || []).map((u) => u.replace(/[.,;:)\]]+$/, "")).find((u) => !/[?&]p=|chnfe|sefaz|fazenda|\.gov\.br|\/\/nfe\./i.test(u) && this.https(u)) || "").slice(0, 300);
+    /* passada 2: o texto filtrado */
+    const FIMV = "(?=[ \\t]{2,}|[ \\t]+(?:n[º°o]\\.?\\s+)?(?:d[eoa]\\s+)?[\\p{L}.]{2,}[ \\t]*:|$)";
+    const rot = (k) => { const x = m.match(new RegExp("(?:" + k + ")[ \\t]*:[ \\t]*([^\\n]*?)" + FIMV, "imu")); return x ? this._limpo(x[1]) : ""; };
+    let seg = rot("\\bseguradora\\b");
+    if (!seg) seg = this._limpo((m.split("\n").find((l) => /\bseguradora\b/i.test(l) && /s\.?\/?a\.?|ltda|companhia|\bcia\b/i.test(l) && !/\bsegurad[oa]s?\b/i.test(l)) || "").replace(/\bcnpj\b.*$/i, ""));
+    const NEG = /\b(ltda|eireli|s\.?\/?a\.?|me|epp)(?![\p{L}])|com[eé]rcio|magazine|lojas?\b|varejo/iu;
+    const loja = bil ? rot("representante(?:\\s+de\\s+seguros?)?|estipulante|varejista|\\bloja\\b|vendido\\s+por")
+      : this._limpo((m.split(/^\s*destinat[aá]rio/im)[0].split("\n").find((l) => NEG.test(l) && !/danfe|documento\s+auxiliar|nota\s+fiscal|cnpj/i.test(l)) || "").replace(/\bcnpj\b.*$/i, ""));
+    let nome = rot("bem\\s+segurado|objeto\\s+segurado|\\bproduto\\b|descri[cç][aã]o\\s+d[oa]\\s+(?:bem|produto|item)|equipamento|aparelho").replace(/\s+(?:imei|s\/n|serial|(?:n[º°o]\.?\s*(?:de\s+)?)?s[ée]rie)\b.*$/i, "");
+    if (!nome) {
+      const i = m.search(/dados\s+dos?\s+produtos?/i), corpo = i >= 0 ? m.slice(i).split("\n").slice(1) : m.split("\n");
+      const l = corpo.find((x) => new RegExp(PRECO + "\\s*$").test(x.trim()) && !/total|valor|pagar|pago|desconto|troco|pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|parcela|subtotal|imposto|tributo/i.test(x)) || "";
+      nome = this._limpo(l.replace(/^\s*\d{1,14}\s+/, "").split(/\s+(?=imei\b|ncm\b|\[|\d{8}\b|\d+(?:[.,]\d+)?\s*(?:un|und|unid|p[cç]|cx|kg|lt?)\b|\d{1,3}(?:\.\d{3})*,\d{2}\b)/i)[0]);
+    }
+    return { tipo: bil ? "bilhete" : "nota", ia: false, nome, marca: rot("\\bmarca\\b"), modelo: rot("\\bmodelo\\b"), loja, seguradora: seg, quem: seg ? "seguradora" : "naosei",
+      data: bil ? compra : compra || emissao || ((datas(t).find((d) => d.iso <= today()) || {}).iso || ""), inicio: bil ? inicio : "", fim: bil ? fim : "", meses: bil ? mEst : null, emitidoEm: bil ? emissao : "", fabMeses: mFab,
+      acionar: { tel: tel.join("\n"), whats, app },
+      sec: { pedido: num("pedido"), number: num("bilhete|certificado|ap[oó]lice"), serie: num("s[ée]rie|serial|s\\/n") || imei, chaveNF: chave,
+        valor: valor(bil ? "valor\\s+do\\s+bem|valor\\s+do\\s+produto|valor\\s+da\\s+nota" : "valor\\s+total\\s+da\\s+nota|valor\\s+a\\s+pagar|total\\s+a\\s+pagar|valor\\s+pago|valor\\s+total|valor\\s+do\\s+bem|\\btotal\\b"),
+        preco: bil ? valor("pr[eê]mio\\s+total|valor\\s+(?:total\\s+)?do\\s+(?:pr[eê]mio|seguro)|pr[eê]mio\\s+l[ií]quido|pr[eê]mio") : "" } };
+  },
+  /* o pedido para a IA: só o texto já filtrado, e a resposta num formato fixo */
+  prompt(texto) {
+    return tt("Você lê o texto de uma nota fiscal, de um cupom ou do bilhete de um seguro de garantia estendida do Brasil. O texto veio de leitura de foto (OCR) e pode ter erros. Dados pessoais e números já foram trocados por [nome], [cpf], [endereço], [numero] etc.: não tente adivinhá-los e não invente números nem telefones.",
+      "You read the text of a Brazilian invoice, receipt or extended-warranty insurance certificate. The text came from photo reading (OCR) and may have errors. Personal data and numbers were already replaced by [nome], [cpf], [endereço], [numero] etc.: don't try to guess them and don't make up numbers or phone numbers.",
+      "Lees el texto de una factura, un tique o el certificado de un seguro de garantía extendida de Brasil. El texto viene de leer una foto (OCR) y puede tener errores. Los datos personales y los números ya se han cambiado por [nome], [cpf], [endereço], [numero], etc.: no intentes adivinarlos y no te inventes números ni teléfonos.") +
+      " " + tt("Regras: datas no formato AAAA-MM-DD; “às 24h do dia X” no começo da vigência quer dizer que começa no dia seguinte a X; tipo \"bilhete\" se for seguro ou garantia estendida, senão \"nota\"; quem = quem cobre a estendida (seguradora, loja, fabricante, cartao ou naosei); deixe vazio o que não estiver escrito.",
+      "Rules: dates as YYYY-MM-DD; “às 24h do dia X” at the start of the cover means it starts the day after X; type \"bilhete\" if it's insurance or an extended warranty, otherwise \"nota\"; quem = who covers the extended warranty (seguradora, loja, fabricante, cartao or naosei); leave empty whatever isn't written.",
+      "Reglas: fechas con el formato AAAA-MM-DD; «às 24h do dia X» al principio de la vigencia quiere decir que empieza el día siguiente a X; tipo \"bilhete\" si es un seguro o una garantía extendida, si no \"nota\"; quem = quién cubre la extendida (seguradora, loja, fabricante, cartao o naosei); deja vacío lo que no esté escrito.") +
+      "\n" + tt("Texto:", "Text:", "Texto:") + "\n" + String(texto || "").slice(0, 8000) + "\n" + tt("Responda só JSON: ", "Reply JSON only: ", "Responde solo con JSON: ") +
+      '{"tipo":"nota|bilhete","produto":"","marca":"","modelo":"","loja":"","dataCompra":"","seguradora":"","quem":"","inicio":"","fim":"","meses":0,"emitidoEm":"","mesesFabrica":0,"acionar":{"tel":"","whats":"","app":""}}';
+  },
+  /* a resposta da IA, saneada (ela leu só o texto filtrado: números e dados pessoais nunca vêm dela) */
+  daIA(j) {
+    if (!j || typeof j !== "object" || Array.isArray(j)) return null;
+    const s = (x) => this._limpo(x), d = (x) => (GarCalc.ehData(x) ? x : ""), mm = (x) => GarCalc._meses(typeof x === "number" ? x : parseInt(x, 10)) || null;
+    const ac = GarCalc._o(j.acionar), app = typeof ac.app === "string" && this.https(ac.app.trim()) ? ac.app.trim().slice(0, 300) : "";
+    return { tipo: j.tipo === "bilhete" || j.tipo === "nota" ? j.tipo : "", ia: true, nome: s(j.produto), marca: s(j.marca), modelo: s(j.modelo), loja: s(j.loja), seguradora: s(j.seguradora),
+      quem: GAR_ENUM.quem.includes(j.quem) ? j.quem : "", data: d(j.dataCompra), inicio: d(j.inicio), fim: d(j.fim), meses: mm(j.meses), emitidoEm: d(j.emitidoEm), fabMeses: mm(j.mesesFabrica),
+      acionar: { tel: typeof ac.tel === "string" ? ac.tel.replace(/[<>]/g, "").trim().slice(0, 300) : "", whats: typeof ac.whats === "string" ? ac.whats.replace(/[^\d()+\s.-]/g, "").trim().slice(0, 30) : "", app } };
+  },
+  /* junta o que a IA leu com o que o aparelho leu: vale o da IA (marcado 🤖) e, sem ele, o do aparelho (📱). Como acionar vem só do
+     papel; o que a IA disser diferente vira sugestão, que só entra se a pessoa tocar em "Usar" */
+  _juntar(lo, ia) {
+    const c = {}, ok = (v) => v != null && v !== "" && v !== "naosei";
+    ["nome", "marca", "modelo", "loja", "data", "seguradora", "quem", "inicio", "fim", "meses", "emitidoEm", "fabMeses"].forEach((k) => { c[k] = ia && ok(ia[k]) ? { v: ia[k], de: "ia" } : ok(lo[k]) ? { v: lo[k], de: "local" } : { v: "", de: "" }; });
+    const sg = ia && ia.acionar, ac = lo.acionar, outro = (k) => sg && sg[k] && (k === "app" ? sg[k] !== ac[k] : onlyDigits(sg[k]) !== onlyDigits(ac[k]));
+    return { tipo: (ia && ia.tipo) || lo.tipo, tipoDe: ia && ia.tipo ? "ia" : "local", ia: !!ia, c, acionar: ac, sugestao: ["tel", "whats", "app"].some(outro) ? sg : null, sec: lo.sec };
+  },
+  /* bilhete reemitido: vale o de emissão mais nova; sem a data de emissão nos dois, o que começa por último (com aviso) */
+  _reemitido(velho, novo) {
+    const a = GarCalc._o(velho), b = GarCalc._o(novo), d = (x) => GarCalc.ehData(x);
+    if (d(a.emitidoEm) && d(b.emitidoEm)) return { novo: b.emitidoEm >= a.emitidoEm, semData: false };
+    return { novo: d(a.inicio) && d(b.inicio) ? b.inicio >= a.inicio : true, semData: true };
+  },
+  /* 📷 Ler nota ou bilhete: vários arquivos de uma vez, no Fundo (não morre ao sair da tela); depois, uma conferência por arquivo */
+  async lerArquivos(thingId) {
+    const alvo = thingId ? DB.get("things", thingId) : null;
+    const no = this.recusa(alvo); if (no) return toast(no);
+    if (!Rec.ok("garantias")) return Rec.avisar();
+    if (alvo && GarCalc._saiu(this.ler(alvo))) return toast(tt("Esta coisa saiu de casa: a ficha fica só como histórico.", "This item is no longer at home: its record stays as history only.", "Esta cosa ya no está en casa: la ficha queda solo como historial."));
+    const fs0 = await Files.pick("image/*,application/pdf", true); if (!fs0 || !fs0.length) return;
+    const fs = fs0.filter((f) => /^image\//.test(f.type) || f.type === "application/pdf");
+    if (fs.length < fs0.length) toast(tt("Alguns arquivos não são foto nem PDF e ficaram de fora.", "Some files aren't photos or PDFs and were left out.", "Algunos archivos no son fotos ni PDF y se han quedado fuera."), 4000);
+    if (!fs.length) return;
+    const guardados = new Set();
+    DB.all("things").forEach((t) => { try { const g = this.ler(t); if (g && !g._novo) g.arquivos.forEach((a) => a.hash && guardados.add(a.hash)); } catch (e) {} });
+    const rota = location.hash, fila = [];   /* os números ficam aqui, só na memória, até a conferência: o resultado do Fundo não leva nenhum */
+    const executar = async (andamento, ctrl) => {
+      const fala = (p, x) => { try { if (andamento) andamento(p, x); } catch (e) {} };
+      /* ✕ na pílula: para na hora — nada mais é lido e nada vai para a IA */
+      const parou = () => { if ((ctrl && ctrl.cancelado && ctrl.cancelado()) || (ctrl && ctrl.sinal && ctrl.sinal.aborted)) throw Object.assign(new Error("cancelado"), { cancelado: true }); };
+      const vistos = new Set(); let repetidos = 0, jaTem = 0;
+      for (let i = 0; i < fs.length; i++) {
+        parou();
+        const f = fs[i], diz = (x) => fala(i / fs.length, x), h = await Batch.hash(f); parou();
+        if (vistos.has(h)) { repetidos++; continue; }
+        vistos.add(h);
+        if (guardados.has(h)) { jaTem++; continue; }
+        diz(tt("Lendo ", "Reading ", "Leyendo ") + (fs.length > 1 ? (i + 1) + "/" + fs.length : tt("o arquivo", "the file", "el archivo")) + "…");
+        let texto = "";
+        if (f.type === "application/pdf") { const o = await ShopImport.pdf(f, diz); parou(); texto = o.text; for (const im of o.imgs.slice(0, 4)) { texto += "\n" + (await OCR.read(im, null, true)); parou(); } }
+        else { texto = await OCR.read(f, (x) => fala((i + x) / fs.length), true); parou(); }
+        const m = this.mascarar(texto), lo = this.local(texto, m); let ia = null;
+        if (AI.on() && Rec.on("ia") && Net.canAI()) {
+          fala((i + 0.9) / fs.length, tt("A IA está organizando o que foi lido…", "The AI is organising what was read…", "La IA está ordenando lo que se ha leído…"));
+          parou();
+          try { ia = this.daIA(await AI.ask0(this.prompt(m), [], true)); } catch (e) {}
+          parou();
+        }
+        fila.push({ f, hash: h, lido: this._juntar(lo, ia) });
+      }
+      return { n: fila.length, repetidos, jaTem };
+    };
+    const abrir = (r) => this.conferirFila(fila, r, alvo ? alvo.id : "");
+    try {
+      if (window.DGO && DGO.fundo && DGO.fundo.iniciar) await DGO.fundo.iniciar({ tipo: "foto", titulo: tt("Lendo a nota ou o bilhete", "Reading the invoice or certificate", "Leyendo la factura o el certificado del seguro"), rota, aindaNaTela: () => location.hash === rota, podeCancelar: true, tentarDeNovo: false, executar, aoAbrir: abrir });
+      else abrir(await executar(null));
+    } catch (e) {
+      fila.length = 0;
+      if (!e || !e.cancelado) toast(tt("Não consegui ler: ", "Couldn't read it: ", "No he podido leerlo: ") + ((e && e.message) || e) + " " + tt("Você pode anotar à mão (＋ Nova garantia).", "You can type it in (＋ New warranty).", "Puedes anotarlo a mano (＋ Nueva garantía)."), 7000);
+    }
+  },
+  /* uma conferência por arquivo ("1 de 3"); cada uma grava sozinha ao tocar em Salvar, e Cancelar pula aquela */
+  async conferirFila(fila, r, alvoId) {
+    try {
+      if (r && r.jaTem) toast(r.jaTem === 1 ? tt("1 arquivo já está guardado numa garantia e ficou de fora.", "1 file is already saved in a warranty and was left out.", "1 archivo ya está guardado en una garantía y se ha quedado fuera.") : tt(r.jaTem + " arquivos já estão guardados numa garantia e ficaram de fora.", r.jaTem + " files are already saved in a warranty and were left out.", r.jaTem + " archivos ya están guardados en una garantía y se han quedado fuera."), 5000);
+      if (r && r.repetidos) toast(tt("Arquivo repetido na escolha: conta uma vez só.", "A file was picked twice: it counts only once.", "Un archivo se ha elegido dos veces: cuenta una sola vez."), 4000);
+      let ult = null;
+      for (let i = 0; i < fila.length; i++) { const t = await this.conferir(fila[i], i, fila.length, alvoId); fila[i] = null; if (t) ult = t; }
+      if (ult) go("garantias", "ficha", ult.id);
+    } finally { fila.length = 0; }
+  },
+  /* a conferência de um arquivo: os campos lidos (🤖 IA / 📱 aparelho), "Ligar a", os números (só no modo aberto, conferido agora:
+     fora dele, são descartados antes de desenhar) e "Guardar este arquivo". Nada é gravado antes do Salvar */
+  async conferir(x, i, n, alvoId) {
+    const L = x.lido, c = L.c, estado = { daIA: false, fechou: false };
+    if (this.modo() !== "aberto") L.sec = null;
+    const temSec = !!L.sec, sec = L.sec || {}, alvo = alvoId ? DB.get("things", alvoId) : null;
+    const alvos = DB.all("things").filter((t) => { const g = this.ler(t); return !(g && (g._novo || g.saiu)); }).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    const IA = "🤖 " + tt("Lido com a IA — confira", "Read with the AI — check it", "Leído con la IA — compruébalo"), AP = "📱 " + tt("Lido no aparelho", "Read on the device", "Leído en el dispositivo");
+    const fld = (k, f) => { const de = c[k] && c[k].de === "ia" ? IA : c[k] && c[k].de === "local" ? AP : ""; f.hint = [de, f.hint].filter(Boolean).join(" · "); return f; };
+    const h = (t, cls) => ({ type: "html", html: '<div class="grouph' + (cls ? " " + cls : "") + '">' + t + "</div>" }), sg = L.sugestao;
+    const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+    const fields = [
+      { type: "html", html: '<p class="small">' + (n > 1 ? tt("Arquivo " + (i + 1) + " de " + n, "File " + (i + 1) + " of " + n, "Archivo " + (i + 1) + " de " + n) + " · " : "") + tt("Confira o que foi lido: nada é salvo antes de você tocar em Salvar.", "Check what was read: nothing is saved until you tap Save.", "Comprueba lo que se ha leído: no se guarda nada hasta que toques Guardar.") + "</p>" +
+        (L.ia ? '<p class="tiny muted">' + IA + " · " + AP + "</p>" : "") },
+      { k: "_tipo", label: tt("Que papel é", "What document it is", "Qué documento es"), type: "select", hint: L.tipoDe === "ia" ? IA : AP,
+        opts: [["nota", "🧾 " + tt("Nota fiscal ou cupom", "Invoice or receipt", "Factura o tique")], ["bilhete", "🛡️ " + tt("Bilhete do seguro (garantia estendida)", "Insurance certificate (extended warranty)", "Certificado del seguro (garantía extendida)")]] },
+      { k: "_ligar", label: tt("Ligar a", "Link to", "Vincular a"), type: "select", opts: [["", "＋ " + tt("Nova (uma coisa nova)", "New (a new item)", "Nueva (una cosa nueva)")]].concat(alvos.map((t) => [t.id, (t.garantia ? "🧾 " : "🔹 ") + String(t.name || "")])),
+        hint: tt("Se a garantia já existe (ex.: a nota já está guardada e agora é o bilhete), escolha aqui.", "If the warranty already exists (e.g. the invoice is saved and now it's the certificate), pick it here.", "Si la garantía ya existe (p. ej., la factura ya está guardada y ahora es el certificado del seguro), elígela aquí.") },
+      fld("nome", { k: "name", label: tt("O que é", "What is it", "Qué es"), req: true }),
+      fld("marca", { k: "garantia.marca", label: tt("Marca", "Brand", "Marca") }), fld("modelo", { k: "garantia.modelo", label: tt("Modelo", "Model", "Modelo") }),
+      fld("data", { k: "garantia.compra.data", label: tt("Data da compra", "Purchase date", "Fecha de compra"), type: "date" }), fld("loja", { k: "garantia.compra.loja", label: tt("Loja", "Store", "Tienda") }),
+      fld("fabMeses", { k: "_fabMeses", label: tt("Meses de garantia de fábrica (se o papel disser)", "Months of factory warranty (if the document says)", "Meses de garantía de fábrica (si lo dice el documento)"), type: "number", im: "numeric" }),
+      h("🛡️ " + tt("Garantia estendida (seguro)", "Extended warranty (insurance)", "Garantía extendida (seguro)"), "gar-e"),
+      fld("quem", { k: "garantia.estendida.quem", e: 1, label: tt("Quem cobre", "Who covers it", "Quién la cubre"), type: "select",
+        opts: [["naosei", tt("Não sei", "I don't know", "No lo sé")], ["seguradora", tt("Uma seguradora", "An insurer", "Una aseguradora")], ["loja", tt("A loja", "The store", "La tienda")], ["fabricante", tt("O fabricante", "The manufacturer", "El fabricante")], ["cartao", tt("O seguro do cartão de crédito", "The credit card's insurance", "El seguro de la tarjeta de crédito")]] }),
+      fld("seguradora", { k: "garantia.estendida.seguradora", e: 1, label: tt("Nome da seguradora", "Insurer's name", "Nombre de la aseguradora") }),
+      fld("inicio", { k: "garantia.estendida.inicio", e: 1, label: tt("Começa em (no bilhete)", "Starts on (on the certificate)", "Empieza el (en el certificado del seguro)"), type: "date", hint: tt("“Às 24h do dia X” = começa no dia seguinte.", "“At midnight on day X” = it starts the next day.", "«A las 24 h del día X» = empieza al día siguiente.") }),
+      fld("fim", { k: "garantia.estendida.fim", e: 1, label: tt("Acaba em (no bilhete)", "Ends on (on the certificate)", "Termina el (en el certificado del seguro)"), type: "date" }),
+      fld("meses", { k: "_estMeses", e: 1, label: tt("Quantos meses (se o bilhete não tiver as datas)", "How many months (if the certificate has no dates)", "Cuántos meses (si el certificado no tiene las fechas)"), type: "number", im: "numeric" }),
+      fld("emitidoEm", { k: "garantia.estendida.emitidoEm", e: 1, label: tt("Emitido em (no bilhete)", "Issued on (on the certificate)", "Emitido el (en el certificado del seguro)"), type: "date", hint: tt("Se o bilhete foi reemitido, vale o mais novo.", "If the certificate was reissued, the newest one counts.", "Si el certificado se volvió a emitir, vale el más nuevo.") }),
+      { k: "garantia.estendida.acionar.tel", e: 1, label: tt("Telefones para acionar (um por linha, assim: Nome: número)", "Phone numbers to file a claim (one per line, like this: Name: number)", "Teléfonos para dar parte (uno por línea, así: Nombre: número)"), type: "textarea", rows: 2, hint: L.acionar.tel ? AP : "" },
+      { k: "garantia.estendida.acionar.whats", e: 1, label: "WhatsApp", type: "tel", hint: L.acionar.whats ? AP : "" },
+      { k: "garantia.estendida.acionar.app", e: 1, label: tt("App ou site para acionar", "App or website to file a claim", "App o web para dar parte"), ph: "https://…", hint: L.acionar.app ? AP : "" }];
+    /* como acionar que veio da IA: nunca entra sozinho (um papel de golpe pode enganar a IA); mostra o domínio e o botão "Usar" */
+    if (sg) fields.push({ type: "html", html: '<div class="note small gar-sug gar-e">🤖 <b>' + tt("Sugerido pela IA — confira no bilhete", "Suggested by the AI — check the certificate", "Sugerido por la IA — compruébalo en el certificado del seguro") + "</b><div>" +
+      [sg.tel ? "📞 " + esc(sg.tel).replace(/\n/g, "<br>📞 ") : "", sg.whats ? "💬 " + esc(sg.whats) : "", sg.app ? "📲 " + tt("abre ", "opens ", "abre ") + esc(host(sg.app)) : ""].filter(Boolean).join("<br>") +
+      '</div><div class="row" style="margin-top:6px"><button type="button" class="btn ghost" data-garia>' + tt("Usar", "Use", "Usar") + "</button></div></div>" });
+    if (temSec) fields.push(h("🔐 " + tt("Protegido (fica trancado nas Senhas da casa)", "Protected (kept locked in the vault)", "Protegido (queda bajo llave en las Contraseñas de casa)"), "gar-s"),
+      { k: "_sec.pedido", label: tt("Nº do pedido", "Order number", "Nº de pedido") }, { k: "_sec.number", label: tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro") },
+      { k: "_sec.serie", label: tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI") }, { k: "_sec.chaveNF", label: tt("Chave da nota fiscal (44 números)", "Invoice access key (44 digits)", "Clave de la factura (44 números)"), im: "numeric" },
+      { k: "_sec.valor", label: "💰 " + tt("Valor pago (R$)", "Amount paid (R$)", "Importe pagado (R$)"), type: "number", step: "any" }, { k: "_sec.preco", label: tt("Preço da estendida (R$)", "Extended warranty price (R$)", "Precio de la extendida (R$)"), type: "number", step: "any" });
+    else fields.push({ type: "html", html: '<div class="note small">🔒 ' + tt("Os números lidos (pedido, bilhete, série, chave da nota e valor) foram descartados: eles só aparecem com as Senhas da casa abertas, para um responsável.", "The numbers that were read (order, certificate, serial, invoice key and amount) were discarded: they only show with the vault open, for a guardian.", "Los números leídos (pedido, certificado del seguro, serie, clave de la factura e importe) se han descartado: solo aparecen con las Contraseñas de casa abiertas, para un responsable.") + "</div>" });
+    fields.push({ k: "_guardar", type: "check", label: "📎 " + tt("Guardar este arquivo junto (trancado: só um responsável abre)", "Save this file too (locked: only a guardian opens it)", "Guardar también este archivo (bajo llave: solo lo abre un responsable)") });
+    const vals = { _tipo: L.tipo, _ligar: alvo ? alvo.id : "", name: alvo ? String(alvo.name || "") : c.nome.v, _guardar: true, _fabMeses: c.fabMeses.v || "", _estMeses: c.meses.v || "",
+      garantia: { marca: c.marca.v, modelo: c.modelo.v, compra: { data: c.data.v, loja: c.loja.v },
+        estendida: { quem: c.quem.v || "naosei", seguradora: c.seguradora.v, inicio: c.inicio.v, fim: c.fim.v, emitidoEm: c.emitidoEm.v, acionar: { tel: L.acionar.tel, whats: L.acionar.whats, app: L.acionar.app } } } };
+    if (temSec) vals._sec = { pedido: sec.pedido || "", number: sec.number || "", serie: sec.serie || "", chaveNF: sec.chaveNF || "", valor: sec.valor || "", preco: sec.preco || "" };
+    const after = (el) => {
+      fields.forEach((f) => { const i = f.k && el.querySelector('[name="' + f.k + '"]'), b = i && i.closest(".fld, .check"); if (b && f.e) b.classList.add("gar-e"); });
+      const tp = el.querySelector('[name="_tipo"]'), aplicar = () => el.querySelectorAll(".gar-e").forEach((b) => b.classList.toggle("hidden", tp.value !== "bilhete"));
+      tp.addEventListener("change", aplicar); aplicar();
+      /* "Ligar a": o nome passa a ser o da coisa escolhida (a não ser que a pessoa tenha escrito outro) */
+      const lg = el.querySelector('[name="_ligar"]'), nome = el.querySelector('[name="name"]'); let auto = nome.value;
+      lg.addEventListener("change", () => { const t = alvos.find((y) => y.id === lg.value); if (!nome.value.trim() || nome.value === auto) { auto = t ? String(t.name || "") : c.nome.v; nome.value = auto; } });
+      const usar = el.querySelector("[data-garia]");
+      if (usar) usar.onclick = () => { ["tel", "whats", "app"].forEach((k) => { const i = el.querySelector('[name="garantia.estendida.acionar.' + k + '"]'); if (i && sg[k]) i.value = sg[k]; }); estado.daIA = true; toast("🤖 " + tt("Pronto: confira no bilhete antes de ligar.", "Done: check the certificate before calling.", "Listo: compruébalo en el certificado del seguro antes de llamar."), 4000); };
+      /* o relógio do formulário: se as Senhas da casa fecham com a janela aberta, os números somem dela */
+      if (temSec) { const iv = setInterval(() => { if (!el.isConnected) return clearInterval(iv); if (S.vaultKey) return; clearInterval(iv); estado.fechou = true; el.querySelectorAll('[name^="_sec."]').forEach((i) => { i.value = ""; const b = i.closest(".fld"); if (b) b.classList.add("hidden"); }); el.querySelectorAll(".gar-s").forEach((b) => b.classList.add("hidden")); }, 1000); }
+    };
+    const r = await formModal({ title: "📷 " + tt("Confira o que foi lido", "Check what was read", "Comprueba lo que se ha leído"), fields, values: vals, wide: true, after,
+      onOk: (o) => { const e = GarCalc._o(GarCalc._o(o.garantia).estendida);
+        if (o._tipo === "bilhete" && e.emitidoEm && !GarCalc.ehData(e.emitidoEm)) { toast("⚠️ " + tt("Confira as datas: o ano precisa estar entre 1990 e 2100.", "Check the dates: the year must be between 1990 and 2100.", "Revisa las fechas: el año tiene que estar entre 1990 y 2100."), 5000); return false; }
+        return this.conferirForm({ garantia: deepMerge(GarCalc._o(o.garantia), { estendida: { tem: o._tipo === "bilhete" ? "sim" : "nao" } }), _fabMeses: o._fabMeses === "" || o._fabMeses == null ? "" : "outro", _fabOutro: o._fabMeses, _estMeses: o._estMeses }); } });
+    if (!r) return null;
+    try { return await this._salvarLido(r, x, estado); }
+    catch (e) { console.error(e); toast(tt("Não consegui salvar: ", "Couldn't save: ", "No he podido guardarlo: ") + ((e && e.message) || e), 6000); return null; }
+  },
+  /* grava o que a conferência mostrou: o vazio não apaga o que já estava. Ordem: o arquivo (trancado), os números (Senhas da casa) e,
+     por último, o objeto */
+  async _salvarLido(r, x, estado) {
+    const bil = r._tipo === "bilhete", lig = r._ligar ? DB.get("things", r._ligar) : null;
+    if (lig) { const no = this.recusa(lig); if (no) { toast(no); return null; } }
+    const t = lig ? JSON.parse(JSON.stringify(DB.col("things").get(lig.id) || lig)) : { id: uid(), place: "", vis: "familia", tags: [] };
+    const nova = !t.garantia || typeof t.garantia !== "object", g = t.garantia = JSON.parse(JSON.stringify(GarCalc._o(t.garantia)));
+    const por = (o, k, v) => { if (v !== "" && v != null && v !== "naosei") o[k] = v; };
+    const rg = GarCalc._o(r.garantia), rc = GarCalc._o(rg.compra), re = GarCalc._o(rg.estendida), ra = GarCalc._o(re.acionar);
+    t.name = String(r.name || "").trim() || t.name || "";
+    g.v = 1; g.ref = (this.ler(t) || {}).ref || "gar_" + t.id;   /* fixo: o mesmo nos dois celulares */
+    g.arquivos = Array.isArray(g.arquivos) ? g.arquivos : []; g.finais = GarCalc._o(g.finais);
+    g.origem = nova ? "foto" : GAR_ENUM.origem.includes(g.origem) ? g.origem : "manual";
+    let antigo = false;
+    if (bil) {
+      /* reemitido: o de emissão mais nova vale; o outro fica guardado como "bilhete antigo" */
+      const eA = GarCalc._o(g.estendida), velhos = g.arquivos.filter((a) => a && a.tipo === "bilhete" && !a.antigo);
+      if (velhos.length || (eA.tem === "sim" && (eA.inicio || eA.fim || eA.emitidoEm))) {
+        const q = this._reemitido({ emitidoEm: eA.emitidoEm, inicio: eA.inicio }, { emitidoEm: re.emitidoEm, inicio: re.inicio });
+        if (q.novo) velhos.forEach((a) => (a.antigo = true)); else antigo = true;
+        toast(q.semData ? "⚠️ " + tt("Sem a data de emissão, ficou valendo o bilhete que começa por último. Confira a estendida.", "Without the issue date, the certificate that starts last is the one that counts. Check the extended warranty.", "Sin la fecha de emisión, vale el certificado que empieza más tarde. Revisa la extendida.")
+          : q.novo ? tt("Bilhete mais novo: ele passa a valer, e o de antes fica como bilhete antigo.", "Newer certificate: it now counts, and the previous one stays as an old certificate.", "Certificado más nuevo: pasa a valer, y el anterior queda como certificado antiguo.")
+          : tt("Este bilhete é mais antigo que o da garantia: ficou guardado como bilhete antigo.", "This certificate is older than the warranty's: it was saved as an old certificate.", "Este certificado es más antiguo que el de la garantía: se ha guardado como certificado antiguo."), 6000);
+      }
+      if (!antigo) {
+        const e = g.estendida = GarCalc._o(g.estendida); e.tem = "sim"; e.cancelada = false;
+        ["quem", "seguradora", "inicio", "fim", "emitidoEm"].forEach((k) => por(e, k, re[k]));
+        if (r._estMeses !== "" && r._estMeses != null) e.meses = +r._estMeses;
+        e.acionar = GarCalc._o(e.acionar); ["tel", "whats", "app"].forEach((k) => por(e.acionar, k, ra[k]));
+        if (ra.tel || ra.whats || ra.app) e.acionar.daIA = !!estado.daIA;
+      }
+    }
+    /* um bilhete mais antigo que o da garantia só fica guardado: não muda nada do que já estava */
+    if (!antigo) {
+      por(g, "marca", rg.marca); por(g, "modelo", rg.modelo);
+      g.compra = GarCalc._o(g.compra); por(g.compra, "data", rc.data); por(g.compra, "loja", rc.loja);
+      if (r._fabMeses !== "" && r._fabMeses != null) { g.fabrica = GarCalc._o(g.fabrica); g.fabrica.meses = +r._fabMeses; }
+    }
+    /* o arquivo vai trancado (só com as Senhas da casa abertas, que podem abrir aqui mesmo); sem elas, não é guardado e o resto é */
+    if (r._guardar) {
+      let fid = null, ok = !!S.vaultKey;
+      if (!ok) ok = (await Cars.abrirCasa({ pt: "Para trancar a nota e o bilhete da garantia.", en: "To lock the warranty's invoice and certificate." })) === true;
+      const pm = ok ? Cofre.podeMudar() : { ok: false };
+      if (ok && pm.ok && S.vaultKey) {
+        const P = GAR_PAPEIS().find((p) => p[0] === (bil ? "bilhete" : "nota")), f = x.f, ext = /pdf/.test(f.type) ? ".pdf" : /png/.test(f.type) ? ".png" : ".jpg";
+        fid = await Files.save(new File([f], P[3] + ext, { type: f.type }), { encrypt: true, vis: "restrito", raw: /pdf/.test(f.type) });
+        if (fid) await DB.put("files", Object.assign({}, Files.meta(fid), { gar: t.id }), true);   /* a marca: apagar o objeto leva o papel junto */
+      }
+      if (fid) g.arquivos.push({ id: fid, tipo: bil ? "bilhete" : "nota", hash: /^[0-9a-f]+$/.test(x.hash) ? x.hash : "", em: today(), emitidoEm: bil && GarCalc.ehData(re.emitidoEm) ? re.emitidoEm : "", antigo });
+      else toast("📎 " + (ok && !pm.ok ? pm.texto : isGuardian() ? tt("O arquivo não foi guardado (ele fica trancado, e as Senhas da casa não estão abertas); o resto foi salvo.", "The file wasn't saved (it stays locked, and the vault isn't open); the rest was saved.", "El archivo no se ha guardado (queda bajo llave y las Contraseñas de casa no están abiertas); el resto sí.")
+        : tt("O arquivo não foi guardado (só um responsável guarda a nota e o bilhete, que ficam trancados); o resto foi salvo.", "The file wasn't saved (only a guardian saves the invoice and the certificate, which stay locked); the rest was saved.", "El archivo no se ha guardado (solo un responsable guarda la factura y el certificado del seguro, que quedan bajo llave); el resto sí.")), 6000);
+    }
+    /* os números: só se o modo aberto ainda vale agora e as Senhas não fecharam com a janela aberta; juntam-se aos que já estavam */
+    const s0 = GarCalc._o(r._sec), lidos = { pedido: s0.pedido, number: s0.number, serie: s0.serie, chaveNF: s0.chaveNF, valorCent: this.cent(s0.valor), precoCent: this.cent(s0.preco) };
+    if (x.lido.sec && !antigo && Object.values(lidos).some((v) => v !== "" && v != null)) {
+      if (estado.fechou || this.modo() !== "aberto") toast(tt("As Senhas da casa fecharam: os números lidos não foram guardados.", "The vault closed: the numbers that were read weren't saved.", "Las Contraseñas de casa se cerraron: los números leídos no se han guardado."), 6000);
+      else {
+        try {
+          const atual = await this.segredo(t);
+          if (atual && atual._falta) toast(tt("Os números desta garantia não estão neste aparelho agora, então não mudaram.", "This warranty's numbers aren't on this device right now, so they didn't change.", "Los números de esta garantía no están en este dispositivo ahora, así que no han cambiado."), 6000);
+          else {
+            const s = {}; GAR_SEC.forEach((k) => (s[k] = atual && atual[k] != null ? atual[k] : ""));
+            Object.keys(lidos).forEach((k) => { if (lidos[k] !== "" && lidos[k] != null) s[k] = String(lidos[k]).trim(); });
+            const vid = await this.guardarSegredo(t, s);
+            if (vid) { g.vaultId = vid; if (DB.col("vault").get(vid)) g.finais = { pedido: GarCalc.final4(String(s.pedido || "")), bilhete: GarCalc.final4(String(s.number || "")), serie: GarCalc.final4(String(s.serie || "")) }; }
+          }
+        } catch (e) { toast(tt("Não consegui trancar os números: ", "Couldn't lock the numbers: ", "No he podido guardar bajo llave los números: ") + (e.message || e), 6000); }
+      }
+    }
+    await DB.put("things", t);
+    return t;
   }
 };
 /* aba própria 🧾 Garantias (D-G1), no ☰ em "Casa, carro e papéis" */
@@ -13941,7 +14304,7 @@ SCREENS.garantias = {
     const seg = ficha ? "" : '<div class="seg" role="group" aria-label="' + tt("Partes de Garantias", "Warranties sections", "Partes de Garantías") + '">' + [["lista", "🧾 " + tt("Lista", "List", "Lista")], ["estragou", "🆘 " + tt("Estragou? E agora?", "Broken? What now?", "¿Se ha estropeado? ¿Y ahora qué?")]].map((s) =>
       '<button type="button" data-act="go" data-tab="garantias" data-sub="' + s[0] + '"' + ((s[0] === "estragou") === est ? ' class="active" aria-pressed="true"' : ' aria-pressed="false"') + ">" + s[1] + "</button>").join("") + "</div>";
     return '<div class="gar"><div class="pagehead"><div><h1>🧾 ' + tt("Garantias", "Warranties", "Garantías") + '</h1><div class="sub">' + tt("O que tem garantia em casa, até quando vale e o que fazer quando estraga", "What has a warranty at home, how long it lasts and what to do when it breaks", "Qué tiene garantía en casa, hasta cuándo dura y qué hacer cuando se estropea") + "</div></div>" +
-      (G && G.total && Garantias.podeEditar() ? '<div class="row"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + "</button></div>" : "") + "</div>" + seg +
+      (G && G.total && Garantias.podeEditar() ? '<div class="row"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + '</button><button class="btn ghost" data-act="gar.foto">📷 ' + tt("Ler nota ou bilhete", "Read invoice or certificate", "Leer factura o certificado") + "</button></div>" : "") + "</div>" + seg +
       (ficha ? Garantias.view(arg) : est ? Garantias.estragou(arg) + Garantias.rodape() : (isGuardian() && S.vaultKey ? '<div id="garsobras"></div>' : "") + Garantias.listView(G) + Garantias.rodape()) + "</div>";
   },
   after(root, sub, arg) { if (sub === "ficha" && arg) Garantias.after(root, arg); else Garantias.sobrasCartao(root); }
@@ -13954,6 +14317,7 @@ ACT["gar.assist"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.
 ACT["gar.assistnovo"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.assistNovo(t); };
 ACT["gar.edit"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.edit(t); else toast(tt("Garantia não encontrada.", "Warranty not found.", "No se ha encontrado la garantía.")); };
 ACT["gar.papel"] = (d) => Garantias.addPapel(d.id, d.tipo);
+ACT["gar.foto"] = (d) => Garantias.lerArquivos(d && d.id);
 ACT["gar.papeldel"] = (d) => Garantias.tirarPapel(d.id, d.ref);
 ACT["gar.sobras"] = () => Garantias.tirarSobras();
 ACT["gar.abrircasa"] = async () => { const ok = await Cars.abrirCasa({ pt: "Para ver os números da garantia.", en: "To see the warranty numbers." }); if (ok === null) return toast(tt("Antes, abra ou crie as 🔐 Senhas da casa (Casa → Senhas da casa).", "First open or set up the 🔐 vault (House → Home passwords).", "Antes, abre o crea las 🔐 Contraseñas de casa (Casa → Contraseñas de casa)."), 6000); if (ok) render(); };
