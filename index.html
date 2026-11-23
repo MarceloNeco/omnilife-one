@@ -618,6 +618,7 @@ body:not(.booted) .apfaixa{display:none}
 .giro ul li{margin:4px 0}
 /* 2.28.0: 🧾 Garantias — alvos de 44 px (o .seg padrão tem uns 33 px); os 4 filtros em duas linhas no celular (sem rolar para o lado) e numa só no computador */
 .gar .seg button,.gar .linkbtn,.gar details.more>summary{min-height:44px}
+.gar .linkbtn{min-width:44px}   /* o nome curto no caminho "🧾 Garantias › TV › 🆘" também */
 .gar .seg.garf{flex-wrap:wrap;border-radius:14px}
 .gar .seg.garf button{flex:1 1 150px;border-radius:11px}
 .giro .note{margin:10px 0}
@@ -8018,7 +8019,7 @@ const DRAWER_SUBS = () => ({
   security: [["cheguei", "✅ " + tt("Cheguei", "Check-in")], ["vigia", "👁 " + tt("Modo Vigilante", "Watch mode")], ["alertas", "📣 " + tt("Alertas", "Alerts")]],
   house: [["where", tt("Onde está?", "Where is it?")], ["maint", tt("Manutenção", "Maintenance")], ["vault", tt("Senhas da casa", "Home passwords")], ["guides", tt("Guias", "Guides")]],
   cars: [["lista", tt("Carros", "Cars")], ["vida", tt("Vida do carro", "Car history")]],
-  garantias: [["lista", tt("Lista", "List", "Lista")]],
+  garantias: [["lista", tt("Lista", "List", "Lista")], ["estragou", tt("Estragou? E agora?", "Broken? What now?", "¿Se ha estropeado? ¿Y ahora qué?")]],
   settings: [["general", tt("Geral", "General")], ["ai", "IA"], ["a11y", tt("Acessibilidade", "Accessibility")], ["net", tt("Rede e dados", "Network & data")], ["offline", tt("Instalar app para acessar sem internet", "Install the app to use offline")], ["cloud", tt("Nuvem", "Cloud")], ["alerts", tt("Avisos", "Alerts")], ["data", tt("Dados", "Data")], ["versions", tt("Versões & Novidades", "Versions & What's new")]].concat(typeof Weather !== "undefined" && Weather.visible() ? [["clima", tt("Clima", "Weather")]] : [])
 });
 /* A gaveta ☰ é uma janela da janela comum (janela.js): o <dialog> cobre a tela com o fundo escuro e a gaveta desliza
@@ -10598,7 +10599,7 @@ ACT["ho.pdf"] = async () => {
 /* =====================================================================
    CONTATOS, SERVIÇOS POR CEP, LEITOR DE TEXTO (IA) E SAÚDE
    ===================================================================== */
-const CT_CATS = () => [["escola", "🎒", tt("Escola", "School")], ["saude", "🩺", tt("Saúde", "Health")], ["emergencia", "🚨", tt("Emergência", "Emergency")], ["casa", "🔧", tt("Serviços da casa", "Home services")], ["vizinhos", "🏘", tt("Vizinhos", "Neighbors")], ["familia", "👪", tt("Parentes e amigos", "Relatives & friends")], ["trabalho", "💼", tt("Trabalho", "Work")], ["juridico", "⚖️", tt("Advogado / contador", "Lawyer / accountant")], ["financeiro", "🏦", tt("Banco / seguros", "Bank / insurance")], ["publico", "🏛", tt("Serviços públicos", "Public services")], ["pet", "🐾", "Pet"], ["outro", "📌", tt("Outro", "Other")]];
+const CT_CATS = () => [["escola", "🎒", tt("Escola", "School")], ["saude", "🩺", tt("Saúde", "Health")], ["emergencia", "🚨", tt("Emergência", "Emergency")], ["casa", "🔧", tt("Serviços da casa", "Home services")], ["vizinhos", "🏘", tt("Vizinhos", "Neighbors")], ["familia", "👪", tt("Parentes e amigos", "Relatives & friends")], ["trabalho", "💼", tt("Trabalho", "Work")], ["juridico", "⚖️", tt("Advogado / contador", "Lawyer / accountant")], ["financeiro", "🏦", tt("Banco / seguros", "Bank / insurance")], ["publico", "🏛", tt("Serviços públicos", "Public services")], ["pet", "🐾", "Pet"], ["assistencia", "🔧", tt("Assistência técnica", "Repair service", "Servicio técnico")], ["outro", "📌", tt("Outro", "Other")]];
 const ctCat = (id) => { const c = CT_CATS().find((x) => x[0] === id) || CT_CATS()[CT_CATS().length - 1]; return { id: c[0], ic: c[1], t: c[2] }; };
 
 const Contacts = {
@@ -13259,7 +13260,7 @@ const Garantias = {
   /* AssistONE desta tela (AOne.HERE) e a dica da tela (AOne.TIPS) */
   AQUI() {
     return [tt("Garantias", "Warranties", "Garantías"), tt("Até quando vale cada garantia: a de fábrica, o prazo da lei para reclamar e a estendida. Para começar, basta o nome da coisa e a data da compra.", "How long each warranty lasts: the factory one, the legal deadline to complain and the extended one. To start, just the item's name and the purchase date.", "Hasta cuándo dura cada garantía: la de fábrica, el plazo legal para reclamar y la extendida. Para empezar, basta con el nombre de la cosa y la fecha de compra."),
-      (this.podeEditar() ? [["＋ " + tt("Nova garantia", "New warranty", "Nueva garantía"), () => ACT["gar.new"](), 1]] : []).concat([["⏰ " + tt("O que vence?", "What's ending?", "¿Qué vence?"), () => { S.garF = "em30"; go("garantias", "lista"); }, 1], ["❓ " + tt("Como funciona", "How it works", "Cómo funciona"), () => Help.open("garantias")]])];
+      (this.podeEditar() ? [["＋ " + tt("Nova garantia", "New warranty", "Nueva garantía"), () => ACT["gar.new"](), 1]] : []).concat([["⏰ " + tt("O que vence?", "What's ending?", "¿Qué vence?"), () => { S.garF = "em30"; go("garantias", "lista"); }, 1], ["🆘 " + tt("Estragou?", "Broken?", "¿Se ha estropeado?"), () => go("garantias", "estragou")], ["❓ " + tt("Como funciona", "How it works", "Cómo funciona"), () => Help.open("garantias")]])];
   },
   DICA() { return tt("Dica: basta o nome da coisa e a data da compra. Eu conto até quando vale cada garantia e mostro o que vence nos próximos 30 dias.", "Tip: the item's name and the purchase date are enough. I work out how long each warranty lasts and show what ends in the next 30 days.", "Consejo: basta con el nombre de la cosa y la fecha de compra. Calculo hasta cuándo dura cada garantía y te enseño lo que vence en los próximos 30 días."); },
   /* ---------- G3: a ficha, o formulário, as Senhas da casa e os papéis ---------- */
@@ -13614,6 +13615,10 @@ const Garantias = {
     h += '<div class="card" id="garpap"><h3>📎 ' + tt("Papéis", "Documents", "Documentos") + "</h3>" + (pap ? '<div class="list">' + pap + "</div>" : '<p class="small muted">' + tt("Nenhum papel guardado ainda.", "No documents saved yet.", "Todavía no hay documentos guardados.") + "</p>") +
       (pode ? '<div class="row" style="margin-top:8px">' + P.slice(0, 4).map((p) => '<button class="btn ghost" data-act="gar.papel" data-id="' + tid + '" data-tipo="' + p[0] + '">＋ ' + esc(p[2]) + "</button>").join("") + "</div>" : "") +
       '<p class="tiny faint" style="margin-top:6px">🔒 ' + tt("A nota e o bilhete ficam trancados (só um responsável abre); o folheto e o manual, com o “Quem vê” do objeto.", "The invoice and the certificate stay locked (only a guardian opens them); the leaflet and the manual follow the item's “Visible to”.", "La factura y el certificado del seguro quedan bajo llave (solo un responsable los abre); el folleto y el manual siguen el «Quién lo ve» del objeto.") + (S.mode === "cloud" ? " 📱 " + tt("Os papéis ficam só no aparelho onde foram guardados.", "Documents stay only on the device where they were saved.", "Los documentos quedan solo en el dispositivo donde se guardaron.") : "") + "</p></div>";
+    /* G5: a assistência técnica e os atendimentos (com "saiu de casa", só o histórico) */
+    if (!saiu) h += this._assistCard(t, g, pode);
+    h += '<div class="card" id="garat"><h3>🗂️ ' + tt("Atendimentos", "Service calls", "Gestiones") + "</h3>" + (this._atLista(t, g, pode) || '<p class="small muted">' + (saiu ? tt("Nenhum atendimento anotado.", "No service calls logged.", "No hay gestiones anotadas.") : tt("Nenhum atendimento anotado. Se estragar, toque em 🆘 Estragou? E agora?", "No service calls logged. If it breaks, tap 🆘 Broken? What now?", "No hay gestiones anotadas. Si se estropea, toca 🆘 ¿Se ha estropeado? ¿Y ahora qué?")) + "</p>") +
+      (pode ? '<div class="row" style="margin-top:8px"><button class="btn ghost" data-act="gar.atend" data-id="' + tid + '">＋ ' + tt("Registrar atendimento", "Log a service call", "Anotar una gestión") + "</button></div>" : "") + "</div>";
     /* onde está */
     const lugar = t.place && DB.get("places", t.place);
     h += '<div class="card"><h3>📍 ' + tt("Onde está", "Where it is", "Dónde está") + "</h3>" + (lugar ? '<p class="small">' + esc(Where.pathTxt(t.place)) + '</p><div class="row"><button class="btn ghost" data-act="go" data-tab="house" data-sub="where" data-arg="' + esc(t.place) + '">🔎 ' + tt("Ver no Onde está?", "See in Where is it?", "Ver en «¿Dónde está?»") + "</button></div>" :
@@ -13694,20 +13699,259 @@ const Garantias = {
       if (e) poe("est", GarCalc.fimAviso(e), e.est, tt("Estendida acaba: ", "Extended warranty ends: ", "Termina la extendida: "));
     });
     return out;
+  },
+  /* ---------- G5: "Estragou? E agora?": de quem cobrar, o que levar, os atendimentos, os contadores e a assistência técnica ---------- */
+  /* com quem foi o atendimento: o nome no formulário e o jeito de dizer na frase ("com a loja") */
+  _com(q, frase) {
+    const C = { loja: [tt("A loja", "The store", "La tienda"), tt("a loja", "the store", "la tienda")], fabricante: [tt("O fabricante", "The manufacturer", "El fabricante"), tt("o fabricante", "the manufacturer", "el fabricante")],
+      assistencia: [tt("A assistência técnica", "The repair service", "El servicio técnico"), tt("a assistência técnica", "the repair service", "el servicio técnico")], seguradora: [tt("A seguradora", "The insurer", "La aseguradora"), tt("a seguradora", "the insurer", "la aseguradora")],
+      outro: [tt("Outro (Procon, consumidor.gov.br…)", "Other (Procon, consumidor.gov.br…)", "Otro (Procon, consumidor.gov.br…)"), tt("outro lugar", "someone else", "otro sitio")] };
+    return (C[q] || C.outro)[frase ? 1 : 0];
+  },
+  _situ(s) { return { aberto: "⏳ " + tt("em aberto", "open", "abierta"), resolvido: "✅ " + tt("resolvido", "resolved", "resuelta"), negado: "❌ " + tt("negado", "refused", "rechazada") }[s] || ""; },
+  _vezes(n) { return n === 1 ? tt("1 contato", "1 contact", "1 contacto") : tt(n + " contatos", n + " contacts", n + " contactos"); },
+  _dias(n) { return n === 1 ? tt("1 dia", "1 day", "1 día") : tt(n + " dias", n + " days", n + " días"); },
+  /* os atendimentos com data, do mais antigo ao mais novo */
+  _ats(g) { return g.atendimentos.filter((a) => GarCalc.ehData(a.d)).sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0)); },
+  /* "O que estragou?": as que valem primeiro; as que saíram de casa (D-G9) e as de um app mais novo ficam de fora; no fim,
+     "Outra coisa": a garantia da lei vale para tudo o que foi comprado, mesmo sem cadastro */
+  seletor() {
+    const vale = (x) => (GAR_FILTROS.valendo.includes(x.sit.k) ? 0 : 1);
+    const L = this.itens(today()).filter((x) => !x.novo && x.sit && x.sit.k !== "saiu").sort((a, b) => vale(a) - vale(b) || String(a.t.name || "").localeCompare(String(b.t.name || "")));
+    const linhas = L.map((x) => '<div class="li click" data-act="go" data-tab="garantias" data-sub="estragou" data-arg="' + esc(x.t.id) + '"><div class="ico" aria-hidden="true">🧾</div><div class="main"><div class="t">' + esc(x.t.name || tt("(sem nome)", "(no name)", "(sin nombre)")) + '</div><div class="s">' + esc(GarCalc.curta(x.sit)) + '</div></div><span class="faint" aria-hidden="true">›</span></div>').join("") +
+      (this.podeEditar() ? '<div class="li click" data-act="gar.new" data-de="estragou"><div class="ico" aria-hidden="true">＋</div><div class="main"><div class="t">' + tt("Outra coisa (não está aqui)", "Something else (not listed)", "Otra cosa (no está aquí)") + '</div><div class="s">' + tt("A garantia da lei vale para tudo o que foi comprado: escreva só o nome e a data da compra.", "The legal warranty applies to everything you bought: just type the name and the purchase date.", "La garantía legal vale para todo lo que compraste: escribe solo el nombre y la fecha de compra.") + "</div></div></div>" : "");
+    return '<div class="card" id="garsel"><h3>🆘 ' + tt("O que estragou?", "What broke?", "¿Qué se ha estropeado?") + '</h3><p class="small muted">' + tt("Escolha a coisa: eu digo de quem cobrar, o que levar e conto os prazos.", "Pick the item: I'll tell you who to ask, what to take and count the deadlines.", "Elige la cosa: te digo a quién reclamar, qué llevar y cuento los plazos.") + "</p>" +
+      (linhas ? '<div class="list">' + linhas + "</div>" : '<div class="empty small">' + tt("Nenhuma garantia ainda.", "No warranties yet.", "Todavía no hay garantías.") + "</div>") + "</div>";
+  },
+  /* "Estragou? E agora?" de uma coisa: 1. de quem cobrar, 2. o que levar, 3. os atendimentos e 4. os contadores (um por defeito).
+     Com "saiu de casa", só o histórico (D-G9) */
+  estragou(id) {
+    if (!id) return this.seletor();
+    const t = DB.get("things", id), g = t ? this.ler(t) : null, nome = t ? String(t.name || "") || tt("(sem nome)", "(no name)", "(sin nombre)") : "", tid = t ? esc(t.id) : "";
+    const caminho = '<div class="path" style="margin-bottom:8px">🧾 <button class="linkbtn" data-act="go" data-tab="garantias" data-sub="lista">' + tt("Garantias", "Warranties", "Garantías") + "</button> › " + (t ? '<button class="linkbtn" data-act="go" data-tab="garantias" data-sub="ficha" data-arg="' + tid + '">' + esc(nome) + "</button> › " : "") + "<b>🆘</b></div>";
+    const outra = '<div class="row"><button class="linkbtn" data-act="go" data-tab="garantias" data-sub="estragou">↩ ' + tt("Escolher outra coisa", "Pick something else", "Elegir otra cosa") + "</button></div>";
+    if (!g) return '<div class="card" id="garest">' + caminho + "<p>" + tt("Garantia não encontrada.", "Warranty not found.", "No se ha encontrado la garantía.") + "</p>" + outra + "</div>";
+    if (g._novo) return '<div class="card" id="garest">' + caminho + "<p>🔄 " + tt("Esta garantia foi feita num app mais novo: atualize o app para ver e mudar.", "This warranty was made in a newer app: update the app to see and change it.", "Esta garantía se hizo en una app más nueva: actualiza la app para verla y cambiarla.") + "</p>" + outra + "</div>";
+    const hoje = today(), sit = GarCalc.situacao(g, hoje) || { k: "faltam" }, saiu = sit.k === "saiu", ed = this.podeEditar() && !saiu, md = [g.marca, g.modelo].filter(Boolean).join(" ");
+    /* a última reclamação ainda em aberto: cobrar a resposta, com o protocolo */
+    const ats = this._ats(g), ult = ats[ats.length - 1], ab = !saiu && ult && ult.situacao === "aberto" ? ult : null;
+    let h = '<div class="card accent" id="garest">' + caminho + "<h2>🆘 " + tt("Estragou? E agora?", "Broken? What now?", "¿Se ha estropeado? ¿Y ahora qué?") + '</h2><div class="small muted">' + esc([nome, md].filter(Boolean).join(" · ")) + '</div><p style="font-size:1.05rem;margin:8px 0"><b>' + esc(this.frase(sit, g)) + "</b></p>" +
+      (ab ? '<p class="small">' + esc("📣 " + tt("Você já reclamou em ", "You already complained on ", "Ya reclamaste el ") + fmtDate(ab.d) + tt(" com ", " to ", " a ") + (ab.com || this._com(ab.quem, true)) + tt(": cobre a resposta", ": chase up the answer", ": reclama la respuesta") + (ab.protocolo ? " (" + tt("protocolo ", "reference ", "número de reclamación ") + ab.protocolo + ")" : "") + ".") + "</p>" +
+        (ab.protocolo ? "" : '<p class="small"><b>' + esc("⚠️ " + tt("Sem protocolo fica difícil provar: peça um ou reclame por escrito.", "Without a reference number it's hard to prove: ask for one or complain in writing.", "Sin número de reclamación es difícil demostrarlo: pide uno o reclama por escrito.")) + "</b></p>") : "") + outra + "</div>";
+    if (saiu) return h + '<div class="card" id="gar-hist"><h3>🗂️ ' + tt("Atendimentos", "Service calls", "Gestiones") + "</h3>" + (this._atLista(t, g, false) || '<p class="small muted">' + tt("Nenhum atendimento anotado.", "No service calls logged.", "No hay gestiones anotadas.") + "</p>") + "</div>";
+    return h + this._quemCard(g, sit, hoje) + this._levarCard(t, g) +
+      '<div class="card" id="gar-atend"><h3>3. ' + tt("Registrar atendimento", "Log a service call", "Anotar una gestión") + '</h3><p class="small muted">' + tt("Anote cada contato: quando, com quem, o protocolo e o que disseram. Com o protocolo, o prazo para reclamar fica parado até eles responderem “não” por escrito (CDC art. 26 §2º).", "Write down each contact: when, who with, the reference number and what they said. With the reference number, the deadline to complain is on hold until they answer “no” in writing (CDC art. 26 §2).", "Apunta cada contacto: cuándo, con quién, el número de reclamación y qué te dijeron. Con el número de reclamación, el plazo para reclamar queda en pausa hasta que respondan «no» por escrito (CDC art. 26 §2).") + "</p>" +
+      (ed ? '<div class="row" style="margin-bottom:6px"><button class="btn" data-act="gar.atend" data-id="' + tid + '">＋ ' + tt("Registrar atendimento", "Log a service call", "Anotar una gestión") + "</button></div>" : "") + this._atLista(t, g, ed) + "</div>" + this._contCard(g, hoje);
+  },
+  /* 1. de quem cobrar: o texto muda com a situação e, na estendida, com quem cobre. Nunca "não é com a loja": a loja e o
+     fabricante continuam respondendo por defeito de fabricação (CDC art. 18) */
+  _cobrarTxt(sit, g, hoje) {
+    const d = (x, est) => this._d(x, est), e = GarCalc.estendida(g), fab = GarCalc.fabrica(g), pt = (s) => (/[.!?]$/.test(s) ? s : s + ".");
+    const prot = tt("Reclame com a loja ou o fabricante e guarde o protocolo.", "Complain to the store or the manufacturer and keep the reference number.", "Reclama a la tienda o al fabricante y guarda el número de reclamación.");
+    /* defeito que aparece depois: o prazo conta de quando ele apareceu (CDC art. 26 §3º); com um defeito anotado, a data */
+    const novo = () => {
+      const n = GarCalc.legalDias(g), ds = g.defeitos.filter((x) => GarCalc.ehData(x.apareceu)).map((x) => GarCalc.somaDias(x.apareceu, n)).filter((x) => x && x >= hoje).sort(), ate = ds[ds.length - 1];
+      return tt("Se for defeito de fabricação que apareceu agora, reclame com a loja ou o fabricante em até " + n + " dias de quando ele apareceu", "If it's a manufacturing defect that has only now shown up, complain to the store or the manufacturer within " + n + " days of when it appeared", "Si es un defecto de fabricación que ha aparecido ahora, reclama a la tienda o al fabricante en un plazo de " + n + " días desde que apareció") +
+        (ate ? tt(" (até ", " (by ", " (hasta el ") + fmtDate(ate) + tt(", contando do dia em que o defeito apareceu)", ", counting from the day the defect appeared)", ", contando desde el día en que apareció el defecto)") : "") + ".";
+    };
+    const naosei = tt("Procure o bilhete no e-mail ou em Meus pedidos; enquanto isso, fale com a loja ou o fabricante.", "Look for the certificate in your e-mail or in My orders; meanwhile, talk to the store or the manufacturer.", "Busca el certificado del seguro en el correo o en Mis pedidos; mientras tanto, habla con la tienda o con el fabricante.");
+    const porQuem = (q) => ({
+      seguradora: tt("Acione ", "File a claim with ", "Da parte a ") + this._quem("seguradora", g) + "." + (this._temAcionar(g) ? "" : " " + tt("Sem o telefone: Meus pedidos da loja → o seguro, ou a central da loja, e peça o bilhete.", "No phone number? My orders on the store's site → the insurance, or the store's call centre, and ask for the certificate.", "¿Sin el teléfono? Mis pedidos en la web de la tienda → el seguro, o el servicio de atención de la tienda, y pide el certificado del seguro.")) +
+        " " + tt("Se a seguradora negar, a loja e o fabricante ainda podem responder por defeito de fabricação.", "If the insurer says no, the store and the manufacturer may still be responsible for a manufacturing defect.", "Si la aseguradora lo rechaza, la tienda y el fabricante aún pueden responder por un defecto de fabricación."),
+      loja: tt("Acione pela loja", "File the claim through the store", "Da parte a través de la tienda") + (g.compra.loja ? " (" + g.compra.loja + ")" : "") + tt(": app ou site → Meus pedidos → o seguro; ou a central da loja. Peça o folheto com as datas por escrito.", ": app or website → My orders → the insurance; or the store's call centre. Ask for the leaflet with the dates in writing.", ": app o web → Mis pedidos → el seguro; o el servicio de atención de la tienda. Pide por escrito el folleto con las fechas."),
+      fabricante: tt("É prazo a mais do próprio fabricante: procure a assistência autorizada.", "It's extra time from the manufacturer itself: contact the authorized repair service.", "Es un plazo extra del propio fabricante: acude al servicio técnico autorizado."),
+      cartao: tt("Pelo site ou pelo telefone da bandeira do cartão (está no bilhete); tenha a fatura em mãos.", "Through the website or phone number of the card network (it's on the certificate); have the card statement at hand.", "Por la web o el teléfono de la red de la tarjeta (figura en el certificado del seguro); ten a mano el extracto de la tarjeta.")
+    }[q] || naosei);
+    switch (sit.k) {
+      case "fabrica": return tt("Reclame até ", "Complain by ", "Reclama hasta el ") + d(sit.ate, sit.est) + tt(". Fale com a assistência autorizada (o telefone está no folheto ou no site da marca) ou com a loja: pela lei brasileira, os dois respondem (CDC art. 18).", ". Contact the authorized repair service (the phone number is in the leaflet or on the brand's website) or the store: under Brazilian consumer law, both are responsible (CDC art. 18).", ". Habla con el servicio técnico autorizado (el teléfono está en el folleto o en la web de la marca) o con la tienda: según la ley de consumo brasileña, los dos responden (CDC art. 18).") +
+        (e && e.inicio > hoje ? " " + tt("Não acione o seguro ainda: ele começa em ", "Don't file an insurance claim yet: it starts on ", "Todavía no des parte al seguro: empieza el ") + d(e.inicio, e.est) + "." : "");
+      case "estendida": return porQuem(sit.quem);
+      case "faltaFim": return tt("A estendida já começou, mas o fim não está no bilhete.", "The extended warranty has started, but the end date isn't on the certificate.", "La extendida ya ha empezado, pero el fin no figura en el certificado del seguro.") + " " + porQuem(sit.quem);
+      case "talvezEst": return tt("Peça primeiro pela loja ou pelo seguro. Se disserem que acabou, peça o folheto com as datas por escrito e reclame também com o fabricante.", "Ask the store or the insurance first. If they say it's over, ask for the leaflet with the dates in writing and complain to the manufacturer too.", "Pide primero a la tienda o al seguro. Si dicen que ha terminado, pide por escrito el folleto con las fechas y reclama también al fabricante.");
+      case "lei": return pt(this.frase(sit, g)) + " " + (fab ? novo() : tt("Fale com a loja ou o fabricante e guarde o protocolo.", "Talk to the store or the manufacturer and keep the reference number.", "Habla con la tienda o con el fabricante y guarda el número de reclamación."));
+      case "reclamado": return pt(this.frase(sit, g)) + " " + tt("Cobre a resposta, com o protocolo em mãos.", "Chase up the answer, with the reference number at hand.", "Reclama la respuesta, con el número de reclamación a mano.");
+      case "defeito": return pt(this.frase(sit, g)) + " " + prot;
+      case "espera": return tt("A de fábrica e o prazo da lei acabaram, e o seguro só começa em ", "The factory warranty and the legal deadline are over, and the insurance only starts on ", "La de fábrica y el plazo legal han terminado, y el seguro no empieza hasta el ") + d(sit.ate, sit.est) + ". " + tt("Se for defeito de fabricação, reclame com a loja ou o fabricante e guarde o protocolo.", "If it's a manufacturing defect, complain to the store or the manufacturer and keep the reference number.", "Si es un defecto de fabricación, reclama a la tienda o al fabricante y guarda el número de reclamación.");
+      case "faltam": return tt("Informe a data da compra. A garantia da lei vale sempre, mesmo sem papel (CDC art. 24): loja ou fabricante.", "Enter the purchase date. The legal warranty always applies, even without paperwork (CDC art. 24): the store or the manufacturer.", "Indica la fecha de compra. La garantía legal vale siempre, incluso sin papeles (CDC art. 24): la tienda o el fabricante.");
+      default: return novo() + " " + tt("Se negarem: Procon ou consumidor.gov.br.", "If they say no: Procon or consumidor.gov.br (Brazil's consumer services).", "Si lo rechazan: Procon (oficina de consumo de Brasil) o consumidor.gov.br.");
+    }
+  },
+  _temAcionar(g) { const ac = g.estendida.acionar; return Cars.fones(ac.tel).some((f) => onlyDigits(f.n).length >= 4) || onlyDigits(ac.whats).length >= 4 || this.https(ac.app); },
+  /* os botões para acionar o seguro (📞, 💬 e 📲), grandes; o do app diz o domínio antes de abrir (e só https) */
+  _acionar(g) {
+    const ac = g.estendida.acionar, out = [];
+    Cars.fones(ac.tel).forEach((f) => {
+      if (onlyDigits(f.n).length < 4) return;
+      const rot = esc((f.r ? f.r + ": " : "") + f.n);
+      out.push(/whats/i.test(f.r) ? '<a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(f.n) + '">💬 ' + rot + "</a>" : '<a class="btn" href="' + telHref(f.n) + '">📞 ' + rot + "</a>");
+    });
+    if (onlyDigits(ac.whats).length >= 4) out.push('<a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(ac.whats) + '">💬 WhatsApp</a>');
+    if (this.https(ac.app)) out.push('<a class="btn ghost" target="_blank" rel="noopener" href="' + esc(ac.app) + '">📲 ' + tt("Abrir o app ou site", "Open the app or website", "Abrir la app o la web") + " (" + tt("abre ", "opens ", "abre ") + esc(new URL(ac.app).hostname.replace(/^www\./, "")) + ")</a>");
+    return out.length ? '<div class="row gar-acionar" style="margin:8px 0">' + out.join("") + "</div>" : "";
+  },
+  /* um contato (a assistência técnica) com 📞 e 💬 grandes */
+  _contato(c) {
+    const f = (Array.isArray(c.phones) ? c.phones : []).find((x) => typeof x === "string" && onlyDigits(x).length >= 4), nm = String(c.name || "");
+    /* os botões numa linha só deles: no celular, ao lado do nome, o nome ficava espremido */
+    return '<div class="li"><div class="ico" aria-hidden="true">🔧</div><div class="main"><div class="t">' + esc(nm) + '</div><div class="s">' + esc([typeof c.org === "string" && c.org !== nm ? c.org : "", f || ""].filter(Boolean).join(" · ")) + "</div></div></div>" +
+      (f ? '<div class="row" style="margin:6px 0 4px"><a class="btn" href="' + telHref(f) + '" aria-label="' + esc(tt("Ligar para ", "Call ", "Llamar a ") + nm) + '">📞 ' + tt("Ligar", "Call", "Llamar") + '</a><a class="btn ghost" target="_blank" rel="noopener" href="' + waHref(f) + '" aria-label="' + esc("WhatsApp " + nm) + '">💬 WhatsApp</a></div>' : "");
+  },
+  _quemCard(g, sit, hoje) {
+    const c = g.assistencia ? DB.get("contacts", g.assistencia) : null, ac = ["estendida", "faltaFim", "talvezEst"].includes(sit.k) ? this._acionar(g) : "";
+    const cuidados = [tt("Queda, líquido ou mau uso não têm cobertura.", "Drops, liquids or misuse aren't covered.", "Las caídas, los líquidos o el mal uso no están cubiertos."),
+      tt("Não leve a um técnico qualquer: o conserto fora da autorizada pode fazer recusarem a garantia.", "Don't take it to just any repairer: a repair outside the authorized service can make them refuse the warranty.", "No lo lleves a cualquier técnico: una reparación fuera del servicio técnico autorizado puede hacer que rechacen la garantía."),
+      tt("Em coisa essencial (geladeira, fogão…), talvez nem precise esperar os 30 dias (CDC art. 18 §3º): pergunte ao Procon.", "For an essential item (fridge, cooker…), you may not even have to wait the 30 days (CDC art. 18 §3): ask Procon.", "En algo esencial (nevera, cocina…), quizá ni haga falta esperar los 30 días (CDC art. 18 §3): pregunta en el Procon (oficina de consumo de Brasil).")];
+    return '<div class="card" id="gar-quem"><h3>1. ' + tt("De quem cobrar", "Who to ask", "A quién reclamar") + '</h3><p class="gar-quemtxt">' + esc(this._cobrarTxt(sit, g, hoje)) + "</p>" + ac + (c ? '<div class="list">' + this._contato(c) + "</div>" : "") +
+      moreBox("⚠️ " + tt("Antes de levar", "Before you take it in", "Antes de llevarlo"), '<ul class="small">' + cuidados.map((x) => "<li>" + x + "</li>").join("") + "</ul>") + "</div>";
+  },
+  /* 2. o que levar: os papéis (✓ no app; 🔒 guardado, só um responsável abre; ○ falta), o documento com CPF (o app não guarda
+     CPF), as fotos do defeito (trancadas, como a nota) e um relato curto */
+  _levarCard(t, g) {
+    const P = GAR_PAPEIS(), no = (tipo) => g.arquivos.filter((a) => a.tipo === tipo && DB.col("files").get(a.id)).length;
+    const falta = { nota: tt("procure no e-mail da loja ou em Meus pedidos", "look in the store's e-mail or in My orders", "búscala en el correo de la tienda o en Mis pedidos"), bilhete: tt("procure no e-mail “bilhete” ou “certificado de seguro”", "search your e-mail for “certificate” or “insurance certificate”", "busca en el correo «certificado del seguro»"),
+      termo: tt("costuma vir na caixa ou no manual", "it usually comes in the box or in the manual", "suele venir en la caja o en el manual"), manual: tt("costuma vir na caixa ou no site da marca", "it usually comes in the box or on the brand's website", "suele venir en la caja o en la web de la marca") };
+    const li = (ic, tit, s) => '<div class="li"><div class="ico" aria-hidden="true">' + ic + '</div><div class="main"><div class="t">' + esc(tit) + '</div><div class="s">' + esc(s) + "</div></div></div>";
+    const pap = ["nota"].concat(g.estendida.tem === "sim" ? ["bilhete"] : [], ["termo", "manual"]).map((tipo) => {
+      const p = P.find((x) => x[0] === tipo), tem = no(tipo), so = p[4] && !isGuardian();
+      return li(tem ? (so ? "🔒" : "✓") : "○", p[2], !tem ? tt("não está no app: ", "not in the app: ", "no está en la app: ") + falta[tipo] : so ? tt("está no app; só um responsável abre", "it's in the app; only a guardian can open it", "está en la app; solo un responsable lo abre") :
+        tt("está no app", "it's in the app", "está en la app") + (p[4] ? " (🔒 " + tt(tipo === "nota" ? "trancada" : "trancado", "locked", "bajo llave") + ")" : ""));
+    }).join(""), fotos = no("defeito");
+    return '<div class="card" id="gar-levar"><h3>2. ' + tt("O que levar", "What to take", "Qué llevar") + '</h3><div class="list">' + pap +
+      li("🪪", tt("Documento com CPF", "ID document with CPF", "Documento con el CPF"), tt("você leva; o app não guarda CPF", "you bring it; the app doesn't store CPF numbers", "lo llevas tú; la app no guarda el CPF")) +
+      li("📷", tt("Fotos do defeito", "Photos of the defect", "Fotos del defecto"), fotos ? tt(fotos + " no app (🔒 trancadas)", fotos + " in the app (🔒 locked)", fotos + " en la app (🔒 bajo llave)") : tt("tire fotos ou um vídeo curto do defeito", "take photos or a short video of the defect", "haz fotos o un vídeo corto del defecto")) +
+      li("📝", tt("Um relato curto", "A short account", "Un relato breve"), tt("o que acontece, desde quando e o que você já tentou", "what happens, since when and what you've already tried", "qué pasa, desde cuándo y qué has probado ya")) + "</div>" +
+      (this.podeEditar() && isGuardian() ? '<div class="row" style="margin-top:8px"><button class="btn ghost" data-act="gar.papel" data-id="' + esc(t.id) + '" data-tipo="defeito">📷 ' + tt("Guardar foto do defeito", "Save a photo of the defect", "Guardar una foto del defecto") + "</button></div>" : "") + "</div>";
+  },
+  /* os atendimentos, do mais novo ao mais antigo (o protocolo e "com quem falou" ficam à vista: qualquer adulto precisa deles
+     para cobrar), com ✏️ para quem muda */
+  _atLista(t, g, ed) {
+    const dfs = new Map(g.defeitos.map((x) => [x.id, x.desc])), tid = esc(t.id);
+    const L = g.atendimentos.slice().sort((a, b) => (a.d > b.d ? -1 : a.d < b.d ? 1 : 0));
+    return L.length ? '<div class="list">' + L.map((a) => '<div class="li gar-at"><div class="ico" aria-hidden="true">' + ({ aberto: "⏳", resolvido: "✅", negado: "❌" }[a.situacao] || "🗂️") + '</div><div class="main"><div class="t">' + esc(this._d(a.d) + " · " + (a.com || this._com(a.quem))) + '</div><div class="s">' +
+      esc([a.com ? this._com(a.quem) : "", a.protocolo ? tt("protocolo ", "reference ", "número de reclamación ") + a.protocolo : tt("sem protocolo", "no reference number", "sin número de reclamación"), this._situ(a.situacao), dfs.get(a.defeito) ? "🔧 " + dfs.get(a.defeito) : ""].filter(Boolean).join(" · ")) + "</div>" +
+      (a.oque ? '<div class="s">' + esc("“" + a.oque + "”") + "</div>" : "") + "</div>" + (ed ? '<button class="btn ghost" data-act="gar.atend" data-id="' + tid + '" data-at="' + esc(a.id) + '" aria-label="' + tt("Mudar este atendimento", "Change this service call", "Cambiar esta gestión") + '">✏️</button>' : "") + "</div>").join("") + "</div>" : "";
+  },
+  /* 4. os contadores, um por defeito: o dos 30 dias para consertar (loja, fabricante e assistência; CDC art. 18 §1º) e o da
+     seguradora (Lei 15.040/2024, art. 86), que fica à parte */
+  _contCard(g, hoje) {
+    const ids = [...new Set(g.atendimentos.map((a) => a.defeito || ""))], dfs = new Map(g.defeitos.map((x) => [x.id, x.desc])), p = (s) => '<p class="small">' + s + "</p>";
+    const blocos = ids.map((id) => {
+      const a = GarCalc.art18(g, id, hoje), s = GarCalc.seguro(g, id, hoje); if (!a && !s) return "";
+      let h = '<div class="gar-df"><h4>🔧 ' + esc(dfs.get(id) || (id ? tt("Defeito", "Defect", "Defecto") : tt("Defeito sem nome", "Unnamed defect", "Defecto sin nombre"))) + "</h4>";
+      if (a) {
+        const n = a.dias, v = " (" + this._vezes(a.idas) + ")";
+        const dia = !a.aberto ? tt("Resolvido", "Resolved", "Resuelto") + " (" + this._vezes(a.idas) + (n ? ", " + this._dias(n) : "") + ")" : n === 0 ? tt("Começou hoje (o dia do primeiro contato não conta)", "Started today (the day of the first contact doesn't count)", "Ha empezado hoy (el día del primer contacto no cuenta)") + v :
+          n <= 30 ? tt("Dia " + n + " de 30", "Day " + n + " of 30", "Día " + n + " de 30") + v : tt("Dia " + n + ": passaram os 30 dias", "Day " + n + ": the 30 days are over", "Día " + n + ": han pasado los 30 días") + v;
+        h += '<div class="gar-art18">' + p("<b>" + tt("Contador dos 30 dias para consertar", "30-day repair counter", "Contador de los 30 días para reparar") + ":</b> " + esc(dia)) +
+          (a.hoje30 ? p(esc(tt("Hoje é o 30º dia. Se não resolverem hoje, amanhã você já pode escolher: trocar por outro, o dinheiro de volta corrigido ou um desconto.", "Today is the 30th day. If they don't fix it today, from tomorrow you can choose: a replacement, your money back with correction, or a discount.", "Hoy es el día 30. Si no lo resuelven hoy, mañana ya puedes elegir: cambiarlo por otro, que te devuelvan el dinero actualizado o un descuento."))) :
+            a.passou30 ? p(esc(tt("Passaram os 30 dias. Pela lei, você pode escolher: trocar por outro, o dinheiro de volta corrigido ou um desconto (CDC art. 18 §1º).", "The 30 days are over. By law, you can choose: a replacement, your money back with correction, or a discount (CDC art. 18 §1).", "Han pasado los 30 días. Según la ley, puedes elegir: cambiarlo por otro, que te devuelvan el dinero actualizado o un descuento (CDC art. 18 §1)."))) : "") +
+          (a.negado ? p(esc(tt("Depois de um “não” por escrito, o prazo volta a correr: procure logo o Procon ou o consumidor.gov.br.", "After a “no” in writing, the deadline starts running again: go to Procon or consumidor.gov.br soon.", "Tras un «no» por escrito, el plazo vuelve a correr: acude pronto al Procon (oficina de consumo de Brasil) o a consumidor.gov.br."))) : "") + "</div>";
+      }
+      if (s) h += '<div class="gar-seg">' + p("<b>" + tt("Seguradora", "Insurer", "Aseguradora") + ":</b> " + esc(!s.aberto ? tt("resolvido", "resolved", "resuelto") + " (" + this._vezes(s.idas) + ")" : this._dias(s.dias) + tt(" desde o aviso. Até 30 dias para responder (Lei 15.040/2024, art. 86). Se negar, peça a negativa por escrito: o prazo para ir à Justiça é de 1 ano.", " since you notified it. Up to 30 days to answer (Law 15,040/2024, art. 86). If it says no, ask for the refusal in writing: the deadline to go to court is 1 year.", " desde que diste parte. Hasta 30 días para responder (Ley 15.040/2024, art. 86). Si lo rechaza, pide el rechazo por escrito: el plazo para ir a juicio es de 1 año."))) +
+        (s.aberto && s.negado ? p(esc(tt("A seguradora disse “não”: peça a negativa por escrito, com o motivo. A loja e o fabricante ainda podem responder por defeito de fabricação.", "The insurer said “no”: ask for the refusal in writing, with the reason. The store and the manufacturer may still be responsible for a manufacturing defect.", "La aseguradora ha dicho «no»: pide el rechazo por escrito, con el motivo. La tienda y el fabricante aún pueden responder por un defecto de fabricación."))) : "") + "</div>";
+      return h + "</div>";
+    }).join("");
+    return '<div class="card" id="gar-cont"><h3>4. ' + tt("Contadores", "Counters", "Contadores") + "</h3>" + (blocos || '<p class="small muted">' + tt("Os contadores aparecem quando você registra o primeiro atendimento.", "The counters show up when you log the first service call.", "Los contadores aparecen cuando anotas la primera gestión.") + "</p>") + "</div>";
+  },
+  /* ＋ Registrar atendimento ou ✏️: data, com quem, o protocolo, o que disseram, como está e qual defeito (um anterior ou um novo,
+     com o dia em que apareceu). Cada atendimento e cada defeito têm id: a nuvem junta as duas listas pelos ids (merge3) */
+  async atendimento(t0, atId) {
+    const no = this.recusa(t0); if (no) return toast(no);
+    const t = DB.get("things", t0.id) || t0, g = this.ler(t); if (!g) return;
+    if (g.saiu) return toast(tt("Esta coisa saiu de casa: a ficha fica só como histórico.", "This item is no longer at home: its record stays as history only.", "Esta cosa ya no está en casa: la ficha queda solo como historial."));
+    const at0 = atId ? g.atendimentos.find((a) => a.id === atId) : null; if (atId && !at0) return;
+    /* a leitura guarda até 50 atendimentos e 20 defeitos: passar disso faria o novo sumir */
+    if (!at0 && g.atendimentos.length >= 50) return toast(tt("Esta garantia já tem 50 atendimentos anotados (o máximo).", "This warranty already has 50 service calls logged (the maximum).", "Esta garantía ya tiene 50 gestiones anotadas (el máximo)."), 5000);
+    const conhece = (id) => g.defeitos.some((x) => x.id === id), ult = this._ats(g).filter((a) => conhece(a.defeito)).pop();
+    const dfOpts = g.defeitos.map((x) => [x.id, "🔧 " + (x.desc || tt("Defeito", "Defect", "Defecto"))]).concat(at0 && !conhece(at0.defeito) ? [[at0.defeito, "— " + tt("sem defeito escolhido", "no defect chosen", "sin defecto elegido")]] : [], g.defeitos.length < 20 ? [["novo", "＋ " + tt("Um defeito novo", "A new defect", "Un defecto nuevo")]] : []);
+    const df0 = at0 ? at0.defeito : ult ? ult.defeito : g.defeitos.length ? g.defeitos[g.defeitos.length - 1].id : "novo";
+    const fields = [{ k: "d", label: tt("Quando", "When", "Cuándo"), type: "date", req: true },
+      { k: "quem", label: tt("Com quem", "Who with", "Con quién"), type: "select", opts: ["loja", "fabricante", "assistencia", "seguradora", "outro"].map((q) => [q, this._com(q)]) },
+      { k: "com", label: tt("Com quem falou (empresa ou atendente)", "Who you spoke to (company or agent)", "Con quién hablaste (empresa o agente)") },
+      { k: "protocolo", label: tt("Nº do protocolo (na seguradora: o nº do pedido de conserto, o “sinistro”)", "Reference number (with the insurer: the repair claim number)", "Número de reclamación (en la aseguradora: el número del siniestro, el parte)") },
+      { k: "oque", label: tt("O que disseram", "What they said", "Qué te dijeron"), type: "textarea", rows: 2 },
+      { k: "situacao", label: tt("Como está", "Status", "Cómo está"), type: "select", opts: [["aberto", "⏳ " + tt("Em aberto (esperando a resposta)", "Open (waiting for an answer)", "Abierta (esperando respuesta)")], ["resolvido", "✅ " + tt("Resolvido", "Resolved", "Resuelta")], ["negado", "❌ " + tt("Negado (disseram “não”)", "Refused (they said “no”)", "Rechazada (dijeron «no»)")]] },
+      { k: "defeito", label: tt("Qual defeito?", "Which defect?", "¿Qué defecto?"), type: "select", opts: dfOpts },
+      { k: "_desc", label: tt("O que é o defeito (poucas palavras)", "What the defect is (a few words)", "Qué defecto es (en pocas palabras)"), ph: tt("Ex.: não liga", "e.g. won't turn on", "Ej.: no enciende") },
+      { k: "_apareceu", label: tt("Quando o defeito apareceu", "When the defect appeared", "Cuándo apareció el defecto"), type: "date", hint: tt("O prazo para reclamar de defeito que aparece depois conta deste dia.", "The deadline to complain about a defect that shows up later counts from this day.", "El plazo para reclamar un defecto que aparece más tarde cuenta desde este día.") },
+      { type: "html", html: '<div class="note small" id="garatnota"></div>' }];
+    const vals = at0 ? { d: at0.d, quem: at0.quem, com: at0.com, protocolo: at0.protocolo, oque: at0.oque, situacao: at0.situacao, defeito: df0 } : { d: today(), quem: "loja", situacao: "aberto", defeito: df0 };
+    const nota = { forn: tt("Com o protocolo, o prazo para reclamar fica parado até eles responderem “não” por escrito (CDC art. 26 §2º).", "With the reference number, the deadline to complain is on hold until they answer “no” in writing (CDC art. 26 §2).", "Con el número de reclamación, el plazo para reclamar queda en pausa hasta que respondan «no» por escrito (CDC art. 26 §2)."),
+      seg: tt("A seguradora tem até 30 dias para dizer se cobre (Lei 15.040/2024, art. 86). Ela pode pedir mais papéis uma vez, e o prazo para enquanto isso.", "The insurer has up to 30 days to say whether it covers it (Law 15,040/2024, art. 86). It can ask for more documents once, and the deadline pauses meanwhile.", "La aseguradora tiene hasta 30 días para decir si lo cubre (Ley 15.040/2024, art. 86). Puede pedir más documentos una vez, y el plazo se para mientras tanto.") };
+    const r = await formModal({ title: "🗂️ " + (at0 ? tt("Atendimento", "Service call", "Gestión") : tt("Registrar atendimento", "Log a service call", "Anotar una gestión")) + " · " + esc(String(t.name || "")), fields, values: vals,
+      after: (el) => {
+        const q = el.querySelector('[name="quem"]'), df = el.querySelector('[name="defeito"]'), nt = el.querySelector("#garatnota"), caixa = (k) => el.querySelector('[name="' + k + '"]').closest(".fld");
+        /* o defeito novo só com "＋ Um defeito novo"; a regra do prazo muda com quem atendeu */
+        const aplicar = () => { const novo = df.value === "novo"; caixa("_desc").classList.toggle("hidden", !novo); caixa("_apareceu").classList.toggle("hidden", !novo); const s = q.value === "seguradora" ? nota.seg : q.value === "outro" ? "" : nota.forn; nt.textContent = s; nt.classList.toggle("hidden", !s); };
+        q.addEventListener("change", aplicar); df.addEventListener("change", aplicar); aplicar();
+      },
+      onOk: (o) => {
+        const erro = (m) => { toast("⚠️ " + m, 5000); return false; };
+        if (!GarCalc.ehData(o.d) || o.d > today()) return erro(tt("Confira a data do atendimento (não pode ser depois de hoje).", "Check the date of the call (it can't be after today).", "Revisa la fecha de la gestión (no puede ser posterior a hoy)."));
+        if (o.defeito === "novo" && !String(o._desc || "").trim()) return erro(tt("Escreva o defeito em poucas palavras (ex.: não liga).", "Describe the defect in a few words (e.g. won't turn on).", "Describe el defecto en pocas palabras (p. ej., no enciende)."));
+        if (o.defeito === "novo" && o._apareceu && (!GarCalc.ehData(o._apareceu) || o._apareceu > o.d)) return erro(tt("O defeito não pode ter aparecido depois do atendimento.", "The defect can't have appeared after the call.", "El defecto no puede haber aparecido después de la gestión."));
+      } });
+    if (!r) return;
+    /* grava a partir do registro de agora (outro aparelho pode ter mudado enquanto a janela estava aberta) */
+    const atual = DB.get("things", t.id); if (!atual) return;
+    const raw = GarCalc._o(atual.garantia), ats = (Array.isArray(raw.atendimentos) ? raw.atendimentos : []).slice(), dfs = (Array.isArray(raw.defeitos) ? raw.defeitos : []).slice();
+    let defeito = r.defeito === "novo" ? "" : String(r.defeito || "");
+    if (r.defeito === "novo") { const df = { id: uid("df"), desc: String(r._desc).trim().slice(0, 300), apareceu: GarCalc.ehData(r._apareceu) ? r._apareceu : "" }; dfs.push(df); defeito = df.id; }
+    const at = { id: at0 ? at0.id : uid("at"), d: r.d, quem: GAR_ENUM.com.includes(r.quem) ? r.quem : "outro", com: String(r.com || "").slice(0, 80), protocolo: String(r.protocolo || "").slice(0, 60), oque: String(r.oque || "").slice(0, 500), situacao: GAR_ENUM.situacao.includes(r.situacao) ? r.situacao : "aberto", defeito };
+    const i = at0 ? ats.findIndex((a) => a && a.id === at0.id) : -1;
+    if (i >= 0) ats[i] = Object.assign({}, ats[i], at); else ats.push(at);
+    await DB.put("things", Object.assign({}, atual, { garantia: Object.assign({}, raw, { atendimentos: ats, defeitos: dfs }) }));
+  },
+  /* a assistência técnica fica ligada pelo id do contato (nunca pela categoria): uma versão antiga, ao editar o contato, grava
+     "escola" no lugar de "assistencia" (R1), e a ligação continua */
+  _assistCard(t, g, pode) {
+    const c = g.assistencia ? DB.get("contacts", g.assistencia) : null, tid = esc(t.id);
+    return '<div class="card" id="garassist"><h3>🔧 ' + tt("Assistência técnica", "Repair service", "Servicio técnico") + "</h3>" + (c ? '<div class="list">' + this._contato(c) + "</div>" :
+      '<p class="small muted">' + (g.assistencia ? tt("O contato escolhido não aparece para você (foi apagado ou é só dos responsáveis).", "The chosen contact isn't visible to you (it was deleted or is guardians only).", "El contacto elegido no te aparece (se borró o es solo de los responsables).") : tt("Ninguém escolhido ainda. A autorizada está no folheto ou no site da marca.", "No one chosen yet. The authorized one is in the leaflet or on the brand's website.", "Todavía no has elegido ninguno. El autorizado figura en el folleto o en la web de la marca.")) + "</p>") +
+      (pode && Rec.ok("contacts") ? '<div class="row" style="margin-top:8px"><button class="btn ghost" data-act="gar.assist" data-id="' + tid + '">📇 ' + tt("Escolher", "Choose", "Elegir") + '</button><button class="btn ghost" data-act="gar.assistnovo" data-id="' + tid + '">＋ ' + tt("Novo", "New", "Nuevo") + "</button></div>" : "") + "</div>";
+  },
+  /* "Escolher": todos os contatos (os de 🔧 primeiro), porque a categoria pode ter mudado numa versão antiga; "—" desliga */
+  async assistEscolher(t0) {
+    const no = this.recusa(t0); if (no) return toast(no);
+    const t = DB.get("things", t0.id), g = t ? this.ler(t) : null; if (!g || g.saiu) return;
+    const cs = Contacts.list().slice().sort((a, b) => (a.cat === "assistencia" ? 0 : 1) - (b.cat === "assistencia" ? 0 : 1) || String(a.name).localeCompare(String(b.name)));
+    const opts = [["", "—"]].concat(cs.map((c) => [c.id, (c.cat === "assistencia" ? "🔧 " : "") + String(c.name || "") + (c.org && c.org !== c.name ? " (" + c.org + ")" : "")]));
+    const r = await formModal({ title: "🔧 " + tt("Assistência técnica", "Repair service", "Servicio técnico") + " · " + esc(String(t.name || "")), values: { assistencia: g.assistencia },
+      fields: [{ k: "assistencia", label: tt("Quem conserta (assistência técnica)", "Who repairs it (repair service)", "Quién lo repara (servicio técnico)"), type: "select", opts, full: true },
+        { type: "note", html: tt("Os contatos de assistência técnica (🔧) vêm primeiro. Para um novo, use “＋ Novo”.", "Repair service contacts (🔧) come first. For a new one, use “＋ New”.", "Los contactos de servicio técnico (🔧) salen primero. Para uno nuevo, usa «＋ Nuevo».") }] });
+    if (r) await this._ligarAssist(t.id, r.assistencia || "");
+  },
+  /* "＋ Novo": o contato nasce na categoria 🔧 Assistência técnica, para a família (como o do pet) */
+  async assistNovo(t0) {
+    const no = this.recusa(t0); if (no) return toast(no);
+    const g = this.ler(DB.get("things", t0.id) || t0); if (!g || g.saiu) return;
+    const c = await Contacts.edit({ cat: "assistencia", vis: "familia", phones: [] });
+    if (c && c.id) await this._ligarAssist(t0.id, c.id);
+  },
+  async _ligarAssist(id, cid) {
+    const t = DB.get("things", id); if (!t) return;
+    await DB.put("things", Object.assign({}, t, { garantia: Object.assign({}, GarCalc._o(t.garantia), { assistencia: cid }) }));
   }
 };
 /* aba própria 🧾 Garantias (D-G1), no ☰ em "Casa, carro e papéis" */
 SCREENS.garantias = {
   render(sub, arg) {
-    const ficha = sub === "ficha" && arg, G = ficha ? null : Garantias.grupos(today());
+    const ficha = sub === "ficha" && arg, est = sub === "estragou", G = ficha || est ? null : Garantias.grupos(today());
+    /* as duas partes da aba; a ficha tem o caminho "🧾 Garantias › nome" no lugar */
+    const seg = ficha ? "" : '<div class="seg" role="group" aria-label="' + tt("Partes de Garantias", "Warranties sections", "Partes de Garantías") + '">' + [["lista", "🧾 " + tt("Lista", "List", "Lista")], ["estragou", "🆘 " + tt("Estragou? E agora?", "Broken? What now?", "¿Se ha estropeado? ¿Y ahora qué?")]].map((s) =>
+      '<button type="button" data-act="go" data-tab="garantias" data-sub="' + s[0] + '"' + ((s[0] === "estragou") === est ? ' class="active" aria-pressed="true"' : ' aria-pressed="false"') + ">" + s[1] + "</button>").join("") + "</div>";
     return '<div class="gar"><div class="pagehead"><div><h1>🧾 ' + tt("Garantias", "Warranties", "Garantías") + '</h1><div class="sub">' + tt("O que tem garantia em casa, até quando vale e o que fazer quando estraga", "What has a warranty at home, how long it lasts and what to do when it breaks", "Qué tiene garantía en casa, hasta cuándo dura y qué hacer cuando se estropea") + "</div></div>" +
-      (!ficha && G.total && Garantias.podeEditar() ? '<div class="row"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + "</button></div>" : "") + "</div>" +
-      (ficha ? Garantias.view(arg) : (isGuardian() && S.vaultKey ? '<div id="garsobras"></div>' : "") + Garantias.listView(G) + Garantias.rodape()) + "</div>";
+      (G && G.total && Garantias.podeEditar() ? '<div class="row"><button class="btn" data-act="gar.new">＋ ' + tt("Nova garantia", "New warranty", "Nueva garantía") + "</button></div>" : "") + "</div>" + seg +
+      (ficha ? Garantias.view(arg) : est ? Garantias.estragou(arg) + Garantias.rodape() : (isGuardian() && S.vaultKey ? '<div id="garsobras"></div>' : "") + Garantias.listView(G) + Garantias.rodape()) + "</div>";
   },
   after(root, sub, arg) { if (sub === "ficha" && arg) Garantias.after(root, arg); else Garantias.sobrasCartao(root); }
 };
 ACT["gar.filtro"] = (d) => { S.garF = d.f; render(); };
-ACT["gar.new"] = async () => { const r = await Garantias.edit(null); if (r) go("garantias", "ficha", r.id); };
+/* vindo do "Estragou?" ("Outra coisa"), volta para o "Estragou?" da coisa nova */
+ACT["gar.new"] = async (d) => { const r = await Garantias.edit(null); if (r) go("garantias", d && d.de === "estragou" ? "estragou" : "ficha", r.id); };
+ACT["gar.atend"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.atendimento(t, d.at || ""); };
+ACT["gar.assist"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.assistEscolher(t); };
+ACT["gar.assistnovo"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.assistNovo(t); };
 ACT["gar.edit"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.edit(t); else toast(tt("Garantia não encontrada.", "Warranty not found.", "No se ha encontrado la garantía.")); };
 ACT["gar.papel"] = (d) => Garantias.addPapel(d.id, d.tipo);
 ACT["gar.papeldel"] = (d) => Garantias.tirarPapel(d.id, d.ref);

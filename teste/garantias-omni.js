@@ -41,6 +41,17 @@
        abre a ficha. Celular: depois das 9h, uma notificação por garantia, data e marco (tocar 2 vezes não repete)
      - nada é gravado; sem aviso: saiu de casa, cancelada, app mais novo, "Só responsáveis" para quem não é, criança sem "ver a
        Casa", função desligada; um registro que quebra a conta fica de fora e o 🔔 continua; id estranho não entra; EN
+     G5 — "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica
+     - [🧾 Lista | 🆘 Estragou? E agora?] no ☰, no topo da aba e no AssistONE; "O que estragou?": as que valem primeiro, sem as
+       que saíram de casa, e "Outra coisa (não está aqui)" no fim (a lei vale para tudo)
+     - 1. De quem cobrar: o texto de cada situação e de cada "quem cobre" da estendida (nunca "não da loja" nem as palavras
+       proibidas), os cuidados (queda, técnico qualquer, coisa essencial), 📞/💬/📲 como botões grandes, o do app com o domínio
+     - 2. O que levar (✓ no app, 🔒 só um responsável abre, ○ falta), o documento com CPF que o app não guarda, a foto do
+       defeito trancada; 3. registrar atendimento (com id, o que recusa, editar, a regra do protocolo e a da seguradora);
+       "Você já reclamou…" e o ⚠️ sem protocolo; 4. os contadores por defeito: "Dia n de 30", o 30º dia, o 31º (CDC art. 18
+       §1º), o "não" por escrito (Procon) e o da seguradora (Lei 15.040/2024), fora do art. 18
+     - a assistência técnica: contato novo na categoria 🔧 (antes de "Outro"), ligado pelo id e mantido ao salvar; R1: a
+       versão antiga troca a categoria e a ligação continua; criança, app mais novo e "saiu de casa" não gravam; 390 px; EN
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -1044,6 +1055,310 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await p.evaluate(async (id) => { await DB.del('things', id); }, I4.xi);
   conferir(!lixo.erros.length && !lixo.nativos.length, 'G4: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     G5 — "Estragou? E agora?": de quem cobrar, o que levar, os atendimentos, os contadores e a assistência técnica
+     ===================================================================== */
+  console.log('\n— G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica');
+  await p.evaluate((papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); }, papel0);
+  /* só as garantias desta parte, com datas a partir de hoje, uma para cada situação (e para cada "quem cobre" da estendida) */
+  const g5 = await p.evaluate(async (XSS) => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const h = today(), d = (n) => GarCalc.somaDias(h, n), f = (x) => fmtDate(x);
+    const novo = async (name, garantia, vis) => (await DB.put('things', Object.assign({ name, place: '', tags: [], vis: vis || 'familia' }, garantia === undefined ? {} : { garantia }), true)).id;
+    const acabou = (o) => Object.assign({ v: 1, compra: { data: d(-400) }, fabrica: { fim: d(-10), legalInclusa: 'sim' }, estendida: { tem: 'nao' } }, o || {});
+    const est = (quem, o) => acabou({ compra: { data: d(-400), loja: 'Loja Exemplo' }, estendida: Object.assign({ tem: 'sim', quem, inicio: d(-9), fim: d(300) }, o || {}) });
+    const fabFim = GarCalc.somaMeses(d(-100), 12);
+    /* "talvez" da estendida: pela compra acabou há uns 30 dias (num dia até 28: somar meses não cai no último dia do mês) */
+    let kT = 30; while (+d(-kT).slice(8) > 28) kT++;
+    const compraT = GarCalc.somaMeses(d(-kT), -24);
+    const at = (id, n, quem, o) => Object.assign({ id, d: d(n), quem, com: '', protocolo: '', oque: '', situacao: 'aberto', defeito: 'df1' }, o || {});
+    const ids = {
+      fa: await novo('G5 Fábrica', { v: 1, compra: { data: d(-100) }, fabrica: { meses: 12 }, estendida: { tem: 'sim', quem: 'seguradora', seguradora: 'Seguradora Exemplo', contaDe: 'fimFabrica', meses: 12 } }),
+      es: await novo('G5 Seguradora', est('seguradora', { seguradora: 'Seguradora Exemplo', acionar: { tel: 'Central: 0800 000 0000\nWhatsApp: (11) 90000-0000', whats: '', app: 'https://www.exemplo.com.br/sinistro' } })),
+      sn: await novo('G5 Seguradora sem telefone', est('seguradora', { seguradora: 'Seguradora Exemplo' })),
+      el: await novo('G5 Est loja', est('loja')),
+      ef: await novo('G5 Est fabricante', est('fabricante')),
+      ec: await novo('G5 Est cartão', est('cartao')),
+      en: await novo('G5 Est não sei', est('naosei')),
+      ff: await novo('G5 Falta o fim', acabou({ fabrica: { fim: d(-11), legalInclusa: 'sim' }, estendida: { tem: 'sim', quem: 'loja', inicio: d(-10) } })),
+      tv: await novo('G5 Talvez', { v: 1, compra: { data: compraT }, fabrica: { meses: 12 }, estendida: { tem: 'sim', quem: 'loja', meses: 24, contaDe: 'naosei' } }),
+      le: await novo('G5 Lei depois da fábrica', acabou({ fabrica: { fim: d(-30), legalInclusa: 'nao' } })),
+      ls: await novo('G5 Lei sem fábrica', { v: 1, compra: { data: d(-10) }, fabrica: { meses: 0 }, estendida: { tem: 'nao' } }),
+      rc: await novo('G5 Reclamado', acabou({ compra: { data: d(-500) }, fabrica: { fim: d(-100), legalInclusa: 'sim' }, defeitos: [{ id: 'df1', desc: 'Não liga', apareceu: d(-121) }],
+        atendimentos: [at('at1', -120, 'loja', { com: 'Central Exemplo', protocolo: 'PROT-0001', oque: 'Aguardando peça' })] })),
+      df: await novo('G5 Defeito anotado', acabou({ compra: { data: d(-500) }, fabrica: { fim: d(-100), legalInclusa: 'sim' }, defeitos: [{ id: 'df1', desc: 'Faz barulho', apareceu: d(-5) }] })),
+      ep: await novo('G5 Espera', { v: 1, compra: { data: d(-800) }, fabrica: { meses: 0 }, estendida: { tem: 'sim', quem: 'loja', inicio: d(10), fim: d(400) } }),
+      ac: await novo('G5 Acabou com defeito', { v: 1, compra: { data: d(-2000) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' }, defeitos: [{ id: 'df1', desc: 'Tela', apareceu: d(-20) }], atendimentos: [at('at1', -10, 'loja', { protocolo: 'PROT-0003', situacao: 'resolvido' })] }),
+      a0: await novo('G5 Acabou', { v: 1, compra: { data: d(-2000) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' } }),
+      fl: await novo('G5 Sem data', { v: 1 }),
+      /* os contadores: Não liga (loja e assistência; a seguradora à parte), Porta solta (o 30º dia), Luz piscando (31 dias), Botão (negado) */
+      ct: await novo('G5 Contador', { v: 1, compra: { data: d(-50) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' },
+        defeitos: [{ id: 'df1', desc: 'Não liga', apareceu: d(-10) }, { id: 'df2', desc: 'Porta solta', apareceu: d(-40) }, { id: 'df3', desc: 'Luz piscando', apareceu: d(-35) }, { id: 'df4', desc: 'Botão Exemplo', apareceu: d(-20) }],
+        atendimentos: [at('a1', -5, 'loja', { com: 'Central Exemplo', protocolo: 'PROT-0010' }), at('a2', -3, 'seguradora', { com: 'Seguradora Exemplo', protocolo: 'SIN-0011' }),
+          at('a3', -2, 'assistencia', { com: 'Assistência Exemplo', protocolo: 'PROT-0002', oque: 'Vão trocar a placa' }), at('a4', -30, 'loja', { defeito: 'df2' }), at('a5', -31, 'fabricante', { defeito: 'df3' }),
+          at('a6', -15, 'loja', { defeito: 'df4' }), at('a7', -12, 'fabricante', { defeito: 'df4', protocolo: 'PROT-0012', oque: 'Disseram que foi mau uso', situacao: 'negado' })] }),
+      sp: await novo('G5 Sem protocolo', { v: 1, compra: { data: d(-50) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' }, atendimentos: [at('a1', -3, 'loja', { defeito: '' })] }),
+      sa: await novo('G5 Doada', { v: 1, compra: { data: d(-100) }, fabrica: { meses: 12 }, saiu: { como: 'doado', em: d(-1), obs: '' }, atendimentos: [at('a1', -20, 'loja', { com: 'Central Exemplo', protocolo: 'PROT-0020', situacao: 'resolvido', defeito: '' })] }),
+      nv: await novo('G5 Nova versão', { v: 2, compra: { data: d(-10) } }),
+      xs: await novo('G5 Lixo ' + XSS, { v: 1, compra: { data: d(-400), loja: XSS }, fabrica: { fim: d(-10), legalInclusa: 'sim' },
+        estendida: { tem: 'sim', quem: 'seguradora', seguradora: XSS, inicio: d(-9), fim: d(300), acionar: { tel: XSS + ': 0800 000 0000\n' + XSS, whats: XSS, app: 'javascript:window.__xss=1' } },
+        defeitos: [{ id: 'df1', desc: XSS, apareceu: d(-5) }], atendimentos: [at('a1', -3, 'loja', { com: XSS, protocolo: XSS, oque: XSS })] }),
+      sem: await novo('G5 Sem garantia')
+    };
+    return { ids, f: { fab: f(fabFim), fab1: f(GarCalc.somaDias(fabFim, 1)), m2: f(d(-2)), m3: f(d(-3)), m4: f(d(-4)), m5: f(d(-5)), m120: f(d(-120)), p10: f(d(10)), p60: f(d(60)), p70: f(d(70)), p80: f(d(80)), p85: f(d(85)) },
+      d: { m1: d(-1), m3: d(-3), m4: d(-4), m6: d(-6), p1: d(1) } };
+  }, XSS);
+  const I5 = g5.ids, F5 = g5.f, D5 = g5.d;
+  const NOMES5 = { fa: 'G5 Fábrica', es: 'G5 Seguradora', sn: 'G5 Seguradora sem telefone', el: 'G5 Est loja', ef: 'G5 Est fabricante', ec: 'G5 Est cartão', en: 'G5 Est não sei', ff: 'G5 Falta o fim', tv: 'G5 Talvez',
+    le: 'G5 Lei depois da fábrica', ls: 'G5 Lei sem fábrica', rc: 'G5 Reclamado', df: 'G5 Defeito anotado', ep: 'G5 Espera', ac: 'G5 Acabou com defeito', a0: 'G5 Acabou', fl: 'G5 Sem data', ct: 'G5 Contador', sp: 'G5 Sem protocolo', xs: 'G5 Lixo ' + XSS };
+  /* a tela "Estragou?" de uma garantia (as caixas abertas), cada parte em texto corrido */
+  const est5 = async (k) => {
+    await p.evaluate((id) => go('garantias', 'estragou', id), k ? I5[k] : null); await p.waitForTimeout(350);
+    await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((x) => (x.open = true))); await p.waitForTimeout(80);
+    return p.evaluate(() => {
+      const q = (s) => ((document.querySelector(s) || {}).innerText || '').replace(/\s+/g, ' ').trim();
+      return { quem: q('#screen #gar-quem'), topo: q('#screen #garest'), levar: q('#screen #gar-levar'), atend: q('#screen #gar-atend'), cont: q('#screen #gar-cont'), tudo: q('#screen'), rota: [S.route.tab, S.route.sub, S.route.arg].join('/'),
+        acts: [...document.querySelectorAll('#screen [data-act^="gar."]')].map((b) => b.dataset.act + (b.dataset.tipo ? ':' + b.dataset.tipo : '')),
+        linhas: [...document.querySelectorAll('#screen #gar-levar .li')].map((l) => [((l.querySelector('.ico') || {}).textContent || '').trim(), ((l.querySelector('.t') || {}).textContent || '').trim(), ((l.querySelector('.s') || {}).textContent || '').trim()]),
+        dfs: [...document.querySelectorAll('#screen #gar-cont .gar-df')].map((b) => ({ h: ((b.querySelector('h4') || {}).textContent || '').trim(), a: ((b.querySelector('.gar-art18') || {}).innerText || '').replace(/\s+/g, ' '), s: ((b.querySelector('.gar-seg') || {}).innerText || '').replace(/\s+/g, ' ') })),
+        ats: [...document.querySelectorAll('#screen #gar-atend .gar-at')].map((l) => l.innerText.replace(/\s+/g, ' ')) };
+    });
+  };
+  const PROIBIDAS = /sem garantia|não tem (mais )?direito|vida útil|a loja é obrigada|vício|decadência|contratual|não da loja|não a loja/i;
+
+  /* a parte nova da aba: o ☰, o .seg [Lista | Estragou?] e o AssistONE */
+  await p.evaluate(() => { S.garF = 'valendo'; go('garantias', 'lista'); }); await p.waitForTimeout(400);
+  const nav5 = await p.evaluate(() => { const seg = document.querySelector('#screen .gar .seg:not(.garf)'); return { subs: (DRAWER_SUBS().garantias || []).map((x) => x[0] + ':' + x[1]), seg: seg ? [...seg.querySelectorAll('button')].map((b) => b.dataset.sub + (b.classList.contains('active') ? '*' : '')) : [], aqui: ((AOne.HERE().garantias || [])[2] || []).map((a) => a[0]) }; });
+  conferir(nav5.subs.join('|') === 'lista:Lista|estragou:Estragou? E agora?' && nav5.seg.join(',') === 'lista*,estragou', 'G5. no ☰ e no topo da aba: [🧾 Lista | 🆘 Estragou? E agora?] (' + nav5.subs.join(', ') + ' / ' + nav5.seg.join(',') + ')');
+  conferir(nav5.aqui.some((a) => /^🆘 Estragou\?/.test(a)), 'G5. AssistONE desta tela: "🆘 Estragou?" (' + nav5.aqui.join(', ') + ')');
+  await p.click('#screen .gar .seg:not(.garf) [data-sub="estragou"]').catch(() => {}); await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => S.route.sub === 'estragou' && !S.route.arg && !!document.querySelector('#screen #garsel') && !!document.querySelector('#screen .gar .seg:not(.garf) [data-sub="estragou"].active')), 'G5. tocar em "🆘 Estragou? E agora?" abre a escolha da coisa');
+  await p.evaluate(() => go('home')); await p.waitForTimeout(400);
+  await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /Estragou/.test(x[0])); if (a) a[1](); }); await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => S.route.tab === 'garantias' && S.route.sub === 'estragou'), 'G5. "🆘 Estragou?" do AssistONE leva para lá');
+  await ficha(I5.es);
+  await p.click('#screen [data-sub="estragou"][data-arg="' + I5.es + '"]').catch(() => {}); await p.waitForTimeout(400);
+  conferir(await p.evaluate((id) => S.route.sub === 'estragou' && S.route.arg === id && !!document.querySelector('#screen #gar-quem'), I5.es), 'G5. o 🆘 da ficha abre o "Estragou?" daquela coisa');
+
+  /* o seletor: primeiro as que valem; sem as que saíram de casa; "Outra coisa" no fim */
+  await est5(null);
+  const sel5 = await p.evaluate(() => [...document.querySelectorAll('#screen #garsel .li')].map((r) => ({ t: ((r.querySelector('.t') || {}).textContent || '').trim(), act: r.dataset.act, sub: r.dataset.sub, arg: r.dataset.arg, de: r.dataset.de })));
+  const VALE5 = ['fa', 'es', 'sn', 'el', 'ef', 'ec', 'en', 'tv', 'le', 'ls', 'rc', 'df', 'ct', 'sp', 'xs'], OUTRAS5 = ['ff', 'ep', 'ac', 'a0', 'fl'];
+  const pos5 = (k) => sel5.findIndex((r) => r.arg === I5[k] && r.t === NOMES5[k] && r.act === 'go' && r.sub === 'estragou');
+  conferir(VALE5.concat(OUTRAS5).every((k) => pos5(k) >= 0) && Math.max(...VALE5.map(pos5)) < Math.min(...OUTRAS5.map(pos5)), 'G5. "O que estragou?": todas as garantias, as que valem primeiro (' + sel5.map((r) => r.t.replace(/<img[^>]*>/, '<img>')).join(', ') + ')');
+  conferir(!sel5.some((r) => ['G5 Doada', 'G5 Nova versão', 'G5 Sem garantia'].includes(r.t)) && sel5.length === VALE5.length + OUTRAS5.length + 1, 'G5. "O que estragou?": sem a que saiu de casa, a de um app mais novo e o objeto sem garantia');
+  const ult5 = sel5[sel5.length - 1] || {};
+  conferir(ult5.act === 'gar.new' && ult5.de === 'estragou' && /Outra coisa \(não está aqui\)/.test(ult5.t), 'G5. no fim, "Outra coisa (não está aqui)": a lei vale para tudo (' + JSON.stringify(ult5) + ')');
+  await limpo('G5. "O que estragou?" com o lixo');
+  await p.click('#screen #garsel [data-act="gar.new"]').catch(() => {});
+  const abriuO = await p.waitForSelector('dialog[open] [name="garantia.compra.data"]', { timeout: 5000 }).then(() => true, () => false);
+  if (abriuO) { await p.fill('dialog[open] [name="name"]', 'G5 Outra coisa'); await p.fill('dialog[open] [name="garantia.compra.data"]', D5.m6); await okForm(); }
+  const outra = await p.evaluate(() => { const t = DB.raw('things').find((x) => x.name === 'G5 Outra coisa'); return { id: t && t.id, rota: [S.route.tab, S.route.sub, S.route.arg].join('/') }; });
+  conferir(abriuO && outra.id && outra.rota === 'garantias/estragou/' + outra.id && await p.evaluate(() => !!document.querySelector('#screen #gar-quem')), 'G5. "Outra coisa": cadastra com o nome e a data e volta para o "Estragou?" dela (' + outra.rota + ')');
+
+  /* 1. De quem cobrar: cada situação e cada "quem cobre" da estendida */
+  const QUEM5 = {
+    fa: ['Reclame até ' + F5.fab + '. Fale com a assistência autorizada (o telefone está no folheto ou no site da marca) ou com a loja: pela lei brasileira, os dois respondem (CDC art. 18).', 'Não acione o seguro ainda: ele começa em ≈' + F5.fab1 + '.'],
+    es: ['Acione a seguradora (Seguradora Exemplo).', 'Se a seguradora negar, a loja e o fabricante ainda podem responder por defeito de fabricação.'],
+    sn: ['Acione a seguradora (Seguradora Exemplo).', 'Sem o telefone: Meus pedidos da loja → o seguro, ou a central da loja, e peça o bilhete.'],
+    el: ['Acione pela loja (Loja Exemplo): app ou site → Meus pedidos → o seguro; ou a central da loja. Peça o folheto com as datas por escrito.'],
+    ef: ['É prazo a mais do próprio fabricante: procure a assistência autorizada.'],
+    ec: ['Pelo site ou pelo telefone da bandeira do cartão (está no bilhete); tenha a fatura em mãos.'],
+    en: ['Procure o bilhete no e-mail ou em Meus pedidos; enquanto isso, fale com a loja ou o fabricante.'],
+    ff: ['A estendida já começou, mas o fim não está no bilhete.', 'Acione pela loja: app ou site → Meus pedidos → o seguro'],
+    tv: ['Peça primeiro pela loja ou pelo seguro. Se disserem que acabou, peça o folheto com as datas por escrito e reclame também com o fabricante.'],
+    le: ['Se o defeito começou antes disso, ainda dá para reclamar até ≈' + F5.p60, 'Se for defeito de fabricação que apareceu agora, reclame com a loja ou o fabricante em até 90 dias de quando ele apareceu.'],
+    ls: ['No prazo da lei para reclamar até ≈' + F5.p80, 'Fale com a loja ou o fabricante e guarde o protocolo.'],
+    rc: ['Reclamação aberta desde ' + F5.m120 + ' (120 dias).', 'Cobre a resposta, com o protocolo em mãos.'],
+    df: ['Defeito anotado em ' + F5.m5 + ': reclame até ' + F5.p85 + '.', 'Reclame com a loja ou o fabricante e guarde o protocolo.'],
+    ep: ['A de fábrica e o prazo da lei acabaram, e o seguro só começa em ' + F5.p10 + '. Se for defeito de fabricação, reclame com a loja ou o fabricante e guarde o protocolo.'],
+    ac: ['Se for defeito de fabricação que apareceu agora, reclame com a loja ou o fabricante em até 90 dias de quando ele apareceu (até ' + F5.p70 + ', contando do dia em que o defeito apareceu). Se negarem: Procon ou consumidor.gov.br.'],
+    a0: ['reclame com a loja ou o fabricante em até 90 dias de quando ele apareceu. Se negarem: Procon ou consumidor.gov.br.'],
+    fl: ['Informe a data da compra. A garantia da lei vale sempre, mesmo sem papel (CDC art. 24): loja ou fabricante.']
+  };
+  const NAO5 = { es: /Sem o telefone/, fa: /Acione a seguradora/, a0: /\(até /, el: /Acione a seguradora/, sn: /Acione pela loja/ };
+  const telas5 = {};
+  for (const k of Object.keys(QUEM5)) {
+    const r = telas5[k] = await est5(k);
+    const falta = QUEM5[k].filter((x) => !r.quem.includes(x));
+    conferir(!falta.length && !(NAO5[k] && NAO5[k].test(r.quem)) && /^1\. De quem cobrar/.test(r.quem), 'G5. 1. De quem cobrar — ' + NOMES5[k] + ': "' + QUEM5[k].join(' … ') + '"' + (falta.length || (NAO5[k] && NAO5[k].test(r.quem)) ? ' (veio "' + r.quem + '")' : ''));
+  }
+  const cuid = telas5.es.quem;
+  conferir(/Queda, líquido ou mau uso não têm cobertura/.test(cuid) && /Não leve a um técnico qualquer/.test(cuid) && /geladeira, fogão…\), talvez nem precise esperar os 30 dias \(CDC art\. 18 §3º\): pergunte ao Procon/.test(cuid) && Object.values(telas5).every((r) => /Queda, líquido ou mau uso/.test(r.quem)),
+    'G5. sempre, numa caixa: queda/líquido/mau uso, não levar a um técnico qualquer e, em coisa essencial, talvez nem esperar os 30 dias (Procon)');
+  const proib5 = Object.keys(telas5).filter((k) => PROIBIDAS.test(telas5[k].tudo));
+  conferir(!proib5.length, 'G5. nenhuma palavra proibida (sem garantia, vício, decadência, contratual, "não da loja"…) em nenhuma situação' + (proib5.length ? ' (' + proib5.map((k) => NOMES5[k] + ': ' + telas5[k].tudo.match(PROIBIDAS)[0]).join(' | ') + ')' : ''));
+  /* 📞, 💬 e 📲 como botões grandes; o do app diz o domínio */
+  await est5('es');
+  const bt5 = await p.evaluate(() => [...document.querySelectorAll('#screen #gar-quem a')].map((a) => ({ href: a.getAttribute('href'), cls: a.className, txt: a.innerText.replace(/\s+/g, ' '), alvo: a.getAttribute('target'), rel: a.getAttribute('rel') })));
+  const bTel = bt5.find((b) => b.href === 'tel:08000000000'), bWa = bt5.find((b) => /^https:\/\/wa\.me\/5511900000000$/.test(b.href)), bApp = bt5.find((b) => b.href === 'https://www.exemplo.com.br/sinistro');
+  conferir(bTel && bWa && bApp && [bTel, bWa, bApp].every((b) => /(^| )btn( |$)/.test(b.cls) && !/(^| )(xs|sm)( |$)/.test(b.cls)) && /^📞/.test(bTel.txt) && /^💬/.test(bWa.txt) && /^📲/.test(bApp.txt), 'G5. a seguradora: 📞 Ligar, 💬 WhatsApp e 📲 o app, como botões grandes (' + JSON.stringify(bt5.map((b) => b.txt + ' ' + b.cls)) + ')');
+  conferir(bApp && /abre exemplo\.com\.br/.test(bApp.txt) && bApp.alvo === '_blank' && /noopener/.test(bApp.rel) && bWa && bWa.alvo === '_blank', 'G5. o botão do app diz o domínio ("abre exemplo.com.br") e abre em outra aba, sem levar a página junto');
+  await est5('xs'); await limpo('G5. "Estragou?" com o lixo (nome, seguradora, telefones, app javascript:, atendimento)');
+  conferir(await p.evaluate(() => !document.querySelector('#screen a[href^="javascript"]') && [...document.querySelectorAll('#screen #gar-quem a.btn')].every((a) => /^(tel:\d+|https:\/\/wa\.me\/\d+)$/.test(a.getAttribute('href')))), 'G5. com o lixo: o link "javascript:" some e os botões só levam a tel: e wa.me com números');
+
+  /* o topo: "Você já reclamou…" e o aviso sem protocolo */
+  const ct5 = await est5('ct');
+  conferir(ct5.topo.includes('📣 Você já reclamou em ' + F5.m2 + ' com Assistência Exemplo: cobre a resposta (protocolo PROT-0002).') && !/Sem protocolo/.test(ct5.topo), 'G5. no topo: "Você já reclamou em ' + F5.m2 + ' com Assistência Exemplo: cobre a resposta (protocolo PROT-0002)" (' + ct5.topo + ')');
+  conferir(telas5.rc.topo.includes('📣 Você já reclamou em ' + F5.m120 + ' com Central Exemplo: cobre a resposta (protocolo PROT-0001).'), 'G5. no topo da reclamação aberta: o dia, com quem e o protocolo');
+  const sp5 = await est5('sp');
+  conferir(sp5.topo.includes('📣 Você já reclamou em ' + F5.m3 + ' com a loja: cobre a resposta.') && sp5.topo.includes('⚠️ Sem protocolo fica difícil provar: peça um ou reclame por escrito.'), 'G5. sem protocolo: "⚠️ Sem protocolo fica difícil provar: peça um ou reclame por escrito" (' + sp5.topo + ')');
+  conferir(!/Você já reclamou/.test(telas5.ac.topo) && !/Você já reclamou/.test(telas5.fa.topo), 'G5. sem reclamação aberta (a última resolvida, ou nenhuma), nada de "Você já reclamou"');
+
+  /* 4. Os contadores, um por defeito */
+  const dfc = (h) => ct5.dfs.find((x) => x.h.includes(h)) || { a: '', s: '' };
+  const c1 = dfc('Não liga'), c2 = dfc('Porta solta'), c3 = dfc('Luz piscando'), c4 = dfc('Botão Exemplo');
+  conferir(ct5.dfs.length === 4 && /Contador dos 30 dias para consertar/.test(c1.a) && c1.a.includes('Dia 5 de 30 (2 contatos)'), 'G5. contador dos 30 dias: 2 idas (loja e assistência) → "Dia 5 de 30 (2 contatos)" (' + c1.a + ')');
+  conferir(c1.s.includes('3 dias desde o aviso') && c1.s.includes('Até 30 dias para responder (Lei 15.040/2024, art. 86)') && c1.s.includes('Se negar, peça a negativa por escrito: o prazo para ir à Justiça é de 1 ano.') && !c2.s && !c3.s && !c4.s,
+    'G5. a seguradora tem o contador dela (Lei 15.040/2024), fora do art. 18: "3 dias desde o aviso" (' + c1.s + ')');
+  conferir(c2.a.includes('Dia 30 de 30 (1 contato)') && c2.a.includes('Hoje é o 30º dia. Se não resolverem hoje, amanhã você já pode escolher') && !/Passaram os 30 dias/.test(c2.a), 'G5. no 30º dia: "Hoje é o 30º dia. Se não resolverem hoje, amanhã você já pode escolher…" (' + c2.a + ')');
+  conferir(c3.a.includes('Passaram os 30 dias. Pela lei, você pode escolher: trocar por outro, o dinheiro de volta corrigido ou um desconto (CDC art. 18 §1º).') && !/Hoje é o 30º dia/.test(c3.a), 'G5. no 31º dia: o texto do CDC art. 18 §1º (trocar, o dinheiro de volta ou desconto) (' + c3.a + ')');
+  conferir(c4.a.includes('Dia 15 de 30 (2 contatos)') && c4.a.includes('Depois de um “não” por escrito, o prazo volta a correr: procure logo o Procon ou o consumidor.gov.br.'), 'G5. "negado": "Depois de um “não” por escrito, o prazo volta a correr: procure logo o Procon ou o consumidor.gov.br." (' + c4.a + ')');
+  conferir(ct5.ats.length === 7 && ct5.ats[0].includes(F5.m2) && ct5.ats[0].includes('Assistência Exemplo') && ct5.ats[0].includes('PROT-0002'), 'G5. 3. os atendimentos, do mais novo ao mais antigo, com o protocolo (' + (ct5.ats[0] || '') + ')');
+  conferir(telas5.rc.cont.includes('Passaram os 30 dias') && telas5.fa.cont && !/Dia \d+ de 30/.test(telas5.fa.cont), 'G5. sem atendimento, sem contador; a reclamação aberta há 120 dias já passou dos 30');
+
+  /* com "saiu de casa", só o histórico; app mais novo, só "atualize" */
+  const sa5 = await est5('sa');
+  conferir(/Saiu de casa: doado em/.test(sa5.topo) && /Fica como histórico/.test(sa5.topo) && !sa5.quem && !sa5.levar && !sa5.cont && /Central Exemplo/.test(sa5.tudo) && /PROT-0020/.test(sa5.tudo) && !sa5.acts.length, 'G5. coisa que saiu de casa: só o histórico dos atendimentos, sem "De quem cobrar", sem contadores e sem botões');
+  const nv5 = await est5('nv');
+  conferir(/atualize o app/i.test(nv5.tudo) && !nv5.acts.length && !nv5.quem, 'G5. garantia de um app mais novo: "atualize o app", sem botões');
+
+  /* 2. O que levar (✓ / 🔒) e a foto do defeito, trancada */
+  await ficha(I5.fa);
+  const anexa5 = async (sel, nome, tipo, buf) => { const b = await p.$(sel); if (!b) return false; const [fc] = await Promise.all([p.waitForEvent('filechooser', { timeout: 5000 }), b.click()]); await fc.setFiles({ name: nome, mimeType: tipo, buffer: buf }); return true; };
+  const nN5 = await anexa5('#screen [data-act="gar.papel"][data-tipo="nota"]', 'NF ' + CPF + '.pdf', 'application/pdf', Buffer.from('%PDF-1.4\n% nota G5\n'));
+  await p.waitForFunction((id) => ((DB.get('things', id).garantia || {}).arquivos || []).length === 1, I5.fa, { timeout: 5000 }).catch(() => {});
+  let lv5 = await est5('fa');
+  const lin5 = (r, rot) => r.linhas.find((l) => l[1].startsWith(rot)) || ['', '', ''];
+  conferir(nN5 && lin5(lv5, 'Nota fiscal')[0] === '✓' && /está no app/.test(lin5(lv5, 'Nota fiscal')[2]) && /trancad/.test(lin5(lv5, 'Nota fiscal')[2]) && lin5(lv5, 'Bilhete do seguro')[0] === '○' && lin5(lv5, 'Folheto de garantia')[0] === '○' && lin5(lv5, 'Manual')[0] === '○',
+    'G5. 2. O que levar (responsável): ✓ a nota que está no app (trancada), ○ o bilhete, o folheto e o manual que faltam (' + JSON.stringify(lv5.linhas) + ')');
+  conferir(/Documento com CPF/.test(lv5.levar) && /você leva; o app não guarda CPF/.test(lv5.levar) && /relato curto/i.test(lv5.levar) && /Fotos do defeito/.test(lv5.levar), 'G5. O que levar: o documento com CPF (o app não guarda CPF), as fotos do defeito e um relato curto');
+  conferir(!lin5(telas5.le, 'Bilhete do seguro')[1] && lin5(telas5.le, 'Nota fiscal')[0] === '○', 'G5. O que levar: sem estendida, o bilhete nem aparece');
+  const fd5 = await anexa5('#screen #gar-levar [data-act="gar.papel"][data-tipo="defeito"]', 'IMG_' + CPF + '.jpg', 'image/jpeg', Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1]));
+  await p.waitForFunction((id) => ((DB.get('things', id).garantia || {}).arquivos || []).length === 2, I5.fa, { timeout: 5000 }).catch(() => {});
+  const fm5 = await p.evaluate((id) => { const a = (DB.get('things', id).garantia.arquivos || []).find((x) => x.tipo === 'defeito'), m = a ? Files.meta(a.id) || {} : {}; return { tem: !!a, name: m.name, enc: !!m.enc, vis: m.vis, gar: m.gar }; }, I5.fa);
+  conferir(fd5 && fm5.tem && fm5.enc && fm5.vis === 'restrito' && fm5.name === 'defeito-1.jpg' && fm5.gar === I5.fa, 'G5. "📷 Guardar foto do defeito": trancada, só responsáveis, nome "defeito-1.jpg" e a marca gar (' + JSON.stringify(fm5) + ')');
+  lv5 = await est5('fa');
+  conferir(/1 no app/.test(lin5(lv5, 'Fotos do defeito')[2]), 'G5. O que levar: "Fotos do defeito: 1 no app" (' + lin5(lv5, 'Fotos do defeito').join(' | ') + ')');
+  await p.evaluate(() => { S.role = 'adulto'; });
+  const mb5 = await est5('fa');
+  conferir(lin5(mb5, 'Nota fiscal')[0] === '🔒' && /só um responsável abre/.test(lin5(mb5, 'Nota fiscal')[2]) && mb5.acts.includes('gar.atend') && !mb5.acts.includes('gar.papel:defeito'), 'G5. quem não é responsável: a nota com 🔒 ("só um responsável abre"), registra atendimento e não guarda foto (trancada) (' + mb5.acts.join(', ') + ')');
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+
+  /* 3. Registrar atendimento: o formulário, o que ele recusa, editar e o mesmo defeito */
+  await est5('fa');
+  await p.click('#screen #gar-atend [data-act="gar.atend"]:not([data-at])').catch(() => {});
+  const abriuA5 = await p.waitForSelector('dialog[open] [name="protocolo"]', { timeout: 5000 }).then(() => true, () => false);
+  const fq = () => p.evaluate(() => { const m = document.querySelector('dialog[open]'), v = (n) => ((m && m.querySelector('[name="' + n + '"]')) || {}).value, vis = (n) => { const i = m && m.querySelector('[name="' + n + '"]'); return !!i && !!(i.offsetWidth || i.offsetHeight); }; return { d: v('d'), quem: v('quem'), sit: v('situacao'), df: v('defeito'), prot: v('protocolo'), desc: vis('_desc'), ap: vis('_apareceu'), nota: ((m && m.querySelector('#garatnota')) || {}).innerText || '', txt: m ? m.innerText : '' }; });
+  const muda = (vals) => p.evaluate((vals) => { const m = document.querySelector('dialog[open]'); if (!m) return; for (const [k, v] of Object.entries(vals)) { const i = m.querySelector('[name="' + k + '"]'); if (i) { i.value = v; i.dispatchEvent(new Event('change', { bubbles: true })); } } }, vals);
+  const f0 = await fq();
+  conferir(abriuA5 && f0.d === hojeISO && f0.quem === 'loja' && f0.sit === 'aberto' && f0.df === 'novo' && f0.desc && f0.ap && /Com o protocolo, o prazo para reclamar fica parado até eles responderem “não” por escrito \(CDC art\. 26 §2º\)/.test(f0.nota) && /Com quem falou \(empresa ou atendente\)/.test(f0.txt) && /o “sinistro”/.test(f0.txt),
+    'G5. "＋ Registrar atendimento": hoje, a loja, em aberto, um defeito novo (o que é e quando apareceu) e a regra do protocolo (CDC art. 26 §2º) (' + JSON.stringify(Object.assign({}, f0, { txt: '' })) + ')');
+  await muda({ quem: 'seguradora' });
+  const fS = await fq();
+  conferir(/A seguradora tem até 30 dias para dizer se cobre \(Lei 15\.040\/2024, art\. 86\)\. Ela pode pedir mais papéis uma vez, e o prazo para enquanto isso\./.test(fS.nota) && !/26 §2º/.test(fS.nota), 'G5. com a seguradora, a regra dela: 30 dias para dizer se cobre (Lei 15.040/2024, art. 86) (' + fS.nota + ')');
+  await muda({ quem: 'loja', com: 'Central Exemplo', protocolo: 'PROT-0009', oque: 'Vão mandar um técnico', _desc: 'Não gela', _apareceu: D5.m6 });
+  const recusa5 = (vals) => p.evaluate(async (vals) => {
+    const m = document.querySelector('dialog[open]'); for (const [k, v] of Object.entries(vals)) { const i = m.querySelector('[name="' + k + '"]'); i.value = v; i.dispatchEvent(new Event('change', { bubbles: true })); }
+    const n = JSON.stringify(DB.raw('things')); m.querySelector('[data-ok]').click(); await new Promise((x) => setTimeout(x, 400));
+    return { aberta: !!document.querySelector('dialog[open] [name="protocolo"]'), igual: JSON.stringify(DB.raw('things')) === n, toast: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '' };
+  }, vals);
+  for (const [vals, oque] of [[{ d: D5.p1 }, 'atendimento com data depois de hoje'], [{ d: D5.m4, _desc: '' }, 'defeito novo sem dizer o que é'], [{ d: D5.m4, _desc: 'Não gela', _apareceu: D5.m3 }, 'defeito que apareceu depois do atendimento']]) {
+    const r = abriuA5 ? await recusa5(vals) : { aberta: false };
+    conferir(r.aberta && r.igual, 'G5. o atendimento recusa, com a janela aberta e nada gravado: ' + oque + (r.toast ? ' — "' + r.toast + '"' : ''));
+  }
+  if (abriuA5) { await muda({ d: D5.m4, _desc: 'Não gela', _apareceu: D5.m6 }); await okForm(); }
+  const at5 = await p.evaluate((id) => { const t = DB.raw('things').find((x) => x.id === id), g = t.garantia || {}; return { ats: g.atendimentos || [], dfs: g.defeitos || [], ler: (Garantias.ler(t) || {}).atendimentos || [] }; }, I5.fa);
+  const a50 = at5.ats[0] || {}, d50 = at5.dfs[0] || {};
+  conferir(at5.ats.length === 1 && /^at/.test(a50.id || '') && a50.d === D5.m4 && a50.quem === 'loja' && a50.com === 'Central Exemplo' && a50.protocolo === 'PROT-0009' && a50.oque === 'Vão mandar um técnico' && a50.situacao === 'aberto' && at5.dfs.length === 1 && /^df/.test(d50.id || '') && d50.desc === 'Não gela' && d50.apareceu === D5.m6 && a50.defeito === d50.id && at5.ler.length === 1,
+    'G5. o atendimento é gravado com id (a nuvem junta pelos ids), ligado ao defeito novo, e a leitura o mantém (' + JSON.stringify(at5) + ')');
+  let fa5 = await est5('fa');
+  conferir(fa5.ats.length === 1 && fa5.ats[0].includes('Central Exemplo') && fa5.ats[0].includes('PROT-0009') && fa5.cont.includes('Dia 4 de 30 (1 contato)') && fa5.topo.includes('📣 Você já reclamou em ' + F5.m4 + ' com Central Exemplo: cobre a resposta (protocolo PROT-0009).'),
+    'G5. depois de registrar: na lista, "Dia 4 de 30 (1 contato)" e "Você já reclamou…" no topo (' + fa5.cont + ')');
+  /* editar: vem preenchido; "Resolvido" para o contador */
+  await p.click('#screen #gar-atend [data-act="gar.atend"][data-at="' + a50.id + '"]').catch(() => {});
+  const abriuE5 = await p.waitForSelector('dialog[open] [name="protocolo"]', { timeout: 5000 }).then(() => true, () => false);
+  const fE = abriuE5 ? await fq() : {};
+  if (abriuE5) { await muda({ situacao: 'resolvido' }); await okForm(); }
+  const at6 = await p.evaluate((id) => (DB.get('things', id).garantia.atendimentos || []), I5.fa);
+  fa5 = await est5('fa');
+  conferir(abriuE5 && fE.prot === 'PROT-0009' && fE.df === d50.id && !fE.desc && at6.length === 1 && at6[0].id === a50.id && at6[0].situacao === 'resolvido' && fa5.cont.includes('Resolvido (1 contato)') && !/Você já reclamou/.test(fa5.topo),
+    'G5. ✏️ no atendimento: vem preenchido; marcar "Resolvido" muda o mesmo (mesmo id) e o contador diz "Resolvido" (' + fa5.cont + ')');
+  /* um 2º contato do mesmo defeito: o contador conta da 1ª ida */
+  await p.click('#screen #gar-atend [data-act="gar.atend"]:not([data-at])').catch(() => {});
+  const abriuA2 = await p.waitForSelector('dialog[open] [name="protocolo"]', { timeout: 5000 }).then(() => true, () => false);
+  const fA2 = abriuA2 ? await fq() : {};
+  if (abriuA2) { await muda({ d: D5.m1, quem: 'fabricante', com: 'Fabricante Exemplo', protocolo: 'PROT-0013' }); await okForm(); }
+  fa5 = await est5('fa');
+  conferir(abriuA2 && fA2.df === d50.id && !fA2.desc && fa5.ats.length === 2 && fa5.cont.includes('Dia 4 de 30 (2 contatos)'), 'G5. 2º contato do mesmo defeito (já vem escolhido): "Dia 4 de 30 (2 contatos)", contando da 1ª ida (' + fa5.cont + ')');
+
+  /* a assistência técnica: contato novo na categoria 🔧, ligado pelo id e mantido ao salvar (R1) */
+  await ficha(I5.fa);
+  const as0 = await p.evaluate(() => ({ txt: (document.querySelector('#screen #garassist') || {}).innerText || '', esc: !!document.querySelector('#screen #garassist [data-act="gar.assist"]'), novo: !!document.querySelector('#screen #garassist [data-act="gar.assistnovo"]'), at: (document.querySelector('#screen #garat') || {}).innerText || '', cat: CT_CATS().map((c) => c[0] + ':' + c[1] + ' ' + c[2]) }));
+  conferir(as0.esc && as0.novo && /Ninguém escolhido ainda/.test(as0.txt) && as0.cat[as0.cat.length - 2] === 'assistencia:🔧 Assistência técnica' && /^outro:/.test(as0.cat[as0.cat.length - 1]), 'G5. a ficha tem "🔧 Assistência técnica" (Escolher / ＋ Novo); a categoria nova de contato fica antes de "Outro" (' + as0.cat.slice(-3).join(', ') + ')');
+  conferir(/PROT-0009/.test(as0.at) && /PROT-0013/.test(as0.at) && /Fabricante Exemplo/.test(as0.at), 'G5. a ficha lista os atendimentos');
+  await p.click('#screen #garassist [data-act="gar.assistnovo"]').catch(() => {});
+  const abriuC = await p.waitForSelector('dialog[open] [name="cat"]', { timeout: 5000 }).then(() => true, () => false);
+  const cat0 = abriuC ? await p.inputValue('dialog[open] [name="cat"]') : '';
+  if (abriuC) { await p.fill('dialog[open] [name="name"]', 'Assistência Exemplo'); await p.fill('dialog[open] [name="phones.0"]', '(11) 3000-0000'); await okForm(); }
+  const ct1 = await p.evaluate((id) => { const c = DB.raw('contacts').find((x) => x.name === 'Assistência Exemplo'); return { c: c ? { id: c.id, cat: c.cat, vis: c.vis } : null, lig: (DB.get('things', id).garantia || {}).assistencia }; }, I5.fa);
+  const cid = ct1.c ? ct1.c.id : 'nenhum';
+  conferir(abriuC && cat0 === 'assistencia' && ct1.c && ct1.c.cat === 'assistencia' && ct1.c.vis === 'familia' && ct1.lig === cid, 'G5. "＋ Novo": o contato nasce em 🔧 Assistência técnica, para a família, e fica ligado à garantia pelo id (' + JSON.stringify(ct1) + ')');
+  const assist = async () => { await ficha(I5.fa); return p.evaluate(() => { const b = document.querySelector('#screen #garassist'), h = (s) => { const a = b && b.querySelector(s); return a ? a.getAttribute('href') : ''; }; return { txt: b ? b.innerText : '', tel: h('a[href^="tel:"]'), wa: h('a[href^="https://wa.me/"]'), cls: b ? [...b.querySelectorAll('a')].map((a) => a.className) : [] }; }); };
+  let as1 = await assist();
+  conferir(/Assistência Exemplo/.test(as1.txt) && as1.tel === 'tel:1130000000' && as1.wa === 'https://wa.me/551130000000' && as1.cls.length === 2 && as1.cls.every((c) => /(^| )btn( |$)/.test(c) && !/(^| )(xs|sm)( |$)/.test(c)), 'G5. a ficha mostra a assistência com 📞 e 💬 como botões grandes (' + JSON.stringify(as1) + ')');
+  await p.evaluate((id) => ACT['ct.edit']({ id }), cid);
+  const abriuC2 = await p.waitForSelector('dialog[open] [name="cat"]', { timeout: 5000 }).then(() => true, () => false);
+  const cat1 = abriuC2 ? await p.inputValue('dialog[open] [name="cat"]') : '';
+  if (abriuC2) await okForm();
+  conferir(cat1 === 'assistencia' && await p.evaluate((id) => (DB.get('contacts', id) || {}).cat, cid) === 'assistencia', 'G5. editar o contato em 📇 Contatos e salvar mantém "🔧 Assistência técnica"');
+  await p.evaluate(() => go('contacts', 'list')); await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => /🔧 Assistência técnica/.test(((document.querySelector('#screen [data-act="ct.f"][data-v="assistencia"]')) || {}).textContent || '')), 'G5. 📇 Contatos tem o filtro "🔧 Assistência técnica"');
+  /* R1: a versão de antes não conhece a categoria e grava "escola" ao editar; a ligação é pelo id e continua */
+  await p.evaluate(async (id) => { await DB.put('contacts', Object.assign({}, DB.get('contacts', id), { cat: 'escola' }), true); }, cid);
+  as1 = await assist();
+  conferir(/Assistência Exemplo/.test(as1.txt) && as1.tel === 'tel:1130000000', 'G5. R1: o contato que uma versão antiga passou para "escola" continua sendo a assistência desta garantia (pelo id)');
+  const qa5 = await est5('fa');
+  conferir(qa5.quem.includes('Assistência Exemplo') && await p.evaluate(() => !!document.querySelector('#screen #gar-quem a.btn[href="tel:1130000000"]')), 'G5. 1. De quem cobrar mostra a assistência escolhida, com o 📞');
+  /* Escolher: os de 🔧 primeiro, todos os contatos na lista (R1), "—" desliga */
+  await p.evaluate(async () => { await DB.put('contacts', { name: 'Escola Exemplo', cat: 'escola', vis: 'familia', phones: [] }, true); await DB.put('contacts', { name: 'Técnico Exemplo', cat: 'assistencia', vis: 'familia', phones: ['(11) 3000-0001'] }, true); });
+  await ficha(I5.fa);
+  await p.click('#screen #garassist [data-act="gar.assist"]').catch(() => {});
+  const abriuS5 = await p.waitForSelector('dialog[open] [name="assistencia"]', { timeout: 5000 }).then(() => true, () => false);
+  const ops = abriuS5 ? await p.evaluate(() => { const s = document.querySelector('dialog[open] [name="assistencia"]'); return { t: [...s.options].map((o) => o.textContent), v: s.value }; }) : { t: [], v: '' };
+  const tec = await p.evaluate(() => (DB.raw('contacts').find((x) => x.name === 'Técnico Exemplo') || {}).id);
+  if (abriuS5) { await p.selectOption('dialog[open] [name="assistencia"]', tec); await okForm(); }
+  conferir(abriuS5 && ops.t[0] === '—' && ops.t[1] === '🔧 Técnico Exemplo' && ops.t.includes('Assistência Exemplo') && ops.t.includes('Escola Exemplo') && ops.v === cid && await p.evaluate((id) => DB.get('things', id).garantia.assistencia, I5.fa) === tec,
+    'G5. "Escolher": a de agora marcada, os de 🔧 primeiro, todos os contatos na lista; escolher outro liga ele (' + ops.t.join(', ') + ')');
+
+  /* quem não muda: criança, app mais novo e coisa que saiu de casa */
+  const semForm = async (act, nome, sel) => { await tocar(act, nome); const abriu = await p.waitForSelector('dialog[open] ' + sel, { timeout: 700 }).then(() => true, () => false); if (abriu) await fecharJanelas(p); return !abriu; };
+  const c05 = await p.evaluate(() => JSON.stringify(DB.raw('things')));
+  conferir(await semForm('gar.atend', 'G5 Nova versão', '[name="protocolo"]') && await semForm('gar.atend', 'G5 Doada', '[name="protocolo"]') && await semForm('gar.assist', 'G5 Nova versão', '[name="assistencia"]'), 'G5. app mais novo e coisa que saiu de casa: registrar atendimento e escolher assistência recusam (nem abrem)');
+  await p.evaluate(() => { S.role = 'crianca'; });
+  const cr5 = await est5('ct');
+  const crSel = await est5(null);
+  conferir(!cr5.acts.length && /1\. De quem cobrar/.test(cr5.quem) && /Contador dos 30 dias/.test(cr5.cont) && !crSel.acts.length, 'G5. criança vê o "Estragou?" e os contadores, sem registrar, sem guardar foto e sem "Outra coisa"' + (cr5.acts.length || crSel.acts.length ? ' (' + cr5.acts.concat(crSel.acts).join(', ') + ')' : ''));
+  conferir(await semForm('gar.atend', 'G5 Contador', '[name="protocolo"]') && await semForm('gar.assist', 'G5 Fábrica', '[name="assistencia"]') && await semForm('gar.assistnovo', 'G5 Fábrica', '[name="cat"]'), 'G5. criança: registrar atendimento e escolher assistência recusam (nem abrem)');
+  await ficha(I5.fa);
+  conferir(!(await p.$$('#screen [data-act^="gar."]')).length, 'G5. criança: a ficha sem ✏️, sem "Escolher"/"＋ Novo" e sem "＋ Registrar atendimento"');
+  conferir(await p.evaluate(() => JSON.stringify(DB.raw('things'))) === c05, 'G5. ... e nada foi gravado');
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+
+  /* 390 px (alvos de 44 px, sem rolar para o lado) e EN */
+  for (const lang of ['pt', 'en']) for (const [sub, k] of [['estragou', null], ['estragou', 'es'], ['estragou', 'ct'], ['estragou', 'fa'], ['ficha', 'fa']]) {
+    await p.evaluate((a) => { if (S.lang !== a.lang) setLang(a.lang); go('garantias', a.sub, a.id); }, { lang, sub, id: k ? I5[k] : null }); await p.waitForTimeout(500);
+    await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((x) => (x.open = true))); await p.waitForTimeout(100);
+    const a = await alvos();
+    conferir(a.w === 390 && a.larg && a.n >= 6 && !a.peq.length, 'G5. 390 px (' + lang.toUpperCase() + ', ' + sub + (k ? ' ' + NOMES5[k] : '') + '): nada passa da largura e os ' + a.n + ' alvos de toque têm 44 px' + (a.peq.length ? ': ' + a.peq.join(' · ') : ''));
+  }
+  await p.evaluate(() => setLang('en'));
+  const en5 = await est5('es'), enC = await est5('ct');
+  conferir(/Broken\? What now\?/.test(en5.tudo) && /1\. Who to ask/.test(en5.quem) && /File a claim with the insurer \(Seguradora Exemplo\)/.test(en5.quem) && /2\. What to take/.test(en5.levar) && /3\. Log a service call/.test(en5.atend) && /Brazilian consumer law/.test(en5.tudo) && /30-day repair counter/.test(enC.cont) && /Day 5 of 30 \(2 contacts\)/.test(enC.cont) &&
+    !/De quem cobrar|O que levar|Registrar atendimento|Acione|Contador dos 30|Você já reclamou|Queda, líquido/.test(en5.tudo + enC.tudo), 'G5. EN: o "Estragou?" e os contadores em inglês');
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'G5: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -1129,5 +1444,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica)');
 })().catch((e) => { console.error(e); process.exit(1); });
