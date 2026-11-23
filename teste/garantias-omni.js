@@ -33,6 +33,14 @@
        (com confirmação, só o responsável); fora do "Passar o bastão"; criança e versão mais nova não gravam
      - o Giro (no Supabase de mentira, como o giro-omni.js): depois da troca da chave e do "Terminar a troca", a nota abre e o
        👁 mostra o número
+     G4 — os avisos (D-G4): 30 e 7 dias antes do fim da de fábrica e da estendida, e o começo da estendida
+     - 🔔, Início e Inbox: um aviso por garantia, levando à ficha; vermelho só no de 7 dias quando nada cobre depois; "hoje" e
+       "amanhã"; o texto para leigo e sem número; o começo da estendida quando o seguro passa a cobrir (nunca no começo do
+       contrato do bilhete)
+     - Agenda: linhas de dia inteiro (fim da de fábrica, começo e fim da estendida), uma só quando a estendida emenda; o toque
+       abre a ficha. Celular: depois das 9h, uma notificação por garantia, data e marco (tocar 2 vezes não repete)
+     - nada é gravado; sem aviso: saiu de casa, cancelada, app mais novo, "Só responsáveis" para quem não é, criança sem "ver a
+       Casa", função desligada; um registro que quebra a conta fica de fora e o 🔔 continua; id estranho não entra; EN
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -861,6 +869,181 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await p.evaluate((papel) => { S.role = papel; }, papel0);
   conferir(!lixo.erros.length && !lixo.nativos.length, 'G3: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     G4 — os avisos: 🔔, Início, Agenda e celular (D-G4)
+     ===================================================================== */
+  console.log('\n— G4: os avisos (🔔, Início, Agenda e celular)');
+  await p.evaluate((papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); }, papel0);
+  /* só as garantias desta parte, com datas a partir de hoje (as das partes de antes também avisariam) */
+  const g4 = await p.evaluate(async (XSS) => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const h = today(), d = (n) => GarCalc.somaDias(h, n);
+    const novo = async (name, garantia, vis, id) => (await DB.put('things', Object.assign(id ? { id } : {}, { name, place: '', tags: [], vis: vis || 'familia', garantia }), true)).id;
+    const fab = (n, o) => Object.assign({ v: 1, compra: { data: d(-300) }, fabrica: { fim: d(n), legalInclusa: 'sim' }, estendida: { tem: 'nao' } }, o || {});
+    /* estendida "não sei" de quando contam os meses: pela compra acaba daqui a ~10 dias (num dia até 28: somar meses não cai no último dia do mês) */
+    let kT = 10; while (+d(kT).slice(8) > 28) kT--;
+    const compraT = GarCalc.somaMeses(d(kT), -24);
+    const ids = {
+      f30: await novo('G4 Fab30', fab(30, { finais: { pedido: '0001', bilhete: '', serie: '' } })),
+      f31: await novo('G4 Fab31', fab(31)),
+      f8: await novo('G4 Fab8', fab(8)),
+      f7: await novo('G4 Fab7', fab(7)),
+      f7e: await novo('G4 Fab7 com estendida', fab(7, { estendida: { tem: 'sim', quem: 'loja', inicio: d(8), fim: d(400) } })),
+      f1: await novo('G4 Amanhã', fab(1)),
+      f0: await novo('G4 Hoje', fab(0)),
+      fx: await novo('G4 Fab ≈', { v: 1, compra: { data: d(-300) }, fabrica: { meses: null }, estendida: { tem: 'sim', quem: 'seguradora', seguradora: 'Seguradora Exemplo', inicio: d(21), fim: d(400) } }),
+      es: await novo('G4 Espera', fab(10, { estendida: { tem: 'sim', quem: 'loja', inicio: d(40), fim: d(400) } })),
+      e7: await novo('G4 Est7', { v: 1, compra: { data: d(-700) }, fabrica: { meses: 0 }, estendida: { tem: 'sim', quem: 'loja', inicio: d(-300), fim: d(7) } }),
+      et: await novo('G4 Est talvez', { v: 1, compra: { data: compraT }, fabrica: { meses: 12 }, estendida: { tem: 'sim', quem: 'loja', meses: 24, contaDe: 'naosei' } }),
+      ei: await novo('G4 Começou hoje', { v: 1, compra: { data: d(-400) }, fabrica: { fim: d(-1), legalInclusa: 'sim' }, estendida: { tem: 'sim', quem: 'seguradora', seguradora: 'Seguradora Exemplo', inicio: d(0), fim: d(365), acionar: { tel: 'Central: 0800 000 0000' } } }),
+      ec: await novo('G4 Contrato', { v: 1, compra: { data: d(0) }, fabrica: { fim: d(100), legalInclusa: 'sim' }, estendida: { tem: 'sim', quem: 'loja', inicio: d(0), fim: d(800) } }),
+      ec2: await novo('G4 Contrato que começou', { v: 1, compra: { data: d(-400) }, fabrica: { fim: d(-1), legalInclusa: 'sim' }, estendida: { tem: 'sim', quem: 'loja', inicio: d(-400), fim: d(400) } }),
+      sa: await novo('G4 Doada', fab(7, { estendida: { tem: 'sim', quem: 'loja', inicio: d(8), fim: d(400) }, saiu: { como: 'doado', em: d(-1), obs: '' } })),
+      ca: await novo('G4 Cancelada', { v: 1, compra: { data: d(-700) }, fabrica: { meses: 0 }, estendida: { tem: 'sim', inicio: d(-300), fim: d(7), cancelada: true } }),
+      re: await novo('G4 Restrita', fab(7), 'restrito'),
+      nv: await novo('G4 Nova versão', { v: 2, compra: { data: d(-300) }, fabrica: { fim: d(7) } }),
+      xs: await novo('G4 Lixo ' + XSS, fab(5)),
+      xi: await novo('G4 Id estranho', fab(5), 'familia', 'g4"><img src=x onerror="window.__xss=1">'),
+      sem: await novo('G4 Sem garantia')
+    };
+    for (const [n, g] of [['G4 Lixo texto', 'texto'], ['G4 Lixo nulo', null], ['G4 Lixo estragado', { v: 1, compra: 5, fabrica: [], estendida: 'x', saiu: 'doado' }],
+      ['G4 Lixo enorme', { v: 1, compra: { data: d(-300) }, fabrica: { meses: 1e9, fim: XSS }, estendida: { tem: 'sim', inicio: XSS, fim: '9999-99-99', meses: 1e9 } }]]) await novo(n, g);
+    const f = (n) => fmtDate(d(n));
+    return { ids, kT, d: { m1: d(-1), 0: d(0), 7: d(7), 10: d(10), 20: d(20), 30: d(30), 40: d(40), 100: d(100), 400: d(400), 800: d(800) },
+      f: { 0: f(0), 1: f(1), 7: f(7), 20: f(20), 30: f(30), 400: f(400), T: f(kT), altT: fmtDate(GarCalc.somaMeses(compraT, 36)) } };
+  }, XSS);
+  const I4 = g4.ids, F4 = g4.f, D4 = g4.d;
+  /* nada é gravado: o mesmo retrato do banco antes e depois de 🔔, Início, Inbox, Agenda e do celular */
+  const retrato = () => p.evaluate(() => JSON.stringify(COLS.map((c) => [c, DB.raw(c).length])) + JSON.stringify(DB.raw('things')) + JSON.stringify(DB.raw('reminders')) + JSON.stringify(DB.raw('events')) + JSON.stringify(DB.raw('tasks')));
+  const foto0 = await retrato();
+  const avisosG = () => p.evaluate(() => Alerts.list().filter((a) => a.go && a.go[0] === 'garantias').map((a) => ({ level: a.level, ic: a.ic, t: a.t, go: a.go.join('/') })));
+  let av = await avisosG();
+  const de = (nome) => av.filter((a) => a.t.startsWith(nome + ':'));
+  const NOMES4 = { f30: 'G4 Fab30', f8: 'G4 Fab8', f7: 'G4 Fab7', f7e: 'G4 Fab7 com estendida', f1: 'G4 Amanhã', f0: 'G4 Hoje', fx: 'G4 Fab ≈', es: 'G4 Espera', e7: 'G4 Est7', et: 'G4 Est talvez', ei: 'G4 Começou hoje', ec2: 'G4 Contrato que começou', re: 'G4 Restrita', xs: 'G4 Lixo ' + XSS };
+  const VERMELHOS = ['f7', 'f1', 'f0', 'e7', 're', 'xs'];
+  conferir(av.length === 14 && Object.keys(NOMES4).every((k) => de(NOMES4[k]).length === 1), 'G4. 🔔: um aviso para cada garantia a 30 dias ou menos do fim, ou com a estendida começando (' + av.length + ': ' + av.map((a) => a.t.split(':')[0]).join(', ') + ')');
+  conferir(Object.keys(NOMES4).every((k) => { const a = de(NOMES4[k])[0]; return a && a.go === 'garantias/ficha/' + I4[k] && a.ic === '🧾'; }), 'G4. 🔔: cada aviso (🧾) leva à ficha da garantia (garantias/ficha/<id>)');
+  conferir(Object.keys(NOMES4).every((k) => { const a = de(NOMES4[k])[0]; return a && a.level === (VERMELHOS.includes(k) ? 'bad' : 'warn'); }),
+    'G4. vermelho só no de 7 dias quando nada cobre depois (fábrica a 7, 1 e 0 dias sem estendida, estendida a 7); o resto em atenção (' + av.map((a) => a.t.split(':')[0] + '=' + a.level).join(', ') + ')');
+  conferir(!de('G4 Fab31').length, 'G4. a 31 dias do fim: ainda nenhum aviso');
+  conferir(!['G4 Doada', 'G4 Cancelada', 'G4 Nova versão', 'G4 Contrato:', 'G4 Id estranho', 'G4 Sem garantia', 'G4 Lixo texto', 'G4 Lixo nulo', 'G4 Lixo estragado', 'G4 Lixo enorme'].some((n) => av.some((a) => a.t.startsWith(n))),
+    'G4. sem aviso: coisa que saiu de casa, estendida cancelada, garantia de um app mais novo, o contrato do bilhete que ainda não cobre, objeto sem garantia e lixo');
+  const ESPERA4 = {
+    f30: 'G4 Fab30: a de fábrica acaba em 30 dias (' + F4[30] + '). Teste agora: se tiver defeito, reclame antes',
+    f7e: 'G4 Fab7 com estendida: a de fábrica acaba em 7 dias (' + F4[7] + '); depois a estendida cobre até ' + F4[400] + ', com a loja. Se já tem defeito, reclame até ' + F4[7],
+    f1: 'G4 Amanhã: a de fábrica acaba amanhã (' + F4[1] + '). Teste agora: se tiver defeito, reclame antes',
+    f0: 'G4 Hoje: a de fábrica acaba hoje (último dia, ' + F4[0] + '). Se tiver defeito, reclame hoje',
+    fx: 'G4 Fab ≈: a de fábrica pode acabar em 20 dias (≈' + F4[20] + ', confira no folheto); depois a estendida cobre até ' + F4[400] + ', com a seguradora (Seguradora Exemplo). Se já tem defeito, reclame até ≈' + F4[20],
+    e7: 'G4 Est7: a estendida acaba em 7 dias (' + F4[7] + '). Teste agora: se tiver defeito, acione a loja antes',
+    et: 'G4 Est talvez: a estendida pode acabar em ' + g4.kT + ' dias (≈' + F4.T + ', confira no bilhete); talvez vá até ≈' + F4.altT + ', se os meses contam depois da de fábrica. Teste agora: se tiver defeito, acione a loja antes',
+    ei: 'G4 Começou hoje: hoje começou a estendida. Quem cobre agora: a seguradora (Seguradora Exemplo); o telefone está na ficha',
+    ec2: 'G4 Contrato que começou: hoje começou a estendida. Quem cobre agora: a loja; veja na ficha como acionar'
+  };
+  for (const k of Object.keys(ESPERA4)) { const a = de(NOMES4[k])[0]; conferir(a && a.t === ESPERA4[k], 'G4. o texto: "' + ESPERA4[k] + '"' + (a && a.t !== ESPERA4[k] ? ' (veio "' + a.t + '")' : a ? '' : ' (sem aviso)')); }
+  conferir(!av.some((a) => /0001|0800|PEDIDO/.test(a.t)), 'G4. nenhum número nos avisos (nem o final do pedido, nem o telefone)');
+  /* o 🔔: a lista, as cores e o toque */
+  await p.evaluate(() => go('home')); await p.waitForTimeout(500);
+  await p.evaluate(() => ACT.bell()); await p.waitForSelector('dialog[open] [data-i]', { timeout: 5000 }).catch(() => {});
+  const sino = await p.evaluate(() => [...document.querySelectorAll('dialog[open] [data-i]')].map((el) => ({ i: el.dataset.i, t: (el.querySelector('.t') || {}).textContent || '', b: (el.querySelector('.badge') || {}).className || '' })));
+  const sHoje = sino.find((x) => x.t === ESPERA4.f0), s30 = sino.find((x) => x.t === ESPERA4.f30), sX = sino.find((x) => x.t.startsWith(NOMES4.xs + ':'));
+  conferir(sHoje && /bad/.test(sHoje.b) && s30 && /warn/.test(s30.b) && sX && /bad/.test(sX.b), 'G4. 🔔 mostra os avisos: "hoje (último dia)" em vermelho, o de 30 dias em atenção, e o nome com <img onerror> como texto');
+  await limpo('G4. 🔔 com as garantias e o lixo');
+  if (s30) await p.click('dialog[open] [data-i="' + s30.i + '"]');
+  await p.waitForTimeout(500);
+  conferir(await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, I4.f30), 'G4. tocar no aviso do 🔔 abre a ficha da garantia');
+  await fecharJanelas(p);
+  /* o Início ("Para você agora") e a Inbox */
+  await p.evaluate(() => go('home')); await p.waitForTimeout(600);
+  const ini = await p.evaluate(() => [...document.querySelectorAll('#screen .fi[data-tab="garantias"]')].map((el) => ({ arg: el.dataset.arg, sub: el.dataset.sub, bad: el.classList.contains('bad'), t: el.textContent })));
+  const iHoje = ini.find((x) => x.arg === I4.f0);
+  conferir(iHoje && iHoje.bad && iHoje.sub === 'ficha' && iHoje.t.includes(ESPERA4.f0), 'G4. Início ("Para você agora"): o aviso de hoje, em vermelho, levando à ficha (' + ini.length + ' de garantias)');
+  await limpo('G4. Início com as garantias e o lixo');
+  if (iHoje) await p.click('#screen .fi[data-tab="garantias"][data-arg="' + I4.f0 + '"]');
+  await p.waitForTimeout(500);
+  conferir(await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, I4.f0), 'G4. tocar no aviso do Início abre a ficha');
+  await p.evaluate(() => go('inbox', 'alerts')); await p.waitForTimeout(600);
+  const ib = await p.evaluate(() => [...document.querySelectorAll('#screen .li[data-tab="garantias"]')].map((el) => el.dataset.sub + '/' + el.dataset.arg));
+  conferir(ib.length === 14 && ib.every((x) => /^ficha\//.test(x)), 'G4. Inbox → Alertas: os 14 avisos das garantias, levando à ficha (' + ib.length + ')');
+  await limpo('G4. Inbox com as garantias e o lixo');
+  /* a Agenda: linhas de dia inteiro; quando a estendida emenda, uma linha só; o toque abre a ficha */
+  const ag = await p.evaluate((a) => ({ com: Agenda.occurrences(a.de, a.ate, { extras: true }).filter((o) => /^gar-/.test(o.id)).map((o) => ({ id: o.id, date: o.date, title: o.title, cat: o.cat, allDay: o.allDay, virtual: o.virtual })),
+    sem: Agenda.occurrences(a.de, a.ate).filter((o) => /^gar-/.test(String(o.id))).length }), { de: D4.m1, ate: D4[800] });
+  const lin = (k, suf) => ag.com.filter((o) => o.id === 'gar-' + I4[k] + '-' + suf);
+  const um = (k, suf, data, tit) => { const l = lin(k, suf); return l.length === 1 && l[0].date === data && l[0].title === tit; };
+  conferir(um('f7e', 'fab', D4[7], '🧾 Fábrica acaba; amanhã começa a estendida: G4 Fab7 com estendida') && !lin('f7e', 'ei').length && um('f7e', 'est', D4[400], '🧾 Estendida acaba: G4 Fab7 com estendida'),
+    'G4. Agenda: quando a estendida emenda, uma linha só ("Fábrica acaba; amanhã começa a estendida") e o fim da estendida (' + JSON.stringify(ag.com.filter((o) => o.id.includes(I4.f7e))) + ')');
+  conferir(um('es', 'fab', D4[10], '🧾 Fábrica acaba: G4 Espera') && um('es', 'ei', D4[40], '🧾 Estendida começa: G4 Espera') && um('es', 'est', D4[400], '🧾 Estendida acaba: G4 Espera'), 'G4. Agenda: sem emendar, o fim da de fábrica, o começo e o fim da estendida');
+  conferir(um('ec', 'fab', D4[100], '🧾 Fábrica acaba; amanhã começa a estendida: G4 Contrato') && !lin('ec', 'ei').length && !ag.com.some((o) => o.id.includes(I4.ec) && o.date === D4[0]), 'G4. Agenda: o bilhete que começa na compra entra quando o seguro passa a cobrir, nunca no começo do contrato');
+  conferir(um('fx', 'fab', D4[20], '🧾 Fábrica acaba; amanhã começa a estendida: G4 Fab ≈ (≈)') && um('f30', 'fab', D4[30], '🧾 Fábrica acaba: G4 Fab30'), 'G4. Agenda: data que é conta do app com "(≈)"');
+  conferir(ag.com.length && ag.com.every((o) => o.cat === 'casa' && o.allDay === true && o.virtual === true) && !ag.sem, 'G4. Agenda: linhas de dia inteiro, na categoria Casa, só na Agenda (fora dos compromissos de hoje e do 🔔 📅)');
+  conferir(!['sa', 'nv', 'xi', 'sem', 'ca'].some((k) => ag.com.some((o) => o.id.includes(I4[k]))), 'G4. Agenda: nada da coisa que saiu de casa, da cancelada, da de um app mais novo, do id estranho e do objeto sem garantia');
+  await p.evaluate((d) => go('agenda', 'cal', d), D4[7]); await p.waitForTimeout(600);
+  const evG = await p.$('#screen [data-act="ev.edit"][data-v="gar-' + I4.f7e + '-fab"]');
+  conferir(!!evG && /Fábrica acaba; amanhã começa a estendida: G4 Fab7 com estendida/.test(await evG.innerText()), 'G4. Agenda: a linha aparece no dia, com o título');
+  await limpo('G4. Agenda com as garantias e o lixo');
+  if (evG) await evG.click();
+  await p.waitForTimeout(500);
+  conferir(await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, I4.f7e), 'G4. tocar na linha da Agenda abre a ficha');
+  await fecharJanelas(p);
+  /* o celular: depois das 9h, uma notificação por garantia, data e marco (tick 2×: nada repete) */
+  const toque = (hora, zerar) => p.evaluate(([hora, zerar]) => {
+    const out = [], show0 = Notify.show, gh = Date.prototype.getHours;
+    Notify.show = function (title, body, tag) { if (/^gar-/.test(tag || '')) out.push({ title, body, tag }); };
+    Date.prototype.getHours = function () { return hora; };
+    try { if (zerar) lsSet(LS.notified, {}); Notify.tick(); Notify.tick(); } finally { Date.prototype.getHours = gh; Notify.show = show0; }
+    return out;
+  }, [hora, zerar]);
+  const cedo = await toque(8, true), nt = await toque(10, true), nt2 = await toque(11, false);
+  conferir(!cedo.length, 'G4. celular: antes das 9h, nenhuma notificação de garantia (' + cedo.length + ')');
+  const tagDe = (k, tipo, data, marco) => 'gar-' + I4[k] + '-' + tipo + '-' + data + '-' + marco;
+  conferir(nt.length === 14 && new Set(nt.map((x) => x.tag)).size === 14 && !nt2.length, 'G4. celular: depois das 9h, uma notificação por garantia; tocar 2 vezes e de novo depois não repete (' + nt.length + ', ' + nt2.length + ')');
+  const n30 = nt.find((x) => x.tag === tagDe('f30', 'fab', D4[30], 30)), nH = nt.find((x) => x.tag === tagDe('f0', 'fab', D4[0], 7)), nI = nt.find((x) => x.tag === tagDe('ei', 'estIni', D4[0], 0));
+  conferir(n30 && nH && nI && n30.title === '🧾 G4 Fab30' && ESPERA4.f30 === 'G4 Fab30: ' + n30.body && ESPERA4.ei === 'G4 Começou hoje: ' + nI.body,
+    'G4. celular: a chave é "gar-<id>-<tipo>-<data>-<marco>", o título "🧾 nome" e o texto o mesmo do 🔔 (' + nt.slice(0, 2).map((x) => x.tag).join(', ') + ')');
+  conferir(!nt.some((x) => /0001|0800|PEDIDO/.test(x.title + x.body)), 'G4. celular: nenhum número na notificação');
+  conferir(await retrato() === foto0, 'G4. nada é gravado: o banco fica igual depois do 🔔, do Início, da Inbox, da Agenda e do celular');
+  /* EN */
+  await p.evaluate(() => setLang('en')); await p.waitForTimeout(200);
+  const en4 = await p.evaluate((a) => ({ av: Alerts.list().filter((x) => x.go && x.go[0] === 'garantias').map((x) => x.t), ag: Agenda.occurrences(a.de, a.ate, { extras: true }).filter((o) => /^gar-/.test(o.id)).map((o) => o.title) }), { de: D4.m1, ate: D4[800] });
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(200);
+  conferir(en4.av.some((t) => /^G4 Fab30: the factory warranty ends in 30 days \(.+\)\. Test it now: if it has a defect, complain before then$/.test(t)) && en4.av.includes('G4 Começou hoje: the extended warranty started today. Who covers it now: the insurer (Seguradora Exemplo); the phone number is on its page') &&
+    en4.ag.includes('🧾 Factory warranty ends; extended warranty starts tomorrow: G4 Fab7 com estendida') && !en4.av.concat(en4.ag).some((t) => /acaba|começ|Teste agora|reclame|Fábrica/.test(t.replace(/G4 [^:]*/, ''))), 'G4. EN: os avisos e a Agenda em inglês');
+  /* quem não vê: "Só responsáveis", criança sem "ver a Casa", função desligada */
+  const tudo = async () => ({ av: (await avisosG()).map((a) => a.t.split(':')[0]), ag: await p.evaluate((a) => Agenda.occurrences(a.de, a.ate, { extras: true }).filter((o) => /^gar-/.test(o.id)).map((o) => o.id), { de: D4.m1, ate: D4[800] }), nt: await toque(10, true) });
+  await p.evaluate(() => { S.role = 'adulto'; });
+  let q = await tudo();
+  conferir(q.av.length === 13 && !q.av.includes('G4 Restrita') && !q.ag.some((x) => x.includes(I4.re)) && q.nt.length === 13 && !q.nt.some((x) => x.tag.includes(I4.re)), 'G4. "Só responsáveis": quem não é responsável não recebe aviso, linha na Agenda nem notificação dela (' + q.av.length + ', ' + q.nt.length + ')');
+  await p.evaluate(() => { S.role = 'crianca'; me().controls = Object.assign({}, me().controls, { seeHouse: false }); });
+  q = await tudo();
+  conferir(!q.av.length && !q.ag.length && !q.nt.length, 'G4. criança sem "ver a Casa": nenhum aviso de garantia, nada na Agenda nem no celular');
+  await p.evaluate((papel) => { const c = Object.assign({}, me().controls); delete c.seeHouse; me().controls = c; S.role = papel; }, papel0);
+  await p.evaluate(() => { const o = SolverRecursos.ligado; window.__lig4 = o; SolverRecursos.ligado = function (id, d) { return id === 'casa.garantias' ? false : o.call(this, id, d); }; });
+  q = await tudo();
+  await p.evaluate(() => { SolverRecursos.ligado = window.__lig4; });
+  conferir(!q.av.length && !q.ag.length && !q.nt.length, 'G4. Garantias desligada no RootifyONE: nenhum aviso, nada na Agenda nem no celular');
+  /* um registro que quebra a conta não derruba o 🔔 (try por objeto), e nem a parte toda das garantias quebrada derruba o resto */
+  const lx4 = await p.evaluate(async () => {
+    const t = await DB.put('things', { name: 'G4 Quebra', place: '', tags: [], vis: 'familia', garantia: { v: 1, marca: 'Quebra', compra: { data: GarCalc.somaDias(today(), -300) }, fabrica: { fim: GarCalc.somaDias(today(), 7), legalInclusa: 'sim' } } }, true);
+    const fab0 = GarCalc.fabrica, so = () => Alerts.list().filter((a) => a.go && a.go[0] === 'garantias');
+    GarCalc.fabrica = function (g) { if (g && g.marca === 'Quebra') throw new Error('registro que quebra'); return fab0.call(this, g); };
+    let r1 = -1, r2 = -1, e1 = '', r3 = -1, e2 = '', doc = -1;
+    try { r1 = so().length; r2 = Agenda.occurrences(today(), GarCalc.somaDias(today(), 30), { extras: true }).filter((o) => /^gar-/.test(o.id)).length; } catch (e) { e1 = e.message; }
+    GarCalc.fabrica = fab0;
+    await DB.put('docs', { title: 'Documento Exemplo G4', owner: S.meId, expires: GarCalc.somaDias(today(), 10), vis: 'familia' }, true);
+    const m0 = Garantias.marcos, a0 = Garantias.agenda;
+    Garantias.marcos = () => { throw new Error('marcos quebrou'); }; Garantias.agenda = () => { throw new Error('agenda quebrou'); };
+    try { r3 = so().length; doc = Alerts.list().filter((a) => a.ic === '📄').length; Agenda.occurrences(today(), today(), { extras: true }); Notify.tick(); } catch (e) { e2 = e.message; }
+    Garantias.marcos = m0; Garantias.agenda = a0;
+    await DB.del('things', t.id);
+    for (const x of DB.raw('docs').filter((x) => x.title === 'Documento Exemplo G4')) await DB.del('docs', x.id);
+    return { r1, r2, e1, r3, e2, doc };
+  });
+  conferir(!lx4.e1 && lx4.r1 === 14 && lx4.r2 > 0, 'G4. uma garantia cuja conta quebra fica de fora e as outras continuam no 🔔 e na Agenda (try por objeto) (' + JSON.stringify(lx4) + ')');
+  conferir(!lx4.e2 && lx4.r3 === 0 && lx4.doc >= 1, 'G4. mesmo com a parte das garantias quebrada, o 🔔 continua com o resto (o documento que vence), e a Agenda e o celular não caem');
+  await p.evaluate(() => ACT.bell()); await p.waitForTimeout(300); await limpo('G4. 🔔 depois do lixo'); await fecharJanelas(p);
+  await p.evaluate(async (id) => { await DB.del('things', id); }, I4.xi);
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'G4: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -946,5 +1129,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular)');
 })().catch((e) => { console.error(e); process.exit(1); });

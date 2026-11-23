@@ -7049,6 +7049,8 @@ const Notify = {
       if (low.length) this.once("pantry-" + td, tt("Está acabando", "Running out"), low.slice(0, 5).map((x) => x.name).join(", "));
       Maint.list().filter((m) => m._days != null && m._days <= 0).forEach((m) => this.once("mt-" + m.id + "-" + m.next, "🛠 " + m.title, tt("Manutenção vencida", "Maintenance due")));
       DB.all("docs").filter((d) => d.expires && diffDays(td, d.expires) <= 30 && diffDays(td, d.expires) >= 0).forEach((d) => this.once("doc-" + d.id + "-" + d.expires, "📄 " + d.title, tt("Vence em ", "Expires on ") + fmtDate(d.expires)));
+      /* 🧾 garantias: uma vez por garantia, data e marco (os dois celulares avisam, nada é gravado) */
+      try { Garantias.marcos(td).forEach((a) => this.once("gar-" + a.id + "-" + a.tipo + "-" + a.data + "-" + a.marco, "🧾 " + a.nome, a.txt)); } catch (e) {}
     }
     updateBadges();
   }
@@ -8240,6 +8242,8 @@ const Alerts = {
     Pantry.soon(3).slice(0, 8).forEach((i) => out.push({ level: "warn", ic: "🥫", t: i.name + " — " + (i._days <= 0 ? tt("provavelmente acabou", "probably out") : tt("acaba em ~" + i._days + " dia(s)", "runs out in ~" + i._days + " day(s)")), go: ["shop", "pantry"] }));
     Maint.list().filter((m) => m._days != null && m._days <= 7).forEach((m) => out.push({ level: m._days < 0 ? "bad" : "warn", ic: m.pet ? "🐾" : "🛠", t: m.title + " — " + (m._days < 0 ? tt("atrasada", "overdue") : relDay(m.next)), go: m.pet && Rec.ok("pets") && Pets.get(m.pet) ? ["pets", "ficha", m.pet] : ["house", "maint"] }));
     DB.all("docs").filter((d) => d.expires && diffDays(td, d.expires) <= 60).forEach((d) => { const n = diffDays(td, d.expires); out.push({ level: n < 0 ? "bad" : "warn", ic: "📄", t: d.title + " (" + People.name(d.owner) + ") — " + (n < 0 ? tt("vencido", "expired") : tt("vence ", "expires ") + fmtDate(d.expires)), go: ["docs"] }); });
+    /* 🧾 garantias: 30 e 7 dias antes do fim e o começo da estendida (try: a parte das garantias nunca derruba o 🔔) */
+    try { Garantias.marcos(td).forEach((a) => out.push({ level: a.nivel, ic: "🧾", t: a.nome + ": " + a.txt, go: ["garantias", "ficha", a.id] })); } catch (e) {}
     if (!isChild()) Contacts.missing().slice(0, 6).forEach((m) => out.push({ level: "info", ic: "📇", t: m.msg, go: ["contacts", "list", m.id] }));
     try { Gov.alerts().concat(Grow.alerts()).forEach((a) => out.push(a)); } catch (e) {}
     try { Weather.alerts().forEach((a) => out.push(a)); } catch (e) {}
@@ -9787,6 +9791,7 @@ const Agenda = {
     if (opts.extras) {
       Maint.list().forEach((m) => { if (m.next && m.next >= from && m.next <= to) out.push({ id: "mt-" + m.id, virtual: true, title: "🛠 " + m.title, date: m.next, cat: "casa", allDay: true }); });
       DB.all("docs").forEach((d) => { if (d.expires && d.expires >= from && d.expires <= to) out.push({ id: "dc-" + d.id, virtual: true, title: "📄 " + tt("Vence: ", "Expires: ") + d.title, date: d.expires, cat: "outro", allDay: true }); });
+      try { Garantias.agenda(from, to).forEach((x) => out.push(x)); } catch (e) {}   /* 🧾 o fim da de fábrica e da estendida */
     }
     return out.sort((a, b) => (a.date + (a.time || "00:00")).localeCompare(b.date + (b.time || "00:00")));
   },
@@ -10495,7 +10500,7 @@ ACT["school.new"] = () => School.edit(null);
 ACT["school.photo"] = (d) => School.photo(!!d.cap, d.id || null);
 ACT["school.edit"] = (d) => School.edit(d.id || (School.cur() || {}).id || null);
 ACT["ev.new"] = () => editEvent();
-ACT["ev.edit"] = (d) => { if (!d.id) { const v = d.v || ""; if (v.startsWith("mt-")) go("house", "maint"); else if (v.startsWith("dc-")) go("docs"); else if (v.startsWith("bday-")) go("family"); return; } const e = DB.get("events", d.id); if (e) editEvent(Object.assign({}, e)); };
+ACT["ev.edit"] = (d) => { if (!d.id) { const v = d.v || ""; if (v.startsWith("mt-")) go("house", "maint"); else if (v.startsWith("dc-")) go("docs"); else if (v.startsWith("bday-")) go("family"); else if (v.startsWith("gar-")) go("garantias", "ficha", v.slice(4, v.lastIndexOf("-"))); return; } const e = DB.get("events", d.id); if (e) editEvent(Object.assign({}, e)); };
 ACT["task.f"] = (d) => { S.taskF = d.v; render(); };
 ACT["task.new"] = async (d) => { const r = await formModal({ title: "＋ " + tt("Tarefa", "Task"), fields: taskFields(), values: { cat: "organizacao", repeat: "none", prio: "fyi", assignee: isChild() ? S.meId : ((d && d.to) || "") } }); if (r) await DB.put("tasks", Object.assign({ done: false, status: "aberta" }, r)); };
 ACT["task.edit"] = async (d) => {
@@ -13006,6 +13011,9 @@ const GarCalc = {
     const c = [fab && [fab.fim, null], e && [e.fim, e.alt], le && [le.fim, le.alt]].filter(Boolean).map(([f, a]) => (f && f >= hoje ? f : a && a >= hoje ? a : null)).filter(Boolean).sort();
     return c[0] || null;
   },
+  /* a data do aviso do fim da estendida ("pode acabar"): pela leitura mais cedo que ainda cobre algum dia; se o fim cai antes
+     do começo (a leitura "desde a compra"), o "talvez" */
+  fimAviso(e) { return e ? (e.fim && e.fim >= e.inicio ? e.fim : e.alt) || null : null; },
   /* avisos de 30 e 7 dias antes de acabar (fábrica e estendida) e do começo da estendida, até 3 dias depois (D-G4).
      Nada é gravado: dois celulares não criam nada em dobro */
   avisos(g, hoje) {
@@ -13015,7 +13023,7 @@ const GarCalc = {
     const poe = (tipo, data, est, depois) => { const dias = this.diasEntre(hoje, data), m = marco(dias); if (m) out.push({ tipo, marco: m, data, dias, est, depois }); };
     if (fab) poe("fab", fab.fim, fab.est, !!e && e.inicio === this.somaDias(fab.fim, 1));
     if (e) {
-      const fim = e.fim && e.fim >= e.inicio ? e.fim : e.alt;   /* "pode acabar": pela leitura mais cedo que ainda cobre algum dia */
+      const fim = this.fimAviso(e);
       if (fim) poe("est", fim, e.est, false);
       const d0 = this.diasEntre(e.inicio, hoje);
       if (d0 >= 0 && d0 <= 3) out.push({ tipo: "estIni", marco: 0, data: e.inicio, dias: -d0, est: e.est, depois: false });
@@ -13628,6 +13636,64 @@ const Garantias = {
     const ref = $("#garref", root), it = [o.valorCent ? tt("Valor pago: ", "Amount paid: ", "Importe pagado: ") + money(+o.valorCent / 100) : "", o.pagamento ? tt("Pagamento: ", "Payment: ", "Pago: ") + o.pagamento : "", o.cartaoFinal ? tt("Cartão: final ", "Card: ending ", "Tarjeta: termina en ") + o.cartaoFinal : "", o.precoCent ? tt("Preço da estendida: ", "Extended warranty price: ", "Precio de la extendida: ") + money(+o.precoCent / 100) : ""].filter(Boolean);
     if (ref && it.length) ref.innerHTML = '<div class="note" style="margin-top:8px"><b>💰 ' + tt("Referência", "Reference", "Referencia") + '</b><div class="small">' + it.map(esc).join("<br>") + '</div><div class="tiny faint" style="margin-top:4px">' + tt("Só referência: nada é enviado ao MoneyTRIO.", "Reference only: nothing is sent to MoneyTRIO.", "Solo referencia: no se envía nada a MoneyTRIO.") + "</div></div>";
     const iv = setInterval(() => { if (!box.isConnected) return clearInterval(iv); if (S.vaultKey) return; clearInterval(iv); box.querySelectorAll("[data-sg]").forEach((x) => (x.textContent = "••••••")); box.querySelectorAll("[data-olho]").forEach((b) => b.remove()); if (ref) ref.innerHTML = ""; }, 1000);
+  },
+  /* ---------- G4: os avisos (🔔, Início, Inbox, Agenda e celular; D-G4). Nada é gravado: tudo sai das datas na hora, então
+     dois celulares não criam nada em dobro, e mudar ou apagar a garantia muda os avisos junto ---------- */
+  /* cada garantia que esta pessoa vê e que ainda avisa: função ligada e aba visível; DB.all (o "Quem vê" vale); sem as que
+     saíram de casa (D-G9) e as de um app mais novo. O id vai sem escape para o data-arg do Início e da Inbox: id estranho
+     fica de fora. Try por objeto: um registro estragado não derruba o 🔔 da família */
+  _avisam(f) {
+    if (!Rec.ok("garantias") || !canTab("garantias")) return;
+    DB.all("things").forEach((t) => {
+      try {
+        if (!t || typeof t.id !== "string" || !/^[A-Za-z0-9_.:-]{1,80}$/.test(t.id)) return;
+        const g = this.ler(t); if (!g || g._novo || GarCalc._saiu(g)) return;
+        f(t, g, String(t.name || "").slice(0, 80) || tt("(sem nome)", "(no name)", "(sin nombre)"));
+      } catch (e) { console.error(e); }
+    });
+  },
+  /* os avisos de hoje, do mais perto ao mais longe. Vermelho só no de 7 dias quando nada cobre depois: nem a estendida
+     emendando no dia seguinte, nem o "talvez" dela (os meses podem contar depois da de fábrica) */
+  marcos(hoje) {
+    const out = [];
+    this._avisam((t, g, nome) => {
+      const e = GarCalc.estendida(g);
+      GarCalc.avisos(g, hoje).forEach((a) => {
+        const talvez = a.tipo === "est" && !!e && !!e.alt && e.alt > a.data;
+        out.push({ id: t.id, nome, tipo: a.tipo, marco: a.marco, data: a.data, nivel: a.marco === 7 && !a.depois && !talvez ? "bad" : "warn", txt: this._avisoTxt(a, g, e, talvez) });
+      });
+    });
+    return out.sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0));
+  },
+  /* o texto do aviso, para leigo e sem nenhum número guardado: o que acaba, quando e o que fazer */
+  _avisoTxt(a, g, e, talvez) {
+    const d = (x, est) => this._d(x, est), quem = this._quem(e ? e.quem : "", g), n = a.dias;
+    if (a.tipo === "estIni") {
+      const ac = g.estendida.acionar;
+      return (n === 0 ? tt("hoje começou a estendida", "the extended warranty started today", "hoy ha empezado la extendida") : n === -1 ? tt("ontem começou a estendida", "the extended warranty started yesterday", "ayer empezó la extendida") : tt("a estendida começou em ", "the extended warranty started on ", "la extendida empezó el ") + d(a.data, a.est)) +
+        ". " + tt("Quem cobre agora: ", "Who covers it now: ", "Ahora la cubre ") + quem + "; " + (ac.tel || ac.whats || ac.app ? tt("o telefone está na ficha", "the phone number is on its page", "el teléfono está en su ficha") : tt("veja na ficha como acionar", "see its page for how to make a claim", "mira en su ficha cómo dar parte"));
+    }
+    const fab = a.tipo === "fab", quando = n === 0 ? tt("hoje", "today", "hoy") : n === 1 ? tt("amanhã", "tomorrow", "mañana") : tt("em " + n + " dias", "in " + n + " days", "en " + n + " días");
+    const par = [n === 0 && tt("último dia", "last day", "último día"), d(a.data, a.est), a.est && (fab ? tt("confira no folheto", "check the warranty leaflet", "compruébalo en el folleto de garantía") : tt("confira no bilhete", "check the insurance certificate", "compruébalo en el certificado del seguro"))].filter(Boolean).join(", ");
+    let s = (fab ? tt("a de fábrica ", "the factory warranty ", "la de fábrica ") : tt("a estendida ", "the extended warranty ", "la extendida ")) + (a.est ? tt("pode acabar ", "may end ", "puede terminar ") : tt("acaba ", "ends ", "termina ")) + quando + " (" + par + ")";
+    if (fab && a.depois) return s + "; " + (e && e.fim ? tt("depois a estendida cobre até ", "after that the extended warranty covers it until ", "después la extendida la cubre hasta el ") + d(e.fim, e.est) + ", " + tt("com ", "with ", "con ") + quem : tt("depois a estendida começa a cobrir, com ", "after that the extended warranty takes over, with ", "después empieza a cubrirla la extendida, con ") + quem) +
+      ". " + tt("Se já tem defeito, reclame até ", "If it already has a defect, complain by ", "Si ya tiene algún defecto, reclama hasta el ") + d(a.data, a.est);
+    if (!fab && talvez) s += "; " + tt("talvez vá até ", "it may last until ", "quizá dure hasta el ") + d(e.alt, true) + tt(", se os meses contam depois da de fábrica", ", if the months count after the factory warranty", ", si los meses cuentan después de la de fábrica");
+    if (n === 0) return s + ". " + (fab ? tt("Se tiver defeito, reclame hoje", "If it has a defect, complain today", "Si tiene algún defecto, reclama hoy") : tt("Se tiver defeito, acione ", "If it has a defect, contact ", "Si tiene algún defecto, contacta hoy con ") + quem + tt(" hoje", " today", ""));
+    return s + ". " + (fab ? tt("Teste agora: se tiver defeito, reclame antes", "Test it now: if it has a defect, complain before then", "Pruébalo ahora: si tiene algún defecto, reclama antes") : tt("Teste agora: se tiver defeito, acione ", "Test it now: if it has a defect, contact ", "Pruébalo ahora: si tiene algún defecto, contacta con ") + quem + tt(" antes", " before then", " antes de que termine"));
+  },
+  /* as linhas da Agenda (dia inteiro, "Casa"): o fim da de fábrica, o começo e o fim da estendida; quando a estendida emenda
+     no dia seguinte, uma linha só. Tocar abre a ficha (ev.edit) */
+  agenda(de, ate) {
+    const out = [];
+    this._avisam((t, g, nome) => {
+      const fab = GarCalc.fabrica(g), e = GarCalc.estendida(g), emenda = !!(fab && e && e.inicio === GarCalc.somaDias(fab.fim, 1));
+      const poe = (suf, data, est, tit) => { if (data && data >= de && data <= ate) out.push({ id: "gar-" + t.id + "-" + suf, virtual: true, title: "🧾 " + tit + nome + (est ? " (≈)" : ""), date: data, cat: "casa", allDay: true }); };
+      if (fab) poe("fab", fab.fim, fab.est, emenda ? tt("Fábrica acaba; amanhã começa a estendida: ", "Factory warranty ends; extended warranty starts tomorrow: ", "Termina la de fábrica; mañana empieza la extendida: ") : tt("Fábrica acaba: ", "Factory warranty ends: ", "Termina la de fábrica: "));
+      if (e && !emenda) poe("ei", e.inicio, e.est, tt("Estendida começa: ", "Extended warranty starts: ", "Empieza la extendida: "));
+      if (e) poe("est", GarCalc.fimAviso(e), e.est, tt("Estendida acaba: ", "Extended warranty ends: ", "Termina la extendida: "));
+    });
+    return out;
   }
 };
 /* aba própria 🧾 Garantias (D-G1), no ☰ em "Casa, carro e papéis" */
