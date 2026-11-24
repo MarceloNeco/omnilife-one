@@ -636,7 +636,7 @@ sem framework: HTML, CSS e JavaScript puros.
   `atendimentos`) com `id`. **`GarCalc`** — as contas, puras e só com `Date.UTC` (o fuso não muda data): `somaMeses` (dia que não
   existe = o último do mês, a data mais cedo), a de fábrica (conta da nota; ≈12 meses sem informação), o prazo da lei (conta da
   entrega, 90/30 dias, CDC art. 26), a estendida (só cobre depois da de fábrica; "não sei" de quando contam os meses dá duas datas,
-  `alt`), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
+  `alt`; a que acaba junto com a de fábrica ou antes, sem o `alt`, é `null`: não cobre nada a mais, e a ficha diz por quê), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
   `curta`, `proximoFim`, `avisos`, `art18` (o contador dos 30 dias para consertar, por defeito, só loja/fabricante/assistência) e
   `seguro` (o da seguradora). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
   limites de texto e de lista, link só https (o app ou site para acionar sem o que vem depois do "?" ou do "#", `Garantias.app`,
@@ -644,13 +644,18 @@ sem framework: HTML, CSS e JavaScript puros.
   derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
   ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, IMEI — D-G17 —, chave da nota, valor, preço da estendida,
   pagamento, final do cartão; o número de série NÃO: fica à vista no objeto, D-G16 d) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
-  `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. `Garantias.modo()` =
+  `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. Apagar o item `gv_` nas
+  Senhas da casa (`editVault`) solta o objeto (`soltarSegredo`: sem o `vaultId` e os finais); apagado por um app de antes ou noutro
+  aparelho, a ficha mostra "Foram apagados: começar de novo" (`secNovo`, como o `car.secnovo`). `Garantias.modo()` =
   aberto só para responsável com as Senhas abertas e sem troca da chave andando, conferido em cada janela (o relógio do
   formulário tira os `_sec.*` se as Senhas fecharem). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
   com `encrypt`, `restrito`); folheto e manual com o "Quem vê" do objeto; nome neutro (`nota-fiscal.pdf`), a marca `gar: <id>` no
   registro do arquivo e só no aparelho; o "＋ papel" à mão só aceita foto ou PDF pelos primeiros bytes (`tipoReal`). `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
   `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou e o papel que saiu da ficha em outro aparelho (o "saiu de casa" +
-  Apagar num aparelho sem o arquivo; lá, o `tirarPapeis` avisa) (com confirmação). **Telas:** `listView` (filtros "📋 Todos os
+  Apagar num aparelho sem o arquivo; lá, o `tirarPapeis` avisa) (com confirmação; depois do Apagar, só sai o que continua sobrando; na
+  nuvem, nada é sobra enquanto `CloudDriver.sincronizou` é falso — a 1ª sincronia e o `refazer`, que agora o zera). Até 30 papéis por
+  equipamento (`papeisCheio`: o "＋ papel" e o 📷 recusam o 31º); o ✏️ não devolve as listas (papéis, atendimentos, defeitos) da
+  leitura, que corta. **Telas:** `listView` (filtros "📋 Todos os
   equipamentos" — o padrão, por nome —, Valendo, Em 30 dias, Vai começar e "🗄️ Vencidas" — D-G14, como arquivo —; "Faltam dados" no topo, fechado em
   Todos; "📦 Saíram de casa" no fim de Todos; `S.garF`), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
   em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
@@ -662,8 +667,8 @@ sem framework: HTML, CSS e JavaScript puros.
   RG, endereço, CEP, telefone, nascimento, a saudação do e-mail, o IMEI em grupos, os números longos e todo link com "?" ou "#",
   antes de qualquer IA; pelos rótulos e formatos que conhece, por isso a ajuda diz "tenta tirar") → `local` (duas passadas) e, opcional, a IA só com
   o texto filtrado (`prompt`, `daIA`; nunca a imagem; o telefone dela só entra com "Usar") → `conferir` (uma janela por arquivo,
-  🤖/📱) → `_salvarLido`. **📥 Trazer equipamentos prontos** (`importar` → `validar` → `resumo` → `gravar`, no `DGO.fundo`, tudo ou
-  nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
+  🤖/📱) → `_salvarLido`. **📥 Trazer equipamentos prontos** (`importar` → `_trazer` → `validar` → `resumo` → `gravar`, no `DGO.fundo`,
+  um por vez — `_trazendo`: o 2º toque diz "Espere" —, tudo ou nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
   recusado sem ler, um item ruim recusa o arquivo todo, o que já está no app (pelo ref) fica de fora; no fim, o pedido de apagar o
   arquivo.
   **MoneyTRIO (D-G2):** nada vai (nem `Bridge.post`, nem `sol_ponte`); o valor é só referência. **Ajuda e AssistONE:**
@@ -682,7 +687,8 @@ sem framework: HTML, CSS e JavaScript puros.
   dados"); os `finais` são `{ pedido, bilhete, imei }`. `GarCalc.semBase` é a conferência única da situação e dos avisos (o bilhete
   com início e fim conta sem a data da compra). Funções do bloco: `link`, `href` (o endereço conferido vai no `href`), `dominio`,
   `buscaManual` (DuckDuckGo, `kl=br-pt`, só "manual" + marca + modelo, sem "!" nem meias letras, nunca lança), `pareceImei` (15
-  algarismos + dígito verificador), `sugManut`, `foraDeCasa`, `fichaDe`, `visJunto`, `voltTxt`, `_mtMapa`/`_mtLinha` (um
+  algarismos + dígito verificador), `sugManut` (com as `formas` PT, EN e ES; `ehSug` confere o "já existe" em qualquer uma),
+  `foraDeCasa`, `fichaDe`, `visJunto`, `voltTxt`, `_mtMapa`/`_mtLinha` (um
   `Maint.list()` por desenho da lista), `manut`, `lembrete` (a janela de 3 campos), `mtRemarcar`, `mtParar`, `colarManual`; e
   `ACT["gar.manual" | "gar.manut" | "gar.mtdata" | "gar.mtparar"]`. A ficha: situação → próximo passo → 🗓️ (só com alguma data;
   fechado em vencida ou saiu de casa) → 🔌 Ficha técnica → 📘 Manual → 🛠 Manutenção → 🛒 Compra → 🔐 (só com algo guardado) → 📎 →

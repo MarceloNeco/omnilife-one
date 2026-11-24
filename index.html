@@ -2023,7 +2023,8 @@ const CloudDriver = {
       if (this.local(col) || this.fila.has(key) || (col === "vault" && !rec.cif)) continue;
       this.recs.delete(key); DB.col(col).delete(key.slice(key.indexOf("|") + 1)); IDB.del("nuvem", gid + "|" + key).catch(() => {});
     }
-    this.cur = ""; this.curC = ""; await this.sync();
+    this.cur = ""; this.curC = ""; this.sincronizou = false;   /* a cópia volta aos poucos: o receber completo diz de novo quando terminou */
+    await this.sync();
   },
   async guardar(key, rec) { if (!this.gid) return; this.recs.set(key, rec); try { await IDB.set("nuvem", this.gid + "|" + key, rec); } catch (e) {} },
   async put(col, doc) {
@@ -12972,6 +12973,9 @@ const GarCalc = {
       else if (e.contaDe === "compra") fim = pelaCompra;
       else { fim = pelaCompra && pelaCompra < inicio ? this.somaDias(inicio, -1) : pelaCompra; alt = pelaFab && fim && pelaFab > fim ? pelaFab : null; }
     }
+    /* acaba junto com a de fábrica, ou antes ("desde a compra" com poucos meses, ou um bilhete que termina antes), e sem o "talvez":
+       não cobre nada a mais. Conta como sem estendida (nem "depois a estendida cobre", nem "começou a estendida") */
+    if (fim && fim < inicio && !alt) return null;
     return { inicio, fim: fim || null, alt, est: inicio !== bi || !bf, quem: GAR_ENUM.quem.includes(e.quem) ? e.quem : "naosei", contrato, falta: !fim };
   },
   /* atendimentos com data válida, de quem está na lista, em ordem de data */
@@ -13129,11 +13133,15 @@ const Garantias = {
      (MT_TEMPLATES): assim o "já existe" e a sugestão de lá acham o repetido */
   sugManut(nome) {
     const n = typeof nome === "string" ? norm(nome) : "";
-    if (/purificador|filtro de agua|bebedouro/.test(n)) return { oque: tt("Troca do refil do filtro de água", "Water filter refill", "Cambio del filtro de agua"), meses: 6 };
-    if (/\bar[- ]?condicionado\b|\bsplit\b/.test(n)) return { oque: tt("Limpeza do ar-condicionado", "A/C cleaning", "Limpieza del aire acondicionado"), meses: 6 };
-    if (/maquina de lavar|lavadora/.test(n)) return { oque: tt("Limpeza da máquina de lavar", "Washing machine cleaning", "Limpieza de la lavadora"), meses: 2 };
+    /* formas: o mesmo cuidado em PT, EN e ES. Numa família em que cada um usa um idioma, o "já existe" acha o lembrete do outro */
+    const s = (pt, en, es, meses) => ({ oque: tt(pt, en, es), meses, formas: [pt, en, es] });
+    if (/purificador|filtro de agua|bebedouro/.test(n)) return s("Troca do refil do filtro de água", "Water filter refill", "Cambio del filtro de agua", 6);
+    if (/\bar[- ]?condicionado\b|\bsplit\b/.test(n)) return s("Limpeza do ar-condicionado", "A/C cleaning", "Limpieza del aire acondicionado", 6);
+    if (/maquina de lavar|lavadora/.test(n)) return s("Limpeza da máquina de lavar", "Washing machine cleaning", "Limpieza de la lavadora", 2);
     return null;
   },
+  /* o título começa pelo cuidado sugerido, em qualquer um dos idiomas */
+  ehSug(sug, title) { const t = norm(String(title || "")); return !!sug && sug.formas.some((f) => t.startsWith(norm(f))); },
   /* para os lembretes de manutenção ligados a um equipamento (maint.coisa): "saiu" (saiu de casa), "sem" (apagado, ou esta
      pessoa não vê) ou "" (em casa). Id que não é texto: "" (o lembrete segue como os outros). Nunca lança erro */
   foraDeCasa(id) {
@@ -13514,6 +13522,21 @@ const Garantias = {
     await DB.put("vault", Object.assign({}, v || {}, { id: vid, kind: "seguro", enc: await Vault.encObj(payload), files: (v && v.files) || [], vis: "restrito" }), true);
     return vid;
   },
+  /* o item das Senhas da casa deste equipamento foi apagado (lá, por um app de antes ou noutro aparelho): o objeto esquece o item e os
+     finais, para o ✏️ poder guardar os números de novo (como o car.secnovo do carro). Com o item ainda aqui, não mexe */
+  async soltarSegredo(id) {
+    const t = typeof id === "string" ? DB.col("things").get(id) : null, g = t && t.garantia;
+    if (!GarCalc._ok(g) || DB.col("vault").get("gv_" + id)) return;
+    const g2 = Object.assign({}, g, { finais: { pedido: "", bilhete: "", imei: "" } }); delete g2.vaultId;
+    await DB.put("things", Object.assign({}, t, { garantia: g2 }));
+  },
+  /* "Foram apagados: começar de novo" na ficha: só um responsável com as Senhas da casa abertas, com a pergunta */
+  async secNovo(id) {
+    const t = DB.get("things", id); if (!t) return;
+    const no = this.recusa(t); if (no) return toast(no);
+    if (this.modo() !== "aberto") return;
+    if (await confirmBox(esc(tt("Os números antigos deste equipamento (pedido, nº do bilhete, IMEI e valor) não vão mais aparecer aqui. Use isso só se eles foram apagados nas Senhas da casa. Depois toque em ✏️ para preencher de novo.", "This item's old numbers (order, certificate number, IMEI and amount) won't show here anymore. Use this only if they were deleted in the vault. Then tap ✏️ to fill them in again.", "Los números antiguos de este aparato (pedido, nº del certificado del seguro, IMEI e importe) ya no aparecerán aquí. Úsalo solo si se borraron en las Contraseñas de casa. Después toca ✏️ para volver a rellenarlos.")), esc(tt("Começar de novo", "Start over", "Empezar de nuevo")), true)) await this.soltarSegredo(t.id);
+  },
   cent(v) { return v === "" || v == null || isNaN(+v) ? "" : String(Math.round(+v * 100)); },
   /* o formulário: à vista só o mínimo (nome, data da compra, tem estendida?); o resto em "＋ Mais detalhes" (m: 1); os da
      estendida (e: 1) só com "Sim" */
@@ -13639,6 +13662,8 @@ const Garantias = {
     let modo = this.modo(), sec0 = null;
     if (modo === "aberto" && t.id) { sec0 = await this.segredo(t); if (sec0 && sec0._falta) modo = "falta"; }
     const s = JSON.parse(JSON.stringify(g)); delete s.vaultId;   /* o vaultId gravado diz que o item das Senhas já foi criado */
+    /* as listas que o formulário não edita passam como estão gravadas (a leitura corta em 30 papéis e tira o campo que não conhece) */
+    delete s.arquivos; delete s.atendimentos; delete s.defeitos;
     const vals = Object.assign({}, t, { garantia: deepMerge(raw, s) }), fm = g.fabrica.meses, padrao = [0, 3, 6, 12, 24, 36];
     Object.assign(vals, { _duravel: g.duravel ? "sim" : "nao", _fabMeses: fm == null ? "" : padrao.includes(fm) ? String(fm) : "outro", _fabOutro: fm != null && !padrao.includes(fm) ? fm : "", _estMeses: g.estendida.meses == null ? "" : g.estendida.meses,
       _saiuComo: g.saiu ? g.saiu.como : "", _saiuEm: g.saiu ? g.saiu.em : "", _saiuObs: g.saiu ? g.saiu.obs : "" });
@@ -13717,6 +13742,7 @@ const Garantias = {
     const no = this.recusa(t); if (no) return toast(no);
     const g = this.ler(t); if (!g) return;
     if (g.saiu) return toast(tt("Esta coisa saiu de casa: a ficha fica só como histórico.", "This item is no longer at home: its record stays as history only.", "Esta cosa ya no está en casa: la ficha queda solo como historial."));
+    if (g.arquivos.length >= 30) return toast(this.papeisCheio(), 6000);
     const tranca = P[4];
     if (tranca) {
       if (!S.vaultKey) {
@@ -13739,6 +13765,8 @@ const Garantias = {
     await DB.put("things", Object.assign({}, atual, { garantia: Object.assign({}, raw, { arquivos: (Array.isArray(raw.arquivos) ? raw.arquivos : []).concat({ id: fid, tipo, hash: /^[0-9a-f]+$/.test(hash) ? hash : "", em: today(), emitidoEm: "", antigo: false }) }) }));
     toast("✓ " + P[2] + (tranca ? " · 🔒 " + tt("trancado", "locked", "bajo llave") : ""), 3000);
   },
+  /* a ficha mostra até 30 papéis (como os 50 atendimentos): o 31º sumiria dela */
+  papeisCheio() { return tt("Este equipamento já tem 30 papéis: apague um antes.", "This item already has 30 documents: delete one first.", "Este aparato ya tiene 30 documentos: borra uno antes."); },
   /* o tipo de verdade de um arquivo, pelos primeiros bytes: PDF, JPG, PNG, WEBP ou HEIC; "" para o resto */
   async tipoReal(f) {
     try {
@@ -13817,7 +13845,7 @@ const Garantias = {
     const m0 = mid ? DB.get("maint", mid) : null; if (mid && !(m0 && m0.coisa === t.id)) return;
     const nome = String(t.name || ""), sug = !m0 && comSug ? this.sugManut(nome) : null;
     if (sug) {
-      const ex = DB.all("maint").find((x) => x.tipo !== "servico" && !x.coisa && !x.veiculo && !x.pet && norm(x.title).startsWith(norm(sug.oque)));
+      const ex = DB.all("maint").find((x) => x.tipo !== "servico" && !x.coisa && !x.veiculo && !x.pet && this.ehSug(sug, x.title));
       if (ex && (await confirmBox(esc(tt("Já existe “" + ex.title + "” em Casa → Manutenção. Ligar a este equipamento? (fica um só)", "“" + ex.title + "” already exists in House → Maintenance. Link it to this item? (you'll keep just one)", "Ya existe «" + ex.title + "» en Casa → Mantenimiento. ¿Vincularlo a este aparato? (queda uno solo)")), esc(tt("Ligar", "Link", "Vincular"))))) {
         const t2 = DB.get("things", id), atual = DB.col("maint").get(ex.id); if (!t2 || !atual || atual.coisa) return;
         await DB.put("maint", Object.assign({}, atual, { coisa: t2.id, vis: t2.vis === "restrito" ? "restrito" : "familia" }));
@@ -13883,6 +13911,9 @@ const Garantias = {
      Apagar lá): a coisa existe, mas a ficha já não lista o papel, que só este aparelho tem */
   async sobras() {
     if (!isGuardian() || !S.vaultKey) return null;
+    /* na nuvem, enquanto a cópia ainda chega (a 1ª sincronia vem em páginas; o refazer tira da memória e traz de novo), a coisa
+       pode só não ter chegado: nada é sobra até o receber terminar */
+    if (DB.driver.name === "cloud" && !CloudDriver.sincronizou) return null;
     const vivos = new Map(DB.raw("things").map((t) => [t.id, t])), numeros = [];
     const naFicha = (f) => { const a = GarCalc._o(vivos.get(f.gar).garantia).arquivos; return Array.isArray(a) && a.some((x) => x && x.id === f.id); };
     const papeis = DB.raw("files").filter((f) => typeof f.gar === "string" && f.gar && (!vivos.has(f.gar) || !naFicha(f)));
@@ -13905,10 +13936,13 @@ const Garantias = {
     const s = await this.sobras(); if (!s || (!s.papeis.length && !s.numeros.length && !s.lembretes.length)) return;
     const nomes = s.papeis.map((f) => "📎 " + esc(f.name || "") + (f.createdAt ? " (" + esc(fmtDate(String(f.createdAt).slice(0, 10))) + ")" : "")).concat(s.numeros.map((x) => "🔐 " + esc(x.o.title || "")), s.lembretes.map((m) => "🔧 " + esc(m.title || "")));
     if (!(await confirmBox(esc(tt("Apagar de vez estas sobras?", "Delete these leftovers for good?", "¿Borrar del todo estos restos?")) + "<br>" + nomes.join("<br>"), tt("Apagar", "Delete", "Borrar"), true))) return;
-    const pm = Cofre.podeMudar(); if (s.numeros.length && !pm.ok) return toast(pm.texto, 6000);
-    for (const f of s.papeis) await Files.remove(f.id);
-    for (const x of s.numeros) { for (const id of x.v.files || []) await Files.remove(id); await DB.del("vault", x.v.id); }
-    for (const m of s.lembretes) await DB.del("maint", m.id);
+    /* a coisa pode ter chegado pela nuvem com a janela aberta: só sai o que a pessoa viu e continua sobrando agora */
+    const viu = new Set(s.papeis.map((f) => f.id).concat(s.numeros.map((x) => x.v.id), s.lembretes.map((m) => m.id))), a = await this.sobras(); if (!a) return;
+    const papeis = a.papeis.filter((f) => viu.has(f.id)), numeros = a.numeros.filter((x) => viu.has(x.v.id)), lembretes = a.lembretes.filter((m) => viu.has(m.id));
+    const pm = Cofre.podeMudar(); if (numeros.length && !pm.ok) return toast(pm.texto, 6000);
+    for (const f of papeis) await Files.remove(f.id);
+    for (const x of numeros) { for (const id of x.v.files || []) await Files.remove(id); await DB.del("vault", x.v.id); }
+    for (const m of lembretes) await DB.del("maint", m.id);
     toast("✓ " + tt("Sobras apagadas.", "Leftovers deleted.", "Restos borrados."), 3000); render();
   },
   /* o selo do Onde está?: "🧾 garantia até ≈{d}" (a cobertura que vai mais longe e ainda vale) ou "📦 saiu de casa"; vazio se
@@ -13987,7 +14021,8 @@ const Garantias = {
     const faixa = (i, f, est, alt) => (GarCalc.ehData(i) ? fmtDate(i) : "?") + " → " + d(f, est) + (alt ? " (" + tt("talvez até ", "maybe until ", "quizá hasta el ") + d(alt, true) + ")" : "");
     const linha = (tit, val, mais) => '<div class="li" style="display:block"><div class="t"><b>' + tit + '</b></div><div class="s">' + esc(val) + "</div>" + moreBox("ⓘ " + tt("O que é", "What is it", "Qué es"), '<p class="small">' + mais + "</p>") + "</div>";
     const fabTxt = fab ? faixa(c.data || c.entrega, fab.fim, fab.est) : g.fabrica.meses === 0 ? tt("Não tem", "None", "No tiene") : "—";
-    const estTxt = e ? (e.fim ? faixa(e.inicio, e.fim, e.est, e.alt) : d(e.inicio, e.est) + " → ? (" + tt("falta o fim", "end missing", "falta el fin") + ")") : g.estendida.tem === "sim" && g.estendida.cancelada ? tt("Cancelada", "Cancelled", "Cancelada") : g.estendida.tem === "nao" ? tt("Não tem", "None", "No tiene") : g.estendida.tem === "naosei" ? tt("Não sei se tem", "Not sure if there is one", "No sé si tiene") : "—";
+    const estTxt = e ? (e.fim ? faixa(e.inicio, e.fim, e.est, e.alt) : d(e.inicio, e.est) + " → ? (" + tt("falta o fim", "end missing", "falta el fin") + ")") : g.estendida.tem === "sim" && g.estendida.cancelada ? tt("Cancelada", "Cancelled", "Cancelada") : g.estendida.tem === "nao" ? tt("Não tem", "None", "No tiene") : g.estendida.tem === "naosei" ? tt("Não sei se tem", "Not sure if there is one", "No sé si tiene")
+      : g.estendida.tem === "sim" ? tt("Acaba junto com a de fábrica (ou antes): não cobre nada a mais. Confira no bilhete.", "Ends together with the factory warranty (or before it): it doesn't cover anything extra. Check the certificate.", "Termina junto con la de fábrica (o antes): no cubre nada más. Compruébalo en el certificado del seguro.") : "—";
     /* só quando alguma das três tem data: sem a data e sem bilhete, seria só "— / — / Não sei se tem" */
     const datas = !(fab || le || e) ? "" : '<div class="list">' +
       linha("🏭 " + tt("De fábrica", "Factory warranty", "De fábrica"), fabTxt, tt("É o prazo que o fabricante dá, escrito no folheto de garantia (o papel que vem na caixa ou no manual). Sem ele, o app conta 12 meses da data da nota (≈).", "It's the period the manufacturer gives, written in the warranty leaflet (the paper in the box or in the manual). Without it, the app counts 12 months from the invoice date (≈).", "Es el plazo que da el fabricante, escrito en el folleto de garantía (el papel que viene en la caja o en el manual). Sin él, la app cuenta 12 meses desde la fecha de la factura (≈).")) +
@@ -14036,7 +14071,7 @@ const Garantias = {
        avisar em botões grandes. Saiu de casa: só o histórico (os lembretes pararam). Manutenção desligada: o cartão some */
     let mtc = "";
     if (Rec.ok("house", "maint")) {
-      const ms = this.manut(t), sug = pode ? this.sugManut(t.name) : null, jaSug = !!sug && ms.some((m) => norm(m.title).startsWith(norm(sug.oque)));
+      const ms = this.manut(t), sug = pode ? this.sugManut(t.name) : null, jaSug = !!sug && ms.some((m) => this.ehSug(sug, m.title));
       const L = ms.map((m) => { const tit = esc(this._mtCurto(m, t)), mid = esc(m.id);
         return '<div class="li gar-mtl" style="display:block" data-m="' + mid + '"><div class="t">' + (pode ? '<button class="linkbtn" data-act="gar.manut" data-id="' + tid + '" data-m="' + mid + '">' + tit + "</button>" : "<b>" + tit + "</b>") + "</div>" +
           '<div class="s">' + esc([this._mtCada(m.interval), m.last ? tt("última: ", "last: ", "última: ") + fmtDate(m.last) : "", saiu ? "" : this._mtQuando(m, pode)].filter(Boolean).join(" · ")) + "</div>" +
@@ -14078,7 +14113,11 @@ const Garantias = {
     const box = $("#garnum", root); if (!box || this.modo() !== "aberto") return;
     const t = DB.get("things", id), o = await this.segredo(t);
     if (!box.isConnected || !S.vaultKey) return;
-    if (o && o._falta) { box.insertAdjacentHTML("beforeend", '<p class="small muted">⏳ ' + tt("Os números deste equipamento não estão neste aparelho agora: podem ainda estar chegando pela nuvem ou estar nas senhas antigas (Senhas da casa → Trazer as senhas antigas).", "This item's numbers aren't on this device right now: they may still be arriving from the cloud or be in the old passwords (Home passwords → Bring the old passwords).", "Los números de este aparato no están en este dispositivo ahora: puede que aún estén llegando desde la nube o que estén en las contraseñas antiguas.") + "</p>"); return; }
+    if (o && o._falta) {
+      box.insertAdjacentHTML("beforeend", '<p class="small muted">⏳ ' + tt("Os números deste equipamento não estão neste aparelho agora: podem ainda estar chegando pela nuvem, estar nas senhas antigas (Senhas da casa → Trazer as senhas antigas) ou ter sido apagados nas Senhas da casa.", "This item's numbers aren't on this device right now: they may still be arriving from the cloud, be in the old passwords (Home passwords → Bring the old passwords) or have been deleted in the vault.", "Los números de este aparato no están en este dispositivo ahora: puede que aún estén llegando desde la nube, que estén en las contraseñas antiguas o que se hayan borrado en las Contraseñas de casa.") + "</p>" +
+        (DB.col("vault").get("gv_" + id) ? "" : '<button class="btn ghost" data-act="gar.secnovo" data-id="' + esc(id) + '">' + tt("Foram apagados: começar de novo", "They were deleted: start over", "Se borraron: empezar de nuevo") + "</button>"));
+      return;
+    }
     if (!o) return;
     const sg = [], row = (rot, val) => { if (!val) return ""; const i = sg.push(String(val)) - 1; return '<div class="li"><div class="main"><div class="s">' + rot + '</div><div class="t">' + esc(tt("final ", "ending ", "termina en ") + GarCalc.final4(String(val))) + ' · <span class="mono" data-sg="' + i + '">••••••</span></div></div><button class="btn ghost" data-olho="' + i + '" aria-pressed="false" aria-label="' + tt("Mostrar o número", "Show the number", "Mostrar el número") + '">👁</button></div>'; };
     const rows = row(tt("Nº do pedido", "Order number", "Nº de pedido"), o.pedido) + row(tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro"), o.number) + row("IMEI", o.imei || o.serie) + row(tt("Chave da nota fiscal", "Invoice access key", "Clave de la factura"), o.chaveNF);
@@ -14737,7 +14776,8 @@ const Garantias = {
       if (r._fabMeses !== "" && r._fabMeses != null) { g.fabrica = GarCalc._o(g.fabrica); g.fabrica.meses = +r._fabMeses; }
     }
     /* o arquivo vai trancado (só com as Senhas da casa abertas, que podem abrir aqui mesmo); sem elas, não é guardado e o resto é */
-    if (r._guardar) {
+    if (r._guardar && g.arquivos.length >= 30) toast("📎 " + this.papeisCheio(), 6000);
+    else if (r._guardar) {
       let fid = null, ok = !!S.vaultKey;
       if (!ok) ok = (await Cars.abrirCasa({ pt: "Para trancar a nota e o bilhete da garantia.", en: "To lock the warranty's invoice and certificate." })) === true;
       const pm = ok ? Cofre.podeMudar() : { ok: false };
@@ -14849,10 +14889,17 @@ const Garantias = {
   /* 📥: responsável, com as Senhas da casa abertas (abre ali mesmo) e sem troca da chave andando; o arquivo inteiro é conferido
      antes de gravar qualquer coisa, e a pessoa vê o resumo antes */
   async importar() {
+    if (this._trazendo) return toast(tt("Espere: ainda estou trazendo os equipamentos.", "Wait: I'm still bringing in the items.", "Espera: todavía estoy trayendo los aparatos."), 5000);
     if (!isGuardian()) return toast(tt("Só um responsável traz equipamentos prontos: os números e os valores ficam trancados nas Senhas da casa.", "Only a guardian can bring in ready-made items: the numbers and amounts stay locked in the vault.", "Solo un responsable puede traer aparatos ya preparados: los números y los importes quedan bajo llave en las Contraseñas de casa."));
     if (!Rec.ok("garantias")) return Rec.avisar();
     const pm = Cofre.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);   /* no meio da troca da chave da família: espere terminar */
     if (!S.vaultKey && (await Cars.abrirCasaPossivel()) === false) return this.irParaCasa();
+    /* um 📥 por vez: o 2º toque, com o 1º ainda gravando, traria de novo o que ainda não foi gravado (o "já está no app" é conferido antes) */
+    this._trazendo = true;
+    try { return await this._trazer(); } finally { this._trazendo = false; }
+  },
+  /* o resto do 📥: escolher o arquivo, conferir, o resumo e gravar no Fundo */
+  async _trazer() {
     const [f] = (await Files.pick(".json,application/json", false)) || []; if (!f) return;
     /* grande demais: recusa antes de ler (o arquivo inteiro iria para a memória) */
     if (f.size > 56 * 1048576) return toast(tt("O arquivo passa de 56 MB: é grande demais para trazer.", "The file is over 56 MB: it's too big to bring in.", "El archivo supera los 56 MB: es demasiado grande para traerlo."), 6000);
@@ -14906,6 +14953,7 @@ ACT["gar.mtparar"] = (d) => Garantias.mtParar(d.m);
 ACT["gar.foto"] = (d) => Garantias.lerArquivos(d && d.id);
 ACT["gar.papeldel"] = (d) => Garantias.tirarPapel(d.id, d.ref);
 ACT["gar.sobras"] = () => Garantias.tirarSobras();
+ACT["gar.secnovo"] = (d) => Garantias.secNovo(d.id);
 ACT["gar.importar"] = () => Garantias.importar();
 ACT["gar.abrircasa"] = async () => { const ok = await Cars.abrirCasa({ pt: "Para ver os números da garantia.", en: "To see the warranty numbers." }); if (ok === null) return toast(tt("Antes, abra ou crie as 🔐 Senhas da casa (Casa → Senhas da casa).", "First open or set up the 🔐 vault (House → Home passwords).", "Antes, abre o crea las 🔐 Contraseñas de casa (Casa → Contraseñas de casa)."), 6000); if (ok) render(); };
 /* ===== fim de GARANTIAS ===== */
@@ -15145,7 +15193,7 @@ async function editVault(v, kindNovo) {
     $("#vacoes", el).classList.toggle("hidden", !bt.length);
     $("#vanexos", el).classList.toggle("hidden", !c.anexos && !files.length);
   };
-  const r = await formModal({ title: "🔐 " + (o.title ? esc(o.title) : tt("Guardar", "Keep in the vault")), fields: f, values: o, wide: true, onDelete: v ? async () => { for (const id of files) await Files.remove(id); await DB.del("vault", v.id); render(); } : null,
+  const r = await formModal({ title: "🔐 " + (o.title ? esc(o.title) : tt("Guardar", "Keep in the vault")), fields: f, values: o, wide: true, onDelete: v ? async () => { for (const id of files) await Files.remove(id); await DB.del("vault", v.id); if (o.garantiaDe) await Garantias.soltarSegredo(o.garantiaDe); render(); } : null,
     after: (el) => {
       fillThumbs(el);
       const sel = el.querySelector('[name="kind"]'); aplicar(el, sel.value); sel.addEventListener("change", () => aplicar(el, sel.value));

@@ -150,6 +150,17 @@
        pdf.js saem do texto da IA (o 0800, o modelo e o valor ficam); a ajuda diz "o app tenta tirar"
      - S3: o app ou site para acionar sem o que vem depois do "?" ou do "#" em todo caminho, e esse pedaço não vai à IA
      - S4: "saiu de casa" + Apagar num aparelho sem a nota: o aviso e, no aparelho que a tem, as 🧹 Sobras; S5: o "＋ papel" só foto ou PDF
+     Revisão dados (2.28.0)
+     - D1: o 📥 tocado de novo enquanto o 1º grava só diz "Espere" (cada equipamento, lembrete e item das Senhas entra uma vez)
+     - D2: as 🧹 Sobras não apagam a coisa que chega pela nuvem com a janela aberta, e não aparecem antes de a nuvem terminar de chegar
+       (1ª sincronia e refazer)
+     - D3: o item "gv_" apagado nas Senhas da casa solta o equipamento (o ✏️ volta a guardar); apagado por um app de antes, a ficha
+       oferece "Foram apagados: começar de novo"
+     - D4: o ✏️ não corta os papéis, os atendimentos e os defeitos (32 papéis continuam 32); com 30 papéis, nem "＋ Guardar…" nem o 📷
+       guardam mais um
+     - D5: a estendida que acaba junto com a de fábrica (ou antes) não cobre nada a mais: o aviso de 7 dias em vermelho, sem "começou a
+       estendida" nem a linha dela na Agenda, e a ficha diz por quê
+     - D8: o lembrete sugerido acha o mesmo cuidado em PT, EN ou ES (a família com dois idiomas não ganha um 2º lembrete)
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -3872,6 +3883,221 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   });
   conferir(s5R.out.slice(0, 3).every((x) => x.novos === 0 && /Só foto/.test(x.toasts)), 'Revisão seguranca S5. "＋ Guardar o manual / folheto / nota" recusa uma página da internet (.html, ou com nome e tipo de PDF ou de foto), dizendo que só entra foto ou PDF (' + JSON.stringify(s5R.out.slice(0, 3)) + ')');
   conferir(s5R.out[3].novos === 1 && s5R.out[4].novos === 1 && JSON.stringify(s5R.tipos) === JSON.stringify([['manual', 'application/pdf'], ['defeito', 'image/jpeg']]), 'Revisão seguranca S5. ... e guarda o PDF e a foto de verdade, com o tipo que os primeiros bytes dizem (uma foto JPG chamada .png fica JPG) (' + JSON.stringify(s5R.tipos) + ')');
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('home'); });
+  await p.waitForTimeout(300);
+
+  /* =====================================================================
+     Revisão dados (2.28.0): o 📥 tocado de novo enquanto o 1º ainda grava (D1), as 🧹 Sobras com a coisa ainda chegando pela nuvem
+     (D2), o item "gv_" apagado nas Senhas da casa (D3), mais de 30 papéis e o ✏️ (D4), a estendida que acaba antes de começar (D5) e
+     o lembrete sugerido numa família com PT e EN (D8). Tudo de mentira
+     ===================================================================== */
+  console.log('\n— Revisão dados: o 📥 duas vezes, as 🧹 Sobras com a nuvem chegando, o item das Senhas apagado, 30 papéis, a estendida que acaba antes e o lembrete em outro idioma');
+  await fecharJanelas(p);
+  await p.evaluate(async (papel) => {
+    S.role = papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123');
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    window.__rd = { toasts: [] };
+    new MutationObserver(() => document.querySelectorAll('#toasts .toast').forEach((x) => { if (!window.__rd.toasts.includes(x.textContent)) window.__rd.toasts.push(x.textContent); })).observe(document.querySelector('#toasts') || document.body, { childList: true, subtree: true, characterData: true });
+    go('garantias');
+  }, papel0);
+  await p.waitForTimeout(300);
+  /* um equipamento com números trancados, pelo mesmo salvar do ✏️ (modo aberto) */
+  const novoRD = (nome, sec) => p.evaluate(async (a) => {
+    const r = { name: a.nome, place: '', vis: 'familia', tags: [], garantia: { compra: { data: '2026-01-10', entrega: '', loja: 'Loja Exemplo', naoSei: false }, fabrica: {}, estendida: { tem: 'nao' }, marca: 'Marca Exemplo', modelo: 'PX-100' },
+      _sec: Object.assign({ pedido: '', number: '', imei: '', chaveNF: '', pagamento: '', cartaoFinal: '', valor: '', preco: '' }, a.sec || {}), _duravel: 'sim', _fabMeses: '12', _fabOutro: '', _estMeses: '', _saiuComo: '', _saiuEm: '', _saiuObs: '' };
+    return (await Garantias.salvar(r, { place: '', vis: 'familia', tags: [] }, 'aberto')).id;
+  }, { nome, sec });
+  /* fecha todas as janelas, também as que estavam na fila atrás da de cima */
+  const fecharRD = async () => { for (let i = 0; i < 8 && (await p.evaluate(() => !!document.querySelector('dialog[open]'))); i++) { await fecharJanelas(p); await p.waitForTimeout(150); } };
+  const simRD = async () => { if (await p.waitForSelector('dialog[open] [data-yes]', { timeout: 5000 }).then(() => true, () => false)) await p.click('dialog[open] [data-yes]'); await p.waitForTimeout(600); };
+
+  /* ---------- D1: 📥 tocado de novo enquanto o 1º ainda grava (celular lento: cada item das Senhas da casa demora) ---------- */
+  const d1RD = await p.evaluate(async () => {
+    const itens = []; for (let i = 0; i < 12; i++) itens.push({ ref: 'rd-exemplo-' + String(i).padStart(4, '0'), nome: 'RD Aparelho Exemplo ' + i, compra: { data: '2026-01-10' }, protegido: { pedido: 'PEDIDO-RD-' + i }, manutencoes: [{ oque: 'Limpeza Exemplo', cadaMeses: 6, ultima: '2026-06-01' }] });
+    const f = new File([JSON.stringify({ formato: 'omnilife.garantias', versao: 1, itens })], 'equipamentos.json', { type: 'application/json' });
+    const gs = Garantias.guardarSegredo, cb = window.confirmBox, pk = Files.pick; let erro = '';
+    Files.pick = async () => [f]; window.confirmBox = async () => true;
+    Garantias.guardarSegredo = async function (t, s) { await new Promise((ok) => setTimeout(ok, 80)); return gs.call(this, t, s); };
+    window.__rd.toasts.length = 0;
+    let depois = '';
+    try {
+      const a = Garantias.importar(); await new Promise((ok) => setTimeout(ok, 300)); const b = Garantias.importar(); await Promise.all([a, b]);
+      /* terminou: o 📥 volta a funcionar (o mesmo arquivo de novo: "já estão no app") */
+      document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) {} });
+      const n0 = window.__rd.toasts.length; await Garantias.importar(); await new Promise((ok) => setTimeout(ok, 150)); depois = window.__rd.toasts.slice(n0).join(' · ');
+    } catch (e) { erro = e.message; }
+    finally { Garantias.guardarSegredo = gs; window.confirmBox = cb; Files.pick = pk; }
+    const meus = DB.raw('things').filter((t) => /^rd-exemplo-/.test((t.garantia && t.garantia.ref) || '')), ids = new Set(meus.map((t) => t.id));
+    return { coisas: meus.length, refs: new Set(meus.map((t) => t.garantia.ref)).size, lembretes: DB.raw('maint').filter((m) => ids.has(m.coisa)).length,
+      senhas: DB.raw('vault').filter((v) => /^gv_/.test(v.id) && ids.has(v.id.slice(3))).length, toasts: window.__rd.toasts.join(' · '), depois, erro };
+  });
+  await fecharRD();
+  conferir(d1RD.coisas === 12 && d1RD.refs === 12 && d1RD.lembretes === 12 && d1RD.senhas === 12 && /ainda estou trazendo os equipamentos/.test(d1RD.toasts) && !d1RD.erro,
+    'Revisão dados D1. 📥 tocado de novo enquanto o 1º ainda grava: o 2º toque só diz "Espere: ainda estou trazendo os equipamentos." e cada equipamento entra uma vez (12 objetos, 12 lembretes e 12 itens nas Senhas da casa) (' + JSON.stringify(d1RD) + ')');
+  conferir(/já estão no app/.test(d1RD.depois) && !/ainda estou trazendo/.test(d1RD.depois),
+    'Revisão dados D1. ... e, terminada a gravação, o 📥 volta a funcionar: o mesmo arquivo de novo diz que os 12 já estão no app (' + JSON.stringify(d1RD.depois) + ')');
+
+  /* ---------- D2: as 🧹 Sobras com a coisa ainda chegando pela nuvem ---------- */
+  const id2RD = await novoRD('RD Ar-condicionado Exemplo', { pedido: 'PEDIDO-RD-0003' });
+  const d2RD = await p.evaluate(async (id) => {
+    const m = await DB.put('maint', { title: 'Limpeza do ar-condicionado — RD Ar-condicionado Exemplo', cat: 'eletro', interval: 183, last: '2026-06-01', next: '2026-12-01', nextManual: false, history: [], coisa: id, vis: 'familia' });
+    const fid = await Files.save(new File([new TextEncoder().encode('%PDF-1.4\n% nota revisao dados\n')], 'nota-fiscal.pdf', { type: 'application/pdf' }), { encrypt: true, vis: 'restrito', raw: true });
+    await DB.put('files', Object.assign({}, Files.meta(fid), { gar: id }), true);
+    const t0 = DB.col('things').get(id);
+    await DB.put('things', Object.assign({}, t0, { garantia: Object.assign({}, t0.garantia, { arquivos: [{ id: fid, tipo: 'nota', hash: '', em: today(), emitidoEm: '', antigo: false }] }) }));
+    const ficou = () => ({ vivo: !!DB.get('things', id), gv: !!DB.col('vault').get('gv_' + id), lembrete: !!DB.col('maint').get(m.id), papel: !!Files.meta(fid) });
+    /* (a) a coisa ainda não está na memória (1ª sincronia em páginas, ou o refazer) e chega com a janela "Apagar de vez" aberta */
+    const t = DB.col('things').get(id); DB.col('things').delete(id);
+    const s = await Garantias.sobras(), viu = !!s && s.numeros.some((x) => x.v.id === 'gv_' + id) && s.lembretes.some((x) => x.id === m.id) && s.papeis.some((f) => f.id === fid);
+    let soltar = null; const cb = window.confirmBox; window.confirmBox = () => new Promise((ok) => (soltar = ok));
+    const fim = Garantias.tirarSobras(); await new Promise((ok) => setTimeout(ok, 200));
+    DB.col('things').set(id, t);   /* chegou pela nuvem com a janela aberta */
+    const janela = !!soltar; if (soltar) soltar(true); await fim; window.confirmBox = cb;
+    const a = ficou();
+    /* (b) na nuvem, antes de a 1ª sincronia terminar, e durante o refazer (o papel ou o acesso às Senhas mudou): a coisa ainda não
+       chegou, então nada é sobra */
+    DB.col('things').delete(id);
+    const d0 = DB.driver, s0 = CloudDriver.sincronizou, g0 = CloudDriver.gid, sy = CloudDriver.sync; let antes = 'x', durante = 'x';
+    try {
+      DB.driver = CloudDriver; CloudDriver.sincronizou = false; antes = await Garantias.sobras(); DB.driver = d0;
+      CloudDriver.sincronizou = true; CloudDriver.gid = 'rd-familia-exemplo';
+      CloudDriver.sync = async () => { DB.driver = CloudDriver; durante = await Garantias.sobras(); DB.driver = d0; };
+      await CloudDriver.refazer();
+    } finally { DB.driver = d0; CloudDriver.sincronizou = s0; CloudDriver.gid = g0; CloudDriver.sync = sy; DB.col('things').set(id, t); }
+    return { viu, janela, a, antes: antes === null ? null : 'sobras', durante: durante === null ? null : 'sobras' };
+  }, id2RD);
+  conferir(d2RD.viu && d2RD.janela && d2RD.a.vivo && d2RD.a.gv && d2RD.a.lembrete && d2RD.a.papel,
+    'Revisão dados D2. 🧹 Sobras: a coisa que chega pela nuvem com a janela "Apagar de vez estas sobras?" aberta continua com os números (gv_), o lembrete e a nota (só sai o que continua sobrando depois do Apagar) (' + JSON.stringify(d2RD) + ')');
+  conferir(d2RD.antes === null && d2RD.durante === null,
+    'Revisão dados D2. ... e na nuvem, antes de a 1ª sincronia terminar e durante o refazer, o app não mostra 🧹 Sobras (o que ainda não chegou não parece sobra) (' + JSON.stringify({ antes: d2RD.antes, durante: d2RD.durante }) + ')');
+
+  /* ---------- D3: o item "gv_" apagado nas Senhas da casa ---------- */
+  const id3RD = await novoRD('RD Purificador Exemplo', { pedido: 'PEDIDO-RD-0001' });
+  const a3RD = await p.evaluate((id) => ({ gv: !!DB.col('vault').get('gv_' + id), pedido: DB.get('things', id).garantia.finais.pedido }), id3RD);
+  /* pela tela das Senhas da casa: o item → 🗑 Excluir → Excluir */
+  await p.evaluate((id) => { editVault(DB.get('vault', 'gv_' + id)); }, id3RD);
+  const del3RD = await p.waitForSelector('dialog[open] [data-del]', { timeout: 6000 }).then(() => true, () => false);
+  if (del3RD) { await p.click('dialog[open] [data-del]'); await simRD(); }
+  await fecharRD();
+  const b3RD = await p.evaluate(async (id) => { const t = DB.get('things', id); return { gv: !!DB.col('vault').get('gv_' + id), vaultId: t.garantia.vaultId || '', finais: t.garantia.finais, seg: await Garantias.segredo(t) }; }, id3RD);
+  conferir(del3RD && a3RD.gv && a3RD.pedido === '0001' && !b3RD.gv && !b3RD.vaultId && !b3RD.finais.pedido && b3RD.seg === null,
+    'Revisão dados D3. apagar o item "… — números da garantia" nas Senhas da casa (🗑 Excluir): o equipamento esquece o item e o "final 0001" (nada fica preso em "ainda chegando pela nuvem") (' + JSON.stringify(b3RD) + ')');
+  /* ✏️ → o pedido novo → Salvar: o item volta, com o final novo */
+  await p.evaluate((id) => go('garantias', 'ficha', id), id3RD); await p.waitForTimeout(500);
+  await p.click('#screen [data-act="gar.edit"]').catch(() => {});
+  const campo3RD = await p.waitForSelector('dialog[open] [name="_sec.pedido"]', { state: 'attached', timeout: 6000 }).then(() => true, () => false);
+  if (campo3RD) {
+    if (!(await p.evaluate(() => { const i = document.querySelector('dialog[open] [name="_sec.pedido"]'); return !!(i.offsetWidth || i.offsetHeight); }))) await p.click('dialog[open] #garmais');
+    await p.fill('dialog[open] [name="_sec.pedido"]', 'PEDIDO-RD-0002'); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(800);
+  }
+  await fecharRD();
+  const c3RD = await p.evaluate(async (id) => { const t = DB.get('things', id), o = await Garantias.segredo(t); return { pedido: o && o.pedido, finais: t.garantia.finais, vaultId: t.garantia.vaultId || '' }; }, id3RD);
+  conferir(campo3RD && c3RD.pedido === 'PEDIDO-RD-0002' && c3RD.finais.pedido === '0002' && c3RD.vaultId === 'gv_' + id3RD,
+    'Revisão dados D3. ... e o ✏️ volta a ter os campos trancados: o pedido novo cria o item de novo, com o "final 0002" (' + JSON.stringify({ campo: campo3RD, finais: c3RD.finais, item: !!c3RD.pedido }) + ')');
+  /* apagado por um app de antes (ou noutro aparelho): o objeto não fica sabendo. A ficha diz que podem ter sido apagados e oferece começar de novo */
+  const id3bRD = await novoRD('RD Bebedouro Exemplo', { pedido: 'PEDIDO-RD-0004' });
+  await p.evaluate(async (id) => { await DB.del('vault', 'gv_' + id); go('garantias', 'ficha', id); }, id3bRD);
+  const bt3RD = await p.waitForSelector('#garnum [data-act="gar.secnovo"]', { timeout: 6000 }).then(() => true, () => false);
+  const txt3RD = await p.evaluate(() => (document.querySelector('#garnum') || {}).innerText || '');
+  if (bt3RD) { await p.click('#garnum [data-act="gar.secnovo"]'); await simRD(); }
+  const d3RD = await p.evaluate(async (id) => { const t = DB.get('things', id); return { vaultId: t.garantia.vaultId || '', finais: t.garantia.finais, seg: await Garantias.segredo(t), num: !!document.querySelector('#garnum'), ficha: (document.querySelector('#screen') || {}).innerText || '' }; }, id3bRD);
+  conferir(bt3RD && /apagados nas Senhas da casa/.test(txt3RD) && !d3RD.vaultId && !d3RD.finais.pedido && d3RD.seg === null && !d3RD.num && /Pedido, nota e valor pago: toque em ✏️/.test(d3RD.ficha),
+    'Revisão dados D3. apagado por um app de antes ou noutro aparelho: a ficha diz que os números podem ter sido apagados e "Foram apagados: começar de novo" solta a ligação (o ✏️ volta a guardar) (' + JSON.stringify({ botao: bt3RD, txt: txt3RD.slice(0, 160), num: d3RD.num, finais: d3RD.finais }) + ')');
+  await fecharRD();
+
+  /* ---------- D4: mais de 30 papéis (a ficha mostra 30) ---------- */
+  const id4RD = await p.evaluate(async () => {
+    const arqs = []; for (let i = 1; i <= 32; i++) arqs.push({ id: 'f-rd-defeito-' + i, tipo: 'defeito', hash: '', em: today(), emitidoEm: '', antigo: false });
+    const futuro = 'campo de um app mais novo';
+    return (await DB.put('things', { name: 'RD Geladeira Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, arquivos: arqs,
+      atendimentos: [{ id: 'at-rd-1', d: today(), quem: 'loja', situacao: 'aberto', defeito: 'df-rd-1', futuro }], defeitos: [{ id: 'df-rd-1', desc: 'Não gela', apareceu: today(), futuro }] } })).id;
+  });
+  await p.evaluate((id) => go('garantias', 'ficha', id), id4RD); await p.waitForTimeout(500);
+  await p.click('#screen [data-act="gar.edit"]').catch(() => {});
+  const form4RD = await p.waitForSelector('dialog[open] [data-ok]', { timeout: 6000 }).then(() => true, () => false);
+  if (form4RD) { await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(800); }
+  await fecharRD();
+  const e4RD = await p.evaluate((id) => { const g = DB.get('things', id).garantia, at = (g.atendimentos || [])[0] || {}, df = (g.defeitos || [])[0] || {}; return { n: (g.arquivos || []).length, ult: ((g.arquivos || []).slice(-1)[0] || {}).id, at: at.futuro || '', df: df.futuro || '', ler: Garantias.ler(DB.get('things', id)).arquivos.length }; }, id4RD);
+  conferir(form4RD && e4RD.n === 32 && e4RD.ult === 'f-rd-defeito-32' && e4RD.at && e4RD.df && e4RD.ler === 30,
+    'Revisão dados D4. ✏️ → Salvar sem mudar nada num equipamento com 32 papéis: continuam os 32 (a ficha mostra 30), e os atendimentos e os defeitos ficam como estavam, com o campo de um app mais novo (' + JSON.stringify(e4RD) + ')');
+  /* com 30 papéis, nem "＋ Guardar…" nem a leitura da nota (📷 → OK) guardam mais um (o 31º sumiria da ficha) */
+  const f4RD = await p.evaluate(async () => {
+    const arqs = []; for (let i = 1; i <= 30; i++) arqs.push({ id: 'f-rd-papel-' + i, tipo: 'termo', hash: '', em: today(), emitidoEm: '', antigo: false });
+    const t = await DB.put('things', { name: 'RD Fogão Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, arquivos: arqs } });
+    const cv = document.createElement('canvas'); cv.width = cv.height = 8; const jpg = await new Promise((r) => cv.toBlob(r, 'image/jpeg'));
+    const pk = Files.pick; Files.pick = async () => [new File([jpg], 'foto.jpg', { type: 'image/jpeg' })];
+    window.__rd.toasts.length = 0; const n0 = DB.raw('files').length;
+    try { await Garantias.addPapel(t.id, 'termo'); await new Promise((r) => setTimeout(r, 150)); } finally { Files.pick = pk; }
+    const papel = { novos: DB.raw('files').length - n0, n: DB.get('things', t.id).garantia.arquivos.length, toasts: window.__rd.toasts.join(' · ') };
+    window.__rd.toasts.length = 0; const n1 = DB.raw('files').length;
+    const x = { f: new File([new TextEncoder().encode('%PDF-1.4\n% nota revisao dados 30\n')], 'nota.pdf', { type: 'application/pdf' }), hash: '', lido: { sec: null } };
+    let erro = ''; try { await Garantias._salvarLido({ _tipo: 'nota', _ligar: t.id, name: 'RD Fogão Exemplo', _guardar: true, _fabMeses: '', _estMeses: '', garantia: {} }, x, {}); } catch (e) { erro = e.message; }
+    await new Promise((r) => setTimeout(r, 150));
+    const lido = { novos: DB.raw('files').length - n1, n: DB.get('things', t.id).garantia.arquivos.length, toasts: window.__rd.toasts.join(' · '), erro };
+    return { papel, lido };
+  });
+  conferir(f4RD.papel.novos === 0 && f4RD.papel.n === 30 && /já tem 30 papéis/.test(f4RD.papel.toasts),
+    'Revisão dados D4. com 30 papéis, "＋ Guardar…" não guarda o 31º e diz "Este equipamento já tem 30 papéis: apague um antes." (' + JSON.stringify(f4RD.papel) + ')');
+  conferir(f4RD.lido.novos === 0 && f4RD.lido.n === 30 && /já tem 30 papéis/.test(f4RD.lido.toasts) && !f4RD.lido.erro,
+    'Revisão dados D4. ... e a leitura da nota (📷 → OK) também não guarda o arquivo (o resto é salvo) (' + JSON.stringify(f4RD.lido) + ')');
+
+  /* ---------- D5: a estendida que acaba junto com a de fábrica (ou antes): não cobre nada a mais ----------
+     Compra 27/11/2025, 12 meses de fábrica (até 27/11/2026). A: "12 meses, contando da compra" (um seguro de quebra e roubo); B: um bilhete
+     de 27/11/2025 a 30/06/2026 (o ano lido ou digitado errado); C (controle): 24 meses desde a compra, cobre de 28/11/2026 a 27/11/2027 */
+  const d5RD = await p.evaluate(async () => {
+    const G5 = (est) => ({ v: 1, compra: { data: '2025-11-27' }, fabrica: { meses: 12 }, estendida: Object.assign({ tem: 'sim', quem: 'seguradora' }, est) });
+    const casos = [G5({ meses: 12, contaDe: 'compra' }), G5({ inicio: '2025-11-27', fim: '2026-06-30' }), G5({ meses: 24, contaDe: 'compra' }), G5({ meses: 12, contaDe: 'naosei' })];
+    const contas = casos.map((g) => ({ e: GarCalc.estendida(g), a24: GarCalc.avisos(g, '2026-11-24'), a28: GarCalc.avisos(g, '2026-11-28') }));
+    const ids = []; for (const [i, g] of casos.entries()) ids.push((await DB.put('things', { name: 'RD Seguro Exemplo ' + 'ABCD'[i], place: '', tags: [], vis: 'familia', garantia: g })).id);
+    const de = (l) => ids.map((id) => l.filter((x) => x.id === id || String(x.id).startsWith('gar-' + id + '-')));
+    const m24 = de(Garantias.marcos('2026-11-24')).map((l) => l.map((x) => [x.tipo, x.marco, x.nivel, x.txt])), m28 = de(Garantias.marcos('2026-11-28')).map((l) => l.map((x) => x.tipo));
+    const ag = de(Garantias.agenda('2026-11-01', '2027-12-31')).map((l) => l.map((x) => x.title));
+    const ficha = Garantias.view(ids[0]).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    for (const id of ids) await DB.del('things', id);
+    return { contas, m24, m28, ag, ficha: (ficha.match(/Estendida \(seguro\)[^ⓘ]*/) || [''])[0].slice(0, 160) };
+  });
+  const [cARD, cBRD, cCRD, cDRD] = d5RD.contas;
+  conferir(cARD.e === null && cBRD.e === null && !!cCRD.e && cCRD.e.inicio === '2026-11-28' && cCRD.e.fim === '2027-11-27',
+    'Revisão dados D5. a estendida que acaba junto com a de fábrica ("12 meses desde a compra") ou antes (bilhete até 30/06/2026) não cobre nada a mais: o app conta como sem estendida; a de 24 meses (controle) cobre de 28/11/2026 a 27/11/2027 (' + JSON.stringify(d5RD.contas.map((c) => c.e && [c.e.inicio, c.e.fim])) + ')');
+  conferir(!!cDRD.e && cDRD.e.alt === '2027-11-27' && cDRD.a24.some((a) => a.tipo === 'fab' && a.depois === true),
+    'Revisão dados D5. ... e a de 12 meses sem saber de quando contam continua com o "talvez até 27/11/2027" (os meses podem contar depois da de fábrica) (' + JSON.stringify(cDRD.e) + ')');
+  conferir([cARD, cBRD].every((c) => c.a24.length === 1 && c.a24[0].tipo === 'fab' && c.a24[0].marco === 7 && c.a24[0].depois === false && !c.a28.length) && cCRD.a24.some((a) => a.tipo === 'fab' && a.depois === true) && cCRD.a28.some((a) => a.tipo === 'estIni'),
+    'Revisão dados D5. ... os avisos: 3 dias antes do fim da de fábrica, sem "depois a estendida cobre"; e nada de "hoje começou a estendida" no dia seguinte (o controle continua com os dois) (' + JSON.stringify(d5RD.contas.map((c) => [c.a24.map((a) => a.tipo + a.marco + (a.depois ? '+' : '')), c.a28.map((a) => a.tipo)])) + ')');
+  conferir(d5RD.m24.slice(0, 2).every((l) => l.length === 1 && l[0][2] === 'bad' && !/depois a estendida/.test(l[0][3]) && /Teste agora/.test(l[0][3])) && d5RD.m28.slice(0, 2).every((l) => !l.includes('estIni')) && d5RD.m24[2].some((x) => x[2] === 'warn'),
+    'Revisão dados D5. ... no 🔔: o aviso de 3 dias em vermelho, "Teste agora: se tiver defeito, reclame antes" (nada cobre depois); o controle fica amarelo (' + JSON.stringify(d5RD.m24.map((l) => l.map((x) => x[2] + ': ' + x[3].slice(0, 70)))) + ')');
+  conferir(d5RD.ag.slice(0, 2).every((l) => l.length === 1 && /^🧾 Fábrica acaba: /.test(l[0])) && d5RD.ag[2].some((x) => /amanhã começa a estendida/.test(x)),
+    'Revisão dados D5. ... na Agenda, só "Fábrica acaba" (sem "amanhã começa a estendida" nem o começo e o fim dela); o controle continua emendando (' + JSON.stringify(d5RD.ag) + ')');
+  conferir(/Acaba junto com a de fábrica \(ou antes\)/.test(d5RD.ficha) && /Confira no bilhete/.test(d5RD.ficha),
+    'Revisão dados D5. ... e a ficha diz que ela acaba junto com a de fábrica (ou antes), não cobre nada a mais, e manda conferir no bilhete (' + d5RD.ficha + ')');
+
+  /* ---------- D8: família com PT e EN: o "＋ Lembrete" sugerido não repete o cuidado que já existe no outro idioma ---------- */
+  const d8RD = await p.evaluate(async () => {
+    const mk = async (nome) => (await DB.put('things', { name: nome, place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } })).id;
+    const mt = (title, coisa) => DB.put('maint', Object.assign({ title, cat: 'eletro', interval: 183, last: today(), next: addDays(today(), 183), nextManual: false, history: [], vis: 'familia' }, coisa ? { coisa } : {}));
+    const a = await mk('RD Purificador Exemplo 8'), b = await mk('RD Purificador Exemplo 9'), c = await mk('RD Purificador Exemplo 10');
+    await mt('Troca do refil do filtro de água — RD Purificador Exemplo 8', a);   /* a mãe (PT) criou */
+    await mt('Cambio del filtro de agua — RD Purificador Exemplo 10', c);   /* em ES (quando o ES aparecer) */
+    const solto = await mt('Troca do refil do filtro de água');   /* em Casa → Manutenção, ainda sem equipamento */
+    const sug = (id) => /Reminder: Water filter refill|Lembrete: Troca do refil/.test(Garantias.view(id));
+    let out = {};
+    try {
+      setLang('en');
+      const enA = sug(a);
+      let msg = ''; const cb = window.confirmBox; window.confirmBox = async (m) => { msg = String(m); return true; };
+      const n0 = DB.raw('maint').length, pr = Garantias.lembrete(b, '', true); await new Promise((r) => setTimeout(r, 400));
+      const abriu = !!document.querySelector('dialog[open] [name="oque"]');
+      document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) {} });
+      await Promise.race([pr, new Promise((r) => setTimeout(r, 400))]); window.confirmBox = cb;
+      setLang('pt');
+      out = { enA, ptC: sug(c), msg: msg.slice(0, 120), abriu, ligou: DB.raw('maint').some((m) => m.coisa === b && /^Troca do refil do filtro de água/.test(m.title)), solto: (DB.get('maint', solto.id) || {}).coisa === b, novos: DB.raw('maint').length - n0 };
+    } finally { setLang('pt'); }
+    return out;
+  });
+  await fecharRD();
+  conferir(d8RD.enA === false && d8RD.ptC === false,
+    'Revisão dados D8. o lembrete criado em PT ("Troca do refil do filtro de água — …") não faz a ficha em EN oferecer de novo "＋ Reminder: Water filter refill", nem o criado em ES a ficha em PT (' + JSON.stringify({ en: d8RD.enA, pt: d8RD.ptC }) + ')');
+  conferir(/already exists/.test(d8RD.msg) && d8RD.ligou && d8RD.novos === 0 && !d8RD.abriu,
+    'Revisão dados D8. ... e em EN, a sugestão acha o "Troca do refil do filtro de água" de Casa → Manutenção e pergunta se liga (fica um só) (' + JSON.stringify(d8RD) + ')');
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('home'); });
   await p.waitForTimeout(300);
 
