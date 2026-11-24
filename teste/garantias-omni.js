@@ -91,6 +91,14 @@
        modelo, DuckDuckGo kl=br-pt, sem "!", nunca erro); "parece IMEI" (Luhn); a sugestão de lembrete; foraDeCasa e fichaDe
      - o IMEI trancado no lugar da série (GAR_SEC, os finais; a série antiga guardada vira o IMEI); o 📥 com os campos novos, o
        IMEI em "protegido", a série à vista e os lembretes de manutenção (limites: 1 a 60 meses, até 10 por item e 100 no arquivo)
+     EQ2 — Equipamentos e garantias: o nome, a lista e os filtros (D-G13, D-G14)
+     - o nome inteiro "🧾 Equipamentos e garantias" no ☰, na 🔍, no título, no 💬 e no AssistONE; o curto "Equipamentos" na barra de
+       baixo, no topo do computador, no editor da barra e nos caminhos (numa linha, sem mudar a altura); as palavras da 🔍 (kw) em PT,
+       EN e ES; a 🔍 acha cada aparelho pela série, código, voltagem, cor, "manual" e "número de série" (a linha do resultado, nunca)
+     - os 5 filtros ("📋 Todos os equipamentos" por padrão, na largura inteira; Valendo, Em 30 dias, Vai começar e "🗄️ Vencidas" sem
+       os que saíram), a ordem, a linha pequena de cada um, filtro com 0 some; "Faltam dados" fechado em Todos; "📦 Saíram de casa" no
+       fim de Todos; "Já tem aparelhos no Onde está?"; a 4ª linha da manutenção (um Maint.list() só por desenho, com 300 aparelhos);
+       os textos novos (vazia, ＋ Novo equipamento, não encontrado, app mais novo, "O que estragou?" com "Os outros equipamentos")
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -488,7 +496,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(aba.barra, 'dá para pôr a aba na barra de atalhos');
   conferir(aba.rec === 'casa.garantias' && aba.acao === 'casa.garantias' && aba.ajuda === 'casa.garantias' && aba.subs.includes('lista'), 'RootifyONE: a aba, os botões gar.* e a ajuda com o id casa.garantias (D-G6); a parte "Lista" no ☰');
   const recs = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'recursos-do-app.json'), 'utf8')).recursos, iG = recs.findIndex((r) => r.id === 'casa.garantias'), iP = recs.findIndex((r) => r.id === 'pets');
-  conferir(iG > 0 && iG === iP + 1 && /Garantias/.test(recs[iG].nome.pt) && /Warranties/.test(recs[iG].nome.en) && /Função desligada/.test(recs[iG].onde.pt) && /turned off/.test(recs[iG].onde.en), 'recursos-do-app.json: casa.garantias (PT e EN) logo depois de pets');
+  conferir(iG > 0 && iG === iP + 1 && /🧾 Equipamentos e garantias/.test(recs[iG].nome.pt) && /🧾 Equipment & warranties/.test(recs[iG].nome.en) && /Função desligada/.test(recs[iG].onde.pt) && /turned off/.test(recs[iG].onde.en), 'recursos-do-app.json: casa.garantias (PT e EN) logo depois de pets; EQ2 (troca de propósito, D-G13): o nome novo "🧾 Equipamentos e garantias"');
   await p.evaluate(() => go('home')); await p.waitForTimeout(300);
   await p.click('#hambbtn'); await p.waitForTimeout(400);
   const gav = await p.evaluate(() => [...document.querySelectorAll('#drawer .ditem[data-dtab]')].map((b) => b.dataset.dtab));
@@ -505,10 +513,12 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const lx = await p.evaluate(() => ({ novos: (document.querySelector('#screen .gar-novos') || {}).textContent || '', faltam: (document.querySelector('#screen .gar-faltam') || {}).textContent || '', lista: (document.querySelector('#screen .gar-lista') || {}).textContent || '', fb: Fb.tela() }));
   conferir(/Lixo 3/.test(lx.novos) && /atualize/i.test(lx.novos), 'garantia gravada por um app mais novo (v 99): aparece no topo, com "atualize o app"');
   conferir(/Lixo 5/.test(lx.faltam) && /Lixo G2b <img/.test(lx.faltam) && /Lixo G2a <img/.test(lx.lista), 'garantia estragada vai para "Faltam dados"; o <img onerror> aparece como texto, sem rodar');
-  conferir(lx.fb.tela === 'garantias' && lx.fb.titulo === 'Garantias', '💬 "Dar uma opinião" sabe que a tela é a de Garantias (' + JSON.stringify(lx.fb) + ')');
-  await p.evaluate(() => { S.garF = 'acabaram'; go('garantias'); }); await p.waitForTimeout(500);
+  /* EQ2 (troca de propósito, D-G13): o título da tela é o nome novo da aba */
+  conferir(lx.fb.tela === 'garantias' && lx.fb.titulo === 'Equipamentos e garantias', '💬 "Dar uma opinião" sabe que a tela é a de Equipamentos e garantias (' + JSON.stringify(lx.fb) + ')');
+  /* EQ2 (troca de propósito, D-G14 e desenho §3): "📦 Saíram de casa" saiu do fim de "Acabaram" e foi para o fim de "📋 Todos os equipamentos" */
+  await p.evaluate(() => { S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(500);
   await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(200);
-  await limpo('🧾 Garantias (lista com o lixo, Acabaram e "Saíram de casa" aberto)');
+  await limpo('🧾 Equipamentos e garantias (lista com o lixo, Todos e "Saíram de casa" aberto)');
   conferir(await p.evaluate(() => /Lixo 1 <img/.test((document.querySelector('#screen .gar-saiu') || {}).textContent || '')), 'o lixo com "saiu" de mentira fica em "Saíram de casa", sem quebrar');
   await p.evaluate(() => Search.open()); await p.waitForSelector('#gsq', { timeout: 5000 }); await p.fill('#gsq', 'Lixo G2'); await p.waitForTimeout(500);
   conferir(await p.evaluate(() => [...document.querySelectorAll('#gsr .gsi')].filter((b) => /Lixo G2a/.test(b.textContent)).length === 2), '🔍 acha o lixo na Casa e em Garantias'); await limpo('🔍 Buscar (garantias com lixo)'); await fecharJanelas(p);
@@ -516,7 +526,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   /* sem nenhuma garantia */
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('garantias'); }); await p.waitForTimeout(500);
   const vz = await p.evaluate(() => ({ txt: document.querySelector('#screen').textContent, mais: document.querySelectorAll('#screen [data-act="gar.new"]').length }));
-  conferir(/Nenhuma garantia ainda\. Toque em ＋ e escreva só o nome e a data da compra\./.test(vz.txt) && vz.mais === 1, 'sem garantia: "Nenhuma garantia ainda. Toque em ＋ e escreva só o nome e a data da compra." e um ＋');
+  /* EQ2 (troca de propósito, D-G13): o equipamento entra só com o nome; com a data, o app conta a garantia */
+  conferir(/Nenhum equipamento ainda\. Toque em ＋ e escreva só o nome; com a data da compra, o app conta a garantia\./.test(vz.txt) && vz.mais === 1, 'sem nenhum: "Nenhum equipamento ainda. Toque em ＋ e escreva só o nome; com a data da compra, o app conta a garantia." e um ＋');
 
   /* as garantias de mentira, com datas a partir de hoje */
   const fx = await p.evaluate(async () => {
@@ -549,7 +560,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   }, f);
   await p.evaluate(() => { S.garF = 'valendo'; go('garantias'); }); await p.waitForTimeout(500);
   let L = await tela();
-  conferir(L.filtros.join(' / ') === 'valendo:✅ Valendo 4* / em30:⏰ Em 30 dias 1 / vai:⏳ Vai começar 2 / acabaram:— Acabaram 3', 'os 4 filtros com a contagem: ' + L.filtros.join(' / '));
+  /* EQ2 (troca de propósito, D-G13 e D-G14): "📋 Todos os equipamentos" primeiro; "— Acabaram" virou "🗄️ Vencidas", sem contar os que saíram de casa */
+  conferir(L.filtros.join(' / ') === 'todos:📋 Todos os equipamentos 9 / valendo:✅ Valendo 4* / em30:⏰ Em 30 dias 1 / vai:⏳ Vai começar 2 / vencidas:🗄️ Vencidas 2', 'os 5 filtros com a contagem: ' + L.filtros.join(' / '));
   conferir(L.lista.join('|') === 'G2 Fab30|G2 Fab31|G2 Restrita|G2 Fab200', 'Valendo: o que acaba primeiro vem antes (' + L.lista.join(', ') + ')');
   conferir(L.faltam.join('|') === 'G2 Sem data' && L.novos.join('|') === 'G2 Nova versão' && L.topo, '"⚠️ Faltam dados (1)" e a de versão mais nova ficam no topo, antes dos filtros');
   conferir(/⚠️ Faltam dados \(1\)/.test(L.txt) && !L.lista.includes('G2 Objeto sem garantia') && !/G2 Objeto sem garantia/.test(L.txt), 'objeto do Onde está? sem garantia fica fora da lista');
@@ -559,31 +571,32 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(await p.evaluate((id) => !!document.querySelector('#screen .gar-lista .li[data-act="go"][data-tab="garantias"][data-sub="ficha"][data-arg="' + id + '"]'), fx.a), 'tocar na linha leva à ficha (garantias/ficha/<id>)');
   await p.click('#screen .garf [data-f="em30"]', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(400);
   L = await tela();
-  conferir(L.lista.join('|') === 'G2 Fab30' && /em30:.*\*/.test(L.filtros[1]), 'Em 30 dias: a que acaba em 30 dias entra, a de 31 não');
+  conferir(L.lista.join('|') === 'G2 Fab30' && /em30:.*\*/.test(L.filtros[2]), 'Em 30 dias: a que acaba em 30 dias entra, a de 31 não');   /* EQ2 (troca de propósito, D-G13): "Todos" é o 1º filtro, "Em 30 dias" passou a ser o 3º */
   await tela('vai'); await p.waitForTimeout(400); L = await tela();
   conferir(L.lista.join('|') === 'G2 Espera logo|G2 Espera', 'Vai começar: só as estendidas que ainda não começaram, a que começa primeiro antes (' + L.lista.join(', ') + ')');
-  await tela('acabaram'); await p.waitForTimeout(400); L = await tela();
-  conferir(L.lista.join('|') === 'G2 Acabou recente|G2 Acabou antiga', 'Acabaram: a que acabou por último vem antes (' + L.lista.join(', ') + ')');
-  conferir(L.saiu.join('|') === 'G2 Doada' && L.saiuAberto === false && /📦 Saíram de casa \(1\)/.test(L.saiuTit) && /📦 Saiu de casa/.test(L.txt), 'Acabaram: "📦 Saíram de casa (1)" fechado, com a doada');
+  await tela('vencidas'); await p.waitForTimeout(400); L = await tela();
+  conferir(L.lista.join('|') === 'G2 Acabou recente|G2 Acabou antiga' && !L.saiu.length && !/G2 Doada/.test(L.txt), 'Vencidas: a que venceu por último vem antes, sem a que saiu de casa (' + L.lista.join(', ') + ')');
+  await tela('todos'); await p.waitForTimeout(400); L = await tela();
+  conferir(L.saiu.join('|') === 'G2 Doada' && L.saiuAberto === false && /📦 Saíram de casa \(1\)/.test(L.saiuTit) && /📦 Saiu de casa/.test(L.txt), 'Todos: "📦 Saíram de casa (1)" fechado no fim, com a doada');
   await tela('valendo'); await p.waitForTimeout(400); L = await tela();
   conferir(!L.lista.some((n) => /Espera|Doada|Acabou|Sem data|Nova/.test(n)), 'Valendo não tem a que vai começar, a que saiu de casa, as que acabaram nem as do topo');
 
   /* 🔍 */
   const bu = await p.evaluate(() => {
-    const g = Search.find('G2 Fab30').find((x) => x.grp === 'Garantias'), todos = Search.sources().filter((x) => x.grp === 'Garantias');
-    return { g: g ? { t: g.t, s: g.s, grp: g.grp } : null, n: todos.length, nums: todos.filter((x) => /0001/.test(x.s + ' ' + x.q)).length, fn: Search.find('garantias').some((x) => x.t === 'Garantias' && x.grp === 'Funções') };
+    const g = Search.find('G2 Fab30').find((x) => x.grp === 'Equipamentos e garantias'), todos = Search.sources().filter((x) => x.grp === 'Equipamentos e garantias');   /* EQ2 (troca de propósito, D-G13): o grupo da 🔍 tem o nome novo */
+    return { g: g ? { t: g.t, s: g.s, grp: g.grp } : null, n: todos.length, nums: todos.filter((x) => /0001/.test(x.s + ' ' + x.q)).length, fn: Search.find('garantias').some((x) => x.t === 'Equipamentos e garantias' && x.grp === 'Funções') };
   });
-  conferir(bu.g && bu.g.t === 'G2 Fab30' && /^✅ Fábrica até .* · Loja Exemplo$/.test(bu.g.s) && bu.g.grp === 'Garantias', '🔍 acha a garantia: "🧾 nome · situação · loja" (' + JSON.stringify(bu.g) + ')');
-  conferir(bu.n === 11 && !bu.nums && bu.fn, '🔍 traz as 11 garantias que esta pessoa vê, sem número (nem o final do pedido), e a função Garantias');
-  await p.evaluate(() => Search.find('G2 Fab30').find((x) => x.grp === 'Garantias').fn()); await p.waitForTimeout(300);
+  conferir(bu.g && bu.g.t === 'G2 Fab30' && /^✅ Fábrica até .* · Loja Exemplo$/.test(bu.g.s) && bu.g.grp === 'Equipamentos e garantias', '🔍 acha a garantia: "🧾 nome · situação · loja" (' + JSON.stringify(bu.g) + ')');
+  conferir(bu.n === 11 && !bu.nums && bu.fn, '🔍 traz as 11 garantias que esta pessoa vê, sem número (nem o final do pedido), e a função Equipamentos e garantias');
+  await p.evaluate(() => { const x = Search.find('G2 Fab30').find((x) => x.grp === 'Equipamentos e garantias'); if (x) x.fn(); }); await p.waitForTimeout(300);
   conferir(await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, fx.a), 'e o toque na 🔍 leva à ficha dela');
 
   /* AssistONE e dica */
   const ao = await p.evaluate(() => { const h = AOne.HERE().garantias, t = AOne.TIPS().garantias; return { t: h && h[0], frase: h && h[1], acts: h ? h[2].map((a) => a[0]) : [], tip: t }; });
-  conferir(ao.t === 'Garantias' && ao.acts.some((a) => /⏰ O que vence\?/.test(a)) && ao.acts.some((a) => /❓ Como funciona/.test(a)) && typeof ao.tip === 'string' && /data da compra/.test(ao.tip), 'AssistONE desta tela ("⏰ O que vence?", "❓ Como funciona") e a dica da tela (' + ao.acts.join(', ') + ')');
+  conferir(ao.t === 'Equipamentos e garantias' && ao.acts.some((a) => /⏰ O que vence\?/.test(a)) && ao.acts.some((a) => /❓ Como funciona/.test(a)) && typeof ao.tip === 'string' && /data da compra/.test(ao.tip), 'AssistONE desta tela ("⏰ O que vence?", "❓ Como funciona") e a dica da tela (' + ao.acts.join(', ') + ')');
   await p.evaluate(() => { S.garF = 'valendo'; go('garantias'); }); await p.waitForTimeout(400);
   await p.evaluate(() => AOne.open()); await p.waitForTimeout(200);
-  conferir(await p.evaluate(() => /Garantias/.test((document.querySelector('.aone-here') || {}).textContent || '')), 'o balão do AssistONE mostra a ajuda desta tela');
+  conferir(await p.evaluate(() => /Equipamentos e garantias/.test((document.querySelector('.aone-here') || {}).textContent || '')), 'o balão do AssistONE mostra a ajuda desta tela (EQ2: com o nome novo)');
   await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /O que vence/.test(x[0])); AOne.close(); a[1](); }); await p.waitForTimeout(400);
   conferir(await p.evaluate(() => S.garF === 'em30' && S.route.tab === 'garantias' && !!document.querySelector('#screen .garf [data-f="em30"].active')), '"⏰ O que vence?" abre a lista no filtro "Em 30 dias"');
 
@@ -592,34 +605,34 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     const els = [...document.querySelectorAll('#screen .gar button, #screen .gar a[href], #screen .gar summary, #screen .gar [data-act], #screen .gar select, #screen .gar input')].filter((b) => { const r = b.getBoundingClientRect(); return r.width && r.height; });
     return { n: els.length, peq: els.map((b) => { const r = b.getBoundingClientRect(); return r.height < 44 || r.width < 44 ? (b.innerText || b.tagName).replace(/\s+/g, ' ').trim().slice(0, 30) + ' (' + Math.round(r.width) + '×' + Math.round(r.height) + ')' : ''; }).filter(Boolean), larg: document.documentElement.scrollWidth <= innerWidth + 1, w: innerWidth };
   });
-  for (const lang of ['pt', 'en']) for (const f of ['valendo', 'acabaram']) {
+  for (const lang of ['pt', 'en']) for (const f of ['todos', 'valendo', 'vencidas']) {   /* EQ2 (troca de propósito, D-G14): "Acabaram" virou "Vencidas"; "Todos" é o padrão */
     await p.evaluate((a) => { if (S.lang !== a.lang) setLang(a.lang); S.garF = a.f; go('garantias'); }, { lang, f }); await p.waitForTimeout(500);
     await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(100);
     const a = await alvos();
     conferir(a.w === 390 && a.larg && a.n >= 6 && !a.peq.length, '390 px (' + lang.toUpperCase() + ', ' + f + '): nada passa da largura e os ' + a.n + ' alvos de toque têm 44 px' + (a.peq.length ? ': ' + a.peq.join(' · ') : ''));
   }
   const en = await p.evaluate(() => { S.garF = 'valendo'; go('garantias'); return new Promise((r) => setTimeout(() => r(document.querySelector('#screen').textContent), 400)); });
-  conferir(/Warranties/.test(en) && /Active/.test(en) && /Within 30 days/.test(en) && /Starting soon/.test(en) && /Ended/.test(en) && /Missing details/.test(en) && /Brazilian consumer law/.test(en) && /legal advice/.test(en) && /Factory until/.test(en) && /bought in/.test(en) && !/Faltam dados|Valendo|Vai começar|assessoria|comprado em/.test(en), 'EN: a tela em inglês (filtros, linha, rodapé com "Brazilian consumer law")');
+  conferir(/Equipment & warranties/.test(en) && /All items/.test(en) && /Active/.test(en) && /Within 30 days/.test(en) && /Starting soon/.test(en) && /Expired/.test(en) && /Missing details/.test(en) && /Brazilian consumer law/.test(en) && /legal advice/.test(en) && /Factory until/.test(en) && /bought in/.test(en) && !/Faltam dados|Valendo|Vai começar|Vencidas|Todos os equipamentos|assessoria|comprado em/.test(en), 'EN: a tela em inglês (o nome novo, os filtros com "All items" e "Expired", a linha, o rodapé com "Brazilian consumer law")');
   await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
 
   /* quem vê: "Só responsáveis", criança, criança sem "ver a Casa" */
   const papel0 = await p.evaluate(() => S.role);
   await p.evaluate(() => { S.role = 'adulto'; S.garF = 'valendo'; go('garantias'); }); await p.waitForTimeout(500);
   L = await tela();
-  const memBusca = await p.evaluate(() => Search.sources().filter((x) => x.grp === 'Garantias').map((x) => x.t));
-  conferir(L.lista.join('|') === 'G2 Fab30|G2 Fab31|G2 Fab200' && /valendo:✅ Valendo 3/.test(L.filtros[0]) && !/G2 Restrita/.test(L.txt) && !memBusca.includes('G2 Restrita') && memBusca.length === 10, '"Só responsáveis": quem não é responsável não vê na lista, na contagem nem na 🔍');
+  const memBusca = await p.evaluate(() => Search.sources().filter((x) => x.grp === 'Equipamentos e garantias').map((x) => x.t));
+  conferir(L.lista.join('|') === 'G2 Fab30|G2 Fab31|G2 Fab200' && /valendo:✅ Valendo 3/.test(L.filtros[1]) &&   /* EQ2 (troca de propósito, D-G13): "Valendo" passou a ser o 2º filtro */ !/G2 Restrita/.test(L.txt) && !memBusca.includes('G2 Restrita') && memBusca.length === 10, '"Só responsáveis": quem não é responsável não vê na lista, na contagem nem na 🔍');
   conferir(await p.evaluate(() => document.querySelectorAll('#screen [data-act="gar.new"]').length === 1), 'adulto que não é responsável também tem o ＋');
   await p.evaluate(() => { S.role = 'crianca'; go('garantias'); }); await p.waitForTimeout(500);
   const cri = await p.evaluate(() => ({ ok: canTab('garantias') && S.route.tab === 'garantias', mexe: [...document.querySelectorAll('#screen [data-act^="gar."]')].map((b) => b.dataset.act).filter((a) => a !== 'gar.filtro'), n: document.querySelectorAll('#screen .gar-lista .li').length }));
   conferir(cri.ok && !cri.mexe.length && cri.n === 3, 'criança vê a lista (como a Casa) e não tem ＋ nem ✏️' + (cri.mexe.length ? ' (' + cri.mexe.join(', ') + ')' : ''));
   await p.evaluate(() => { me().controls = Object.assign({}, me().controls, { seeHouse: false }); go('garantias'); }); await p.waitForTimeout(500);
-  const cri2 = await p.evaluate(() => ({ can: canTab('garantias'), vis: visibleTabs().some((t) => t.id === 'garantias'), tab: S.route.tab, busca: Search.sources().filter((x) => x.grp === 'Garantias' || x.ic === '🧾').length }));
+  const cri2 = await p.evaluate(() => ({ can: canTab('garantias'), vis: visibleTabs().some((t) => t.id === 'garantias'), tab: S.route.tab, busca: Search.sources().filter((x) => x.grp === 'Equipamentos e garantias' || x.ic === '🧾').length }));
   conferir(!cri2.can && !cri2.vis && cri2.tab === 'home' && !cri2.busca, 'criança sem "ver a Casa": a aba some do menu e da 🔍, e o endereço volta ao Início (' + JSON.stringify(cri2) + ')');
   await p.evaluate((papel) => { const c = Object.assign({}, me().controls); delete c.seeHouse; me().controls = c; S.role = papel; }, papel0);
 
   /* desligada no RootifyONE */
   await p.evaluate(() => { const o = SolverRecursos.ligado; window.__lig0 = o; SolverRecursos.ligado = function (id, d) { return id === 'casa.garantias' ? false : o.call(this, id, d); }; go('garantias'); }); await p.waitForTimeout(500);
-  const off = await p.evaluate(() => ({ txt: document.querySelector('#screen').textContent, vis: visibleTabs().some((t) => t.id === 'garantias'), barra: BarEd.choices().some((t) => t.id === 'garantias'), busca: Search.sources().filter((x) => x.ic === '🧾' || /^Garantias/.test(x.t)).map((x) => x.t) }));
+  const off = await p.evaluate(() => ({ txt: document.querySelector('#screen').textContent, vis: visibleTabs().some((t) => t.id === 'garantias'), barra: BarEd.choices().some((t) => t.id === 'garantias'), busca: Search.sources().filter((x) => x.ic === '🧾' || /^(Garantias|Equipamentos e garantias)/.test(x.t)).map((x) => x.t) }));
   await p.click('#hambbtn'); await p.waitForTimeout(400);
   const gavOff = await p.evaluate(() => document.querySelectorAll('#drawer [data-dtab="garantias"]').length);
   await fecharJanelas(p); await p.waitForTimeout(200);
@@ -670,7 +683,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(ft.includes('Na garantia de fábrica até ≈' + fimFab) && (ft.split('≈' + fimFab).length - 1) >= 2 && /De fábrica/.test(ft) && /Prazo da lei para reclamar/.test(ft) && /Estendida \(seguro\)/.test(ft),
     'G3. a ficha: a frase grande ("Na garantia de fábrica até ≈' + fimFab + '") e as três garantias (de fábrica, prazo da lei, estendida), com ≈');
   conferir(/Para avisar certo, diga quantos meses tem a de fábrica/.test(ft) && /Tem estendida\? Procure no e-mail/.test(ft), 'G3. o "próximo passo": quantos meses tem a de fábrica e se tem estendida');
-  conferir((ft.match(/≈ = conta do app; confira no folheto ou no bilhete/g) || []).length === 1 && /Não é assessoria jurídica/.test(ft) && /🧾 Garantias\s*›/.test(ft), 'G3. o caminho "🧾 Garantias › nome", "≈ = conta do app…" uma vez e o rodapé');
+  conferir((ft.match(/≈ = conta do app; confira no folheto ou no bilhete/g) || []).length === 1 && /Não é assessoria jurídica/.test(ft) && /🧾 Equipamentos\s*›/.test(ft), 'G3. o caminho "🧾 Equipamentos › nome" (EQ2, troca de propósito, D-G13: o nome curto), "≈ = conta do app…" uma vez e o rodapé');
   conferir(!!(await p.$('#screen [data-tab="garantias"][data-sub="estragou"][data-arg="' + tid3 + '"]')) && !!(await p.$('#screen [data-act="gar.edit"][data-id="' + tid3 + '"]')), 'G3. a ficha tem o 🆘 "Estragou? E agora?" e o ✏️');
 
   /* "Ligar a": a garantia entra num objeto do Onde está? que ainda não tem */
@@ -831,8 +844,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const evTxt = abriuV ? await p.locator('dialog[open]').innerText() : '';
   if (abriuV) { await p.fill('dialog[open] [name="notes"]', 'Anotação de mentira'); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(500); }
   const ev = await p.evaluate(async (id) => { try { return await Vault.decObj(DB.col('vault').get('gv_' + id).enc); } catch (e) { return null; } }, tid3);
-  conferir(abriuV && /🧾/.test(evTxt) && /Garantias/.test(evTxt) && ev && ev.garantiaDe === tid3 && ev.pedido === PEDIDO && ev.valorCent === '129990' && ev.notes === 'Anotação de mentira',
-    'G3. nas Senhas da casa, o item da garantia diz que se muda em 🧾 Garantias e, editado lá, mantém garantiaDe, o pedido e o valor');
+  conferir(abriuV && /🧾/.test(evTxt) && /abra 🧾 Equipamentos e garantias/.test(evTxt) && ev && ev.garantiaDe === tid3 && ev.pedido === PEDIDO && ev.valorCent === '129990' && ev.notes === 'Anotação de mentira',
+    'G3. nas Senhas da casa, o item da garantia diz que se muda em 🧾 Equipamentos e garantias (EQ2, troca de propósito, D-G13) e, editado lá, mantém garantiaDe, o pedido e o valor');
 
   /* "Passar o bastão" não oferece o item da garantia */
   await p.evaluate(async () => { await DB.put('vault', { kind: 'senha', enc: await Vault.encObj({ title: 'Wi-Fi de mentira', pass: 'senha-de-mentira' }), files: [], vis: 'restrito' }); });
@@ -844,7 +857,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
 
   /* AssistONE e o aviso legal */
   const aq = await p.evaluate(() => AOne.HERE().garantias[2].map((a) => a[0]));
-  conferir(aq.some((a) => /＋ Nova garantia/.test(a)), 'G3. o AssistONE desta tela tem "＋ Nova garantia" (' + aq.join(', ') + ')');
+  conferir(aq.some((a) => /＋ Novo equipamento/.test(a)), 'G3. o AssistONE desta tela tem "＋ Novo equipamento" (EQ2, troca de propósito, D-G13) (' + aq.join(', ') + ')');
   await p.evaluate(() => ACT.legal()); await p.waitForTimeout(300);
   const lg = await p.evaluate(() => (document.querySelector('dialog[open]') || {}).innerText || '');
   await fecharJanelas(p);
@@ -1948,10 +1961,10 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     await fecharJanelas(p);
   }
   await p.evaluate(() => { DGO.feedback.abrir = window.__fbA8; });
-  conferir(fb8.every((x) => x.b && x.tela === x.quer && x.titulo === 'Garantias'), 'G8. 💬 em cada tela (lista, ficha, "Estragou?"): o ☰ tem o "Dar uma opinião" e ele leva a tela e o título "Garantias" (' + fb8.map((x) => (x.b ? '' : 'sem 💬 ') + x.tela + '·' + x.titulo).join(' ') + ')');
+  conferir(fb8.every((x) => x.b && x.tela === x.quer && x.titulo === 'Equipamentos e garantias'), 'G8. 💬 em cada tela (lista, ficha, "Estragou?"): o ☰ tem o "Dar uma opinião" e ele leva a tela e o título "Equipamentos e garantias" (EQ2, troca de propósito, D-G13) (' + fb8.map((x) => (x.b ? '' : 'sem 💬 ') + x.tela + '·' + x.titulo).join(' ') + ')');
   await p.evaluate((id) => { setLang('en'); go('garantias', 'ficha', id); }, gid8); await p.waitForTimeout(400);
   const fbEn8 = await p.evaluate(() => { const t = Fb.tela(); setLang('pt'); return t; });
-  conferir(fbEn8.tela === 'garantias/ficha' && fbEn8.titulo === 'Warranties', 'G8. 💬 em EN: o título da tela é "Warranties" e o endereço não leva o id (' + JSON.stringify(fbEn8) + ')');
+  conferir(fbEn8.tela === 'garantias/ficha' && fbEn8.titulo === 'Equipment & warranties', 'G8. 💬 em EN: o título da tela é "Equipment & warranties" e o endereço não leva o id (' + JSON.stringify(fbEn8) + ')');
   await p.evaluate((id) => DB.del('things', id), gid8);
 
   /* ---------- idioma, lendo o código: todo texto do módulo nasce em PT, EN e ES (D-G7) ---------- */
@@ -2206,6 +2219,290 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(fdQ.fRestrM === null && fdQ.fDesl === null && fdQ.fCrianca === null, 'EQ1. fichaDe: null para quem não vê o equipamento, com Garantias desligada e para criança sem "ver a Casa" (' + JSON.stringify([fdQ.fRestrM, fdQ.fDesl, fdQ.fCrianca]) + ')');
   conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ1: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     EQ2 — Equipamentos e garantias: o nome, a lista e os filtros (D-G13, D-G14)
+     ===================================================================== */
+  console.log('\n— EQ2: Equipamentos e garantias — o nome, a lista e os filtros');
+  await fecharJanelas(p);
+  await p.evaluate((papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); }, papel0);
+  /* quantas linhas um texto ocupa na tela (os retângulos de cada pedaço, pelo topo) */
+  await p.evaluate(() => {
+    window.__linhasQ = (el) => {
+      const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), tops = []; let n;
+      while ((n = w.nextNode())) { if (!n.textContent.trim()) continue; const r = document.createRange(); r.selectNodeContents(n); for (const x of r.getClientRects()) if (x.width > 0) tops.push(x.top); }
+      tops.sort((a, b) => a - b); return tops.reduce((c, t, i) => c + (i === 0 || t - tops[i - 1] > 8 ? 1 : 0), 0);   /* só o texto (sem o ícone); 8 px de folga para a letra menor da contagem */
+    };
+  });
+
+  /* ---------- o nome: inteiro no ☰, na 🔍, no título, no 💬 e no AssistONE; curto na barra, no topo e no editor da barra ---------- */
+  const tabQ = await p.evaluate(() => { const t = TABS().find((x) => x.id === 'garantias') || {}; return { t: t.t, curto: t.curto, kw: t.kw || '' }; });
+  conferir(tabQ.t === 'Equipamentos e garantias' && tabQ.curto === 'Equipamentos', 'EQ2. a aba se chama "Equipamentos e garantias" e o nome curto é "Equipamentos" (' + JSON.stringify([tabQ.t, tabQ.curto]) + ')');
+  conferir(['garantia', 'equipamento', 'aparelho', 'manual', 'numero de serie', 'warranty', 'equipment', 'appliance', 'serial number', 'aparato', 'electrodomestico', 'mantenimiento'].every((w) => tabQ.kw.includes(w)), 'EQ2. as palavras da 🔍 da aba (kw) em PT, EN e ES, sem acento (não aparecem na tela) (' + tabQ.kw.slice(0, 50) + '…)');
+  const srcQ2 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'), ttTabQ = ttChamadas(srcQ2.split('\n').find((l) => l.includes('id: "garantias", ic: "🧾"')) || '');
+  conferir(ttTabQ.length === 2 && ttTabQ.every((c) => c.args.length === 3) && canon(ttTabQ.map((c) => c.args.map((a) => a.txt))) === canon([['Equipamentos e garantias', 'Equipment & warranties', 'Aparatos y garantías'], ['Equipamentos', 'Equipment', 'Aparatos']]), 'EQ2. o nome e o curto em PT, EN e ES (' + JSON.stringify(ttTabQ.map((c) => c.args.map((a) => a.txt))) + ')');
+  const tabEnQ = await p.evaluate(() => { setLang('en'); const t = TABS().find((x) => x.id === 'garantias') || {}, r = [t.t, t.curto]; setLang('pt'); return r; });
+  conferir(tabEnQ[0] === 'Equipment & warranties' && tabEnQ[1] === 'Equipment', 'EQ2. em EN: "Equipment & warranties", curto "Equipment" (' + JSON.stringify(tabEnQ) + ')');
+  await p.evaluate(() => go('home')); await p.waitForTimeout(300);
+  await p.click('#hambbtn'); await p.waitForTimeout(400);
+  const gavQ = await p.evaluate(() => { const b = document.querySelector('#drawer .ditem[data-dtab="garantias"]'), dl = b && b.querySelector('.dl'), nav = document.querySelector('#drawer'); return { txt: dl ? dl.textContent : '', linhas: dl ? window.__linhasQ(dl) : 0, larg: !!nav && nav.scrollWidth <= nav.clientWidth + 1 }; });
+  await fecharJanelas(p); await p.waitForTimeout(200);
+  conferir(gavQ.txt === 'Equipamentos e garantias' && gavQ.linhas === 1 && gavQ.larg, 'EQ2. o ☰ mostra o nome inteiro "Equipamentos e garantias", numa linha e sem rolar para o lado (' + JSON.stringify(gavQ) + ')');
+  conferir(await p.evaluate(() => Search.find('equipamentos').some((x) => x.grp === 'Funções' && x.t === 'Equipamentos e garantias' && x.ic === '🧾')), 'EQ2. a 🔍 mostra a função com o nome inteiro');
+  /* a barra de baixo: o curto, numa linha, e a barra com a mesma altura de antes */
+  const barQ = await p.evaluate(async () => {
+    const b0 = S.prefs.bottom, espera = () => new Promise((r) => setTimeout(r, 80));
+    const medir = () => { const bb = document.querySelector('#bottombar'); return { h: Math.round(bb.getBoundingClientRect().height), lbs: [...bb.querySelectorAll('button')].map((b) => { const lb = b.querySelector('.lb'); return { id: b.dataset.tab, txt: lb.textContent, h: Math.round(lb.getBoundingClientRect().height), linhas: window.__linhasQ(lb), cabe: lb.getBoundingClientRect().width <= b.getBoundingClientRect().width + 1 }; }) }; };
+    S.prefs.bottom = ['home', 'shop', 'agenda', 'security', 'house']; renderNav(); await espera();
+    const antes = medir();
+    S.prefs.bottom = ['home', 'shop', 'agenda', 'garantias', 'house']; renderNav(); await espera();
+    const depois = medir();
+    S.prefs.bottom = b0; renderNav();
+    return { antes, depois };
+  });
+  const lbG = barQ.depois.lbs.find((x) => x.id === 'garantias') || {}, lbS = barQ.antes.lbs.find((x) => x.id === 'security') || {};
+  conferir(lbG.txt === 'Equipamentos' && lbG.linhas === 1 && lbG.cabe && lbG.h === lbS.h && barQ.depois.h === barQ.antes.h, 'EQ2. barra de baixo: "Equipamentos" numa linha, dentro do botão, e a barra com a mesma altura de antes (' + JSON.stringify([lbG, lbS.h, barQ.antes.h, barQ.depois.h]) + ')');
+  /* o topo, no computador */
+  await p.setViewportSize(VP.computador); await p.waitForTimeout(300);
+  const topoQ = await p.evaluate(async () => {
+    const b0 = S.prefs.bottom; S.prefs.bottom = ['home', 'shop', 'agenda', 'garantias', 'house']; renderNav(); await new Promise((r) => setTimeout(r, 80));
+    const bs = [...document.querySelectorAll('#tabs button')], g = bs.find((b) => b.dataset.tab === 'garantias'), h = bs.find((b) => b.dataset.tab === 'agenda');
+    const r = { txt: g ? g.textContent.trim() : '', hg: g ? Math.round(g.getBoundingClientRect().height) : 0, hh: h ? Math.round(h.getBoundingClientRect().height) : -1, linhas: g ? window.__linhasQ(g) : 0 };
+    S.prefs.bottom = b0; renderNav(); return r;
+  });
+  await p.setViewportSize(VP.celular); await p.waitForTimeout(300);
+  conferir(/Equipamentos$/.test(topoQ.txt) && !/garantias/.test(topoQ.txt) && topoQ.linhas === 1 && topoQ.hg === topoQ.hh, 'EQ2. topo do computador: "Equipamentos" numa linha, da altura das outras abas (' + JSON.stringify(topoQ) + ')');
+  /* o editor da barra (⚙ → Geral): a prévia igual à barra de verdade */
+  const edQ = await p.evaluate(async () => {
+    const b0 = S.prefs.bottom, espera = () => new Promise((r) => setTimeout(r, 300)), lbDe = (sel) => { const it = document.querySelector(sel); return it ? { txt: it.querySelector('.lb').textContent, h: Math.round(it.getBoundingClientRect().height) } : null; };
+    S.prefs.bottom = ['home', 'shop', 'agenda', 'garantias', 'house']; renderNav(); go('settings', 'general'); await espera();
+    const slot = lbDe('#bared .bd-slot .bd-item[data-id="garantias"]'), ref = lbDe('#bared .bd-slot .bd-item[data-id="agenda"]'), barra = (document.querySelector('#bottombar [data-tab="garantias"] .lb') || {}).textContent;
+    S.prefs.bottom = ['home', 'shop', 'agenda', 'security', 'house']; renderNav(); go('settings', 'general'); await espera();
+    const disp = lbDe('#bared .bd-avail .bd-item[data-id="garantias"]'), refD = lbDe('#bared .bd-avail .bd-item[data-id="cars"]');
+    S.prefs.bottom = b0; renderNav(); go('home');
+    return { slot, ref, barra, disp, refD };
+  });
+  conferir(edQ.slot && edQ.slot.txt === 'Equipamentos' && edQ.slot.txt === edQ.barra && edQ.ref && edQ.slot.h === edQ.ref.h, 'EQ2. editor da barra (⚙ → Geral), na barra: "Equipamentos", igual à barra de verdade e da altura dos outros (' + JSON.stringify([edQ.slot, edQ.ref, edQ.barra]) + ')');
+  conferir(edQ.disp && edQ.disp.txt === 'Equipamentos' && edQ.refD && edQ.disp.h === edQ.refD.h, 'EQ2. editor da barra, nos disponíveis: "Equipamentos", da altura dos outros (' + JSON.stringify([edQ.disp, edQ.refD]) + ')');
+  await p.waitForTimeout(300);
+
+  /* ---------- a lista: os aparelhos de mentira, com e sem garantia ---------- */
+  const fxQ = await p.evaluate(async () => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    for (const m of DB.raw('maint')) await DB.del('maint', m.id);
+    const h = today(), d = (n) => GarCalc.somaDias(h, n);
+    const novo = async (name, garantia, vis) => (await DB.put('things', Object.assign({ name, place: '', tags: [], vis: vis || 'familia' }, garantia === undefined ? {} : { garantia }), true)).id;
+    const fab = (fim, o) => Object.assign({ v: 1, compra: { data: d(-300), loja: 'Loja Exemplo' }, fabrica: { fim, legalInclusa: 'sim' } }, o || {});
+    const ids = {
+      ar: await novo('EQ2 Ar-condicionado', fab(d(200))),
+      ba: await novo('EQ2 Batedeira', fab(d(20))),
+      ca: await novo('EQ2 Cafeteira', { v: 1, compra: { data: d(-800) }, fabrica: { meses: 0 }, estendida: { tem: 'sim', inicio: d(15), fim: d(400) } }),
+      de: await novo('EQ2 Depurador', { v: 1, compra: { data: d(-800) }, fabrica: { meses: 12 } }),
+      ex: await novo('EQ2 Exaustor', { v: 1, compra: { data: d(-2000) }, fabrica: { meses: 12 } }),
+      fr: await novo('EQ2 Freezer', { v: 1, compra: { naoSei: true } }),
+      ge: await novo('EQ2 Geladeira', { v: 1 }),
+      hi: await novo('EQ2 Hidromassagem', { v: 1, marca: 'Marca Exemplo' }),
+      im: await novo('EQ2 Impressora', { v: 1, estendida: { tem: 'sim', inicio: d(-10) } }),
+      ja: await novo('EQ2 Jarra elétrica', fab(d(30), { saiu: { como: 'doado', em: d(-5), obs: '' } })),
+      ki: await novo('EQ2 Kit nova versão', { v: 2, compra: { data: d(-10) } }),
+      pu: await novo('EQ2 Purificador', fab(d(5), { marca: 'Marca Exemplo', modelo: 'PX-100', serie: 'SN-EQ2-0001', codigo: '7891234567895', cor: 'prata', voltagem: 'bivolt', manualUrl: 'https://www.exemplo.com.br/manuais/px-100.pdf' })),
+      ob: await novo('EQ2 Objeto sem garantia')
+    };
+    /* os lembretes da Manutenção da casa ligados aos aparelhos (maint.coisa) */
+    const mt = async (title, coisa, next) => DB.put('maint', Object.assign({ title, cat: 'eletro', interval: 183, last: GarCalc.somaDias(next, -183), next, nextManual: false, history: [], vis: 'familia' }, coisa ? { coisa } : {}), true);
+    await mt('Troca do refil do filtro de água — EQ2 Purificador', ids.pu, d(-3));
+    await mt('Limpeza do ar-condicionado — EQ2 Ar-condicionado', ids.ar, d(5));
+    await mt('Limpeza das pás — EQ2 Batedeira', ids.ba, d(20));
+    await mt('Descalcificar — EQ2 Depurador', ids.de, d(1));
+    await mt('Limpar o filtro — EQ2 Exaustor', ids.ex, d(-1));
+    await mt('Revisão — EQ2 Geladeira', ids.ge, h);
+    await mt('Descalcificar — EQ2 Jarra elétrica', ids.ja, d(-10));
+    await mt('Trocar a lâmpada da garagem', null, d(-1));
+    S.garF = undefined; go('garantias');
+    return ids;
+  });
+  await p.waitForTimeout(500);
+  const telaQ = (f) => p.evaluate((f) => {
+    if (f !== undefined) { S.garF = f; go('garantias'); }
+    const scr = document.querySelector('#screen'), seg = scr.querySelector('.garf'), lista = scr.querySelector('.gar-lista');
+    const fd = scr.querySelector('.gar-faltam details'), sd = scr.querySelector('.gar-saiu details'), on = scr.querySelector('.gar-ondeesta'), ul = lista && lista.querySelector(':scope > .list');
+    const bts = seg ? [...seg.querySelectorAll('[data-f]')] : [];
+    return {
+      filtros: bts.map((b) => b.dataset.f + ':' + b.textContent.replace(/\s+/g, ' ').trim() + (b.classList.contains('active') ? '*' : '')),
+      lista: ul ? [...ul.querySelectorAll(':scope > .li .t')].map((e) => e.textContent.trim()) : [],
+      fexp: ((scr.querySelector('.gar-fexp') || {}).textContent || '').trim(),
+      faltamDet: fd ? { open: fd.open, sum: fd.querySelector('summary').textContent.trim(), txt: fd.textContent, nomes: [...fd.querySelectorAll('.li .t')].map((e) => e.textContent.trim()) } : null,
+      faltamCard: !!scr.querySelector('.gar-faltam > h3'),
+      faltamTopo: !!(seg && scr.querySelector('.gar-faltam') && (scr.querySelector('.gar-faltam').compareDocumentPosition(seg) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      saiu: sd ? { open: sd.open, sum: sd.querySelector('summary').textContent.trim(), nomes: [...sd.querySelectorAll('.li .t')].map((e) => e.textContent.trim()), depois: !!(ul && (ul.compareDocumentPosition(sd) & Node.DOCUMENT_POSITION_FOLLOWING)) } : null,
+      onde: on ? on.textContent.trim() : '', ondeFim: !!(on && (!sd || (sd.compareDocumentPosition(on) & Node.DOCUMENT_POSITION_FOLLOWING)) && (!ul || (ul.compareDocumentPosition(on) & Node.DOCUMENT_POSITION_FOLLOWING))),
+      novos: ((scr.querySelector('.gar-novos') || {}).textContent || ''),
+      visivel: scr.innerText, vazio: ((lista && lista.querySelector('.empty')) || {}).textContent || '',
+      linhas: Object.fromEntries([...scr.querySelectorAll('.gar-lista .li, .gar-faltam .li')].map((l) => [l.querySelector('.t').textContent.trim(), [...l.querySelectorAll('.s')].map((e) => e.textContent).join(' | ')])),
+      mt: Object.fromEntries([...scr.querySelectorAll('.gar-lista .li')].map((l) => [l.querySelector('.t').textContent.trim(), ((l.querySelector('.gar-mt') || {}).textContent || '')])),
+      larg: (() => { const b = bts.find((x) => x.dataset.f === 'todos'); if (!b) return null; const sr = seg.getBoundingClientRect(), br = b.getBoundingClientRect(), tops = bts.filter((x) => x !== b).map((x) => Math.round(x.getBoundingClientRect().top)); return { w: Math.round(br.width), seg: Math.round(sr.width), linhas: window.__linhasQ(b), inteiro: b.scrollWidth <= b.clientWidth + 1, so: tops.every((t) => t > Math.round(br.top)), porLinha: Math.max(...Object.values(tops.reduce((o, t) => ((o[t] = (o[t] || 0) + 1), o), {}))) }; })()
+    };
+  }, f);
+  let Q = await telaQ();
+  const TODOS_Q = ['EQ2 Ar-condicionado', 'EQ2 Batedeira', 'EQ2 Cafeteira', 'EQ2 Depurador', 'EQ2 Exaustor', 'EQ2 Freezer', 'EQ2 Geladeira', 'EQ2 Hidromassagem', 'EQ2 Impressora', 'EQ2 Purificador'];
+  conferir(Q.filtros.join(' / ') === 'todos:📋 Todos os equipamentos 10* / valendo:✅ Valendo 3 / em30:⏰ Em 30 dias 2 / vai:⏳ Vai começar 1 / vencidas:🗄️ Vencidas 2', 'EQ2. os 5 filtros com a contagem, "📋 Todos os equipamentos" escolhido por padrão (' + Q.filtros.join(' / ') + ')');
+  conferir(Q.lista.join('|') === TODOS_Q.join('|'), 'EQ2. Todos: em ordem de nome (A→Z), com o sem a data (Freezer), os que faltam dados e as vencidas; sem o que saiu de casa e sem o de um app mais novo (' + Q.lista.join(', ') + ')');
+  conferir(Q.larg && Q.larg.w >= Q.larg.seg - 12 && Q.larg.linhas === 1 && Q.larg.inteiro && Q.larg.so && Q.larg.porLinha === 2, 'EQ2. "📋 Todos os equipamentos" na largura inteira, numa linha, com o nome inteiro; os outros dois por linha (' + JSON.stringify(Q.larg) + ')');
+  conferir(Q.fexp === 'Tudo o que está em casa. Os que saíram ficam no fim, em 📦.', 'EQ2. a linha pequena de "Todos" (' + Q.fexp + ')');
+  const FALTAM_TXT_Q = 'Sem a data da compra (ou o fim da estendida), o app não conta a garantia. Não sabe a data? Abra o equipamento → ✏️ → marque “Não sei a data da compra” e ele sai daqui.';
+  conferir(Q.faltamDet && Q.faltamDet.open === false && Q.faltamDet.sum === '⚠️ Faltam dados (3)' && Q.faltamDet.txt.includes(FALTAM_TXT_Q) && Q.faltamDet.nomes.join('|') === 'EQ2 Geladeira|EQ2 Hidromassagem|EQ2 Impressora' && !Q.faltamCard && Q.faltamTopo, 'EQ2. Todos: "⚠️ Faltam dados (3)" fechado no topo, com a explicação (e o "Não sei a data da compra") dentro (' + JSON.stringify(Q.faltamDet && Object.assign({}, Q.faltamDet, { txt: '' })) + ')');
+  const vezesQ = (n) => Q.visivel.split(n).length - 1;
+  conferir(['EQ2 Geladeira', 'EQ2 Hidromassagem', 'EQ2 Impressora'].every((n) => vezesQ(n) === 1), 'EQ2. Todos, com 3 que faltam dados: cada nome aparece uma vez só à vista (' + ['EQ2 Geladeira', 'EQ2 Hidromassagem', 'EQ2 Impressora'].map(vezesQ).join(',') + ')');
+  conferir(Q.saiu && Q.saiu.open === false && Q.saiu.sum === '📦 Saíram de casa (1)' && Q.saiu.nomes.join('|') === 'EQ2 Jarra elétrica' && Q.saiu.depois, 'EQ2. Todos: "📦 Saíram de casa (1)" fechado, no fim da lista (' + JSON.stringify(Q.saiu) + ')');
+  conferir(/🔄 Feitos num app mais novo \(1\)/.test(Q.novos) && /🔄 Feito num app mais novo: atualize o app para ver/.test(Q.novos) && /EQ2 Kit nova versão/.test(Q.novos), 'EQ2. o de um app mais novo no topo: "🔄 Feitos num app mais novo (1)", "Feito num app mais novo: atualize o app para ver" (' + Q.novos.slice(0, 120) + ')');
+  conferir(Q.onde === 'Já tem aparelhos no Onde está? Toque em ＋ Novo equipamento e escolha em “Ligar a”: eles entram aqui sem repetir.' && Q.ondeFim, 'EQ2. Todos, no fim: a linha "Já tem aparelhos no Onde está?…" que ensina o "Ligar a" (' + Q.onde + ')');
+  conferir(Q.mt['EQ2 Purificador'] === '🛠 Troca do refil do filtro de água: atrasada há 3 dias' && Q.mt['EQ2 Ar-condicionado'] === '🛠 Limpeza do ar-condicionado: em 5 dias' && Q.mt['EQ2 Geladeira'] === '🛠 Revisão: hoje' && Q.mt['EQ2 Depurador'] === '🛠 Descalcificar: amanhã' && Q.mt['EQ2 Exaustor'] === '🛠 Limpar o filtro: atrasada há 1 dia',
+    'EQ2. a 4ª linha da manutenção (o lembrete ligado, até 7 dias, sem o " — nome" do fim): atrasada, hoje, amanhã, em 5 dias (' + JSON.stringify(Q.mt) + ')');
+  conferir(Q.mt['EQ2 Batedeira'] === '' && Q.mt['EQ2 Cafeteira'] === '' && Q.mt['EQ2 Jarra elétrica'] === '' && !/lâmpada da garagem/.test(Q.visivel), 'EQ2. sem a 4ª linha: lembrete daqui a 20 dias, aparelho sem lembrete, o que saiu de casa e o lembrete sem aparelho (' + JSON.stringify([Q.mt['EQ2 Batedeira'], Q.mt['EQ2 Jarra elétrica']]) + ')');
+  const lPu = Q.linhas['EQ2 Purificador'] || '';
+  conferir(/^Marca Exemplo PX-100 · comprado em [A-Z][a-z]{2}\/\d{4} \| ✅ Fábrica até \d{2}\/[A-Z][a-z]{2}\/\d{4} · ⏰ em 5 dias \| 🛠 /.test(lPu) && !['SN-EQ2', '7891234567895', 'Bivolt', 'bivolt', 'prata', '110', '220', 'manual'].some((x) => lPu.includes(x)), 'EQ2. a linha: marca e modelo, a compra, a situação e a manutenção; sem voltagem, cor, código e série (' + lPu + ')');
+  conferir(await p.evaluate(() => Fb.tela().titulo === 'Equipamentos e garantias' && /^\W*Equipamentos e garantias$/u.test(((document.querySelector('#screen .gar h1') || {}).textContent || '').trim()) && ((document.querySelector('#screen .gar .pagehead .sub') || {}).textContent || '') === 'Os aparelhos da casa: ficha, manual, manutenção e até quando vale cada garantia'), 'EQ2. o título da página, a frase de baixo e o 💬 (Fb.tela().titulo) com o nome inteiro');
+  conferir(await p.evaluate(() => [...document.querySelectorAll('#screen [data-act="gar.new"]')].map((b) => b.textContent.trim()).join('|') === '＋ Novo equipamento' && (document.querySelector('#screen .garf') || { getAttribute: () => '' }).getAttribute('aria-label') === 'Filtrar os equipamentos'), 'EQ2. o botão "＋ Novo equipamento" e os filtros com o nome "Filtrar os equipamentos" para o leitor de tela');
+
+  /* os outros filtros: a linha pequena, a ordem e o "Faltam dados" aberto no topo */
+  const FEXP_Q = { valendo: 'Equipamentos com alguma garantia valendo hoje.', em30: 'Equipamentos com uma garantia que acaba nos próximos 30 dias.', vai: 'Equipamentos com a garantia estendida ainda por começar.', vencidas: 'Equipamentos com a garantia vencida: ficam aqui como arquivo, com a nota, o bilhete e o histórico. Os que saíram de casa ficam no fim de 📋 Todos os equipamentos.' };
+  const ORDEM_Q = { valendo: 'EQ2 Purificador|EQ2 Batedeira|EQ2 Ar-condicionado', em30: 'EQ2 Purificador|EQ2 Batedeira', vai: 'EQ2 Cafeteira', vencidas: 'EQ2 Depurador|EQ2 Exaustor' };
+  for (const f of ['valendo', 'em30', 'vai', 'vencidas']) {
+    await telaQ(f); await p.waitForTimeout(300); Q = await telaQ();
+    conferir(Q.lista.join('|') === ORDEM_Q[f] && Q.fexp === FEXP_Q[f] && Q.faltamCard && Q.faltamTopo && !Q.faltamDet && !Q.saiu && !Q.onde && Q.filtros.some((x) => x.startsWith(f + ':') && x.endsWith('*')),
+      'EQ2. ' + f + ': ' + ORDEM_Q[f].replace(/\|/g, ', ') + '; a linha pequena; "Faltam dados" aberto no topo; sem "Saíram de casa" e sem a linha do Onde está? (' + JSON.stringify({ l: Q.lista, fexp: Q.fexp, card: Q.faltamCard, saiu: Q.saiu, onde: Q.onde }) + ')');
+  }
+  conferir(Q.lista.every((n) => n !== 'EQ2 Jarra elétrica') && !/EQ2 Jarra/.test(Q.visivel), 'EQ2. Vencidas sem o que saiu de casa');
+  conferir(await p.evaluate(() => ((document.querySelector('#screen .gar-faltam') || {}).textContent || '').includes('Sem a data da compra (ou o fim da estendida)')), 'EQ2. "Faltam dados" aberto (fora de Todos) também explica como sair dali');
+
+  /* 🔍: o nome, as palavras e a ficha técnica acham a aba, o aparelho e a ajuda; a linha do resultado nunca mostra um número */
+  const bqQ = await p.evaluate(() => {
+    const ach = (q) => { const r = Search.find(q); return { aba: r.some((x) => x.grp === 'Funções' && x.t === 'Equipamentos e garantias'), itens: r.filter((x) => x.grp === 'Equipamentos e garantias').map((x) => x.t), ajuda: r.some((x) => x.ic === '❓' && /Garantias/.test(x.t)) }; };
+    const out = {}; for (const q of ['equipamento', 'garantia', 'manual', 'número de série', 'appliance', 'aparato', 'SN-EQ2-0001', '7891234567895', 'bivolt', 'prata']) out[q] = ach(q);
+    const pu = Search.sources().find((x) => x.grp === 'Equipamentos e garantias' && x.t === 'EQ2 Purificador');
+    out._s = pu ? pu.s : null;
+    setLang('en'); const r = Search.find('equipment'), w = Search.find('warranty');
+    out._en = { aba: r.some((x) => x.t === 'Equipment & warranties' && x.ic === '🧾'), item: r.some((x) => x.grp === 'Equipment & warranties' && x.t === 'EQ2 Purificador'), ajuda: r.some((x) => x.ic === '❓') && w.some((x) => x.ic === '❓') };
+    setLang('pt');
+    return out;
+  });
+  for (const q of ['equipamento', 'garantia', 'manual', 'número de série', 'appliance', 'aparato']) conferir(bqQ[q].aba && bqQ[q].itens.includes('EQ2 Purificador'), 'EQ2. 🔍 "' + q + '" acha a aba e o aparelho com o manual e a série (' + JSON.stringify(bqQ[q]) + ')');
+  conferir(!bqQ.manual.itens.includes('EQ2 Ar-condicionado') && !bqQ['número de série'].itens.includes('EQ2 Ar-condicionado') && bqQ.equipamento.itens.includes('EQ2 Ar-condicionado') && bqQ.aparato.itens.includes('EQ2 Ar-condicionado'), 'EQ2. 🔍 "manual" e "número de série" só acham o que tem manual e série; "equipamento" e "aparato" acham todos');
+  conferir(bqQ.equipamento.ajuda && bqQ.garantia.ajuda && bqQ['número de série'].ajuda, 'EQ2. 🔍 "equipamento", "garantia" e "número de série" acham a ajuda (' + JSON.stringify([bqQ.equipamento.ajuda, bqQ.garantia.ajuda, bqQ['número de série'].ajuda]) + ')');
+  conferir(['SN-EQ2-0001', '7891234567895', 'bivolt', 'prata'].every((q) => bqQ[q].itens.includes('EQ2 Purificador')), 'EQ2. 🔍 acha o aparelho pela série, pelo código, pela voltagem e pela cor');
+  conferir(typeof bqQ._s === 'string' && !/SN-EQ2|7891234567895|Bivolt|prata/.test(bqQ._s), 'EQ2. 🔍 a linha do resultado não mostra a série, o código, a voltagem nem a cor (' + bqQ._s + ')');
+  conferir(bqQ._en.aba && bqQ._en.item && bqQ._en.ajuda, 'EQ2. 🔍 em EN: "equipment" acha a aba "Equipment & warranties", o aparelho e a ajuda; "warranty" acha a ajuda (' + JSON.stringify(bqQ._en) + ')');
+
+  /* os caminhos e os textos que falavam de "garantia" quando era o equipamento */
+  const cmQ = await p.evaluate(async (ids) => {
+    const txt = (sel) => ((document.querySelector(sel) || {}).textContent || '').replace(/\s+/g, ' ').trim(), espera = () => new Promise((r) => setTimeout(r, 300));
+    go('garantias', 'ficha', ids.pu); await espera(); const ficha = txt('#screen .path');
+    go('garantias', 'estragou', ids.pu); await espera(); const est = txt('#screen .path');
+    go('garantias', 'ficha', 'nao-existe'); await espera(); const fNao = txt('#screen .gar .card');
+    go('garantias', 'estragou', 'nao-existe'); await espera(); const eNao = txt('#screen #garest');
+    go('garantias', 'ficha', ids.ki); await espera(); const fNovo = txt('#screen .gar .card');
+    go('garantias', 'estragou', ids.ki); await espera(); const eNovo = txt('#screen #garest');
+    const recusa = Garantias.recusa(DB.get('things', ids.ki));
+    window.__toastQ = []; const t0 = window.toast; window.toast = (m) => window.__toastQ.push(String(m)); try { ACT['gar.edit']({ id: 'nao-existe' }); } finally { window.toast = t0; }
+    return { ficha, est, fNao, eNao, fNovo, eNovo, recusa, toast: window.__toastQ.join(' | ') };
+  }, fxQ);
+  conferir(cmQ.ficha === '🧾 Equipamentos › EQ2 Purificador' && cmQ.est === '🧾 Equipamentos › EQ2 Purificador › 🆘', 'EQ2. o caminho com o nome curto: "🧾 Equipamentos › nome" na ficha e "… › 🆘" no "Estragou?" (' + JSON.stringify([cmQ.ficha, cmQ.est]) + ')');
+  conferir(/Equipamento não encontrado\./.test(cmQ.fNao) && /Equipamento não encontrado\./.test(cmQ.eNao) && cmQ.toast === 'Equipamento não encontrado.', 'EQ2. "Equipamento não encontrado." na ficha, no "Estragou?" e no ✏️ (' + JSON.stringify([cmQ.fNao, cmQ.eNao, cmQ.toast]) + ')');
+  conferir(/Este equipamento foi cadastrado num app mais novo: atualize o app para ver e mudar\./.test(cmQ.fNovo) && /Este equipamento foi cadastrado num app mais novo: atualize o app para ver e mudar\./.test(cmQ.eNovo) && cmQ.recusa === 'Este equipamento foi cadastrado num app mais novo: atualize o app para mudar.', 'EQ2. o de um app mais novo: "Este equipamento foi cadastrado num app mais novo…" na ficha, no "Estragou?" e ao tentar mudar (' + JSON.stringify([cmQ.fNovo.slice(-90), cmQ.recusa]) + ')');
+  /* os números guardados que ainda não chegaram neste aparelho (a ficha, no modo aberto) */
+  const faltaQ = await p.evaluate(async () => {
+    await Vault.unlock('senha-de-mentira-123');
+    const t = await DB.put('things', { name: 'EQ2 Números longe', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, vaultId: 'gv_outro' } }, true);
+    go('garantias', 'ficha', t.id); for (let i = 0; i < 30 && !/⏳/.test((document.querySelector('#garnum') || {}).textContent || ''); i++) await new Promise((r) => setTimeout(r, 100));
+    const r = { modo: Garantias.modo(), txt: (document.querySelector('#garnum') || {}).textContent || '' }; await DB.del('things', t.id); return r;
+  });
+  conferir(faltaQ.modo === 'aberto' && /⏳ Os números deste equipamento não estão neste aparelho agora: podem ainda estar chegando pela nuvem/.test(faltaQ.txt), 'EQ2. a ficha, com os números longe: "Os números deste equipamento não estão neste aparelho agora…" (' + JSON.stringify(faltaQ) + ')');
+  /* a janela "🧾 Novo equipamento" e a dica do "Ligar a" */
+  await p.evaluate(() => go('garantias')); await p.waitForTimeout(400);
+  await p.evaluate(() => { ACT['gar.new'](); });   /* sem esperar: a janela só termina quando fecha */
+  const novoQ = await p.waitForSelector('dialog[open] [name="_ligar"]', { timeout: 5000 }).then(() => p.evaluate(() => (document.querySelector('dialog[open]') || {}).innerText || ''), () => '');
+  await p.click('dialog[open] [data-x]:not(.xbtn)').catch(() => {}); await p.waitForTimeout(300); await fecharJanelas(p);
+  conferir(/🧾 Novo equipamento/.test(novoQ) && /Já está no Onde está\? Escolha aqui para não repetir: ele entra nesta lista\./.test(novoQ), 'EQ2. a janela "🧾 Novo equipamento" e a dica do "Ligar a" (' + novoQ.slice(0, 160).replace(/\n/g, ' / ') + ')');
+  /* AssistONE e a dica da tela */
+  const aoQ = await p.evaluate(() => { const h = AOne.HERE().garantias; return { t: h[0], frase: h[1], acts: h[2].map((a) => a[0]), tip: AOne.TIPS().garantias }; });
+  conferir(aoQ.t === 'Equipamentos e garantias' && aoQ.frase === 'Cada aparelho da casa com a ficha (marca, modelo, nº de série, manual), os lembretes de manutenção e até quando vale a garantia. Para começar, basta o nome.' && aoQ.acts.join('|') === '＋ Novo equipamento|📋 Todos os equipamentos|⏰ O que vence?|🆘 Estragou?|❓ Como funciona', 'EQ2. AssistONE: o nome, a frase e as ações (＋ Novo equipamento, 📋 Todos os equipamentos, ⏰ O que vence?, 🆘 Estragou?, ❓ Como funciona) (' + aoQ.acts.join(', ') + ')');
+  conferir(aoQ.tip === 'Dica: basta o nome. Com a data da compra eu conto a garantia; com a marca e o modelo, abro uma busca do manual na internet.', 'EQ2. a dica da tela (' + aoQ.tip + ')');
+  await p.evaluate(() => { S.garF = 'vencidas'; go('home'); }); await p.waitForTimeout(400);
+  await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /Todos os equipamentos/.test(x[0])); if (a) a[1](); }); await p.waitForTimeout(400);
+  conferir(await p.evaluate(() => S.route.tab === 'garantias' && S.garF === 'todos' && !!document.querySelector('#screen .garf [data-f="todos"].active')), 'EQ2. "📋 Todos os equipamentos" do AssistONE abre a lista em Todos');
+  /* "O que estragou?": os que valem primeiro e o resto num quadro fechado */
+  await p.evaluate(() => go('garantias', 'estragou')); await p.waitForTimeout(400);
+  const selQ = await p.evaluate(() => { const s = document.querySelector('#screen #garsel'), det = s && s.querySelector('details'), fora = s ? [...s.querySelectorAll('.li')].filter((l) => !l.closest('details')) : []; return { fora: fora.map((l) => l.querySelector('.t').textContent.trim()), det: det ? { open: det.open, sum: det.querySelector('summary').textContent.trim(), nomes: [...det.querySelectorAll('.li .t')].map((e) => e.textContent.trim()) } : null }; });
+  conferir(selQ.fora.join('|') === 'EQ2 Ar-condicionado|EQ2 Batedeira|EQ2 Purificador|Outra coisa (não está aqui)', 'EQ2. "O que estragou?": à vista só os que valem (em ordem de nome) e o "Outra coisa" no fim (' + selQ.fora.join(', ') + ')');
+  conferir(selQ.det && selQ.det.open === false && selQ.det.sum === 'Os outros equipamentos (7)' && selQ.det.nomes.join('|') === 'EQ2 Cafeteira|EQ2 Depurador|EQ2 Exaustor|EQ2 Freezer|EQ2 Geladeira|EQ2 Hidromassagem|EQ2 Impressora', 'EQ2. "O que estragou?": o resto em "Os outros equipamentos (7)", fechado, sem o que saiu de casa e sem o de um app mais novo (' + JSON.stringify(selQ.det) + ')');
+
+  /* 390 px, PT e EN: Todos (com os quadros abertos) e Vencidas */
+  for (const lang of ['pt', 'en']) for (const f of ['todos', 'vencidas']) {
+    await p.evaluate((a) => { if (S.lang !== a.lang) setLang(a.lang); S.garF = a.f; go('garantias'); }, { lang, f }); await p.waitForTimeout(500);
+    await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(100);
+    const a = await alvos();
+    conferir(a.w === 390 && a.larg && a.n >= 8 && !a.peq.length, 'EQ2. 390 px (' + lang.toUpperCase() + ', ' + f + '): nada passa da largura e os ' + a.n + ' alvos de toque têm 44 px' + (a.peq.length ? ': ' + a.peq.join(' · ') : ''));
+  }
+  await p.evaluate(() => { S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(400);
+  const enQ = await telaQ();
+  conferir(enQ.filtros.join(' / ') === 'todos:📋 All items 10* / valendo:✅ Active 3 / em30:⏰ Within 30 days 2 / vai:⏳ Starting soon 1 / vencidas:🗄️ Expired 2' && enQ.fexp === 'Everything at home. Items that left are at the end, under 📦.' && enQ.faltamDet && enQ.faltamDet.sum === '⚠️ Missing details (3)' && /Don't know the date\? Open the item → ✏️ → tick “I don't know the purchase date” and it leaves this list\./.test(enQ.faltamDet.txt) && enQ.saiu && enQ.saiu.sum === '📦 No longer at home (1)' && enQ.onde === 'Already have devices in Where is it? Tap ＋ New item and pick them under “Link to”: they join this list without duplicates.' && enQ.mt['EQ2 Purificador'] === '🛠 Troca do refil do filtro de água: 3 days overdue' && enQ.mt['EQ2 Depurador'] === '🛠 Descalcificar: tomorrow' && enQ.mt['EQ2 Exaustor'] === '🛠 Limpar o filtro: 1 day overdue' && /Equipment & warranties/.test(enQ.visivel) && /＋ New item/.test(enQ.visivel),
+    'EQ2. em EN: "📋 All items", "🗄️ Expired", a linha pequena, "Missing details", "No longer at home", a linha do Onde está?, a manutenção ("3 days overdue", "tomorrow") e o "＋ New item" (' + JSON.stringify({ f: enQ.filtros, fexp: enQ.fexp, mt: enQ.mt['EQ2 Purificador'] }) + ')');
+  await telaQ('vencidas'); await p.waitForTimeout(300); const enVQ = await telaQ();
+  conferir(enVQ.fexp === 'Items whose warranty has expired: they stay here as a record, with the invoice, the certificate and the history. Items that left home are at the end of 📋 All items.', 'EQ2. em EN, a linha pequena de "Expired" (' + enVQ.fexp + ')');
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(200);
+
+  /* quem vê: criança sem a linha do Onde está?; sem objeto sem garantia, a linha some */
+  await p.evaluate(() => { S.role = 'crianca'; S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(400);
+  Q = await telaQ();
+  conferir(!Q.onde && Q.lista.length === 10 && !(await p.evaluate(() => [...document.querySelectorAll('#screen [data-act^="gar."]')].some((b) => b.dataset.act !== 'gar.filtro'))), 'EQ2. criança: vê Todos, sem a linha do Onde está? e sem ＋ (' + Q.onde + ')');
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  await p.evaluate(async (id) => { await DB.del('things', id); go('garantias'); }, fxQ.ob); await p.waitForTimeout(400);
+  Q = await telaQ();
+  conferir(!Q.onde, 'EQ2. sem objeto do Onde está? fora da lista, a linha "Já tem aparelhos…" some');
+
+  /* filtro com 0 some (menos "Todos" e o escolhido); "⏰ O que vence?" com 0 diz "Nada vence…" */
+  await p.evaluate(async (ids) => { for (const k of ['ca', 'pu', 'ba']) await DB.del('things', ids[k]); S.garF = 'todos'; go('garantias'); }, fxQ); await p.waitForTimeout(400);
+  Q = await telaQ();
+  conferir(Q.filtros.join(' / ') === 'todos:📋 Todos os equipamentos 7* / valendo:✅ Valendo 1 / vencidas:🗄️ Vencidas 2', 'EQ2. filtro com 0 some: sem "Em 30 dias" e sem "Vai começar" (' + Q.filtros.join(' / ') + ')');
+  Q = await telaQ('vai'); await p.waitForTimeout(200); Q = await telaQ();
+  conferir(Q.filtros.join(' / ') === 'todos:📋 Todos os equipamentos 7 / valendo:✅ Valendo 1 / vai:⏳ Vai começar 0* / vencidas:🗄️ Vencidas 2' && /Nada neste filtro\./.test(Q.vazio), 'EQ2. o filtro escolhido aparece mesmo com 0, com "Nada neste filtro." (' + Q.filtros.join(' / ') + ')');
+  await p.evaluate(() => go('home')); await p.waitForTimeout(400);
+  await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /O que vence/.test(x[0])); if (a) a[1](); }); await p.waitForTimeout(400);
+  Q = await telaQ();
+  conferir(Q.filtros.some((x) => x === 'em30:⏰ Em 30 dias 0*') && Q.vazio.trim() === 'Nada vence nos próximos 30 dias.', 'EQ2. "⏰ O que vence?" com nada vencendo: o filtro aparece escolhido e diz "Nada vence nos próximos 30 dias." (' + JSON.stringify([Q.filtros, Q.vazio]) + ')');
+
+  /* a lista vazia: o texto novo, o ＋, o 📷 e a linha do Onde está? (só com objeto sem garantia e para adulto) */
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); await DB.put('things', { name: 'EQ2 Ventilador', place: '', tags: [], vis: 'familia' }, true); go('garantias'); }); await p.waitForTimeout(400);
+  const vzQ = await p.evaluate(() => ({ txt: document.querySelector('#screen').innerText, acts: [...document.querySelectorAll('#screen .gar-lista [data-act], #screen .card [data-act]')].map((b) => b.dataset.act), onde: ((document.querySelector('#screen .gar-ondeesta') || {}).textContent || '').trim() }));
+  conferir(/Nenhum equipamento ainda\. Toque em ＋ e escreva só o nome; com a data da compra, o app conta a garantia\./.test(vzQ.txt) && /＋ Novo equipamento/.test(vzQ.txt) && vzQ.acts.includes('gar.new') && vzQ.acts.includes('gar.foto') && vzQ.onde === 'Já tem aparelhos no Onde está? Toque em ＋ Novo equipamento e escolha em “Ligar a”: eles entram aqui sem repetir.', 'EQ2. vazia: "Nenhum equipamento ainda…", o ＋ Novo equipamento, o 📷 e a linha do Onde está? (' + JSON.stringify({ acts: vzQ.acts, onde: vzQ.onde }) + ')');
+  await p.evaluate(() => { S.role = 'crianca'; go('garantias'); }); await p.waitForTimeout(300);
+  const vzC = await p.evaluate(() => ({ txt: document.querySelector('#screen').innerText, onde: !!document.querySelector('#screen .gar-ondeesta') }));
+  await p.evaluate(() => go('garantias', 'estragou')); await p.waitForTimeout(300);
+  const selVz = await p.evaluate(() => ((document.querySelector('#screen #garsel') || {}).innerText || ''));
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(/Nenhum equipamento ainda\./.test(vzC.txt) && !/Toque em ＋/.test(vzC.txt) && !vzC.onde && /Nenhum equipamento ainda\./.test(selVz), 'EQ2. vazia para criança: "Nenhum equipamento ainda.", sem a linha do Onde está?; e o "O que estragou?" vazio também (' + selVz.slice(0, 80) + ')');
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('garantias'); }); await p.waitForTimeout(300);
+  conferir(await p.evaluate(() => !document.querySelector('#screen .gar-ondeesta') && /Nenhum equipamento ainda/.test(document.querySelector('#screen').innerText)), 'EQ2. vazia e sem nenhum objeto no Onde está?: sem a linha "Já tem aparelhos…"');
+
+  /* com 300 equipamentos, a lista pede a Manutenção da casa uma vez só (um Map coisa → lembretes por desenho) */
+  const q300 = await p.evaluate(async () => {
+    for (const m of DB.raw('maint')) await DB.del('maint', m.id);
+    const h = today();
+    for (let i = 0; i < 300; i++) {
+      const t = await DB.put('things', { name: 'EQ2 Aparelho ' + String(i).padStart(3, '0'), place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: GarCalc.somaDias(h, -100) }, fabrica: { meses: 12 } } }, true);
+      await DB.put('maint', { title: 'Limpeza — EQ2 Aparelho ' + String(i).padStart(3, '0'), cat: 'eletro', interval: 30, last: GarCalc.somaDias(h, -31), next: GarCalc.somaDias(h, -1), nextManual: false, history: [], coisa: t.id, vis: 'familia' }, true);
+    }
+    const ml0 = Maint.list; let n = 0; Maint.list = function () { n++; return ml0.apply(this, arguments); };
+    let html = ''; try { S.garF = 'todos'; html = SCREENS.garantias.render('lista'); } finally { Maint.list = ml0; }
+    const div = document.createElement('div'); div.innerHTML = html;
+    const r = { n, linhas: div.querySelectorAll('.gar-lista > .list > .li').length, mt: [...div.querySelectorAll('.gar-mt')].filter((e) => e.textContent === '🛠 Limpeza: atrasada há 1 dia').length };
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    for (const m of DB.raw('maint')) await DB.del('maint', m.id);
+    return r;
+  });
+  conferir(q300.n === 1 && q300.linhas === 300 && q300.mt === 300, 'EQ2. com 300 equipamentos (cada um com um lembrete), um só Maint.list() por desenho, e as 300 linhas com a manutenção (' + JSON.stringify(q300) + ')');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ2: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+  await p.evaluate(() => { S.garF = undefined; go('home'); });
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -2291,5 +2588,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos)');
 })().catch((e) => { console.error(e); process.exit(1); });
