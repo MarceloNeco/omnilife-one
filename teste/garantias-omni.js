@@ -108,6 +108,15 @@
        os lembretes de manutenção, o folheto e o manual (pelo formulário e pelo ✏️ do Onde está?); a dica do "Quem vê" só na nuvem; o
        aviso novo do ✏️ do Onde está?, criança sem o 🗑 de um equipamento e Garantias.apagar recusando para ela; <img onerror> em todo
        campo novo; EN e o idioma dos textos novos
+     EQ3b — Equipamentos e garantias: a ficha (D-G13, D-G16)
+     - a ordem dos cartões nos três casos (com a garantia contando; vencida ou saiu de casa, com 🔌 e 📘 em cima e "🗓️ Ver as datas das
+       garantias" fechado; sem a data, sem o 🗓️ quando nada dá data); "Não sei a data" sem cartão amarelo e com a linha pequena; "meses
+       de fábrica" fora da vencida; "Tem estendida?" na vencida só com a compra de menos de 5 anos; o 🔐 sem nada vira uma linha no 🛒
+     - 🔌 Ficha técnica (a série à vista, sem 👁; voltagem; onde está e de quem é); 📘 Manual: "Abrir o manual" (target _blank, rel
+       noopener noreferrer, o href conferido e escapado, "abre o site …", "sem cadeado" no http:), "Trocar ou tirar o link"; link
+       ruim gravado à força no banco não vira link; "🔎 Procurar o manual na internet" (o href exato, a frase, "Sem internet agora.";
+       nunca para criança nem sem o modelo; nada buscado sem o toque); colar o link (recusa com a janela aberta; só o link muda);
+       criança, app mais novo e saiu de casa não gravam; o papel "manual" no 📘; a frase a mais do aviso legal; 390 px; EN; idioma
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -2785,6 +2794,256 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ3a: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
 
+  /* =====================================================================
+     EQ3b — Equipamentos e garantias: a ficha (D-G13, D-G16)
+     ===================================================================== */
+  console.log('\n— EQ3b: Equipamentos e garantias — a ficha');
+  await fecharJanelas(p);
+  await p.evaluate(async (papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123'); S.garF = 'todos'; }, papel0);
+  /* números de mentira: a série, um IMEI com o dígito verificador certo (final 0004) e um pedido. O link do manual tem um "&lt;"
+     de propósito: com o esc() no href, o navegador lê "&lt;" como está; sem ele, vira "<" (outro endereço) */
+  const SN_Qb = 'SN-EQ3B-0001', IMEI_Qb = '350000000020004', PED_Qb = 'PEDIDO-EQ3B-0003';
+  const MAN_Qb = 'https://www.exemplo.com.br/manuais/px-100.pdf?v=1&lt;2', MAN_HTTP_Qb = 'http://manuais.exemplo.com.br/px-100', MAN_LQ_Qb = 'https://www.exemplo.com.br/manuais/lq-200.pdf';
+  const DDG_VT_Qb = 'https://duckduckgo.com/?q=' + encodeURIComponent('manual Marca Exemplo VT-300') + '&kl=br-pt';
+  /* nada é buscado na internet só por abrir a ficha: o manual e a busca só abrem no toque */
+  const reqQb = []; p.on('request', (r) => { if (/duckduckgo\.com|exemplo\.com\.br|192\.168\./.test(r.url())) reqQb.push(r.url()); });
+  const qb = await p.evaluate(async (a) => {
+    const h = today(), d = (n) => GarCalc.somaDias(h, n), m = (n) => GarCalc.somaMeses(h, n);
+    const pl = await DB.put('places', { name: 'Cozinha EQ3b', kind: 'comodo', parent: '' }, true), pessoa = People.list()[0];
+    const novo = async (name, garantia, extra) => (await DB.put('things', Object.assign({ name, place: '', tags: [], vis: 'familia', garantia }, extra || {}), true)).id;
+    const pdf = (s) => new File([new TextEncoder().encode('%PDF-1.4 ' + s)], s + '.pdf', { type: 'application/pdf' });
+    const papel = async (nome, tid) => { const id = await Files.save(pdf(nome), { vis: 'familia', raw: true }); await DB.put('files', Object.assign({}, Files.meta(id), { gar: tid }), true); return id; };
+    /* a garantia contando, com a ficha técnica inteira, o link do manual, o manual em PDF, o folheto e os números trancados */
+    const ct = await novo('EQ3b Purificador Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'PX-100', codigo: '7890000000001', serie: a.sn, voltagem: 'bivolt', cor: 'prata', manualUrl: a.man, dono: pessoa ? pessoa.id : '',
+      compra: { data: d(-100), loja: 'Loja Exemplo' }, fabrica: { meses: 12 }, estendida: { tem: 'naosei' }, obs: 'Observação de mentira' }, { place: pl.id });
+    const manual = await papel('manual', ct), termo = await papel('folheto', ct), t0 = DB.col('things').get(ct);
+    const vid = await Garantias.guardarSegredo(t0, { imei: a.imei, pedido: a.ped });
+    await DB.put('things', Object.assign({}, t0, { garantia: Object.assign({}, t0.garantia, { vaultId: vid, finais: { pedido: GarCalc.final4(a.ped), bilhete: '', imei: GarCalc.final4(a.imei) },
+      arquivos: [{ id: manual, tipo: 'manual', em: h }, { id: termo, tipo: 'termo', em: h }] }) }), true);
+    return { pl: pl.id, pessoa: pessoa ? pessoa.nick || pessoa.name : '', ct, manual, termo,
+      /* vencida há 2 anos (compra há 3 anos, de fábrica não informada) e uma de 6 anos atrás */
+      venc: await novo('EQ3b Ventilador Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'VT-300', voltagem: '127', compra: { data: m(-36) }, fabrica: { meses: null }, estendida: { tem: 'naosei' } }),
+      velho: await novo('EQ3b Rádio Exemplo', { v: 1, compra: { data: m(-72) }, fabrica: { meses: null }, estendida: { tem: 'naosei' } }),
+      saiu: await novo('EQ3b Batedeira Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'BT-10', manualUrl: a.manHttp, compra: { data: d(-200) }, fabrica: { meses: 12 }, finais: { pedido: '0009' }, saiu: { como: 'doado', em: d(-5), obs: '' }, obs: 'Doada de mentira' }),
+      sem: await novo('EQ3b Freezer Exemplo', { v: 1, compra: { naoSei: true }, estendida: { tem: 'naosei' } }),
+      semBil: await novo('EQ3b Micro-ondas Exemplo', { v: 1, marca: 'Marca Exemplo', compra: { naoSei: true }, estendida: { tem: 'sim', inicio: d(-30) } }),
+      falta: await novo('EQ3b Torradeira Exemplo', { v: 1 }),
+      http: await novo('EQ3b Aspirador Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'AS-50', manualUrl: a.manHttp, compra: { data: d(-10) }, fabrica: { meses: 12 } }),
+      /* gravados à força no banco (sem passar pelo formulário) */
+      js: await novo('EQ3b Forno Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'FN-1', manualUrl: 'javascript:window.__xss=1', compra: { data: d(-10) }, fabrica: { meses: 12 } }),
+      ip: await novo('EQ3b Cafeteira Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'CF-2', manualUrl: 'http://192.168.0.1/manual.pdf', compra: { data: d(-10) }, fabrica: { meses: 12 } }),
+      /* um campo que um app mais novo acrescentou: colar o link não pode apagá-lo */
+      liq: await novo('EQ3b Liquidificador Exemplo', { v: 1, marca: 'Marca Exemplo', modelo: 'LQ-200', compra: { data: d(-10) }, fabrica: { meses: 12 }, campoNovo: 'fica' }),
+      v2: await novo('EQ3b Nova versão', { v: 2, compra: { data: d(-10) } }) };
+  }, { sn: SN_Qb, man: MAN_Qb, manHttp: MAN_HTTP_Qb, imei: IMEI_Qb, ped: PED_Qb });
+  /* a ficha desenhada: os cartões na ordem (o 🗓️ fechado aparece como "🗓️ fechado"), os textos, os links e as ações */
+  const fichaQb = async (id) => {
+    await p.evaluate((id) => go('garantias', 'ficha', id), id); await p.waitForTimeout(450);
+    return p.evaluate(() => {
+      const g = document.querySelector('#screen .gar'); if (!g) return { blocos: [], txt: '', man: '', fic: '', sit: '', abrir: [], ddg: [], links: [], acts: [], manActs: [], compra: '', passo: '', pap: '', datas: '' };
+      const blocos = [...g.children].filter((x) => !x.classList.contains('pagehead')).map((x) => {
+        if (x.id === 'garsit') return 'situação';
+        if (x.classList.contains('gar-rodape')) return 'rodapé';
+        if (x.classList.contains('gar-datas')) { const dd = x.querySelector('details'); return '🗓️' + (dd && !dd.open ? ' fechado' : ' aberto'); }
+        const h = x.querySelector('h3'); return h ? h.textContent.trim().split(/\s/)[0] : '?';
+      });
+      const card = (ic) => { const h = [...g.querySelectorAll('.card h3')].find((x) => x.textContent.trim().startsWith(ic)); return h ? h.closest('.card') : null; };
+      const man = document.querySelector('#garmanual'), fic = document.querySelector('#garficha'), sit = document.querySelector('#garsit'), datas = g.querySelector('.gar-datas');
+      const a = (sel) => [...document.querySelectorAll(sel)].map((x) => ({ href: x.getAttribute('href'), target: x.getAttribute('target'), rel: (x.getAttribute('rel') || '').split(/\s+/), txt: x.textContent.trim() }));
+      return { blocos, txt: g.innerText, man: man ? man.innerText : '', fic: fic ? fic.innerText : '', ficOlho: !!(fic && fic.querySelector('[data-olho]')), sit: sit ? sit.innerText : '',
+        abrir: a('#screen .gar a[href]').filter((x) => /Abrir o manual|Open the manual/.test(x.txt)), ddg: a('#screen .gar a[href*="duckduckgo"]'), links: a('#screen .gar a[href]'),
+        acts: [...g.querySelectorAll('[data-act]')].map((b) => b.dataset.act + (b.dataset.tipo ? ':' + b.dataset.tipo : '')), manActs: man ? [...man.querySelectorAll('[data-act]')].map((b) => b.dataset.act + (b.dataset.tipo ? ':' + b.dataset.tipo : '') + (b.dataset.id ? '#' + b.dataset.id : '')) : [],
+        warn: !!g.querySelector('.card.warnc'), garnum: !!document.querySelector('#garnum'), compra: (card('🛒') || {}).innerText || '', passo: (card('👉') || {}).innerText || '',
+        pap: (document.querySelector('#garpap') || {}).innerHTML || '', papTipos: [...document.querySelectorAll('#garpap [data-act="gar.papel"]')].map((b) => b.dataset.tipo), datas: datas ? datas.textContent : '',
+        onde: !!(fic && fic.querySelector('[data-act="go"][data-tab="house"][data-sub="where"]')), pino: [...g.querySelectorAll('.card h3')].some((h) => /^📍/.test(h.textContent.trim())) };
+    });
+  };
+  const semMtQb = (b) => b.filter((x) => x !== '🛠');   /* o 🛠 Manutenção entra na EQ4, entre o 📘 e o 🛒 */
+  const ordemQb = (f, esp) => canon(semMtQb(f.blocos)) === canon(esp);
+
+  /* ---------- a garantia contando: a ordem, a 🔌 Ficha técnica, o 📘 Manual com o link, os papéis e o 🔐 ---------- */
+  const fCt = await fichaQb(qb.ct);
+  conferir(ordemQb(fCt, ['situação', '👉', '🗓️', '🔌', '📘', '🛒', '🔐', '📎', '🔧', '🗂️', '📝', 'rodapé']), 'EQ3b. com a garantia contando: situação → próximo passo → 🗓️ As três garantias → 🔌 Ficha técnica → 📘 Manual → 🛒 Compra → 🔐 Números → 📎 Papéis → 🔧 → 🗂️ → 📝 → rodapé (' + JSON.stringify(fCt.blocos) + ')');
+  const linhaQb = (txt, rot, val) => new RegExp(rot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\n\\s*' + val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(txt);
+  conferir(linhaQb(fCt.fic, 'Marca', 'Marca Exemplo') && linhaQb(fCt.fic, 'Modelo', 'PX-100') && linhaQb(fCt.fic, 'Código do produto', '7890000000001') && linhaQb(fCt.fic, 'Nº de série', SN_Qb) && linhaQb(fCt.fic, 'Voltagem', 'Bivolt') && linhaQb(fCt.fic, 'Cor', 'prata') && !fCt.ficOlho,
+    'EQ3b. 🔌 Ficha técnica: marca, modelo, código do produto, número de série à vista (sem 👁), voltagem ("Bivolt") e cor (' + JSON.stringify(fCt.fic.replace(/\s+/g, ' ').slice(0, 200)) + ')');
+  conferir(linhaQb(fCt.fic, 'Onde está', 'Cozinha EQ3b') && fCt.onde && linhaQb(fCt.fic, 'De quem é', qb.pessoa) && !fCt.pino && !!qb.pessoa, 'EQ3b. 🔌 ... e "Onde está" (com "🔎 Ver no Onde está?") e "De quem é" dentro da Ficha técnica; o cartão 📍 de antes não aparece mais (' + JSON.stringify([qb.pessoa, fCt.pino]) + ')');
+  const ab0 = fCt.abrir[0] || {};
+  conferir(fCt.abrir.length === 1 && ab0.href === MAN_Qb && ab0.href === new URL(MAN_Qb).href && ab0.target === '_blank' && ab0.rel.includes('noopener') && ab0.rel.includes('noreferrer') && /📘 Abrir o manual ↗/.test(ab0.txt),
+    'EQ3b. 📘 com o link: "📘 Abrir o manual ↗" com o endereço conferido e escapado (o "&lt;" continua "&lt;"), target="_blank" e rel com noopener e noreferrer (' + JSON.stringify(fCt.abrir) + ')');
+  conferir(/abre o site exemplo\.com\.br/.test(fCt.man) && !/sem cadeado/.test(fCt.man) && !fCt.ddg.length && fCt.manActs.some((x) => x.startsWith('gar.manual')) && /✏️ Trocar ou tirar o link/.test(fCt.man) && !/Colar o link/.test(fCt.man),
+    'EQ3b. ... embaixo, "abre o site exemplo.com.br" (https: sem o aviso do cadeado); com o link, sem o 🔎 e com "✏️ Trocar ou tirar o link" (' + JSON.stringify(fCt.man.replace(/\s+/g, ' ').slice(0, 160)) + ')');
+  conferir(fCt.manActs.includes('file.open#' + qb.manual) && fCt.manActs.includes('gar.papeldel#' + qb.manual) && fCt.manActs.some((x) => x.startsWith('gar.papel:manual')) && /＋ Guardar o manual \(PDF ou foto\)/.test(fCt.man) && !fCt.pap.includes(qb.manual) && fCt.pap.includes(qb.termo) && canon(fCt.papTipos) === canon(['nota', 'bilhete', 'termo']),
+    'EQ3b. o manual guardado fica no 📘 (📂 Abrir e 🗑) com "＋ Guardar o manual (PDF ou foto)" também com o link; o 📎 Papéis fica com o folheto e os botões da nota, do bilhete e do folheto (' + JSON.stringify([fCt.manActs, fCt.papTipos]) + ')');
+  await p.waitForFunction(() => document.querySelector('#garnum [data-olho]'), null, { timeout: 5000 }).catch(() => {});
+  const numQb = await p.evaluate(() => ({ t: (document.querySelector('#garnum') || {}).innerText || '', tela: document.querySelector('#screen').innerText }));
+  conferir(/IMEI\s*\n\s*final 0004/.test(numQb.t) && /final 0003/.test(numQb.t) && !numQb.tela.includes(IMEI_Qb) && !numQb.tela.includes(PED_Qb) && !/Nº de série ou IMEI|Serial number or IMEI/.test(numQb.tela),
+    'EQ3b. 🔐 Números: o pedido e o "IMEI" (final 0004, o completo só no 👁); a série não fica ali e o rótulo "Nº de série ou IMEI" sumiu (' + JSON.stringify(numQb.t.replace(/\s+/g, ' ').slice(0, 160)) + ')');
+  await p.evaluate(() => Vault.lock()); await p.waitForTimeout(200);
+  const fCtF = await fichaQb(qb.ct);
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); });
+  conferir(/IMEI\s*\n\s*final 0004/.test(fCtF.txt) && !/Nº de série ou IMEI/.test(fCtF.txt), 'EQ3b. ... com as Senhas da casa fechadas, o final do IMEI com o rótulo "IMEI"');
+
+  /* ---------- vencida há 2 anos: o 🗓️ fechado, 🔌 e 📘 em cima; "meses de fábrica" some; "Tem estendida?" só com menos de 5 anos ---------- */
+  const fVe = await fichaQb(qb.venc);
+  conferir(ordemQb(fVe, ['situação', '👉', '🔌', '📘', '🗓️ fechado', '🛒', '📎', '🔧', '🗂️', 'rodapé']) && /Ver as datas das garantias/.test(fVe.datas) && /De fábrica/.test(fVe.datas) && /Prazo da lei para reclamar/.test(fVe.datas),
+    'EQ3b. vencida: situação → próximo passo → 🔌 → 📘 → "🗓️ Ver as datas das garantias" fechado (as três garantias dentro) → 🛒 → 📎 → 🔧 → 🗂️ → rodapé (' + JSON.stringify(fVe.blocos) + ')');
+  conferir(/Tem estendida\? Procure no e-mail/.test(fVe.passo) && !/quantos meses tem a de fábrica/.test(fVe.txt), 'EQ3b. vencida, comprada há 3 anos: o passo "Tem estendida?" fica (ainda pode haver seguro valendo) e o "diga quantos meses tem a de fábrica" some (' + JSON.stringify(fVe.passo.replace(/\s+/g, ' ').slice(0, 120)) + ')');
+  conferir(linhaQb(fVe.fic, 'Voltagem', '110/127 V') && linhaQb(fVe.fic, 'Modelo', 'VT-300'), 'EQ3b. 🔌 a voltagem "110/127 V"');
+  const dd0 = fVe.ddg[0] || {};
+  conferir(fVe.ddg.length === 1 && dd0.href === DDG_VT_Qb && dd0.target === '_blank' && dd0.rel.includes('noopener') && dd0.rel.includes('noreferrer') && /🔎 Procurar o manual na internet ↗/.test(dd0.txt) && !fVe.abrir.length,
+    'EQ3b. 📘 sem o link: "🔎 Procurar o manual na internet ↗" com o endereço exato da busca (só "manual" + marca + modelo, DuckDuckGo), target="_blank" e rel com noopener e noreferrer (' + JSON.stringify(fVe.ddg) + ')');
+  conferir(/Abre uma busca na internet, em outra janela \(site DuckDuckGo\), só com: manual Marca Exemplo VT-300\. Para voltar, toque em Voltar\./.test(fVe.man) && !/Sem internet agora/.test(fVe.man) && /🔗 Colar o link do manual/.test(fVe.man) && /＋ Guardar o manual \(PDF ou foto\)/.test(fVe.man),
+    'EQ3b. ... a frase diz que é uma busca na internet, em outra janela, no DuckDuckGo, só com "manual Marca Exemplo VT-300", e como voltar; e "🔗 Colar o link do manual" e "＋ Guardar o manual" (' + JSON.stringify(fVe.man.replace(/\s+/g, ' ').slice(0, 220)) + ')');
+  await p.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }));
+  const fVeOff = await fichaQb(qb.venc);
+  await p.evaluate(() => { delete navigator.onLine; });
+  conferir(/Para voltar, toque em Voltar\. Sem internet agora\./.test(fVeOff.man) && fVeOff.ddg.length === 1 && await p.evaluate(() => navigator.onLine === true), 'EQ3b. ... sem internet, a frase ganha "Sem internet agora." (o botão continua) (' + JSON.stringify(fVeOff.man.replace(/\s+/g, ' ').slice(0, 220)) + ')');
+  const fVh = await fichaQb(qb.velho);
+  conferir(ordemQb(fVh, ['situação', '🔌', '📘', '🗓️ fechado', '🛒', '📎', '🔧', '🗂️', 'rodapé']) && !fVh.warn && !/Tem estendida\?|quantos meses tem a de fábrica/.test(fVh.txt), 'EQ3b. vencida, comprada há 6 anos: sem "Tem estendida?" (nem cartão de próximo passo) (' + JSON.stringify(fVh.blocos) + ')');
+
+  /* ---------- saiu de casa: o 🗓️ fechado; o link abre, mas não se troca; sem passo ---------- */
+  const fSa = await fichaQb(qb.saiu);
+  conferir(ordemQb(fSa, ['situação', '🔌', '📘', '🗓️ fechado', '🛒', '🔐', '📎', '🗂️', '📝', 'rodapé']) && !fSa.warn, 'EQ3b. saiu de casa: situação → 🔌 → 📘 → 🗓️ fechado → 🛒 → 🔐 → 📎 → 🗂️ → 📝 → rodapé, sem próximo passo (' + JSON.stringify(fSa.blocos) + ')');
+  conferir(fSa.abrir.length === 1 && fSa.abrir[0].href === MAN_HTTP_Qb && /abre o site manuais\.exemplo\.com\.br · ⚠️ site sem cadeado/.test(fSa.man) && !fSa.manActs.length && !fSa.ddg.length,
+    'EQ3b. ... o manual abre ("abre o site manuais.exemplo.com.br · ⚠️ site sem cadeado", no http:), sem trocar, colar nem guardar (' + JSON.stringify(fSa.manActs) + ')');
+
+  /* ---------- sem a data da compra ("Não sei"): sem o 🗓️ e sem cartão amarelo; a linha pequena; a ficha técnica vazia; sem modelo ---------- */
+  const fSe = await fichaQb(qb.sem);
+  conferir(ordemQb(fSe, ['situação', '🔌', '📘', '🛒', '📎', '🔧', '🗂️', 'rodapé']) && !fSe.warn, 'EQ3b. sem a data da compra ("Não sei"): sem o 🗓️ e sem cartão amarelo de próximo passo (' + JSON.stringify(fSe.blocos) + ')');
+  conferir(/Sem a data da compra, o app não conta a garantia\./.test(fSe.sit) && /Se achar a nota ou o e-mail da compra, ponha a data: o app passa a contar a garantia\./.test(fSe.sit) && !/quantos meses tem a de fábrica|Tem estendida\?/.test(fSe.txt),
+    'EQ3b. ... a frase e, no cartão da situação, a linha pequena "Se achar a nota ou o e-mail da compra, ponha a data: o app passa a contar a garantia." (' + JSON.stringify(fSe.sit.replace(/\s+/g, ' ').slice(0, 220)) + ')');
+  conferir(/Nada anotado ainda\. Toque em ✏️ e preencha em 🔌 Ficha técnica\./.test(fSe.fic) && /Para procurar o manual, escreva o modelo \(está na etiqueta\): toque em ✏️ → 🔌 Ficha técnica\./.test(fSe.man) && !fSe.ddg.length && /🔗 Colar o link do manual/.test(fSe.man),
+    'EQ3b. ... a ficha técnica vazia ("Nada anotado ainda. Toque em ✏️ e preencha em 🔌 Ficha técnica.") e, sem o modelo, sem o 🔎 e com "Para procurar o manual, escreva o modelo…"');
+  conferir(!fSe.garnum && /🔐 Pedido, nota e valor pago: toque em ✏️ \(ficam trancados\)\./.test(fSe.compra), 'EQ3b. ... sem nada trancado, o 🔐 Números vira uma linha no 🛒 ("🔐 Pedido, nota e valor pago: toque em ✏️ (ficam trancados).") (' + JSON.stringify(fSe.compra.replace(/\s+/g, ' ').slice(-120)) + ')');
+  const fSb = await fichaQb(qb.semBil);
+  conferir(ordemQb(fSb, ['situação', '🗓️', '🔌', '📘', '🛒', '📎', '🔧', '🗂️', 'rodapé']) && !fSb.warn, 'EQ3b. sem a data, com um bilhete só com o início: o 🗓️ aparece (o bilhete deu uma data), ainda sem cartão amarelo (' + JSON.stringify(fSb.blocos) + ')');
+  const fFa = await fichaQb(qb.falta);
+  conferir(ordemQb(fFa, ['situação', '👉', '🔌', '📘', '🛒', '📎', '🔧', '🗂️', 'rodapé']) && /Falta a data da compra: toque em ✏️ e escreva o dia \(ou o dia 1º do mês\)\. Não sabe\? Marque “Não sei a data da compra”\./.test(fFa.passo) && /quantos meses tem a de fábrica/.test(fFa.passo),
+    'EQ3b. falta a data (só o nome): sem o 🗓️; o passo ensina "Não sabe? Marque “Não sei a data da compra”." (' + JSON.stringify([fFa.blocos, fFa.passo.replace(/\s+/g, ' ').slice(0, 160)]) + ')');
+
+  /* ---------- link http:, e links gravados à força no banco ---------- */
+  const fHt = await fichaQb(qb.http);
+  conferir(fHt.abrir.length === 1 && fHt.abrir[0].href === MAN_HTTP_Qb && /abre o site manuais\.exemplo\.com\.br · ⚠️ site sem cadeado/.test(fHt.man) && /✏️ Trocar ou tirar o link/.test(fHt.man), 'EQ3b. link http:: "abre o site manuais.exemplo.com.br · ⚠️ site sem cadeado"');
+  const fJs = await fichaQb(qb.js);
+  await limpo('EQ3b. a ficha com "javascript:" gravado à força no link do manual');
+  const fIp = await fichaQb(qb.ip);
+  conferir(!fJs.abrir.length && !fJs.links.some((x) => /^\s*javascript:/i.test(x.href || '')) && fJs.ddg.length === 1 && !fIp.abrir.length && !fIp.links.some((x) => /192\.168/.test(x.href || '')) && fIp.ddg.length === 1,
+    'EQ3b. "javascript:" ou "http://192.168.0.1" gravados à força no banco: nenhum link para eles (a ficha mostra o 🔎, como sem link) (' + JSON.stringify([fJs.links, fIp.links]) + ')');
+
+  /* ---------- quem não é responsável, e a criança ---------- */
+  await p.evaluate(() => { S.role = 'adulto'; });
+  const fMe = await fichaQb(qb.ct);
+  conferir(linhaQb(fMe.fic, 'Nº de série', SN_Qb) && fMe.abrir.length === 1, 'EQ3b. quem não é responsável ("Toda a família"): vê o número de série na 🔌 Ficha técnica e abre o manual');
+  await p.evaluate(() => { S.role = 'crianca'; });
+  const kCt = await fichaQb(qb.ct), kVe = await fichaQb(qb.venc), kSe = await fichaQb(qb.sem);
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(kCt.abrir.length === 1 && !kCt.acts.some((x) => x.startsWith('gar.')) && !/Trocar ou tirar|Guardar o manual/.test(kCt.man), 'EQ3b. criança: abre o manual, sem trocar, tirar nem guardar (' + JSON.stringify(kCt.acts) + ')');
+  conferir(!kVe.ddg.length && !kVe.acts.some((x) => x.startsWith('gar.')) && !/Procurar o manual|Colar o link/.test(kVe.txt), 'EQ3b. criança: sem o "🔎 Procurar o manual na internet" e sem colar o link (' + JSON.stringify(kVe.ddg) + ')');
+  conferir(/Nada anotado ainda\./.test(kSe.fic) && !/Toque em ✏️/.test(kSe.fic) && /🔐 Pedido, nota e valor pago ficam trancados\./.test(kSe.compra) && !/toque em ✏️/.test(kSe.compra), 'EQ3b. criança: a ficha técnica vazia e a linha do 🔐 sem o "toque em ✏️" (' + JSON.stringify([kSe.fic, kSe.compra.replace(/\s+/g, ' ').slice(-90)]) + ')');
+
+  /* ---------- 🔗 colar, trocar e tirar o link (ACT["gar.manual"]) ---------- */
+  const abreManQb = async (id) => {
+    /* o aviso de baixo ("✓ Link do manual guardado.") sai antes, para não ficar por cima do botão */
+    await p.evaluate((id) => { document.querySelectorAll('#toasts .toast').forEach((x) => x.remove()); go('garantias', 'ficha', id); }, id); await p.waitForTimeout(400);
+    await p.click('#screen #garmanual [data-act="gar.manual"]', { timeout: 5000 }).catch(() => {});
+    return p.waitForSelector('dialog[open] [name="manualUrl"]', { timeout: 4000 }).then(() => true, () => false);
+  };
+  const rawQb = (id) => p.evaluate((id) => JSON.parse(JSON.stringify((DB.col('things').get(id) || {}).garantia || {})), id);
+  const liq0 = await rawQb(qb.liq);
+  const abriuCQb = await abreManQb(qb.liq);
+  const jCQb = abriuCQb ? await p.evaluate(() => { const m = document.querySelector('dialog[open]'), i = m.querySelector('[name="manualUrl"]'); return { txt: m.textContent, ph: i.placeholder, tirar: !!m.querySelector('[data-tirar]'), n: m.querySelectorAll('input, select, textarea').length }; }) : {};
+  conferir(abriuCQb && /🔗 Colar o link do manual/.test(jCQb.txt) && /Link do manual \(site da marca\)/.test(jCQb.txt) && /No site do manual, toque no endereço lá em cima, copie e cole aqui\./.test(jCQb.txt) && jCQb.ph === 'https://…' && !jCQb.tirar && jCQb.n === 1,
+    'EQ3b. "🔗 Colar o link do manual": uma janela de um campo ("Link do manual (site da marca)", https://…, "No site do manual, toque no endereço lá em cima, copie e cole aqui."), sem "tirar" (' + JSON.stringify(Object.assign({}, jCQb, { txt: '' })) + ')');
+  for (const lk of ['javascript:alert(1)', 'http://192.168.0.1/manual.pdf', 'ftp://exemplo.com.br/manual.pdf', 'https://exemplo.com.br/x"onmouseover="alert(1)', 'exemplo.com.br/manual.pdf']) {
+    const r = !abriuCQb ? { falta: 'a janela' } : await p.evaluate(async (a) => {
+      const m = document.querySelector('dialog[open]'), i = m && m.querySelector('[name="manualUrl"]'); if (!i) return { falta: 'manualUrl' };
+      const u0 = JSON.stringify(DB.col('things').get(a.id)); i.value = a.lk; m.querySelector('[data-ok]').click(); await new Promise((x) => setTimeout(x, 400));
+      return { aberta: !!document.querySelector('dialog[open] [name="manualUrl"]'), mudou: JSON.stringify(DB.col('things').get(a.id)) !== u0, toast: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '' };
+    }, { id: qb.liq, lk });
+    conferir(!r.falta && r.aberta && !r.mudou && /O link do manual precisa ser o endereço de um site, começando com http:\/\/ ou https:\/\//.test(r.toast), 'EQ3b. colar "' + lk + '": recusado com a janela aberta e nada gravado' + (r.falta ? ' (falta ' + r.falta + ')' : ' — "' + r.toast + '"'));
+  }
+  if (abriuCQb) { await p.fill('dialog[open] [name="manualUrl"]', '  ' + MAN_LQ_Qb + '  '); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(700); }
+  const liq1 = await rawQb(qb.liq), semLink = (o) => { const x = Object.assign({}, o); delete x.manualUrl; delete x.updatedAt; return canon(x); };
+  const fLq1 = await fichaQb(qb.liq);
+  conferir(liq1.manualUrl === MAN_LQ_Qb && liq1.campoNovo === 'fica' && semLink(liq1) === semLink(liq0) && fLq1.abrir.length === 1 && fLq1.abrir[0].href === MAN_LQ_Qb && !fLq1.ddg.length,
+    'EQ3b. colar um link de verdade (com espaços em volta): grava só o link do manual, sem os espaços, partindo do registro gravado (o campo de um app mais novo fica); a ficha passa a "📘 Abrir o manual" (' + JSON.stringify([liq1.manualUrl, liq1.campoNovo]) + ')');
+  const abriuTQb = await abreManQb(qb.liq);
+  const jTQb = abriuTQb ? await p.evaluate(() => { const m = document.querySelector('dialog[open]'); return { v: m.querySelector('[name="manualUrl"]').value, tirar: (m.querySelector('[data-tirar]') || {}).textContent || '', txt: m.textContent }; }) : {};
+  conferir(abriuTQb && jTQb.v === MAN_LQ_Qb && /🗑 Tirar o link/.test(jTQb.tirar) && /✏️ Trocar ou tirar o link/.test(jTQb.txt), 'EQ3b. "✏️ Trocar ou tirar o link": a mesma janela, com o link de agora e "🗑 Tirar o link" (' + JSON.stringify(Object.assign({}, jTQb, { txt: '' })) + ')');
+  if (abriuTQb) { await p.fill('dialog[open] [name="manualUrl"]', MAN_HTTP_Qb); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(700); }
+  const fLq2 = await fichaQb(qb.liq);
+  conferir((await rawQb(qb.liq)).manualUrl === MAN_HTTP_Qb && /sem cadeado/.test(fLq2.man), 'EQ3b. ... trocar grava o link novo');
+  const abriuT2Qb = await abreManQb(qb.liq);
+  let ptQb = '';
+  if (abriuT2Qb) { await p.click('dialog[open] [data-tirar]'); ptQb = await p.waitForSelector('dialog[open] [data-yes]', { timeout: 3000 }).then(() => p.locator('dialog[open]:has([data-yes])').innerText(), () => ''); if (ptQb) await p.click('dialog[open] [data-no]'); await p.waitForTimeout(400); }
+  const naoTQb = { aberta: await p.evaluate(() => !!document.querySelector('dialog[open] [name="manualUrl"]')), url: (await rawQb(qb.liq)).manualUrl };
+  conferir(/Tirar o link do manual\?/.test(ptQb) && naoTQb.aberta && naoTQb.url === MAN_HTTP_Qb, 'EQ3b. "🗑 Tirar o link" pergunta antes ("Tirar o link do manual? …"); "Cancelar" deixa a janela e o link (' + JSON.stringify([ptQb.replace(/\s+/g, ' ').slice(0, 100), naoTQb]) + ')');
+  if (naoTQb.aberta) { await p.click('dialog[open] [data-tirar]'); await p.waitForSelector('dialog[open] [data-yes]', { timeout: 3000 }).catch(() => {}); await p.click('dialog[open] [data-yes]').catch(() => {}); await p.waitForTimeout(700); }
+  const liq3 = await rawQb(qb.liq), fLq3 = await fichaQb(qb.liq);
+  conferir(liq3.manualUrl === '' && liq3.campoNovo === 'fica' && !fLq3.abrir.length && fLq3.ddg.length === 1 && !(await p.evaluate(() => !!document.querySelector('dialog[open]'))), 'EQ3b. ... com o "sim": o link sai (o resto fica) e a ficha volta ao 🔎 (' + JSON.stringify(liq3.manualUrl) + ')');
+  /* criança, app mais novo e saiu de casa não gravam o link (nem abrem a janela) */
+  const recusaManQb = async (id, papel) => {
+    await p.evaluate((papel) => { S.role = papel; }, papel);
+    const r = await p.evaluate(async (id) => { const u0 = JSON.stringify(DB.col('things').get(id)); try { ACT['gar.manual']({ id }); } catch (e) { return { erro: String(e.message || e) }; } await new Promise((x) => setTimeout(x, 500)); return { janela: !!document.querySelector('dialog[open] [name="manualUrl"]'), igual: JSON.stringify(DB.col('things').get(id)) === u0, toast: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '' }; }, id);
+    await fecharJanelas(p); await p.evaluate((papel) => { S.role = papel; }, papel0); return r;
+  };
+  const rkQb = await recusaManQb(qb.liq, 'crianca'), rvQb = await recusaManQb(qb.v2, papel0), rsQb = await recusaManQb(qb.saiu, papel0);
+  conferir(!rkQb.janela && rkQb.igual && /Peça para um responsável/.test(rkQb.toast), 'EQ3b. criança: colar o link recusa ("Peça para um responsável…") sem abrir a janela (' + JSON.stringify(rkQb) + ')');
+  conferir(!rvQb.janela && rvQb.igual && /cadastrado num app mais novo/.test(rvQb.toast), 'EQ3b. de um app mais novo (v: 2): colar o link recusa ("…atualize o app para mudar.") (' + JSON.stringify(rvQb) + ')');
+  conferir(!rsQb.janela && rsQb.igual && /saiu de casa/.test(rsQb.toast), 'EQ3b. saiu de casa: colar o link recusa (a ficha fica como histórico) (' + JSON.stringify(rsQb) + ')');
+
+  /* ---------- "＋ Guardar o manual (PDF ou foto)": o papel "manual" vai para o 📘 ---------- */
+  /* o arquivo escolhido: um Files.pick de mentira (como na G6 e na G7, que já trocaram o de verdade), com o CPF no nome original */
+  await p.evaluate((a) => { window.__pickQb = 0; Files.pick = async () => { window.__pickQb++; return [new File([new TextEncoder().encode('%PDF-1.4\n% manual de mentira\n')], 'Manual ' + a.cpf + '.pdf', { type: 'application/pdf' })]; }; go('garantias', 'ficha', a.id); }, { cpf: CPF, id: qb.liq }); await p.waitForTimeout(500);
+  const bGu = !!(await p.$('#screen #garmanual [data-act="gar.papel"][data-tipo="manual"]'));
+  if (bGu) await p.click('#screen #garmanual [data-act="gar.papel"][data-tipo="manual"]');
+  await p.waitForFunction((id) => ((DB.get('things', id).garantia || {}).arquivos || []).length === 1, qb.liq, { timeout: 5000 }).catch(() => {});
+  const guQb = await p.evaluate((id) => { const a = ((DB.get('things', id).garantia || {}).arquivos || [])[0] || {}, m = Files.meta(a.id) || {}; return { tipo: a.tipo, id: a.id, name: m.name, enc: !!m.enc, vis: m.vis, gar: m.gar }; }, qb.liq);
+  const fLq4 = await fichaQb(qb.liq);
+  conferir(bGu && await p.evaluate(() => window.__pickQb) === 1 && guQb.tipo === 'manual' && guQb.name === 'manual.pdf' && !guQb.enc && guQb.vis === 'familia' && guQb.gar === qb.liq && fLq4.manActs.includes('file.open#' + guQb.id) && !fLq4.pap.includes(guQb.id) && !JSON.stringify(await p.evaluate(() => DB.raw('files'))).includes(CPF),
+    'EQ3b. "＋ Guardar o manual (PDF ou foto)" sem o link: o manual entra com o nome neutro "manual.pdf" (o nome original, com o CPF, não fica), sem cadeado, com o "Quem vê" do objeto e a marca gar, e aparece no 📘 (não no 📎) (' + JSON.stringify(guQb) + ')');
+
+  /* ---------- <img onerror> na ficha técnica ---------- */
+  const xQb = await p.evaluate(async (XSS) => (await DB.put('things', { name: 'EQ3b XSS Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, marca: XSS, modelo: XSS, codigo: XSS, serie: XSS, cor: XSS, compra: { data: today() }, fabrica: { meses: 12 } } }, true)).id, XSS);
+  const fX = await fichaQb(xQb);
+  await limpo('EQ3b. a ficha com <img onerror> na ficha técnica e na busca do manual');
+  conferir(fX.fic.split(XSS).length - 1 === 5 && fX.ddg.length === 1 && !/[<>"]/.test(fX.ddg[0].href), 'EQ3b. <img onerror> na marca, no modelo, no código, na série e na cor: aparece como texto na 🔌, e o 🔎 vai com tudo escapado (' + JSON.stringify(fX.ddg[0] && fX.ddg[0].href) + ')');
+
+  /* ---------- o aviso legal ---------- */
+  const legalQb = async () => { await p.evaluate(() => ACT.legal()); await p.waitForTimeout(300); const t = await p.evaluate(() => (document.querySelector('dialog[open]') || {}).innerText || ''); await fecharJanelas(p); return t; };
+  const lgQb = await legalQb();
+  conferir(/O número de série fica à vista para quem vê o equipamento \(também na nuvem e na cópia\); o IMEI fica trancado\. “Procurar o manual na internet” abre o site DuckDuckGo só com a marca e o modelo\./.test(lgQb), 'EQ3b. o aviso legal diz que o número de série fica à vista (também na nuvem e na cópia), que o IMEI fica trancado e que a busca do manual vai ao DuckDuckGo só com a marca e o modelo');
+
+  /* ---------- 390 px, EN e o idioma ---------- */
+  for (const lang of ['pt', 'en']) for (const id of [qb.ct, qb.venc]) {
+    await p.evaluate((a) => { if (S.lang !== a.lang) setLang(a.lang); go('garantias', 'ficha', a.id); }, { lang, id }); await p.waitForTimeout(500);
+    await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(100);
+    const a = await alvos();
+    conferir(a.w === 390 && a.larg && a.n >= 10 && !a.peq.length, 'EQ3b. 390 px (' + lang.toUpperCase() + ', ficha ' + (id === qb.ct ? 'com o link' : 'vencida, com o 🔎') + '): nada passa da largura e os ' + a.n + ' alvos de toque têm 44 px' + (a.peq.length ? ': ' + a.peq.join(' · ') : ''));
+  }
+  const enCt = await fichaQb(qb.ct), enVe = await fichaQb(qb.venc), enLg = await legalQb();
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
+  conferir(enCt.blocos.includes('🔌') && /Specs/.test(enCt.txt) && /Serial number/.test(enCt.fic) && /Dual voltage/.test(enCt.fic) && /Where it is/.test(enCt.fic) && /📘 Open the manual ↗/.test(enCt.man) && /opens the exemplo\.com\.br website/.test(enCt.man) && /Change or remove the link/.test(enCt.man) && /Save the manual \(PDF or photo\)/.test(enCt.man) &&
+    /🔎 Find the manual online ↗/.test(enVe.man) && /Opens an internet search in another window \(DuckDuckGo website\) with only: manual Marca Exemplo VT-300\. To come back, tap Back\./.test(enVe.man) && /See the warranty dates/.test(enVe.datas) && /The serial number is visible to whoever sees the item/.test(enLg) &&
+    !/Ficha técnica|Abrir o manual|Procurar o manual|abre o site|Nº de série|Ver as datas/.test(enCt.txt + enVe.txt), 'EQ3b. EN: a ficha em inglês (Specs, Serial number, Open the manual, Find the manual online, See the warranty dates) e o aviso legal');
+  const srcQb = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  /* procura no bloco do módulo (o "Sem internet agora." de fora, da nuvem, é de antes e tem só PT e EN) e, a frase do aviso legal, no legal() */
+  const iBlQb = srcQb.indexOf('/* ===== 🧾 GARANTIAS (2.28.0) ====='), iLgQb = srcQb.indexOf('function legal() {');
+  const ttQb = (txt) => { const de = /^O número de série fica à vista/.test(txt) ? iLgQb : iBlQb, i = de < 0 ? -1 : srcQb.indexOf('tt("' + txt + '"', de); return i < 0 ? null : ttChamadas(srcQb.slice(i, i + 3000))[0]; };
+  const novosQb = ['Abrir o manual', 'site sem cadeado', 'Trocar ou tirar o link', 'Procurar o manual na internet', 'Sem internet agora.', 'Para procurar o manual, escreva o modelo (está na etiqueta): toque em ✏️ → 🔌 Ficha técnica.', 'Colar o link do manual',
+    'No site do manual, toque no endereço lá em cima, copie e cole aqui.', 'Guardar o manual (PDF ou foto)', 'Tirar o link', 'Ver as datas das garantias', 'Nada anotado ainda.', 'Toque em ✏️ e preencha em 🔌 Ficha técnica.', 'Se achar a nota ou o e-mail da compra, ponha a data: o app passa a contar a garantia.',
+    'Não sabe? Marque “Não sei a data da compra”.', 'Pedido, nota e valor pago: toque em ✏️ (ficam trancados).', 'Pedido, nota e valor pago ficam trancados.', 'Nº de série', 'abre o site ', 'Abre uma busca na internet, em outra janela (site DuckDuckGo), só com: ',
+    'O número de série fica à vista para quem vê o equipamento (também na nuvem e na cópia); o IMEI fica trancado. “Procurar o manual na internet” abre o site DuckDuckGo só com a marca e o modelo.'].map((t) => [t, ttQb(t)]);
+  const ruinsQb = novosQb.filter(([, c]) => !c || c.args.length !== 3 || !c.args[2].txt || (c.args[2].txt === c.args[0].txt && (c.args[0].txt.match(/\p{L}{2,}/gu) || []).length >= 3) || /\b(celular|loja|nota fiscal|protocolo|billete|cadastr\w*)\b/i.test(c.args[2].txt));
+  conferir(!ruinsQb.length, 'EQ3b. idioma: os textos novos da ficha em PT, EN e ES (o ES sem palavra do Brasil)' + (ruinsQb.length ? ' — ' + ruinsQb.map(([t]) => t).join(' | ') : ''));
+  /* nada buscado sozinho, nada dos números no console nem no Telem */
+  conferir(!reqQb.length, 'EQ3b. abrir as fichas não buscou nada na internet (nem o manual, nem o DuckDuckGo): só no toque' + (reqQb.length ? ' (' + reqQb.slice(0, 2).join(' | ') + ')' : ''));
+  const logsQb = consoleTxt.join('\n') + JSON.stringify(await p.evaluate(() => Telem.list()));
+  conferir(![IMEI_Qb, PED_Qb, SN_Qb].some((x) => logsQb.includes(x)), 'EQ3b. console e Telem sem o IMEI, o pedido e o número de série');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ3b: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -2870,5 +3129,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos; EQ3b: a ficha dos equipamentos)');
 })().catch((e) => { console.error(e); process.exit(1); });
