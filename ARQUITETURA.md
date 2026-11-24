@@ -636,9 +636,9 @@ sem framework: HTML, CSS e JavaScript puros.
   `atendimentos`) com `id`. **`GarCalc`** — as contas, puras e só com `Date.UTC` (o fuso não muda data): `somaMeses` (dia que não
   existe = o último do mês, a data mais cedo), a de fábrica (conta da nota; ≈12 meses sem informação), o prazo da lei (conta da
   entrega, 90/30 dias, CDC art. 26), a estendida (só cobre depois da de fábrica; "não sei" de quando contam os meses dá duas datas,
-  `alt`; a que acaba junto com a de fábrica ou antes, sem o `alt`, é `null`: não cobre nada a mais, e a ficha diz por quê), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
+  `alt`; a que acaba junto com a de fábrica ou antes, sem o `alt`, é `null`: não cobre nada a mais, e a ficha diz por quê; dois sinais de ≈: `est`, o do fim — sem o fim do bilhete é conta do app —, e `estIni`, o do começo ajustado ou calculado, para o bilhete que começa antes do fim da de fábrica não pôr ≈ no fim copiado dele), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
   `curta`, `proximoFim`, `avisos`, `art18` (o contador dos 30 dias para consertar, por defeito, só loja/fabricante/assistência) e
-  `seguro` (o da seguradora). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
+  `seguro` (o da seguradora: 30 dias pela Circ. SUSEP 659/2022, art. 21, e pela Lei 15.040/2024, art. 86, só no bilhete feito desde 11/Dez/2025; o "1 ano para ir à Justiça" é "não demore: pode já estar correndo desde o defeito", que vale nos dois tempos). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
   limites de texto e de lista, link só https (o app ou site para acionar sem o que vem depois do "?" ou do "#", `Garantias.app`,
   também no que vem do papel, da IA, do 📥 e do formulário), e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
   derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
@@ -657,7 +657,7 @@ sem framework: HTML, CSS e JavaScript puros.
   equipamento (`papeisCheio`: o "＋ papel" e o 📷 recusam o 31º); o ✏️ não devolve as listas (papéis, atendimentos, defeitos) da
   leitura, que corta. **Telas:** `listView` (filtros "📋 Todos os
   equipamentos" — o padrão, por nome —, Valendo, Em 30 dias, Vai começar e "🗄️ Vencidas" — D-G14, como arquivo —; "Faltam dados" no topo, fechado em
-  Todos; "📦 Saíram de casa" no fim de Todos; `S.garF`), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
+  Todos; "📦 Saíram de casa" no fim de Todos; `S.garF`; na `linha`, o "⏰ em N dias" que não é o da frase curta diz o que acaba: "⏰ prazo da lei: em N dias"), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
   em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
   `atendimento`, os contadores, a assistência técnica — contato `cat: "assistencia"` 🔧 em `CT_CATS`, ligado pelo id) e `rodape`
   (fontes no `moreBox`). CSS só com o prefixo `.gar` (alvos de 44 px). **Avisos (D-G4), nada gravado:** `marcos(hoje)` (30 e 7 dias
@@ -687,7 +687,7 @@ sem framework: HTML, CSS e JavaScript puros.
   de um site, sem IP, `localhost`, rede de casa, porta nem usuário:senha; conferido no formulário, no arquivo, na leitura e de novo ao
   desenhar; nunca vem do OCR nem da IA) e `compra.naoSei` (situação `semData`: inventário, sem conta nem aviso, fora de "Faltam
   dados"); os `finais` são `{ pedido, bilhete, imei }`. `GarCalc.semBase` é a conferência única da situação e dos avisos (o bilhete
-  com início e fim conta sem a data da compra). Funções do bloco: `link`, `href` (o endereço conferido vai no `href`), `dominio`,
+  com início e fim conta sem a data da compra; vale o sinal do fim, `est`, e o começo ajustado pelo folheto não tira a conta). Funções do bloco: `link`, `href` (o endereço conferido vai no `href`), `dominio`,
   `buscaManual` (DuckDuckGo, `kl=br-pt`, só "manual" + marca + modelo, sem "!" nem meias letras, nunca lança), `pareceImei` (15
   algarismos + dígito verificador), `sugManut` (com as `formas` PT, EN e ES; `ehSug` confere o "já existe" em qualquer uma),
   `foraDeCasa`, `fichaDe`, `visJunto`, `voltTxt`, `_mtMapa`/`_mtLinha` (um

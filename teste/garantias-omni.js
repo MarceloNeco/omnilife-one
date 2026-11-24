@@ -166,6 +166,11 @@
        garantias de novo); o 🔔 continua certo (fora do desenho, sempre na hora; o idioma novo vale na hora)
      - RG4: a 🔍 "seguro", "estendida", "nota fiscal" e "garantia" (e em EN) só acha os equipamentos a que a palavra se aplica, e a
        ajuda não some com o corte em 60
+     Revisão telas-lei (2.28.0)
+     - TL-01: a seguradora pela Circ. SUSEP 659/2022 (art. 21) e pela Lei 15.040/2024 só no bilhete feito desde 11/Dez/2025, sem o "1 ano"
+       fixo (contador, ajuda e nota da janela, em PT, EN e ES); TL-04: o ⏰ da lista diz "prazo da lei:" quando não é o da frase curta
+     - TL-06: o aviso legal com o nome novo; TL-08: o EN dos EUA; TL-11: o ≈ só no começo ajustado, não no fim copiado do bilhete
+     - TL-12: "Falta a data" sem a lei que "vale sempre"; TL-14: o título curto da ajuda (1 linha a 390 px)
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -942,7 +947,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await p.evaluate(() => ACT.legal()); await p.waitForTimeout(300);
   const lg = await p.evaluate(() => (document.querySelector('dialog[open]') || {}).innerText || '');
   await fecharJanelas(p);
-  conferir(/Garantias/.test(lg) && /estimadas/.test(lg) && /folheto/.test(lg) && /não é assessoria jurídica/i.test(lg) && /só neste aparelho/.test(lg) && /não vende seguro/.test(lg), 'G3. o aviso legal fala das garantias (datas estimadas, vale o folheto e o bilhete, não é assessoria jurídica, a nota só neste aparelho, o app não vende seguro)');
+  conferir(/Equipamentos e garantias: as datas são estimadas/.test(lg) && !/🧾 Garantias:/.test(lg) && /estimadas/.test(lg) && /folheto/.test(lg) && /não é assessoria jurídica/i.test(lg) && /só neste aparelho/.test(lg) && /não vende seguro/.test(lg), 'G3. o aviso legal fala das garantias (datas estimadas, vale o folheto e o bilhete, não é assessoria jurídica, a nota só neste aparelho, o app não vende seguro)');
 
   /* "saiu de casa" (D-G9): oferece apagar a nota e os números; fica o histórico */
   await ficha(tid3);
@@ -1368,7 +1373,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const dfc = (h) => ct5.dfs.find((x) => x.h.includes(h)) || { a: '', s: '' };
   const c1 = dfc('Não liga'), c2 = dfc('Porta solta'), c3 = dfc('Luz piscando'), c4 = dfc('Botão Exemplo');
   conferir(ct5.dfs.length === 4 && /Contador dos 30 dias para consertar/.test(c1.a) && c1.a.includes('Dia 5 de 30 (2 contatos)'), 'G5. contador dos 30 dias: 2 idas (loja e assistência) → "Dia 5 de 30 (2 contatos)" (' + c1.a + ')');
-  conferir(c1.s.includes('3 dias desde o aviso') && c1.s.includes('Até 30 dias para responder (Lei 15.040/2024, art. 86)') && c1.s.includes('Se negar, peça a negativa por escrito: o prazo para ir à Justiça é de 1 ano.') && !c2.s && !c3.s && !c4.s,
+  conferir(c1.s.includes('3 dias desde o aviso') && c1.s.includes('Até 30 dias para responder (Circ. SUSEP 659/2022, art. 21; no bilhete feito desde 11/Dez/2025, Lei 15.040/2024, art. 86)') && c1.s.includes('Se negar, peça a negativa por escrito e não demore: o prazo de 1 ano para ir à Justiça pode já estar correndo desde o defeito.') && !c2.s && !c3.s && !c4.s,
     'G5. a seguradora tem o contador dela (Lei 15.040/2024), fora do art. 18: "3 dias desde o aviso" (' + c1.s + ')');
   conferir(c2.a.includes('Dia 30 de 30 (1 contato)') && c2.a.includes('Hoje é o 30º dia. Se não resolverem hoje, amanhã você já pode escolher') && !/Passaram os 30 dias/.test(c2.a), 'G5. no 30º dia: "Hoje é o 30º dia. Se não resolverem hoje, amanhã você já pode escolher…" (' + c2.a + ')');
   conferir(c3.a.includes('Passaram os 30 dias. Pela lei, você pode escolher: trocar por outro, o dinheiro de volta corrigido ou um desconto (CDC art. 18 §1º).') && !/Hoje é o 30º dia/.test(c3.a), 'G5. no 31º dia: o texto do CDC art. 18 §1º (trocar, o dinheiro de volta ou desconto) (' + c3.a + ')');
@@ -1415,7 +1420,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     'G5. "＋ Registrar atendimento": hoje, a loja, em aberto, um defeito novo (o que é e quando apareceu) e a regra do protocolo (CDC art. 26 §2º) (' + JSON.stringify(Object.assign({}, f0, { txt: '' })) + ')');
   await muda({ quem: 'seguradora' });
   const fS = await fq();
-  conferir(/A seguradora tem até 30 dias para dizer se cobre \(Lei 15\.040\/2024, art\. 86\)\. Ela pode pedir mais papéis uma vez, e o prazo para enquanto isso\./.test(fS.nota) && !/26 §2º/.test(fS.nota), 'G5. com a seguradora, a regra dela: 30 dias para dizer se cobre (Lei 15.040/2024, art. 86) (' + fS.nota + ')');
+  conferir(/A seguradora tem até 30 dias para dizer se cobre \(Circ\. SUSEP 659\/2022, art\. 21; no bilhete feito desde 11\/Dez\/2025, Lei 15\.040\/2024, art\. 86\)\. Ela pode pedir mais papéis uma vez, e o prazo para enquanto isso\./.test(fS.nota) && !/26 §2º/.test(fS.nota), 'G5. com a seguradora, a regra dela: 30 dias para dizer se cobre (Circ. SUSEP 659/2022, art. 21; Lei 15.040/2024, art. 86 no bilhete feito desde 11/Dez/2025; revisão telas-lei TL-01) (' + fS.nota + ')');
   await muda({ quem: 'loja', com: 'Central Exemplo', protocolo: 'PROT-0009', oque: 'Vão mandar um técnico', _desc: 'Não gela', _apareceu: D5.m6 });
   const recusa5 = (vals) => p.evaluate(async (vals) => {
     const m = document.querySelector('dialog[open]'); for (const [k, v] of Object.entries(vals)) { const i = m.querySelector('[name="' + k + '"]'); i.value = v; i.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -4168,6 +4173,158 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(JSON.stringify(rg4RR.en.extended) === soEstRR && JSON.stringify(rg4RR.en.insurance) === soEstRR && JSON.stringify(rg4RR.en.invoice) === notaRR && rg4RR.en.aj,
     'Revisão regressoes RG4. ... em EN, "extended" e "insurance" acham só o que tem a estendida e "invoice" só o que tem a nota ou o pedido (' + JSON.stringify(rg4RR.en) + ')');
   await p.evaluate(() => go('home'));
+  await p.waitForTimeout(300);
+
+  /* =====================================================================
+     Revisão telas-lei (2.28.0): a seguradora pelas regras dos dois tempos (TL-01), o ⏰ da lista que diz o que acaba (TL-04), o
+     nome novo no aviso legal (TL-06), o inglês dos EUA (TL-08), o ≈ só no que é conta do app (TL-11), a lei que não vale "sempre"
+     (TL-12) e o título curto da ajuda (TL-14). Tudo de mentira
+     ===================================================================== */
+  console.log('\n— Revisão telas-lei: a seguradora nos dois tempos, o ⏰ que diz o que acaba, o nome, o EN dos EUA, o ≈ do fim, a lei e o título da ajuda');
+  await fecharJanelas(p);
+  /* o código servido (no teste das mutações, a cópia mudada), para as conferências que leem o tt( inteiro (o ES não aparece na tela) */
+  const SRC_TL = await p.evaluate(() => fetch('./index.html', { cache: 'no-store' }).then((r) => r.text()));
+  const iTL = SRC_TL.indexOf('/* ===== 🧾 GARANTIAS (2.28.0) ====='), fTL = SRC_TL.indexOf('/* ===== fim de GARANTIAS ===== */');
+  const BLOCO_TL = iTL > 0 && fTL > iTL ? SRC_TL.slice(iTL, fTL) : '', ttTL = ttChamadas(BLOCO_TL).filter((c) => c.args.length === 3);
+  const regiaoTL = (de, ate) => { const a = BLOCO_TL.indexOf(de), b = a >= 0 ? BLOCO_TL.indexOf(ate, a + 1) : -1; return a > 0 && b > a ? ttChamadas(BLOCO_TL.slice(a, b)) : []; };
+
+  /* ---------- TL-01: a seguradora. A Lei 15.040/2024 só vale para o bilhete feito desde 11/12/2025 (antes, a Circ. SUSEP 659/2022,
+     art. 21), e o "1 ano para ir à Justiça" pode já estar correndo desde o defeito (Súmula 229 do STJ, para os bilhetes de antes) ---------- */
+  const tl01TL = await p.evaluate(async (papel) => {
+    S.role = papel; if (S.lang !== 'pt') setLang('pt');
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const td = today(), d = (n) => addDays(td, n);
+    /* o bilhete de 2024 (antes da lei nova) e o de 2026 (depois), cada um com um aviso à seguradora há 3 dias */
+    const novo = (id, compra, ini, fim) => DB.put('things', { id, name: 'TL Bilhete ' + id, place: '', vis: 'familia', tags: [], garantia: { v: 1, ref: 'gar_' + id, compra: { data: compra }, fabrica: { meses: 12 },
+      estendida: { tem: 'sim', quem: 'seguradora', seguradora: 'Seguradora Exemplo', inicio: ini, fim, emitidoEm: compra }, defeitos: [{ id: 'df1', desc: 'Não liga', apareceu: d(-20) }],
+      atendimentos: [{ id: 'a1', d: d(-3), quem: 'seguradora', com: 'Seguradora Exemplo', protocolo: 'SIN-TL-0001', oque: '', situacao: 'aberto', defeito: 'df1' }] } }, true);
+    await novo('tl1-24', '2024-09-20', '2025-09-21', '2027-09-20'); await novo('tl1-26', '2026-01-10', '2027-01-11', '2028-01-10');
+    const seg = (id) => { const div = document.createElement('div'); div.innerHTML = Garantias._contCard(Garantias.ler(DB.get('things', id)), td); return (div.querySelector('.gar-seg') || {}).textContent || ''; };
+    const passo = () => (HELP().garantias.steps.find((s) => /Registre cada atendimento|Log every service call/.test(s)) || '').replace(/<[^>]+>/g, '');
+    const out = { c24: seg('tl1-24'), c26: seg('tl1-26'), aj: passo() };
+    setLang('en'); out.en = seg('tl1-24'); out.ajEn = passo(); setLang('pt');
+    /* a nota da janela "Registrar atendimento" com "Com quem" = seguradora (a janela fica aberta: não se espera) */
+    Garantias.atendimento(DB.get('things', 'tl1-24'));
+    for (let i = 0; i < 50 && !document.querySelector('dialog[open] [name="quem"]'); i++) await new Promise((r) => setTimeout(r, 100));
+    const q = document.querySelector('dialog[open] [name="quem"]');
+    if (q) { q.value = 'seguradora'; q.dispatchEvent(new Event('change', { bubbles: true })); }
+    out.nota = (document.querySelector('dialog[open] #garatnota') || {}).textContent || '';
+    return out;
+  }, papel0);
+  await fecharJanelas(p);
+  const seg24TL = 'Até 30 dias para responder (Circ. SUSEP 659/2022, art. 21; no bilhete feito desde 11/Dez/2025, Lei 15.040/2024, art. 86). Se negar, peça a negativa por escrito e não demore: o prazo de 1 ano para ir à Justiça pode já estar correndo desde o defeito.';
+  conferir(tl01TL.c24.includes('3 dias desde o aviso. ' + seg24TL) && tl01TL.c26.includes('3 dias desde o aviso. ' + seg24TL) && ![tl01TL.c24, tl01TL.c26].some((s) => /é de 1 ano/.test(s)),
+    'Revisão telas-lei TL-01. o contador da seguradora, no bilhete de 2024 e no de 2026: 30 dias pela Circ. SUSEP 659/2022 (art. 21) e pela Lei 15.040/2024 só no bilhete feito desde 11/Dez/2025; o "1 ano para ir à Justiça" pode já estar correndo desde o defeito, e não "é de 1 ano" (' + tl01TL.c24 + ')');
+  conferir(/SUSEP Circular 659\/2022, art\. 21; for a certificate issued on or after Dec\/11\/2025, Law 15,040\/2024, art\. 86/.test(tl01TL.en) && /don't wait: the 1-year deadline to go to court may already be running since the defect appeared/.test(tl01TL.en) && !/is 1 year/.test(tl01TL.en),
+    'Revisão telas-lei TL-01. ... e em EN (' + tl01TL.en + ')');
+  conferir(tl01TL.aj.includes('ela tem até 30 dias para dizer se cobre (Circ. SUSEP 659/2022, art. 21; no bilhete feito desde 11/Dez/2025, Lei 15.040/2024, art. 86); se negar, peça a negativa por escrito e não demore: o prazo de 1 ano para ir à Justiça pode já estar correndo desde o defeito.') &&
+    /SUSEP Circular 659\/2022, art\. 21/.test(tl01TL.ajEn) && /may already be running since the defect appeared/.test(tl01TL.ajEn) && !/é de 1 ano|you have 1 year/.test(tl01TL.aj + tl01TL.ajEn),
+    'Revisão telas-lei TL-01. ... o passo "Registre cada atendimento" da ajuda diz o mesmo, em PT e EN (' + tl01TL.aj.slice(-330) + ')');
+  conferir(tl01TL.nota === 'A seguradora tem até 30 dias para dizer se cobre (Circ. SUSEP 659/2022, art. 21; no bilhete feito desde 11/Dez/2025, Lei 15.040/2024, art. 86). Ela pode pedir mais papéis uma vez, e o prazo para enquanto isso.',
+    'Revisão telas-lei TL-01. ... e a nota da janela "Registrar atendimento" com a seguradora (' + tl01TL.nota + ')');
+  /* lendo o código: os 3 lugares (ajuda, contador e nota), nas 3 línguas, citam a Circ. SUSEP 659/2022 e nunca prometem "1 ano" fixo */
+  const segTL = ttTL.filter((c) => c.args.some((a) => /art\. 86/.test(a.txt)));
+  conferir(segTL.length === 3 && segTL.every((c) => c.args.every((a) => /659\/2022, art\. 21/.test(a.txt) && /11\/Dez\/2025|Dec\/11\/2025|11\/dic\/2025/.test(a.txt))) && !segTL.some((c) => c.args.some((a) => /é de 1 ano|is 1 year|you have 1 year|es de 1 año/.test(a.txt))),
+    'Revisão telas-lei TL-01. ... no código, os 3 textos da seguradora (ajuda, contador e nota) em PT, EN e ES citam a Circ. SUSEP 659/2022 e a data da lei nova, sem o "1 ano" fixo (' + segTL.length + ': ' + segTL.map((c) => c.args.map((a) => a.txt.slice(0, 30)).join(' / ')).join(' | ') + ')');
+
+  /* ---------- TL-04: o ⏰ da lista diz o que acaba quando não é a garantia da frase curta (a estendida até 2028 e o prazo da lei em 25 dias) ---------- */
+  const tl04TL = await p.evaluate(async () => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const td = today(), d = (n) => addDays(td, n);
+    const put = (id, g) => DB.put('things', { id, name: 'TL ' + id, place: '', vis: 'familia', tags: [], garantia: Object.assign({ v: 1, ref: 'gar_' + id, compra: { data: d(-430) } }, g) }, true);
+    /* a de fábrica acabou há 65 dias; a lei vai até 90 dias depois dela (em 25 dias); o bilhete vai até daqui a 665 dias */
+    await put('est', { fabrica: { fim: d(-65), legalInclusa: 'naosei' }, estendida: { tem: 'sim', quem: 'seguradora', inicio: d(-64), fim: d(665) } });
+    await put('nao', { fabrica: { fim: d(-65), legalInclusa: 'nao' }, estendida: { tem: 'sim', quem: 'seguradora', inicio: d(-64), fim: d(665) } });
+    await put('ff', { fabrica: { fim: d(-65), legalInclusa: 'naosei' }, estendida: { tem: 'sim', quem: 'loja', inicio: d(-64) } });
+    /* os de controle: o ⏰ é o da própria frase curta */
+    await put('lei', { fabrica: { fim: d(-65), legalInclusa: 'naosei' }, estendida: { tem: 'nao' } });
+    await put('fimest', { compra: { data: d(-800) }, fabrica: { fim: d(-430), legalInclusa: 'sim' }, estendida: { tem: 'sim', quem: 'seguradora', inicio: d(-429), fim: d(20) } });
+    await put('fab', { compra: { data: d(-340) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' } });
+    const linhas = () => { const G = Garantias.grupos(td), o = { em30: G.em30.map((x) => x.t.id).sort() };
+      G.todos.forEach((x) => { const div = document.createElement('div'); div.innerHTML = Garantias.linha(x); o[x.t.id] = [...div.querySelectorAll('.s')].map((s) => s.textContent).pop() || ''; }); return o; };
+    const out = linhas(); setLang('en'); out.en = linhas(); setLang('pt');
+    return out;
+  });
+  const dataTL = '≈?\\d{2}\\/[A-Z][a-z]{2}\\/\\d{4}';
+  conferir(new RegExp('^🛡️ Estendida até ' + dataTL + ' · ⏰ prazo da lei: em 25 dias$').test(tl04TL.est) && new RegExp('^🛡️ Estendida até ' + dataTL + ' · ⏰ prazo da lei: em 25 dias$').test(tl04TL.nao) && tl04TL.em30.includes('est'),
+    'Revisão telas-lei TL-04. na garantia estendida até 2028, com o prazo da lei acabando em 25 dias, o ⏰ diz o que acaba: "⏰ prazo da lei: em 25 dias" (o aparelho continua em "⏰ Em 30 dias") (' + JSON.stringify([tl04TL.est, tl04TL.nao]) + ')');
+  conferir(tl04TL.ff === '⚠️ Falta o fim da estendida · ⏰ prazo da lei: em 25 dias' && tl04TL.en.est.endsWith(' · ⏰ legal deadline: in 25 days') && /^🛡️ Extended until /.test(tl04TL.en.est),
+    'Revisão telas-lei TL-04. ... também em "Falta o fim da estendida", e em EN "⏰ legal deadline: in 25 days" (' + JSON.stringify([tl04TL.ff, tl04TL.en.est]) + ')');
+  conferir(new RegExp('^⚖️ Prazo da lei até ' + dataTL + ' · ⏰ em 25 dias$').test(tl04TL.lei) && new RegExp('^🛡️ Estendida até ' + dataTL + ' · ⏰ em 20 dias$').test(tl04TL.fimest) && new RegExp('^✅ Fábrica até ' + dataTL + ' · ⏰ em \\d+ dias$').test(tl04TL.fab),
+    'Revisão telas-lei TL-04. ... e quando o ⏰ é o da própria frase (o prazo da lei, a estendida que acaba em 20 dias, a de fábrica), fica só "⏰ em N dias" (' + JSON.stringify([tl04TL.lei, tl04TL.fimest, tl04TL.fab]) + ')');
+
+  /* ---------- TL-06: o aviso legal com o nome novo ("🧾 Equipamentos e garantias:"), em PT, EN e ES ---------- */
+  const legalTL = async (lang) => { await p.evaluate((l) => { setLang(l); ACT.legal(); }, lang); await p.waitForTimeout(300); const t = await p.evaluate(() => (document.querySelector('dialog[open]') || {}).innerText || ''); await fecharJanelas(p); return t; };
+  const lgPtTL = await legalTL('pt'), lgEnTL = await legalTL('en'); await p.evaluate(() => setLang('pt'));
+  const iLgTL = SRC_TL.indexOf('"<p>🧾 " + tt('), lgEsTL = iLgTL > 0 ? ((ttChamadas(SRC_TL.slice(iLgTL, iLgTL + 3000))[0] || { args: [] }).args[2] || {}).txt || '' : '';
+  conferir(lgPtTL.includes('🧾 Equipamentos e garantias: as datas são estimadas') && !/🧾 Garantias:/.test(lgPtTL) && lgEnTL.includes('🧾 Equipment & warranties: the dates are estimated') && !/🧾 Warranties:/.test(lgEnTL) && /^Aparatos y garantías: las fechas/.test(lgEsTL),
+    'Revisão telas-lei TL-06. o aviso legal chama o módulo pelo nome novo: "🧾 Equipamentos e garantias:", "Equipment & warranties:" e "Aparatos y garantías:" (' + JSON.stringify([(lgPtTL.match(/🧾 [^:]*:/) || [''])[0], (lgEnTL.match(/🧾 [^:]*:/) || [''])[0], lgEsTL.slice(0, 30)]) + ')');
+
+  /* ---------- TL-08: o EN dos textos do módulo é o dos EUA (store, call center, stove, organizing, canceled, recognize) ---------- */
+  const BRIT_TL = /\b(centre|cooker|organis\w*|recognis\w*|cancelled|shops?|colour\w*|licence|favourite\w*|behaviour\w*|catalogue|authoris\w*|realis\w*)\b/i;
+  const britTL = ttTL.filter((c) => BRIT_TL.test(c.args[1].txt));
+  conferir(ttTL.length >= 600 && !britTL.length,
+    'Revisão telas-lei TL-08. o EN dos ' + ttTL.length + ' textos do módulo é o dos EUA: sem "shop", "call centre", "cooker", "organising", "Cancelled" nem "recognise"' + (britTL.length ? ' — ' + britTL.slice(0, 6).map((c) => '"' + c.args[1].txt.match(BRIT_TL)[0] + '"').join(', ') + (britTL.length > 6 ? ' e mais ' + (britTL.length - 6) : '') : ''));
+
+  /* ---------- TL-11: o bilhete que começa antes do fim da de fábrica: o começo é ajustado (≈, conta do app), o fim vem do bilhete (sem ≈) ---------- */
+  const tl11TL = await p.evaluate(async () => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const td = today(), d = (n) => addDays(td, n);
+    const put = (id, g) => DB.put('things', { id, name: 'TL ' + id, place: '', vis: 'familia', tags: [], garantia: Object.assign({ v: 1, ref: 'gar_' + id }, g) }, true);
+    /* a de fábrica do folheto acaba no dia em que o bilhete começa; o bilhete acaba em 18 dias */
+    await put('aj', { compra: { data: d(-800) }, fabrica: { fim: d(-700) }, estendida: { tem: 'sim', quem: 'seguradora', inicio: d(-700), fim: d(18) } });
+    /* o mesmo, sem a data da compra: o app conta pelo bilhete (início e fim) */
+    await put('sd', { fabrica: { fim: d(-700) }, estendida: { tem: 'sim', quem: 'seguradora', inicio: d(-700), fim: d(400) } });
+    /* controle: na de fábrica, o começo que o app calcula continua com ≈ ("Não acione o seguro ainda: ele começa em ≈…") */
+    await put('fa', { compra: { data: d(-300) }, fabrica: { meses: 12 }, estendida: { tem: 'sim', quem: 'seguradora', inicio: d(-300), fim: d(800) } });
+    const g = (id) => Garantias.ler(DB.get('things', id)), sAj = GarCalc.situacao(g('aj'), td), e = GarCalc.estendida(g('aj'));
+    const aviso = (Alerts.list().find((a) => a.ic === '🧾' && a.go && a.go[2] === 'aj') || {}).t || '';
+    const ag = (Garantias.agenda(d(0), d(30)).find((x) => x.id === 'gar-aj-est') || {}).title || '';
+    go('garantias', 'ficha', 'aj'); render(); await new Promise((r) => setTimeout(r, 400));
+    const li = [...document.querySelectorAll('#screen .li')].find((x) => /Estendida \(seguro\)/.test((x.querySelector('.t') || {}).textContent || '')), linhaEst = li ? (li.querySelector('.s') || {}).textContent || '' : '';
+    go('home');
+    return { ini: e && e.inicio, fim: e && e.fim, curta: GarCalc.curta(sAj), frase: Garantias.frase(sAj, g('aj')), aviso, ag, linhaEst, sd: (GarCalc.situacao(g('sd'), td) || {}).k,
+      fa: Garantias._cobrarTxt(GarCalc.situacao(g('fa'), td), g('fa'), td), faIni: (GarCalc.estendida(g('fa')) || {}).inicio, d: { m699: fmtDate(d(-699)), f18: fmtDate(d(18)) } };
+  });
+  conferir(tl11TL.curta === '🛡️ Estendida até ' + tl11TL.d.f18 && tl11TL.frase.startsWith('Na garantia estendida até ' + tl11TL.d.f18 + ':') && tl11TL.linhaEst.startsWith(tl11TL.d.m699 + ' → ' + tl11TL.d.f18),
+    'Revisão telas-lei TL-11. o bilhete que começa no dia em que a de fábrica acaba: o fim, copiado do bilhete, sai sem ≈ na lista, na frase da ficha e nas três garantias (' + JSON.stringify([tl11TL.curta, tl11TL.frase.slice(0, 50), tl11TL.linhaEst]) + ')');
+  conferir(tl11TL.aviso.includes('a estendida acaba em 18 dias (' + tl11TL.d.f18 + ')') && !/pode acabar|confira no bilhete/.test(tl11TL.aviso) && tl11TL.ag && !/\(≈\)/.test(tl11TL.ag),
+    'Revisão telas-lei TL-11. ... o aviso do 🔔 diz "acaba em 18 dias", sem "pode acabar" nem "confira no bilhete", e a Agenda sem "(≈)" (' + JSON.stringify([tl11TL.aviso, tl11TL.ag]) + ')');
+  conferir(tl11TL.sd === 'estendida',
+    'Revisão telas-lei TL-11. ... sem a data da compra, o folheto e o bilhete (com início e fim) bastam para contar: "estendida", e não "Falta a data" (' + tl11TL.sd + ')');
+  conferir(/Não acione o seguro ainda: ele começa em ≈\d{2}\/[A-Z][a-z]{2}\/\d{4}\./.test(tl11TL.fa),
+    'Revisão telas-lei TL-11. ... e o começo que o app calcula (o dia seguinte ao fim da de fábrica) continua com ≈ (' + tl11TL.fa.slice(-70) + ')');
+
+  /* ---------- TL-12: sem a data da compra, "De quem cobrar" não diz que a lei "vale sempre" (o prazo é de 90 dias) ---------- */
+  const tl12TL = await p.evaluate(async () => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    await DB.put('things', { id: 'tl12', name: 'TL Geladeira antiga', place: '', vis: 'familia', tags: [], garantia: { v: 1, ref: 'gar_tl12' } }, true);
+    const g = Garantias.ler(DB.get('things', 'tl12')), s = GarCalc.situacao(g, today()), pt = Garantias.cobrar(s, g);
+    setLang('en'); const en = Garantias.cobrar(s, g); setLang('pt');
+    go('garantias', 'ficha', 'tl12'); render(); await new Promise((r) => setTimeout(r, 400)); const ficha = (document.querySelector('#screen') || {}).innerText || ''; go('home');
+    return { k: s && s.k, pt, en, naFicha: ficha.includes(pt) };
+  });
+  const cobTL = regiaoTL('  cobrar(sit, g) {', '  /* a ficha:');
+  conferir(tl12TL.k === 'faltam' && tl12TL.pt === 'De quem cobrar hoje: a loja ou o fabricante, se for defeito de fabricação' && tl12TL.en === "Who to ask today: the store or the manufacturer, if it's a manufacturing defect" && tl12TL.naFicha &&
+    cobTL.length && !cobTL.some((c) => c.args.some((a) => /vale sempre|always applies|vale siempre/.test(a.txt))),
+    'Revisão telas-lei TL-12. o aparelho só com o nome ("Falta a data"): "De quem cobrar hoje: a loja ou o fabricante, se for defeito de fabricação", como nos sem data e nos vencidos, sem a lei que "vale sempre" (' + JSON.stringify([tl12TL.k, tl12TL.pt, tl12TL.en, tl12TL.naFicha, cobTL.length]) + ')');
+
+  /* ---------- TL-14: o título da ajuda é o nome da aba (curto); a frase longa abre o 1º passo ---------- */
+  const tl14TL = await p.evaluate(async () => {
+    const x = HELP().garantias, tira = (s) => s.replace(/<[^>]+>/g, ''), out = { t: x.t, s0: tira(x.steps[0]) };
+    setLang('en'); const y = HELP().garantias; out.en = y.t; out.s0en = tira(y.steps[0]); setLang('pt');
+    Help.open('garantias'); await new Promise((r) => setTimeout(r, 300));
+    const h = document.querySelector('dialog[open] .mh h3'); out.linhas = h ? Math.round(h.getBoundingClientRect().height / (parseFloat(getComputedStyle(h).lineHeight) || 20)) : 0;
+    out.achou = Search.find('equipamentos').some((r) => r.ic === '❓' && /Equipamentos e garantias/.test(r.t));
+    return out;
+  });
+  await fecharJanelas(p);
+  const ajTL = regiaoTL('  AJUDA() {', 'steps: [');
+  conferir(tl14TL.t === '🧾 Equipamentos e garantias' && tl14TL.en === '🧾 Equipment & warranties' && ajTL.length && ajTL[0].args[2] && ajTL[0].args[2].txt === 'Aparatos y garantías' && tl14TL.linhas === 1,
+    'Revisão telas-lei TL-14. o título da ajuda é curto, o nome da aba (PT, EN e ES), e ocupa 1 linha a 390 px (' + JSON.stringify([tl14TL.t, tl14TL.en, ajTL[0] && ajTL[0].args.map((a) => a.txt.slice(0, 40)), tl14TL.linhas]) + ')');
+  conferir(tl14TL.s0.startsWith('Aqui ficam os aparelhos da casa, até quando vale cada garantia e o que fazer quando estraga. Abra 🧾 Equipamentos e garantias') && tl14TL.s0en.startsWith("Here are your home's devices, how long each warranty lasts and what to do when something breaks. Open 🧾 Equipment & warranties") && tl14TL.achou,
+    'Revisão telas-lei TL-14. ... a frase longa abre o 1º passo, e a 🔍 continua achando a ajuda (' + JSON.stringify([tl14TL.s0.slice(0, 100), tl14TL.s0en.slice(0, 100), tl14TL.achou]) + ')');
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); setLang('pt'); go('home'); });
   await p.waitForTimeout(300);
 
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
