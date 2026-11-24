@@ -99,6 +99,15 @@
        os que saíram), a ordem, a linha pequena de cada um, filtro com 0 some; "Faltam dados" fechado em Todos; "📦 Saíram de casa" no
        fim de Todos; "Já tem aparelhos no Onde está?"; a 4ª linha da manutenção (um Maint.list() só por desenho, com 300 aparelhos);
        os textos novos (vazia, ＋ Novo equipamento, não encontrado, app mais novo, "O que estragou?" com "Os outros equipamentos")
+     EQ3a — Equipamentos e garantias: o cadastro (D-G13, D-G16, D-G17)
+     - a janela: à vista o nome, a data e "Não sei a data da compra" (semData, sai de "Faltam dados"); em "＋ Mais detalhes", 🔌 Ficha
+       técnica (marca, modelo, código, número de série, voltagem, cor) e 📘 Manual (o link, só de um site); a série à vista para quem vê
+       o equipamento (membro e criança com "Toda a família"; ninguém além dos responsáveis com "Só responsáveis"); o IMEI só no modo
+       aberto, trancado; um número com cara de IMEI na série → pergunta ("Cancelar" mantém a janela); a série de antes nas Senhas da
+       casa vira o IMEI e os finais ficam só pedido, bilhete e IMEI; "saiu de casa" apaga o IMEI e mantém a série; o "Quem vê" leva junto
+       os lembretes de manutenção, o folheto e o manual (pelo formulário e pelo ✏️ do Onde está?); a dica do "Quem vê" só na nuvem; o
+       aviso novo do ✏️ do Onde está?, criança sem o 🗑 de um equipamento e Garantias.apagar recusando para ela; <img onerror> em todo
+       campo novo; EN e o idioma dos textos novos
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -877,7 +886,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     await p.waitForTimeout(700);
   }
   const sd = await p.evaluate((id) => { const t = DB.get('things', id), g = t.garantia; return { saiu: g.saiu, arq: (g.arquivos || []).map((a) => a.tipo), files: DB.raw('files').filter((f) => f.gar === id).map((f) => f.name), vault: !!DB.col('vault').get('gv_' + id), finais: g.finais || {} }; }, tid3);
-  conferir(pergunta && /Apagar a nota, o bilhete e os números\? Fica só o histórico/.test(ptxt), 'G3. ao marcar "saiu de casa", pergunta "Apagar a nota, o bilhete e os números? Fica só o histórico"');
+  conferir(pergunta && /Apagar a nota, o bilhete e o que está trancado \(pedido, nº do bilhete, IMEI e valor pago\)\? O número de série e o resto da ficha ficam como histórico\./.test(ptxt), 'G3. ao marcar "saiu de casa", pergunta "Apagar a nota, o bilhete e o que está trancado (pedido, nº do bilhete, IMEI e valor pago)? O número de série e o resto da ficha ficam como histórico." (EQ3a, troca de propósito, D-G16 d: a série fica à vista)');
   conferir(sd.saiu && sd.saiu.como === 'doado' && sd.saiu.em === hojeISO && JSON.stringify(sd.arq) === '["termo"]' && JSON.stringify(sd.files) === '["folheto.pdf"]' && !sd.vault && !sd.finais.pedido,
     'G3. com o "sim": saem a nota e os números (o item das Senhas e os finais); ficam o folheto e o histórico (' + JSON.stringify(sd) + ')');
   ft = await telaTxt();
@@ -917,7 +926,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const atxt = abriuA ? await p.locator('dialog[open]').innerText() : '';
   if (abriuA) { await p.click('dialog[open] [data-del]'); await p.waitForSelector('dialog[open] [data-yes]', { timeout: 5000 }).catch(() => {}); await p.click('dialog[open] [data-yes]').catch(() => {}); await p.waitForTimeout(800); }
   const apd = await p.evaluate((a) => ({ t: !!DB.col('things').get(a.id), f: !!DB.col('files').get(a.fid) || DB.raw('files').some((f) => f.gar === a.id), v: !!DB.col('vault').get('gv_' + a.id) }), ap);
-  conferir(abriuA && /Este objeto tem garantia\. Excluir apaga junto os papéis, os números e os atendimentos\./.test(atxt), 'G3. o ✏️ do Onde está? avisa: "🧾 Este objeto tem garantia. Excluir apaga junto os papéis, os números e os atendimentos."');
+  conferir(abriuA && /Este objeto está em Equipamentos e garantias\. Excluir apaga junto os papéis, os números, os atendimentos e os lembretes de manutenção\./.test(atxt), 'G3. o ✏️ do Onde está? avisa: "🧾 Este objeto está em Equipamentos e garantias. Excluir apaga junto os papéis, os números, os atendimentos e os lembretes de manutenção." (EQ3a, troca de propósito, D-G13)');
   conferir(ap.vid === 'gv_' + ap.id && !apd.t && !apd.f && !apd.v, 'G3. excluir pelo ✏️ do Onde está?: o objeto, a nota (files) e os números (Senhas da casa) saem juntos (' + JSON.stringify(apd) + ')');
 
   /* sobras de coisa apagada (por um app de antes): aparecem para o responsável e só saem com confirmação */
@@ -1974,7 +1983,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const doBloco8 = ttChamadas(BLOCO8).map((c) => Object.assign(c, { bloco: true, onde: 'linha ' + (L08 + c.linha) }));
   /* as linhas de fora do bloco com texto do módulo (o 1º tt( depois de cada marca) */
   const FORA8 = [['TABS', 'id: "garantias", ic: "🧾", t: tt('], ['☰ Lista', 'garantias: [["lista", tt('], ['☰ Estragou?', '["estragou", tt('], ['aviso legal', '"<p>🧾 " + tt('],
-    ['contato 🔧', '["assistencia", "🔧", tt('], ['grupo da 🔍', 'gr: tt('], ['✏️ do Onde está?', 'const gar = t.garantia ? [{ type: "note", html: "🧾 " + tt('], ['item das Senhas da casa', 'if (o.garantiaDe) f.splice(']];
+    ['contato 🔧', '["assistencia", "🔧", tt('], ['grupo da 🔍', 'gr: tt('], ['✏️ do Onde está?', 'const gar = t.garantia ? [{ type: "note", html: "🧾 " + esc(tt('], ['item das Senhas da casa', 'if (o.garantiaDe) f.splice(']];
   const fora8 = FORA8.map(([nome, marca]) => {
     let k = -1; for (let a = SRC8.indexOf(marca); a >= 0; a = SRC8.indexOf(marca, a + 1)) if (a < i08 || a > i18) { k = a; break; }
     const c = k >= 0 ? ttChamadas(SRC8.slice(k, k + 4000))[0] : null;
@@ -2503,6 +2512,279 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ2: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
   await p.evaluate(() => { S.garF = undefined; go('home'); });
 
+  /* =====================================================================
+     EQ3a — Equipamentos e garantias: o cadastro (D-G13, D-G16, D-G17)
+     ===================================================================== */
+  console.log('\n— EQ3a: Equipamentos e garantias — o cadastro');
+  await fecharJanelas(p);
+  await p.evaluate(async (papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123'); }, papel0);
+  /* números de mentira: a série, dois IMEI com o dígito verificador certo (finais 0002 e 0001) e um pedido */
+  const SN_Q3 = 'SN-EQ3-0001', IMEI_Q3 = '350000000040002', IMEI2_Q3 = '35-000000-005000-1', PED_Q3 = 'PEDIDO-EQ3-0002';
+  const dCompraQ3 = await p.evaluate(() => GarCalc.somaDias(today(), -100));
+  const cancelarQ3 = async () => { await p.click('dialog[open] .mf [data-x]').catch(() => {}); await p.waitForTimeout(300); };
+  /* abrir a janela: primeiro a tela (o go muda o endereço e fecharia a janela aberta logo depois), sem esperar a ação (ela só
+     termina quando a janela fecha) */
+  const novoQ3 = async () => { await p.evaluate(() => go('garantias')); await p.waitForTimeout(400); await p.evaluate(() => { ACT['gar.new'](); }); return p.waitForSelector('dialog[open] [name="name"]', { timeout: 5000 }).then(() => true, () => false); };
+  const editarQ3 = async (id) => { await p.evaluate((id) => go('garantias', 'ficha', id), id); await p.waitForTimeout(400); await p.evaluate((id) => { ACT['gar.edit']({ id }); }, id); return p.waitForSelector('dialog[open] [name="name"]', { timeout: 5000 }).then(() => true, () => false); };
+  /* põe os valores nos campos da janela de cima (a caixinha pelo checked) e avisa o change; devolve o campo que faltou */
+  const porQ3 = (vals) => p.evaluate((vals) => { const m = document.querySelector('dialog[open]'); for (const [k, v] of Object.entries(vals)) { const i = m && m.querySelector('[name="' + k + '"]'); if (!i) return k; if (i.type === 'checkbox') i.checked = !!v; else i.value = v; i.dispatchEvent(new Event('change', { bubbles: true })); } return ''; }, vals);
+  const okQ3 = () => p.evaluate(() => { const b = document.querySelector('dialog[open] [data-ok]'); if (b) b.click(); });   /* sem esperar: uma pergunta pode abrir por cima */
+  const perguntaQ3 = () => p.waitForSelector('dialog[open] [data-yes]', { timeout: 2500 }).then(() => p.locator('dialog[open]:has([data-yes])').innerText(), () => '');
+  const abertaQ3 = () => p.evaluate(() => !!document.querySelector('dialog[open] [name="name"]'));
+  const ultimoToastQ3 = () => p.evaluate(() => [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '');
+  const CAMPOS_Q3 = ['garantia.marca', 'garantia.modelo', 'garantia.codigo', 'garantia.serie', 'garantia.voltagem', 'garantia.cor', 'garantia.manualUrl'];
+  const formQ3 = () => p.evaluate((CAMPOS) => {
+    const m = document.querySelector('dialog[open]'); if (!m) return null;
+    const q = (n) => m.querySelector('[name="' + n + '"]'), vis = (n) => { const i = q(n); return !!i && !!(i.offsetWidth || i.offsetHeight); };
+    const caixa = (n) => { const i = q(n); return i ? i.closest('.fld, .check') : null; };
+    const antes = (a, b) => !!a && !!b && !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const gh = (t) => [...m.querySelectorAll('.grouph')].find((h) => h.textContent.trim() === t) || null, cad = [...m.querySelectorAll('.grouph')].find((h) => /^🔐/.test(h.textContent.trim()));
+    const ck = caixa('garantia.compra.naoSei'), md = m.querySelector('.modal') || m;
+    return { vis: Object.fromEntries(['name', 'garantia.compra.data', 'garantia.compra.naoSei', 'garantia.estendida.tem', '_sec.imei'].concat(CAMPOS).map((n) => [n, vis(n)])),
+      tipoCk: (q('garantia.compra.naoSei') || {}).type || '', ckTxt: ck ? ck.textContent.trim() : '', ckH: ck ? Math.round(ck.getBoundingClientRect().height) : 0,
+      ordemVista: antes(caixa('garantia.compra.data'), ck) && antes(ck, caixa('garantia.estendida.tem')),
+      ordemMais: [gh('🧾 O que é'), caixa('vis'), gh('🔌 Ficha técnica')].concat(CAMPOS.slice(0, 6).map(caixa), [gh('📘 Manual'), caixa('garantia.manualUrl'), gh('🛒 Compra')]).every((x, i, a) => !!x && (i === 0 || antes(a[i - 1], x))),
+      volt: q('garantia.voltagem') ? [...q('garantia.voltagem').options].map((o) => [o.value, o.textContent]) : [],
+      altura: CAMPOS.map((n) => (q(n) ? Math.round(q(n).getBoundingClientRect().height) : 0)),
+      imeiLabel: caixa('_sec.imei') ? caixa('_sec.imei').querySelector('span').textContent : '', serieSec: !!q('_sec.serie'), serieFora: !cad || antes(caixa('garantia.serie'), cad),
+      ph: (q('garantia.manualUrl') || {}).placeholder || '', txt: m.textContent, larg: md.scrollWidth <= md.clientWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1 };
+  }, CAMPOS_Q3);
+
+  /* ---------- a janela: à vista o mínimo e "Não sei a data da compra"; em "＋ Mais detalhes", 🔌 Ficha técnica e 📘 Manual ---------- */
+  const abriuQ3 = await novoQ3();
+  const fn0Q3 = abriuQ3 ? await formQ3() : null;
+  conferir(!!fn0Q3 && fn0Q3.vis.name && fn0Q3.vis['garantia.compra.data'] && fn0Q3.vis['garantia.compra.naoSei'] && fn0Q3.vis['garantia.estendida.tem'] && fn0Q3.tipoCk === 'checkbox' && fn0Q3.ordemVista && fn0Q3.ckTxt === 'Não sei a data da compra' && CAMPOS_Q3.concat('_sec.imei').every((n) => !fn0Q3.vis[n]),
+    'EQ3a. ＋ Novo equipamento: à vista o nome, a data da compra e, logo abaixo, a caixinha "Não sei a data da compra", e "Tem estendida?"; a ficha técnica e o manual ficam em "＋ Mais detalhes" (' + JSON.stringify(fn0Q3 && Object.assign({}, fn0Q3.vis, { ck: fn0Q3.ckTxt })) + ')');
+  conferir(!!fn0Q3 && /O equipamento entra na lista; a garantia só é contada com a data\./.test(fn0Q3.txt) && fn0Q3.ckH >= 44, 'EQ3a. ... a caixinha tem a dica ("O equipamento entra na lista; a garantia só é contada com a data.") e 44 px de toque (' + (fn0Q3 && fn0Q3.ckH) + ' px)');
+  if (abriuQ3) await p.click('dialog[open] #garmais');
+  const fn1Q3 = abriuQ3 ? await formQ3() : null;
+  conferir(!!fn1Q3 && CAMPOS_Q3.every((n) => fn1Q3.vis[n]) && fn1Q3.ordemMais, 'EQ3a. "＋ Mais detalhes": depois de "O que é", o grupo 🔌 Ficha técnica (marca, modelo, código do produto, número de série, voltagem e cor) e o 📘 Manual (o link), antes da 🛒 Compra (' + JSON.stringify(fn1Q3 && fn1Q3.vis) + ')');
+  conferir(!!fn1Q3 && canon(fn1Q3.volt) === canon([['', 'Não sei'], ['127', '110/127 V'], ['220', '220 V'], ['bivolt', 'Bivolt (110 e 220)']]), 'EQ3a. a voltagem: Não sei · 110/127 V · 220 V · Bivolt (110 e 220) (' + JSON.stringify(fn1Q3 && fn1Q3.volt) + ')');
+  conferir(!!fn1Q3 && /Código do produto/.test(fn1Q3.txt) && /Na etiqueta ou na caixa \(pode ser o número do código de barras\)/.test(fn1Q3.txt) && /Número de série/.test(fn1Q3.txt) && /Na etiqueta, atrás ou embaixo\. Fica à vista para quem vê este equipamento \(veja “Quem vê”\)\. Celular ou tablet: o IMEI não vai aqui; vai em 🔐 Protegido\./.test(fn1Q3.txt) &&
+    /Voltagem/.test(fn1Q3.txt) && /Link do manual \(site da marca\)/.test(fn1Q3.txt) && /Só links que começam com http:\/\/ ou https:\/\//.test(fn1Q3.txt) && fn1Q3.ph === 'https://…', 'EQ3a. os rótulos e as dicas: o código (na etiqueta ou na caixa), a série (onde achar, à vista para quem vê, o IMEI não vai ali) e o link do manual (só http:// ou https://)');
+  conferir(!!fn1Q3 && fn1Q3.vis['_sec.imei'] && fn1Q3.imeiLabel === 'IMEI (celular ou tablet com chip; disque *#06#)' && !fn1Q3.serieSec && fn1Q3.serieFora && !/Nº de série ou IMEI/.test(fn1Q3.txt), 'EQ3a. 🔐 Protegido (Senhas abertas): o campo trancado é o "IMEI (celular ou tablet com chip; disque *#06#)" e o número de série fica fora do cadeado (' + (fn1Q3 && fn1Q3.imeiLabel) + ')');
+  conferir(!!fn1Q3 && fn1Q3.larg && fn1Q3.altura.every((h) => h >= 44), 'EQ3a. 390 px: a janela não passa da largura e os campos novos têm 44 px (' + JSON.stringify(fn1Q3 && fn1Q3.altura) + ')');
+  /* só o nome + "Não sei a data da compra" */
+  if (abriuQ3) { await porQ3({ name: 'EQ3 Freezer Exemplo', 'garantia.compra.naoSei': true }); await okQ3(); await p.waitForTimeout(700); }
+  const fzQ3 = await p.evaluate(() => { const t = DB.raw('things').find((x) => x.name === 'EQ3 Freezer Exemplo'); if (!t) return null; const G = Garantias.grupos(today()); return { naoSei: t.garantia && t.garantia.compra && t.garantia.compra.naoSei, sit: (GarCalc.situacao(Garantias.ler(t), today()) || {}).k, faltam: G.faltam.map((x) => x.t.name) }; });
+  conferir(fzQ3 && fzQ3.naoSei === true && fzQ3.sit === 'semData' && !fzQ3.faltam.includes('EQ3 Freezer Exemplo'), 'EQ3a. só o nome + "Não sei a data da compra": grava, vira "📋 Sem a data da compra" e não entra em "⚠️ Faltam dados" (' + JSON.stringify(fzQ3) + ')');
+  /* só o nome (entra em "Faltam dados"); depois, no ✏️, "Não sei a data da compra" (sai de lá) */
+  const faltamTelaQ3 = async () => { await p.evaluate(() => { S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(500); return p.evaluate(() => (document.querySelector('#screen .gar-faltam') || {}).textContent || ''); };
+  if (await novoQ3()) { await porQ3({ name: 'EQ3 Ventilador Exemplo' }); await okQ3(); await p.waitForTimeout(700); }
+  const ventQ3 = await p.evaluate(() => { const t = DB.raw('things').find((x) => x.name === 'EQ3 Ventilador Exemplo'); return t ? { id: t.id, sit: (GarCalc.situacao(Garantias.ler(t), today()) || {}).k } : { id: 'nenhum' }; });
+  const ftQ3a = await faltamTelaQ3();
+  conferir(ventQ3.sit === 'faltam' && /EQ3 Ventilador Exemplo/.test(ftQ3a), 'EQ3a. só o nome: entra em "⚠️ Faltam dados" (' + ventQ3.sit + ')');
+  const abriuVt = await editarQ3(ventQ3.id);
+  if (abriuVt) { await porQ3({ 'garantia.compra.naoSei': true }); await okQ3(); await p.waitForTimeout(700); }
+  const vt1Q3 = await p.evaluate((id) => { const t = DB.col('things').get(id); if (!t) return {}; const s = GarCalc.situacao(Garantias.ler(t), today()) || {}; return { naoSei: t.garantia.compra && t.garantia.compra.naoSei, sit: s.k, curta: GarCalc.curta(s) }; }, ventQ3.id);
+  const ftQ3b = await faltamTelaQ3();
+  conferir(abriuVt && vt1Q3.naoSei === true && vt1Q3.sit === 'semData' && /Sem a data da compra/.test(vt1Q3.curta) && !/EQ3 Ventilador Exemplo/.test(ftQ3b), 'EQ3a. ... marcar "Não sei a data da compra" no ✏️: vira "📋 Sem a data da compra" e sai de "⚠️ Faltam dados" (' + JSON.stringify(vt1Q3) + ')');
+
+  /* ---------- a ficha técnica e o manual vão à vista; o IMEI, trancado ---------- */
+  if (await novoQ3()) {
+    await p.click('dialog[open] #garmais');
+    await porQ3({ name: 'EQ3 Purificador Exemplo', 'garantia.compra.data': dCompraQ3, 'garantia.compra.naoSei': true, 'garantia.marca': 'Marca Exemplo', 'garantia.modelo': 'PX-100', 'garantia.codigo': '7890000000001', 'garantia.serie': SN_Q3, 'garantia.voltagem': 'bivolt', 'garantia.cor': 'prata',
+      'garantia.manualUrl': '  https://www.exemplo.com.br/manuais/px-100.pdf  ', '_sec.imei': IMEI_Q3, '_sec.pedido': PED_Q3 });
+    await okQ3(); await p.waitForTimeout(800);
+  }
+  const puQ3 = await p.evaluate(async () => { const t = DB.raw('things').find((x) => x.name === 'EQ3 Purificador Exemplo'); if (!t) return { id: 'nenhum', g: {}, json: '', vcru: '' }; const v = DB.col('vault').get('gv_' + t.id); let o = null; try { o = await Vault.decObj(v.enc); } catch (e) {} return { id: t.id, g: t.garantia, json: JSON.stringify(t), o, vcru: v ? JSON.stringify(v) : '' }; });
+  const gpQ3 = puQ3.g || {};
+  conferir(gpQ3.marca === 'Marca Exemplo' && gpQ3.modelo === 'PX-100' && gpQ3.codigo === '7890000000001' && gpQ3.serie === SN_Q3 && gpQ3.voltagem === 'bivolt' && gpQ3.cor === 'prata' && gpQ3.manualUrl === 'https://www.exemplo.com.br/manuais/px-100.pdf',
+    'EQ3a. a ficha técnica e o link do manual (sem os espaços) ficam no objeto, à vista: marca, modelo, código, número de série, voltagem e cor (' + JSON.stringify([gpQ3.codigo, gpQ3.serie, gpQ3.voltagem, gpQ3.cor, gpQ3.manualUrl]) + ')');
+  conferir(!!gpQ3.compra && gpQ3.compra.naoSei === false && gpQ3.compra.data === dCompraQ3, 'EQ3a. "Não sei a data" marcado junto com a data: vale a data (a caixinha fica desmarcada no objeto) (' + JSON.stringify(gpQ3.compra) + ')');
+  conferir(!!puQ3.o && puQ3.o.imei === IMEI_Q3 && puQ3.o.pedido === PED_Q3 && !('serie' in puQ3.o) && !JSON.stringify(puQ3.o).includes(SN_Q3) && !!gpQ3.finais && gpQ3.finais.imei === '0002' && !('serie' in gpQ3.finais) && !puQ3.json.includes(IMEI_Q3) && !puQ3.json.includes(PED_Q3) && !puQ3.vcru.includes(IMEI_Q3),
+    'EQ3a. o IMEI e o pedido vão trancados nas Senhas da casa (no objeto, só o final 0002 do IMEI); a série não vai para lá (D-G16 d, D-G17) (' + JSON.stringify([puQ3.o && Object.keys(puQ3.o), gpQ3.finais]) + ')');
+
+  /* ---------- o link do manual ruim é recusado com a janela aberta ---------- */
+  const abriuL3 = await editarQ3(puQ3.id);
+  for (const lk of ['javascript:alert(1)', 'http://192.168.0.1/manual.pdf', 'ftp://exemplo.com.br/manual.pdf', 'https://exemplo.com.br/x"onmouseover="alert(1)', 'exemplo.com.br/manual.pdf']) {
+    const r = !abriuL3 ? { falta: 'a janela' } : await p.evaluate(async (lk) => {
+      const m = document.querySelector('dialog[open]'), i = m && m.querySelector('[name="garantia.manualUrl"]'); if (!i) return { falta: 'garantia.manualUrl' };
+      const u0 = (DB.raw('things').find((x) => x.name === 'EQ3 Purificador Exemplo') || {}).updatedAt; i.value = lk; m.querySelector('[data-ok]').click(); await new Promise((x) => setTimeout(x, 400));
+      return { aberta: !!document.querySelector('dialog[open] [name="name"]'), mudou: (DB.raw('things').find((x) => x.name === 'EQ3 Purificador Exemplo') || {}).updatedAt !== u0, toast: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '' };
+    }, lk);
+    conferir(!r.falta && r.aberta && !r.mudou && /O link do manual precisa ser o endereço de um site, começando com http:\/\/ ou https:\/\//.test(r.toast), 'EQ3a. o link do manual "' + lk + '": recusado com a janela aberta e nada gravado' + (r.falta ? ' (falta ' + r.falta + ')' : ' — "' + r.toast + '"'));
+  }
+  await cancelarQ3();
+
+  /* ---------- um número com cara de IMEI na série: o app pergunta antes ---------- */
+  const serieQ3 = () => p.evaluate((id) => ((DB.col('things').get(id) || {}).garantia || {}).serie, puQ3.id);
+  const abriuI3 = await editarQ3(puQ3.id);
+  if (abriuI3) { await porQ3({ 'garantia.serie': IMEI2_Q3 }); await okQ3(); }
+  const pg1Q3 = abriuI3 ? await perguntaQ3() : '';
+  if (pg1Q3) await p.click('dialog[open] [data-no]');
+  await p.waitForTimeout(400);
+  const naoQ3 = { aberta: await abertaQ3(), serie: await serieQ3() };
+  conferir(/Isto parece o IMEI de um celular \(15 números\)\. O IMEI fica trancado em 🔐 Protegido; aqui vai o número de série da etiqueta\. Gravar mesmo assim como número de série\?/.test(pg1Q3) && /Gravar como série/.test(pg1Q3),
+    'EQ3a. um IMEI de mentira no número de série: antes de gravar, o app pergunta ("Isto parece o IMEI de um celular (15 números)… Gravar mesmo assim como número de série?" [Gravar como série]) (' + pg1Q3.replace(/\s+/g, ' ').slice(0, 90) + ')');
+  conferir(naoQ3.aberta && naoQ3.serie === SN_Q3, 'EQ3a. ... "Cancelar": a janela continua aberta e nada é gravado (' + JSON.stringify(naoQ3) + ')');
+  if (naoQ3.aberta) await okQ3();
+  const pg2Q3 = naoQ3.aberta ? await perguntaQ3() : '';
+  if (pg2Q3) await p.click('dialog[open] [data-yes]');
+  await p.waitForTimeout(700);
+  const simQ3 = { aberta: await abertaQ3(), serie: await serieQ3() };
+  conferir(!!pg2Q3 && !simQ3.aberta && simQ3.serie === IMEI2_Q3, 'EQ3a. ... "Gravar como série": grava no número de série, como a pessoa quis (' + JSON.stringify(simQ3) + ')');
+  const abriuI4 = await editarQ3(puQ3.id);
+  if (abriuI4) await okQ3();
+  const pg3Q3 = abriuI4 ? await perguntaQ3() : 'não abriu';
+  if (pg3Q3) await p.click('dialog[open] [data-yes]').catch(() => {});
+  await p.waitForTimeout(400);
+  conferir(abriuI4 && !pg3Q3 && !(await abertaQ3()), 'EQ3a. ... salvar de novo sem mudar a série não pergunta outra vez');
+  if (await abertaQ3()) await cancelarQ3();
+  await p.evaluate(async (a) => { const t = DB.col('things').get(a.id); if (t) await DB.put('things', Object.assign({}, t, { garantia: Object.assign({}, t.garantia, { serie: a.sn }) }), true); }, { id: puQ3.id, sn: SN_Q3 });
+
+  /* ---------- a série à vista para quem vê o equipamento; o IMEI só no modo aberto ---------- */
+  await p.evaluate(() => { S.role = 'adulto'; });
+  const abriuM3 = await editarQ3(puQ3.id);
+  const fmQ3 = abriuM3 ? await p.evaluate(() => { const m = document.querySelector('dialog[open]'), i = m.querySelector('[name="garantia.serie"]'); return { serie: i ? i.value : null, vis: !!i && !!(i.offsetWidth || i.offsetHeight), sec: m.querySelectorAll('[name^="_sec."]').length, imei: /IMEI \(celular/.test(m.textContent) }; }) : {};
+  await cancelarQ3();
+  const buscaM3 = await p.evaluate((sn) => Search.find(sn).map((x) => x.t), SN_Q3);
+  conferir(abriuM3 && fmQ3.serie === SN_Q3 && fmQ3.vis && fmQ3.sec === 0 && !fmQ3.imei && buscaM3.includes('EQ3 Purificador Exemplo'), 'EQ3a. quem não é responsável ("Toda a família"): vê o número de série à vista no ✏️ (e a 🔍 acha por ele), sem nenhum campo trancado nem o do IMEI (' + JSON.stringify([fmQ3, buscaM3]) + ')');
+  await p.evaluate(() => { S.role = 'crianca'; });
+  const criQ3 = await p.evaluate((a) => { const t = DB.get('things', a.id); return { ve: !!t, serie: t ? Garantias.ler(t).serie : null, busca: Search.find(a.sn).map((x) => x.t) }; }, { id: puQ3.id, sn: SN_Q3 });
+  conferir(criQ3.ve && criQ3.serie === SN_Q3 && criQ3.busca.includes('EQ3 Purificador Exemplo'), 'EQ3a. criança ("Toda a família"): o equipamento e o número de série à vista (a 🔍 acha por ele) (' + JSON.stringify(criQ3) + ')');
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  /* Senhas da casa fechadas: nenhum campo trancado, e a nota fala do IMEI */
+  await p.evaluate(() => Vault.lock());
+  const abriuF3 = await editarQ3(puQ3.id);
+  const ffQ3 = abriuF3 ? await p.evaluate(() => { const m = document.querySelector('dialog[open]'); return { sec: m.querySelectorAll('[name^="_sec."]').length, txt: m.textContent }; }) : { sec: -1, txt: '' };
+  await cancelarQ3();
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); });
+  conferir(abriuF3 && ffQ3.sec === 0 && /O valor pago, o pedido, o bilhete e o IMEI ficam trancados nas Senhas da casa/.test(ffQ3.txt) && !/a série ficam trancados/.test(ffQ3.txt) && !/IMEI \(celular/.test(ffQ3.txt), 'EQ3a. Senhas da casa fechadas: nenhum campo trancado (nem o do IMEI), e a nota fala do IMEI trancado (não mais da série)');
+  /* "Só responsáveis": quem não é responsável deixa de ver o equipamento e a série */
+  const abriuR3 = await editarQ3(puQ3.id);
+  if (abriuR3) { await porQ3({ vis: 'restrito' }); await okQ3(); await p.waitForTimeout(700); }
+  await p.evaluate(() => { S.role = 'adulto'; });
+  const memQ3 = await p.evaluate((a) => ({ get: !!DB.get('things', a.id), all: DB.all('things').some((t) => t.id === a.id), busca: Search.find(a.sn).length + Search.find('EQ3 Purificador').length }), { id: puQ3.id, sn: SN_Q3 });
+  const semJQ3 = await semJanela('gar.edit', 'EQ3 Purificador Exemplo');
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(abriuR3 && !memQ3.get && !memQ3.all && !memQ3.busca && semJQ3, 'EQ3a. "Só responsáveis": quem não é responsável não vê o equipamento nem o número de série (nem pela 🔍, nem pelo ✏️) (' + JSON.stringify(memQ3) + ')');
+
+  /* ---------- um item das Senhas gravado antes, com a série trancada: salvar deixa só o "imei" ---------- */
+  const velhoQ3 = await p.evaluate(async () => {
+    const t = await DB.put('things', { name: 'EQ3 Celular Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, vaultId: 'x', finais: { pedido: '', bilhete: '', serie: '0009' } } }, true);
+    await DB.put('vault', { id: 'gv_' + t.id, kind: 'seguro', enc: await Vault.encObj({ kind: 'seguro', title: 'EQ3 Celular Exemplo — números da garantia', serie: 'SN-VELHA-EQ3-0009', pedido: '', garantiaDe: t.id }), files: [], vis: 'restrito' }, true);
+    return t.id;
+  });
+  const abriuV3 = await editarQ3(velhoQ3);
+  const campoV3 = abriuV3 ? await p.inputValue('dialog[open] [name="_sec.imei"]', { timeout: 2000 }).catch(() => null) : null;
+  if (abriuV3) { await okQ3(); await p.waitForTimeout(800); }
+  const v3Q3 = await p.evaluate(async (id) => { const t = DB.col('things').get(id), v = DB.col('vault').get('gv_' + id); let o = null; try { o = await Vault.decObj(v.enc); } catch (e) {} return t ? { finais: t.garantia.finais, o, json: JSON.stringify(t) } : { json: '' }; }, velhoQ3);
+  conferir(campoV3 === 'SN-VELHA-EQ3-0009' && !!v3Q3.o && v3Q3.o.imei === 'SN-VELHA-EQ3-0009' && !('serie' in v3Q3.o) && !!v3Q3.finais && v3Q3.finais.imei === '0009' && !('serie' in v3Q3.finais) && !v3Q3.json.includes('SN-VELHA-EQ3-0009'),
+    'EQ3a. item das Senhas com a série de antes: o ✏️ mostra o número no IMEI e salvar deixa só o "imei" trancado; no objeto, o final do IMEI e nenhum "finais.serie" (' + JSON.stringify([campoV3, v3Q3.finais, v3Q3.o && Object.keys(v3Q3.o)]) + ')');
+  const velho2Q3 = await p.evaluate(async () => (await DB.put('things', { name: 'EQ3 Tablet Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, finais: { pedido: '0001', bilhete: '', serie: '0007' } } }, true)).id);
+  await p.evaluate(() => Vault.lock());
+  const abriuV4 = await editarQ3(velho2Q3);
+  if (abriuV4) { await okQ3(); await p.waitForTimeout(700); }
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); });
+  const v4Q3 = await p.evaluate((id) => ((DB.col('things').get(id) || {}).garantia || {}).finais, velho2Q3);
+  conferir(abriuV4 && canon(v4Q3) === canon({ pedido: '0001', bilhete: '', imei: '' }), 'EQ3a. salvar com as Senhas da casa fechadas refaz os finais só com pedido, bilhete e IMEI: o "finais.serie" de antes não fica (' + JSON.stringify(v4Q3) + ')');
+
+  /* ---------- "saiu de casa": sai o que está trancado (o IMEI junto); a série fica como histórico ---------- */
+  const abriuS3 = await editarQ3(puQ3.id);
+  let psQ3 = '';
+  if (abriuS3) { await porQ3({ _saiuComo: 'doado', _saiuEm: hojeISO }); await okQ3(); psQ3 = await perguntaQ3(); if (psQ3) await p.click('dialog[open] [data-yes]'); await p.waitForTimeout(800); }
+  const s3Q3 = await p.evaluate((id) => { const t = DB.col('things').get(id); if (!t) return {}; return { saiu: t.garantia.saiu, finais: t.garantia.finais, serie: t.garantia.serie, vault: !!DB.col('vault').get('gv_' + id) }; }, puQ3.id);
+  conferir(/Apagar a nota, o bilhete e o que está trancado \(pedido, nº do bilhete, IMEI e valor pago\)\? O número de série e o resto da ficha ficam como histórico\./.test(psQ3), 'EQ3a. "saiu de casa": a pergunta diz o que sai (o que está trancado: pedido, nº do bilhete, IMEI e valor pago) e o que fica (o número de série e a ficha) (' + psQ3.replace(/\s+/g, ' ').slice(0, 120) + ')');
+  conferir(!!s3Q3.saiu && s3Q3.saiu.como === 'doado' && canon(s3Q3.finais) === canon({ pedido: '', bilhete: '', imei: '' }) && !s3Q3.vault && s3Q3.serie === SN_Q3, 'EQ3a. ... com o "sim": o IMEI (e o resto trancado) sai e o número de série fica, como histórico (' + JSON.stringify(s3Q3) + ')');
+
+  /* ---------- o "Quem vê" do equipamento leva junto os lembretes de manutenção, o folheto e o manual ---------- */
+  const vjQ3 = await p.evaluate(async () => {
+    const pdf = (s) => new File([new TextEncoder().encode('%PDF-1.4 ' + s)], s + '.pdf', { type: 'application/pdf' });
+    const t = await DB.put('things', { name: 'EQ3 Ar Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } }, true);
+    const outro = await DB.put('things', { name: 'EQ3 Outro Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } }, true);
+    const f = async (nome, opt, gar) => { const id = await Files.save(pdf(nome), Object.assign({ raw: true }, opt)); await DB.put('files', Object.assign({}, Files.meta(id), { gar }), true); return id; };
+    const termo = await f('folheto', { vis: 'familia' }, t.id), manual = await f('manual', { vis: 'familia' }, t.id), nota = await f('nota-fiscal', { encrypt: true, vis: 'restrito' }, t.id), alheio = await f('folheto-outro', { vis: 'familia' }, outro.id);
+    await DB.put('things', Object.assign({}, DB.col('things').get(t.id), { garantia: Object.assign({}, t.garantia, { arquivos: [{ id: termo, tipo: 'termo', em: today() }, { id: manual, tipo: 'manual', em: today() }, { id: nota, tipo: 'nota', em: today() }, { id: alheio, tipo: 'termo', em: today() }] }) }), true);
+    const mt = async (title, coisa) => (await DB.put('maint', Object.assign({ title, cat: 'eletro', interval: 183, last: today(), next: GarCalc.somaDias(today(), 183), nextManual: false, history: [], vis: 'familia' }, coisa ? { coisa } : {}), true)).id;
+    return { id: t.id, termo, manual, nota, alheio, m1: await mt('Limpeza do ar-condicionado — EQ3 Ar Exemplo', t.id), m2: await mt('Troca do filtro — EQ3 Ar Exemplo', t.id), m3: await mt('Limpeza — EQ3 Outro Exemplo', outro.id), m4: await mt('Dedetização', '') };
+  });
+  const visDeQ3 = () => p.evaluate((a) => { const v = (c, id) => (DB.col(c).get(id) || {}).vis; return { t: v('things', a.id), m: [a.m1, a.m2, a.m3, a.m4].map((id) => v('maint', id)), f: [a.termo, a.manual, a.nota, a.alheio].map((id) => v('files', id)) }; }, vjQ3);
+  const abriuJ3 = await editarQ3(vjQ3.id);
+  if (abriuJ3) { await porQ3({ vis: 'restrito' }); await okQ3(); await p.waitForTimeout(800); }
+  const vj1Q3 = await visDeQ3();
+  conferir(abriuJ3 && vj1Q3.t === 'restrito' && canon(vj1Q3.m) === canon(['restrito', 'restrito', 'familia', 'familia']) && canon(vj1Q3.f) === canon(['restrito', 'restrito', 'restrito', 'familia']),
+    'EQ3a. "Só responsáveis" pelo formulário: os lembretes de manutenção do equipamento, o folheto e o manual passam a "Só responsáveis" junto (os de outra coisa não mudam) (' + JSON.stringify(vj1Q3) + ')');
+  await p.evaluate((id) => { editThing(Object.assign({}, DB.get('things', id))); }, vjQ3.id);
+  const abriuJ4 = await p.waitForSelector('dialog[open] [name="vis"]', { timeout: 5000 }).then(() => true, () => false);
+  if (abriuJ4) { await p.selectOption('dialog[open] [name="vis"]', 'familia'); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(800); }
+  const vj2Q3 = await visDeQ3();
+  conferir(abriuJ4 && vj2Q3.t === 'familia' && canon(vj2Q3.m) === canon(['familia', 'familia', 'familia', 'familia']) && canon(vj2Q3.f) === canon(['familia', 'familia', 'restrito', 'familia']),
+    'EQ3a. ... e de volta a "Toda a família" pelo ✏️ do Onde está?: os lembretes, o folheto e o manual voltam junto; a nota continua "Só responsáveis" (' + JSON.stringify(vj2Q3) + ')');
+  /* a dica do "Quem vê" só no modo nuvem (R21: vale daqui para frente) */
+  const dicaQ3 = await p.evaluate(() => { const h = (fs) => String((fs.find((f) => f.k === 'vis') || {}).hint || ''); const local = h(Garantias.campos('aberto', [])), m0 = S.mode; let nuvem = ''; try { S.mode = 'cloud'; nuvem = h(Garantias.campos('aberto', [])); } finally { S.mode = m0; } return { local, nuvem, modo: m0 }; });
+  conferir(dicaQ3.modo === 'local' && !/daqui para frente/.test(dicaQ3.local) && /Mudar para “Só responsáveis” vale daqui para frente: num celular que já abriu este equipamento, o que estava escrito pode continuar aparecendo\./.test(dicaQ3.nuvem), 'EQ3a. a dica do "Quem vê" (mudar para "Só responsáveis" vale daqui para frente) só no modo nuvem (' + JSON.stringify(dicaQ3) + ')');
+
+  /* ---------- o ✏️ do Onde está?: o aviso novo e o 🗑 (criança não apaga equipamento) ---------- */
+  const semGQ3 = await p.evaluate(async () => (await DB.put('things', { name: 'EQ3 Caneca Exemplo', place: '', tags: [], vis: 'familia' }, true)).id);
+  const lixeiraQ3 = async (id) => {
+    await p.evaluate((id) => { editThing(Object.assign({}, DB.get('things', id))); }, id);
+    const ok = await p.waitForSelector('dialog[open] [name="name"]', { timeout: 5000 }).then(() => true, () => false);
+    const r = ok ? await p.evaluate(() => ({ del: !!document.querySelector('dialog[open] [data-del]'), txt: document.querySelector('dialog[open]').textContent })) : null;
+    await cancelarQ3(); return r;
+  };
+  const adQ3 = await lixeiraQ3(vjQ3.id);
+  conferir(!!adQ3 && adQ3.del && /🧾 Este objeto está em Equipamentos e garantias\. Excluir apaga junto os papéis, os números, os atendimentos e os lembretes de manutenção\./.test(adQ3.txt), 'EQ3a. adulto: o ✏️ do Onde está? de um equipamento tem o 🗑 e avisa "Este objeto está em Equipamentos e garantias. Excluir apaga junto … os lembretes de manutenção."');
+  await p.evaluate(() => { S.role = 'crianca'; });
+  const crEqQ3 = await lixeiraQ3(vjQ3.id), crSemQ3 = await lixeiraQ3(semGQ3);
+  const crApQ3 = await p.evaluate(async (id) => { const n0 = DB.raw('files').filter((f) => f.gar === id).length; try { await Garantias.apagar(DB.col('things').get(id)); } catch (e) {} await new Promise((r) => setTimeout(r, 200)); return { existe: !!DB.col('things').get(id), files: DB.raw('files').filter((f) => f.gar === id).length === n0 && n0 > 0, toast: [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '' }; }, vjQ3.id);
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(!!crEqQ3 && !crEqQ3.del, 'EQ3a. criança: no ✏️ do Onde está? de um equipamento, sem o 🗑 Excluir');
+  conferir(!!crSemQ3 && crSemQ3.del, 'EQ3a. criança: num objeto sem garantia, o 🗑 continua como antes');
+  conferir(crApQ3.existe && crApQ3.files && /Peça para um responsável/.test(crApQ3.toast), 'EQ3a. criança: Garantias.apagar recusa ("Peça para um responsável…") e nada sai (' + JSON.stringify(crApQ3) + ')');
+
+  /* ---------- números ainda chegando (modo "falta"): a nota fala do equipamento ---------- */
+  const faltaQ3 = await p.evaluate(async () => (await DB.put('things', { name: 'EQ3 Falta Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, vaultId: 'gv_x' } }, true)).id);
+  const abriuFa3 = await editarQ3(faltaQ3);
+  const faTxtQ3 = abriuFa3 ? await p.evaluate(() => document.querySelector('dialog[open]').textContent) : '';
+  await cancelarQ3();
+  conferir(/Os números deste equipamento não estão neste aparelho agora, então não mudam por aqui\./.test(faTxtQ3), 'EQ3a. números ainda chegando (modo "falta"): "Os números deste equipamento não estão neste aparelho agora, então não mudam por aqui."');
+
+  /* ---------- <img onerror> na ficha técnica e no link: nada vira HTML ---------- */
+  if (await novoQ3()) {
+    await p.click('dialog[open] #garmais');
+    await porQ3({ name: 'EQ3 XSS Exemplo', 'garantia.compra.data': dCompraQ3, 'garantia.marca': XSS, 'garantia.modelo': XSS, 'garantia.codigo': XSS, 'garantia.serie': XSS, 'garantia.cor': XSS, 'garantia.manualUrl': 'https://exemplo.com.br/' + XSS });
+    await okQ3(); await p.waitForTimeout(500);
+  }
+  const xLkQ3 = { aberta: await abertaQ3(), toast: await ultimoToastQ3() };
+  if (xLkQ3.aberta) { await porQ3({ 'garantia.manualUrl': '' }); await okQ3(); await p.waitForTimeout(700); }
+  const xidQ3 = await p.evaluate(() => (DB.raw('things').find((x) => x.name === 'EQ3 XSS Exemplo') || {}).id || 'nenhum');
+  conferir(xLkQ3.aberta && /O link do manual precisa ser/.test(xLkQ3.toast), 'EQ3a. <img onerror> no link do manual: recusado com a janela aberta');
+  const xgQ3 = await p.evaluate((id) => ((DB.col('things').get(id) || {}).garantia || {}), xidQ3);
+  conferir([xgQ3.marca, xgQ3.modelo, xgQ3.codigo, xgQ3.serie, xgQ3.cor].every((v) => v === XSS), 'EQ3a. <img onerror> na marca, no modelo, no código, na série e na cor: fica como texto');
+  await p.evaluate(() => { S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(500); await limpo('EQ3a. a lista, com <img onerror> na ficha técnica,');
+  await p.evaluate((id) => go('garantias', 'ficha', id), xidQ3); await p.waitForTimeout(500); await limpo('EQ3a. a ficha, com <img onerror> na ficha técnica,');
+  await p.evaluate((id) => { ACT['gar.edit']({ id }); }, xidQ3);
+  await p.waitForSelector('dialog[open] [name="name"]', { timeout: 5000 }).catch(() => {}); await p.waitForTimeout(300);
+  await limpo('EQ3a. o ✏️, com <img onerror> na ficha técnica,');
+  const xvQ3 = await p.evaluate(() => ['garantia.marca', 'garantia.modelo', 'garantia.codigo', 'garantia.serie', 'garantia.cor'].map((n) => (document.querySelector('dialog[open] [name="' + n + '"]') || {}).value));
+  await cancelarQ3();
+  conferir(xvQ3.every((v) => v === XSS), 'EQ3a. ... e o ✏️ mostra o texto como ele é, sem virar HTML');
+  await p.evaluate(() => Search.open()); await p.waitForSelector('#gsq', { timeout: 5000 }); await p.fill('#gsq', 'EQ3 XSS'); await p.waitForTimeout(500); await limpo('EQ3a. a 🔍, com <img onerror> na ficha técnica,'); await fecharJanelas(p);
+
+  /* ---------- EN ---------- */
+  await p.evaluate(() => { setLang('en'); go('garantias'); }); await p.waitForTimeout(400);
+  await p.evaluate(() => { ACT['gar.new'](); });
+  const abriuEn3 = await p.waitForSelector('dialog[open] #garmais', { timeout: 5000 }).then(() => true, () => false);
+  if (abriuEn3) await p.click('dialog[open] #garmais');
+  const enQ3 = abriuEn3 ? await p.evaluate(() => document.querySelector('dialog[open]').textContent) : '';
+  await cancelarQ3();
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
+  conferir(/I don't know the purchase date/.test(enQ3) && /The item goes on the list; the warranty is only worked out with the date\./.test(enQ3) && /🔌 Specs/.test(enQ3) && /Product code/.test(enQ3) && /Serial number/.test(enQ3) && /Voltage/.test(enQ3) && /Dual voltage \(110 and 220\)/.test(enQ3) && /Color/.test(enQ3) && /Manual link \(brand's website\)/.test(enQ3) && /IMEI \(phone or tablet with a SIM; dial \*#06#\)/.test(enQ3) &&
+    !/Não sei a data|Ficha técnica|Número de série|Código do produto|Link do manual/.test(enQ3), 'EQ3a. EN: a janela em inglês (a caixinha, a ficha técnica, o manual e o IMEI)');
+  /* o idioma no código: os textos novos do cadastro em PT, EN e ES */
+  const srcQ3 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const ttQ3 = (txt) => { const i = srcQ3.indexOf('tt("' + txt + '"'); return i < 0 ? null : ttChamadas(srcQ3.slice(i, i + 3000))[0]; };
+  const novosQ3 = ['Não sei a data da compra', 'O equipamento entra na lista; a garantia só é contada com a data.', 'Ficha técnica', 'Código do produto', 'Número de série', 'Voltagem', 'Bivolt (110 e 220)', 'Link do manual (site da marca)', 'IMEI (celular ou tablet com chip; disque *#06#)',
+    'O link do manual precisa ser o endereço de um site, começando com http:// ou https://.', 'Gravar como série', 'Mudar para “Só responsáveis” vale daqui para frente: num celular que já abriu este equipamento, o que estava escrito pode continuar aparecendo.'].map((t) => [t, ttQ3(t)]);
+  const ruinsQ3 = novosQ3.filter(([, c]) => !c || c.args.length !== 3 || !c.args[2].txt || c.args[2].txt === c.args[0].txt && c.args[0].txt.split(' ').length >= 3 || /\bcelular\b/i.test(c.args[2].txt));
+  conferir(!ruinsQ3.length, 'EQ3a. idioma: os textos novos do cadastro em PT, EN e ES (o ES sem "celular")' + (ruinsQ3.length ? ' — ' + ruinsQ3.map(([t]) => t).join(' | ') : ''));
+  /* nada dos números no console nem no Telem */
+  const logsQ3 = consoleTxt.join('\n') + JSON.stringify(await p.evaluate(() => Telem.list()));
+  conferir(![IMEI_Q3, PED_Q3, SN_Q3, 'SN-VELHA-EQ3-0009'].some((x) => logsQ3.includes(x)), 'EQ3a. console e Telem sem o IMEI, o pedido e o número de série');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ3a: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -2588,5 +2870,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos)');
 })().catch((e) => { console.error(e); process.exit(1); });
