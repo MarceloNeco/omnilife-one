@@ -132,6 +132,18 @@
      - Cars.importar e Pets.ligarAntigos não pegam lembrete de equipamento; o ✏️ de Casa → Manutenção sem "🚗 De qual veículo" e com
        "🔌 Ligado a"; apagar pelo ✏️ do Onde está? leva os lembretes; "casa.manutencao" desligada: sem o 🛠; criança sem ＋, ✓, 📅 e 🚫;
        390 px com 44 px; EN; idioma
+     EQ5 — Equipamentos e garantias: a leitura da nota (G6), o 📥 (G7), a ajuda, o bastão e o que atravessa (D-G16 d, D-G17, D-G19)
+     - 📷: a série lida vai para o campo à vista; um IMEI (pelo rótulo ou com cara de IMEI) vai para o campo trancado, só com as Senhas da
+       casa abertas (fechadas: descartado, e a série continua à vista); o link do manual nunca vem da leitura; os "finais" refeitos só
+       com pedido, bilhete e IMEI; para a IA, nada da série, do IMEI nem da ficha técnica
+     - 📥: os campos novos (série à vista, link do manual, voltagem, cor, código, "Não sei a data"), o IMEI trancado, os lembretes de
+       manutenção ligados ao equipamento certo, em dias, com o "Quem vê" do objeto, no tudo ou nada; o resumo com L lembretes, N já
+       atrasados e S sem a última vez; o mesmo arquivo de novo não repete lembrete; EN
+     - a ajuda com o nome novo, o inventário, a ficha técnica (série à vista, IMEI trancado), o manual, a manutenção, as Vencidas e o
+       exemplo do purificador (D-G19) em PT, EN e ES, sem nenhum número do dono; a 🔍 acha a ajuda pelas palavras novas; AssistONE e dica
+     - "Passar o bastão" sem o IMEI; o IMEI nunca na linha do objeto nem na do lembrete; o LONGOS da G3 invertido para a série (ela pode
+       ficar no objeto, nunca no item das Senhas, na lista, no que a 🔍 mostra, nos avisos, no console nem no Telem); no Giro, o IMEI
+       trancado, a série à vista e o lembrete ligado iguais depois da troca
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -760,6 +772,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   if (abriuE) {
     if (!(await p.evaluate(() => { const i = document.querySelector('dialog[open] [name="_sec.pedido"]'); return !!(i.offsetWidth || i.offsetHeight); }))) await p.click('dialog[open] #garmais');
     for (const [k, v] of [['pedido', PEDIDO], ['number', BILHETE], ['imei', IMEI3], ['chaveNF', CHAVE], ['valor', '1299.9'], ['preco', '199.9'], ['pagamento', 'Cartão de crédito em 10x'], ['cartaoFinal', '4321']]) await p.fill('dialog[open] [name="_sec.' + k + '"]', v, { timeout: 5000 }).catch(() => {});   /* campo que falta: as conferências abaixo dão ✗ */
+    /* EQ5 (D-G16 d): o número de série vai no campo à vista da 🔌 Ficha técnica */
+    await p.fill('dialog[open] [name="garantia.serie"]', SERIE, { timeout: 5000 }).catch(() => {});
     await okForm();
   }
   const sg = await p.evaluate(async (id) => {
@@ -774,6 +788,18 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     sg.o.valorCent === '129990' && sg.o.precoCent === '19990' && sg.o.pagamento === 'Cartão de crédito em 10x' && sg.o.cartaoFinal === '4321' && sg.o.garantiaDe === tid3 && sg.o.title === 'Purificador Exemplo G3 — números da garantia',
     'G3. pedido, bilhete, IMEI, chave da nota, valor, preço da estendida, pagamento e final do cartão trancados no item "gv_" + id das Senhas da casa (seguro, só responsáveis) (' + JSON.stringify(sg.o && Object.keys(sg.o)) + ')');
   conferir(!LONGOS.slice(0, 4).some((x) => sg.idb.includes(x) || sg.ls.includes(x) || sg.busca.includes(x)), 'G3. nada aberto no aparelho (IndexedDB, localStorage) nem na 🔍');
+  /* EQ5 (LONGOS invertido para a série, D-G16 d): o número de série PODE ficar no objeto (à vista para quem vê o equipamento), mas
+     nunca no item das Senhas da casa (nem em claro, nem dentro), na linha da lista, no que a 🔍 mostra nem nos avisos; o console e o
+     Telem são conferidos no fim */
+  const sgS = await p.evaluate(async (a) => {
+    S.garF = 'todos'; go('garantias'); await new Promise((r) => setTimeout(r, 400));
+    const li = [...document.querySelectorAll('#screen .gar-lista .li')].map((x) => x.innerText).join(' | ');
+    const s = Search.sources().filter((x) => x.grp === 'Equipamentos e garantias').map((x) => x.t + ' · ' + x.s).join(' | ');
+    let av = ''; try { av = JSON.stringify(Alerts.list()) + JSON.stringify(Garantias.marcos(today())) + JSON.stringify(Garantias.agenda(addDays(today(), -400), addDays(today(), 800))); } catch (e) { av = 'erro: ' + e.message; }
+    return { li, s, av, achou: li.includes('Purificador Exemplo G3') };
+  }, { id: tid3 });
+  conferir(abriuE && sg.t.includes(SERIE) && !sg.v.cru.includes(SERIE) && !JSON.stringify(sg.o || {}).includes(SERIE) && sgS.achou && !sgS.li.includes(SERIE) && !sgS.s.includes(SERIE) && !sgS.av.includes(SERIE) && !/erro:/.test(sgS.av),
+    'G3 (EQ5, D-G16 d: LONGOS invertido para a série). o número de série fica no objeto, à vista, mas nunca no item das Senhas da casa (nem em claro, nem dentro), na linha da lista, no que a 🔍 mostra nem nos avisos (' + JSON.stringify({ obj: sg.t.includes(SERIE), gv: JSON.stringify(sg.o || {}).includes(SERIE), linha: sgS.li.includes(SERIE), busca: sgS.s.includes(SERIE), avisos: sgS.av.includes(SERIE) }) + ')');
   await ficha(tid3);
   await p.waitForFunction(() => document.querySelector('#garnum [data-olho]'), null, { timeout: 5000 }).catch(() => {});
   ft = await telaTxt();
@@ -1531,15 +1557,15 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const ld = l6.d || {}, ln = l6.n || {}, lb = l6.b || {}, lsg = l6.s || {}, sec6 = (x) => x.sec || {};
   conferir(ld.tipo === 'nota' && ld.data === '2024-03-10' && ld.loja === 'LOJA EXEMPLO COMERCIO LTDA' && ld.nome === 'PURIFICADOR EXEMPLO ABC1234' && sec6(ld).pedido === PEDIDO && sec6(ld).serie === SERIE && sec6(ld).chaveNF === CHAVE && sec6(ld).valor === 1299,
     'G6. a nota (DANFE): a data da compra, a loja (do emitente), o produto, o pedido, a série, a chave (quebrada em 2 linhas) e o valor (' + JSON.stringify(Object.assign({}, ld, { sec: Object.keys(sec6(ld)) })) + ')');
-  conferir(ln.tipo === 'nota' && ln.data === '2024-03-10' && ln.loja === 'LOJA EXEMPLO COMERCIO LTDA' && ln.nome === 'SMARTPHONE EXEMPLO ABC1234' && sec6(ln).serie === IMEI6 && sec6(ln).chaveNF === CHAVE65 && sec6(ln).valor === 1299,
-    'G6. o cupom (NFC-e): a data, a loja, o produto, o IMEI (como série) e a chave do link do QR (' + JSON.stringify(Object.assign({}, ln, { sec: Object.keys(sec6(ln)) })) + ')');
+  conferir(ln.tipo === 'nota' && ln.data === '2024-03-10' && ln.loja === 'LOJA EXEMPLO COMERCIO LTDA' && ln.nome === 'SMARTPHONE EXEMPLO ABC1234' && sec6(ln).imei === IMEI6 && !sec6(ln).serie && sec6(ln).chaveNF === CHAVE65 && sec6(ln).valor === 1299,
+    'G6. o cupom (NFC-e): a data, a loja, o produto, o IMEI (EQ5, troca de propósito, D-G17: à parte da série, pelo rótulo) e a chave do link do QR (' + JSON.stringify(Object.assign({}, ln, { sec: Object.keys(sec6(ln)) })) + ')');
   conferir(lb.tipo === 'bilhete' && lb.seguradora === 'SEGURADORA EXEMPLO S.A.' && lb.quem === 'seguradora' && lb.loja === 'LOJA EXEMPLO COMERCIO LTDA' && lb.nome === 'Purificador Exemplo ABC1234' && lb.data === '2024-03-10' && lb.emitidoEm === '2024-03-10' && lb.fim === '2027-03-10' && lb.meses === 24 &&
     sec6(lb).number === BILHETE && sec6(lb).serie === SERIE && sec6(lb).preco === 199.9 && sec6(lb).valor === 1299, 'G6. o bilhete: a seguradora, a loja, o produto, as datas, os meses, o número do bilhete, a série, o preço da estendida e o valor (' + JSON.stringify(Object.assign({}, lb, { sec: Object.keys(sec6(lb)) })) + ')');
   conferir(lb.inicio === '2025-03-11' && lsg.inicio === '2025-03-11' && lsg.fim === '2026-03-10', 'G6. "das 24h do dia 10/03/2025" no começo = começa no dia seguinte (11/03/2025); sem o "24h", o dia escrito (' + lb.inicio + ', ' + lsg.inicio + ')');
   conferir(lb.acionar && lb.acionar.tel === 'Central de atendimento: 0800 000 0000' && lb.acionar.whats === '(11) 90000-0000' && lb.acionar.app === 'https://www.exemplo.com.br/sinistro' && ld.acionar && !ld.acionar.app && !ln.acionar.app,
     'G6. como acionar vem do próprio papel: o 0800, o WhatsApp e o site da seguradora (nunca o link da Fazenda) (' + JSON.stringify(lb.acionar) + ')');
   conferir(lsg.tipo === 'bilhete' && !lsg.seguradora && lsg.quem === 'naosei', 'G6. "Segurado" (a pessoa) não vira seguradora (' + JSON.stringify({ seguradora: lsg.seguradora, quem: lsg.quem }) + ')');
-  conferir(lsg.nome === 'SMARTPHONE EXEMPLO' && sec6(lsg).serie === IMEI6, 'G6. o produto sai do texto filtrado: o CPF que o OCR juntou ao nome (outra coluna) some, e o IMEI vai só para os números protegidos (' + lsg.nome + ')');
+  conferir(lsg.nome === 'SMARTPHONE EXEMPLO' && sec6(lsg).imei === IMEI6 && !sec6(lsg).serie,   /* EQ5 (troca de propósito, D-G17): o IMEI à parte da série */ 'G6. o produto sai do texto filtrado: o CPF que o OCR juntou ao nome (outra coluna) some, e o IMEI vai só para os números protegidos (' + lsg.nome + ')');
   const fora6 = [ld, ln, lb, lsg].map((x) => JSON.stringify(Object.assign({}, x, { sec: null }))).join(' ');
   conferir(!l6.erro && !sobra6(fora6, PESSOAIS6.concat([PEDIDO, BILHETE, IMEI6, CHAVE, CHAVE65])).length, 'G6. nada fora dos números protegidos tem nome, CPF, endereço ou número' + (l6.erro ? ' (' + l6.erro + ')' : sobra6(fora6, PESSOAIS6).length ? ' (sobrou: ' + sobra6(fora6, PESSOAIS6.concat([PEDIDO, BILHETE, IMEI6, CHAVE, CHAVE65])).join(', ') + ')' : ''));
   const re6 = await p.evaluate(() => { try { const r = (a, b) => Garantias._reemitido(a, b); return [r({ emitidoEm: '2024-03-10', inicio: '2025-03-11' }, { emitidoEm: '2024-05-01', inicio: '2025-03-11' }), r({ emitidoEm: '2024-05-01' }, { emitidoEm: '2024-03-10' }), r({ emitidoEm: '', inicio: '2025-03-11' }, { emitidoEm: '', inicio: '2025-04-01' }), r({ inicio: '2025-04-01' }, { inicio: '2025-03-11' })]; } catch (e) { return [e.message]; } });
@@ -1580,6 +1606,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     return { txt: m.innerText, tipo: v('_tipo'), ligar: v('_ligar'), nome: v('name'), data: v('garantia.compra.data'), loja: v('garantia.compra.loja'), marca: v('garantia.marca'), modelo: v('garantia.modelo'),
       seg: v('garantia.estendida.seguradora'), quem: v('garantia.estendida.quem'), ini: v('garantia.estendida.inicio'), fim: v('garantia.estendida.fim'), emit: v('garantia.estendida.emitidoEm'), meses: v('_estMeses'),
       tel: v('garantia.estendida.acionar.tel'), whats: v('garantia.estendida.acionar.whats'), app: v('garantia.estendida.acionar.app'), guardar: v('_guardar'),
+      serie: v('garantia.serie'), hSerie: hint('garantia.serie'), manual: !!m.querySelector('[name="garantia.manualUrl"]'), imeiLbl: (() => { const i = m.querySelector('[name="_sec.imei"]'), b = i && i.closest('.fld'), sp = b && b.querySelector('span'); return sp ? sp.textContent : ''; })(),
       pedido: v('_sec.pedido'), number: v('_sec.number'), imei: v('_sec.imei'), chave: v('_sec.chaveNF'), valor: v('_sec.valor'), preco: v('_sec.preco'), nsec: m.querySelectorAll('[name^="_sec."]').length, vSec: vis('_sec.number'),
       hNome: hint('name'), hData: hint('garantia.compra.data'), hSeg: hint('garantia.estendida.seguradora'), hTel: hint('garantia.estendida.acionar.tel'),
       sug: sug ? sug.innerText : '', usar: usar ? Math.round(usar.getBoundingClientRect().height) : 0, larg: m.scrollWidth <= innerWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1,
@@ -1593,10 +1620,11 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(c61.tipo === 'nota' && c61.nome === 'Purificador Exemplo' && c61.data === '2024-03-10' && c61.marca === 'Marca Exemplo' && c61.modelo === 'ABC1234' && c61.ligar === '' && c61.guardar === true,
     'G6. a nota (PDF): o que é, a data da compra, a marca e o modelo; "Ligar a: Nova" e "Guardar este arquivo" marcado (' + JSON.stringify({ tipo: c61.tipo, nome: c61.nome, data: c61.data, ligar: c61.ligar }) + ')');
   conferir(/🤖/.test(c61.hNome || '') && /Lido com a IA/.test(c61.hNome || '') && /📱/.test(c61.hData || '') && /Lido no aparelho/.test(c61.hData || ''), 'G6. cada campo lido diz de onde veio: "🤖 Lido com a IA" (o nome) e "📱 Lido no aparelho" (a data) (' + c61.hNome + ' / ' + c61.hData + ')');
-  /* EQ1 (troca de propósito, D-G17): o campo trancado da conferência agora é o _sec.imei; até a EQ5 separar a série (à vista) do IMEI,
-     o número lido continua trancado, nesse campo */
-  conferir(c61.pedido === PEDIDO && c61.imei === SERIE && c61.chave === CHAVE && c61.valor === '1299', 'G6. com as Senhas da casa abertas (responsável), os números lidos aparecem na conferência, para conferir');
-  conferir(!sobra6(c61.fora, PESSOAIS6.concat([PEDIDO, SERIE, CHAVE])).length, 'G6. nos campos que não são protegidos, nada de nome, CPF, endereço ou número' + (sobra6(c61.fora, PESSOAIS6).length ? ' (' + sobra6(c61.fora, PESSOAIS6).join(', ') + ')' : ''));
+  /* EQ5 (troca de propósito, D-G16 d e D-G17): a série lida vai para o campo à vista; o campo trancado _sec.imei fica para o IMEI (a nota
+     não tem IMEI) */
+  conferir(c61.pedido === PEDIDO && c61.imei === '' && c61.chave === CHAVE && c61.valor === '1299', 'G6. com as Senhas da casa abertas (responsável), os números lidos aparecem na conferência, para conferir (o IMEI vazio: a nota não tem)');
+  conferir(c61.serie === SERIE && /📱 Lido no aparelho/.test(c61.hSerie || ''), 'G6 (EQ5, D-G16 d). o número de série lido vai para o campo à vista "Número de série", com "📱 Lido no aparelho" (' + c61.serie + ' · ' + c61.hSerie + ')');
+  conferir(!sobra6(c61.fora, PESSOAIS6.concat([PEDIDO, CHAVE, IMEI6])).length, 'G6. nos campos que não são protegidos, nada de nome, CPF, endereço ou número (EQ5, D-G16 d: a série pode)' + (sobra6(c61.fora, PESSOAIS6).length ? ' (' + sobra6(c61.fora, PESSOAIS6).join(', ') + ')' : ''));
   if (abriu6) { await p.fill('dialog[open] [name="name"]', 'Purificador Exemplo G6'); await okForm(); }
   const abriu62 = await p.waitForFunction(() => /2 de 2/.test((document.querySelector('dialog[open]') || {}).innerText || ''), null, { timeout: 8000 }).then(() => true, () => false);
   const s61 = await p.evaluate(async () => {
@@ -1610,9 +1638,10 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     'G6. OK: uma garantia nova com a data da compra, a marca, o modelo e "foto" (' + JSON.stringify(s61 && s61.g) + ')');
   conferir(s61 && s61.m.enc && s61.m.vis === 'restrito' && s61.m.name === 'nota-fiscal.pdf' && s61.m.gar === id61 && s61.a.tipo === 'nota' && /^[0-9a-f]{64}$/.test(s61.a.hash) && s61.txt.startsWith('%PDF-1.4\n% nota de mentira G6'),
     'G6. ... a nota guardada trancada (só um responsável abre), com o nome "nota-fiscal.pdf", a marca gar e o SHA-256 (' + JSON.stringify(s61 && Object.assign({}, s61.m, { tipo: s61.a.tipo })) + ')');
-  conferir(s61 && s61.o && s61.o.pedido === PEDIDO && s61.o.imei === SERIE && !('serie' in s61.o) && s61.o.chaveNF === CHAVE && s61.o.valorCent === '129900' && s61.g.finais.pedido === '0001' && s61.g.finais.imei === '0003' && !('serie' in s61.g.finais),
-    'G6. ... os números e o valor só nas Senhas da casa (item "gv_"); no objeto, só os finais');
-  conferir(s61 && !sobra6(s61.json + s61.files, PESSOAIS6.concat([PEDIDO, SERIE, CHAVE])).length && !s61.json.includes('129900') && !s61.json.includes('1.299'), 'G6. ... no objeto e no registro do arquivo, nada de nome, CPF, endereço, número ou valor (nem o nome original do arquivo, com CPF)');
+  /* EQ5 (troca de propósito, D-G16 d): a série fica à vista no objeto e fora das Senhas da casa */
+  conferir(s61 && s61.o && s61.o.pedido === PEDIDO && !s61.o.imei && !('serie' in s61.o) && !JSON.stringify(s61.o).includes(SERIE) && s61.o.chaveNF === CHAVE && s61.o.valorCent === '129900' && s61.g.finais.pedido === '0001' && s61.g.finais.imei === '' && !('serie' in s61.g.finais) && s61.g.serie === SERIE,
+    'G6. ... os números e o valor só nas Senhas da casa (item "gv_"); no objeto, só os finais e a série à vista (EQ5, D-G16 d)');
+  conferir(s61 && !sobra6(s61.json + s61.files, PESSOAIS6.concat([PEDIDO, CHAVE, IMEI6])).length && !s61.json.includes('129900') && !s61.json.includes('1.299'), 'G6. ... no objeto e no registro do arquivo, nada de nome, CPF, endereço, número ou valor (nem o nome original do arquivo, com CPF; a série pode, D-G16 d)');
   const c62 = abriu62 ? await campos6() : {};
   conferir(abriu62 && c62.tipo === 'bilhete' && c62.seg === 'Seguradora Exemplo S.A.' && c62.quem === 'seguradora' && c62.ini === '2025-03-11' && c62.fim === '2027-03-10' && c62.emit === '2024-03-10' && c62.number === BILHETE && c62.preco === '199.9' && c62.vSec,
     'G6. o bilhete (foto): a seguradora, o começo, o fim, a emissão, o número do bilhete e o preço (' + JSON.stringify({ seg: c62.seg, ini: c62.ini, fim: c62.fim, emit: c62.emit, preco: c62.preco }) + ')');
@@ -1788,7 +1817,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
 
   /* ---------- o cartão: só o responsável ---------- */
   const bt7 = await p.evaluate(() => { const b = document.querySelector('#screen [data-act="gar.importar"]'); return b ? { txt: (b.closest('.card') || b).innerText, h: Math.round(b.getBoundingClientRect().height) } : null; });
-  conferir(bt7 && /📥 Trazer garantias prontas \(arquivo\)/.test(bt7.txt) && bt7.h >= 44, 'G7. a lista tem o cartão "📥 Trazer garantias prontas (arquivo)", com o botão de 44 px (responsável)' + (bt7 ? '' : ' (não achei)'));
+  /* EQ5 (troca de propósito, D-G13): o cartão traz equipamentos (com ou sem garantia), "📥 Trazer equipamentos prontos (arquivo)" */
+  conferir(bt7 && /📥 Trazer equipamentos prontos \(arquivo\)/.test(bt7.txt) && bt7.h >= 44, 'G7. a lista tem o cartão "📥 Trazer equipamentos prontos (arquivo)" (EQ5, D-G13), com o botão de 44 px (responsável)' + (bt7 ? '' : ' (não achei)'));
   await p.evaluate(() => { S.role = 'adulto'; go('garantias'); }); await p.waitForTimeout(400);
   const btMem7 = await p.evaluate(() => !!document.querySelector('#screen [data-act="gar.importar"]'));
   await p.evaluate(() => { S.role = 'crianca'; go('garantias'); }); await p.waitForTimeout(400);
@@ -1840,13 +1870,13 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const fundo0 = await p.evaluate(() => window.__g6.fundo.length);
   e0 = await estado7();
   r7 = await trazer7(OK7);
-  conferir(r7.dlg && /Vai trazer/.test(r7.txt) && /4 garantias novas/.test(r7.txt) && /Purificador Exemplo/.test(r7.txt) && /2 com números ou valores \(vão trancados nas Senhas da casa\)/.test(r7.txt) && /2 papéis/.test(r7.txt) && /1 saiu de casa \(fica só como histórico, sem avisos\)/.test(r7.txt),
+  conferir(r7.dlg && /Vai trazer/.test(r7.txt) && /4 equipamentos novos/.test(r7.txt) &&   /* EQ5 (troca de propósito, D-G13): equipamentos */ /Purificador Exemplo/.test(r7.txt) && /2 com números ou valores \(vão trancados nas Senhas da casa\)/.test(r7.txt) && /2 papéis/.test(r7.txt) && /1 saiu de casa \(fica só como histórico, sem avisos\)/.test(r7.txt),
     'G7. antes de gravar, o resumo: 4 novas (com os nomes), 2 com números (trancados), 2 papéis e 1 que saiu de casa (' + r7.txt.replace(/\s+/g, ' ').slice(0, 300) + ')');
   conferir(!(await p.evaluate(() => !!window.__xss || [...document.querySelectorAll('dialog[open] [onerror]')].length)) && /Tablet Exemplo <img/.test(r7.txt), 'G7. o resumo escapa o nome (o <img onerror> aparece como texto)');
   const antesOK7 = await estado7();
   conferir(igual7(e0, antesOK7), 'G7. nada é gravado antes do "Trazer"');
   const fim7 = r7.dlg ? await confirmar7() : { fim: '', toasts: '' };
-  conferir(/✅ 4 garantias trazidas/.test(fim7.fim) && /Apague agora o arquivo do celular \(Arquivos → Downloads\): ele tem os números abertos/.test(fim7.fim), 'G7. no fim: "✅ 4 garantias trazidas" e o pedido de apagar o arquivo do celular (' + (fim7.fim || fim7.toasts).replace(/\s+/g, ' ').slice(0, 200) + ')');
+  conferir(/✅ 4 equipamentos trazidos/.test(fim7.fim) && /Apague agora o arquivo do celular \(Arquivos → Downloads\): ele tem os números abertos/.test(fim7.fim), 'G7. no fim: "✅ 4 equipamentos trazidos" (EQ5, D-G13) e o pedido de apagar o arquivo do celular (' + (fim7.fim || fim7.toasts).replace(/\s+/g, ' ').slice(0, 200) + ')');
   const s7 = await p.evaluate(async (a) => {
     const por = (ref) => DB.raw('things').filter((t) => t.garantia && t.garantia.ref === ref);
     const um = async (ref) => {
@@ -1886,7 +1916,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!r7.dlg && /já estão no app/.test(r7.toasts) && /Apague/.test(r7.toasts) && igual7(e0, e1), 'G7. o mesmo arquivo de novo: "já estão no app", nada gravado (e o lembrete de apagar o arquivo) (' + r7.toasts + ')');
   await p.evaluate(() => setLang('en')); await p.waitForTimeout(200);
   r7 = await trazer7(ARQ7([IT7({}), IT7({ ref: 'exemplo-0005', nome: 'Ventilador Exemplo', protegido: SEMNUM7, atendimentos: [], arquivos: [] })]));
-  conferir(r7.dlg && /1 new warranty/.test(r7.txt) && /1 is already in the app and is left out/.test(r7.txt) && /Ventilador Exemplo/.test(r7.txt) && !/Vai trazer|garantias novas/.test(r7.txt), 'G7. EN: o resumo em inglês, com a que já está no app de fora (' + r7.txt.replace(/\s+/g, ' ').slice(0, 200) + ')');
+  conferir(r7.dlg && /1 new item/.test(r7.txt) && /1 is already in the app and is left out/.test(r7.txt) && /Ventilador Exemplo/.test(r7.txt) && !/Vai trazer|equipamentos? novos?|garantias novas/.test(r7.txt),   /* EQ5 (troca de propósito, D-G13) */ 'G7. EN: o resumo em inglês, com a que já está no app de fora (' + r7.txt.replace(/\s+/g, ' ').slice(0, 200) + ')');
   const fimEn7 = r7.dlg ? await confirmar7() : { fim: '' };
   conferir(/Delete the file from your phone now/.test(fimEn7.fim), 'G7. EN: o pedido de apagar o arquivo em inglês');
   await p.evaluate(() => setLang('pt')); await p.waitForTimeout(200);
@@ -1925,7 +1955,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   /* ---------- o tópico de ajuda (HELP().garantias) ---------- */
   const ajuda8 = await p.evaluate(() => { const x = HELP().garantias; return { x: x ? { t: x.t, steps: x.steps, note: x.note || '' } : null, em: fmtDate(GAR_REGRAS_EM) }; });
   const A8 = ajuda8.x, a8 = A8 ? [A8.t].concat(A8.steps, [A8.note]).join(' \n ').replace(/<[^>]+>/g, '') : '';
-  conferir(!!A8 && /🧾/.test(A8.t) && /Garantias/.test(A8.t) && A8.steps.length >= 6 && !!A8.note, 'G8. o tópico de ajuda "Garantias" existe (' + (A8 ? A8.steps.length + ' passos' : 'não existe') + ')');
+  /* EQ5 (troca de propósito, D-G13): o título do tópico tem o nome novo da aba, "🧾 Equipamentos e garantias: …" */
+  conferir(!!A8 && /🧾/.test(A8.t) && /Equipamentos e garantias/.test(A8.t) && A8.steps.length >= 6 && !!A8.note, 'G8. o tópico de ajuda "Equipamentos e garantias" existe (' + (A8 ? A8.steps.length + ' passos' : 'não existe') + ')');
   conferir(/de fábrica/.test(a8) && /folheto/.test(a8) && /prazo da lei/.test(a8) && /90 dias/.test(a8) && /30 para/.test(a8) && /entrega/.test(a8) && /mesmo sem nenhum papel/.test(a8) && /estendida/.test(a8) && /só cobre depois/.test(a8), 'G8. ajuda: as três garantias para leigo (a de fábrica, do folheto; o prazo da lei, 90 ou 30 dias da entrega, mesmo sem papel; a estendida, que só cobre depois)');
   conferir(/Estragou\? E agora\?/.test(a8) && /de quem cobrar/.test(a8) && /o que levar/.test(a8) && /protocolo/.test(a8) && /30 dias para consertar/.test(a8) && /Procon/.test(a8), 'G8. ajuda: "Estragou? E agora?" (de quem cobrar, o que levar, o protocolo, o contador dos 30 dias para consertar, o Procon)');
   conferir(/pela lei brasileira/i.test(a8) && /CDC/.test(a8) && /Lei 15\.040\/2024/.test(a8) && /SUSEP 659\/2022/.test(a8) && /CNSP 496\/2026/.test(a8) && a8.includes('conferido em ' + ajuda8.em), 'G8. ajuda: a fonte e a data da lei ("pela lei brasileira", CDC, Lei 15.040/2024, Circ. SUSEP 659/2022, Res. CNSP 496/2026 e "conferido em ' + ajuda8.em + '")');
@@ -1939,7 +1970,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     return { txt: d.innerText, passos: d.querySelectorAll('ol.helpsteps li').length, larg: document.documentElement.scrollWidth <= innerWidth + 1 && r.width <= innerWidth + 1,
       peq: [...d.querySelectorAll('.mf button, ol.helpsteps a')].filter((b) => { const q = b.getBoundingClientRect(); return q.width && q.height && q.height < 44; }).map((b) => b.innerText.trim().slice(0, 20)) };
   });
-  const ehTopico8 = (j) => !!j && !!A8 && j.passos === A8.steps.length && /Garantias/.test(j.txt);
+  const ehTopico8 = (j) => !!j && !!A8 && j.passos === A8.steps.length && /Equipamentos e garantias/.test(j.txt);   /* EQ5 (troca de propósito, D-G13) */
   await fecharJanelas(p);
   await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /Como funciona/.test(x[0])); a[1](); }); await p.waitForTimeout(400);
   const j8 = await janela8();
@@ -1961,7 +1992,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await fecharAjuda8();
   await p.evaluate(() => Search.open()); await p.waitForSelector('#gsq', { timeout: 8000 }).catch(() => {});
   await p.fill('#gsq', 'três garantias estendida').catch(() => {}); await p.waitForTimeout(500);
-  const b8 = await p.evaluate(() => { const bs = [...document.querySelectorAll('#gsr [data-i]')], b = bs.find((x) => /❓/.test(x.innerText) && /Garantias/.test(x.innerText)); if (b) b.click(); return { ok: !!b, n: bs.length }; }); await p.waitForTimeout(500);
+  const b8 = await p.evaluate(() => { const bs = [...document.querySelectorAll('#gsr [data-i]')], b = bs.find((x) => /❓/.test(x.innerText) && /Equipamentos e garantias/.test(x.innerText)); if (b) b.click(); return { ok: !!b, n: bs.length }; }); await p.waitForTimeout(500);
   const jb8 = await janela8();
   conferir(b8.ok && ehTopico8(jb8), 'G8. a 🔍 acha a ajuda "Garantias" (por "três garantias estendida") e o toque abre o tópico (' + b8.n + ' resultado(s)' + (jb8 ? '' : ', sem janela') + ')');
   await fecharAjuda8();
@@ -1970,7 +2001,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(ind8 && ehTopico8(await janela8()), 'G8. "Ajuda e tutoriais" lista "Garantias" e abre o tópico');
   await fecharAjuda8();
   const lig8 = await p.evaluate(() => {
-    const conta = () => Search.sources().filter((x) => x.ic === '❓' && /Garantias/.test(x.t)).length, o = SolverRecursos.ligado, on = conta();
+    const conta = () => Search.sources().filter((x) => x.ic === '❓' && /Equipamentos e garantias/.test(x.t)).length, o = SolverRecursos.ligado, on = conta();
     SolverRecursos.ligado = function (id, d) { return id === 'casa.garantias' ? false : o.call(this, id, d); };
     try { return { on, off: conta() }; } finally { SolverRecursos.ligado = o; }
   });
@@ -1979,7 +2010,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await p.evaluate(() => { setLang('en'); Help.open('garantias'); }); await p.waitForTimeout(400);
   const en8 = await janela8();
   const PT_NO_EN8 = /[ãõç]|garantia|Estragou|Senhas da casa|bilhete|lei brasileira/i;
-  conferir(!!en8 && !!A8 && en8.passos === A8.steps.length && /Warranties/.test(en8.txt) && /Brazilian consumer law/.test(en8.txt) && /Broken\? What now\?/.test(en8.txt) && /legal advice/.test(en8.txt) && /checked on/.test(en8.txt) && !PT_NO_EN8.test(en8.txt), 'G8. EN: a ajuda em inglês ("Brazilian consumer law", "Broken? What now?", "checked on"), sem português' + (en8 && PT_NO_EN8.test(en8.txt) ? ' (' + en8.txt.match(PT_NO_EN8)[0] + ')' : ''));
+  conferir(!!en8 && !!A8 && en8.passos === A8.steps.length && /Equipment & warranties/.test(en8.txt) && /Brazilian consumer law/.test(en8.txt) && /Broken\? What now\?/.test(en8.txt) && /legal advice/.test(en8.txt) && /checked on/.test(en8.txt) && !PT_NO_EN8.test(en8.txt), 'G8. EN: a ajuda em inglês ("Brazilian consumer law", "Broken? What now?", "checked on"), sem português' + (en8 && PT_NO_EN8.test(en8.txt) ? ' (' + en8.txt.match(PT_NO_EN8)[0] + ')' : ''));
   await fecharJanelas(p);
 
   /* ---------- 💬 em cada tela: o "Dar uma opinião" do ☰ leva a tela certa ---------- */
@@ -2007,7 +2038,11 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const doBloco8 = ttChamadas(BLOCO8).map((c) => Object.assign(c, { bloco: true, onde: 'linha ' + (L08 + c.linha) }));
   /* as linhas de fora do bloco com texto do módulo (o 1º tt( depois de cada marca) */
   const FORA8 = [['TABS', 'id: "garantias", ic: "🧾", t: tt('], ['☰ Lista', 'garantias: [["lista", tt('], ['☰ Estragou?', '["estragou", tt('], ['aviso legal', '"<p>🧾 " + tt('],
-    ['contato 🔧', '["assistencia", "🔧", tt('], ['grupo da 🔍', 'gr: tt('], ['✏️ do Onde está?', 'const gar = t.garantia ? [{ type: "note", html: "🧾 " + esc(tt('], ['item das Senhas da casa', 'if (o.garantiaDe) f.splice(']];
+    ['contato 🔧', '["assistencia", "🔧", tt('], ['grupo da 🔍', 'gr: tt('], ['✏️ do Onde está?', 'const gar = t.garantia ? [{ type: "note", html: "🧾 " + esc(tt('], ['item das Senhas da casa', 'if (o.garantiaDe) f.splice('],
+    /* EQ5: os tt( de fora do bloco que as etapas EQ acrescentaram (o nome curto da aba, a frase da série e do manual no aviso legal, o
+       "Ligado a" do ✏️ de Casa → Manutenção e o "saiu de casa"/"apagado" da linha de Casa → Manutenção) */
+    ['TABS (curto)', 'curto: tt('], ['aviso legal (série e manual)', 'tt("O número de série fica à vista'], ['Casa → Manutenção (Ligado a)', '"🔌 " + esc(tt('],
+    ['Casa → Manutenção (saiu de casa)', 'm.fora === "saiu" ? "📦 " + tt('], ['Casa → Manutenção (apagado)', 'm.fora === "sem" ? "🗑 " + tt(']];
   const fora8 = FORA8.map(([nome, marca]) => {
     let k = -1; for (let a = SRC8.indexOf(marca); a >= 0; a = SRC8.indexOf(marca, a + 1)) if (a < i08 || a > i18) { k = a; break; }
     const c = k >= 0 ? ttChamadas(SRC8.slice(k, k + 4000))[0] : null;
@@ -2409,7 +2444,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
 
   /* 🔍: o nome, as palavras e a ficha técnica acham a aba, o aparelho e a ajuda; a linha do resultado nunca mostra um número */
   const bqQ = await p.evaluate(() => {
-    const ach = (q) => { const r = Search.find(q); return { aba: r.some((x) => x.grp === 'Funções' && x.t === 'Equipamentos e garantias'), itens: r.filter((x) => x.grp === 'Equipamentos e garantias').map((x) => x.t), ajuda: r.some((x) => x.ic === '❓' && /Garantias/.test(x.t)) }; };
+    const ach = (q) => { const r = Search.find(q); return { aba: r.some((x) => x.grp === 'Funções' && x.t === 'Equipamentos e garantias'), itens: r.filter((x) => x.grp === 'Equipamentos e garantias').map((x) => x.t), ajuda: r.some((x) => x.ic === '❓' && /Equipamentos e garantias/.test(x.t)) }; };   /* EQ5 (troca de propósito, D-G13): o título novo da ajuda */
     const out = {}; for (const q of ['equipamento', 'garantia', 'manual', 'número de série', 'appliance', 'aparato', 'SN-EQ2-0001', '7891234567895', 'bivolt', 'prata']) out[q] = ach(q);
     const pu = Search.sources().find((x) => x.grp === 'Equipamentos e garantias' && x.t === 'EQ2 Purificador');
     out._s = pu ? pu.s : null;
@@ -3425,6 +3460,220 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ4: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
 
+  /* =====================================================================
+     EQ5 — Equipamentos e garantias: a leitura da nota (G6), o 📥 (G7), a ajuda, o bastão e o que atravessa (D-G16 d, D-G17, D-G19)
+     ===================================================================== */
+  console.log('\n— EQ5: Equipamentos e garantias — a leitura, o 📥, a ajuda, o bastão e o que atravessa');
+  await fecharJanelas(p);
+  /* IMEIs de mentira (com o dígito verificador certo), uma série e dois links de mentira */
+  const IMEI5 = '350000000060000', IMEI5S = '350000000070009', SERIE5 = 'SN-EQ5-EXEMPLO-0005', SERIE5V = 'SN-ANTIGA-EXEMPLO-0009';
+  const IMEI5X = '356938035643808';   /* o IMEI da NFC-e com o último algarismo lido errado pelo OCR (o dígito verificador não confere) */
+  const IMEIS_EQ5 = [IMEI5, IMEI5S, IMEI5X], MANUAL5 = 'https://www.exemplo.com.br/manuais/px-100.pdf', MANUAL5P = 'https://www.exemplo.com.br/manual-do-papel.pdf', MANUAL5IA = 'https://ia.example.com/manual.pdf';
+  await p.evaluate(async (a) => {
+    S.role = a.papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123'); S.garF = 'todos';
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    for (const m of DB.raw('maint')) await DB.del('maint', m.id);
+    /* a leitura de mentira da G6 (OCR e IA), com uma foto nova a cada leitura (o mesmo arquivo não é lido duas vezes) */
+    Files.pick = async () => window.__g6.escolha;
+    window.__f5 = async (n) => { const cv = document.createElement('canvas'); cv.width = cv.height = n; return new File([await new Promise((r) => cv.toBlob(r, 'image/jpeg'))], 'foto-' + n + '.jpg', { type: 'image/jpeg' }); };
+    window.__g6.ocrAntes = null; window.__g6.ia.length = 0; window.__g6.imgs = 0; AI.on = () => true; Net.canAI = () => true; window.__toasts6.length = 0;
+    go('garantias');
+  }, { papel: papel0 });
+  await p.waitForTimeout(300);
+  const ler5 = async (texto, ia, n, id) => {
+    await p.evaluate(async (a) => { window.__g6.texto = a.texto; window.__g6.ia0 = a.ia; window.__g6.escolha = [await window.__f5(a.n)]; ACT['gar.foto'](a.id ? { id: a.id } : {}); }, { texto, ia: ia || null, n, id: id || '' });
+    const ok = await p.waitForSelector('dialog[open] [name="_tipo"]', { timeout: 12000 }).then(() => true, () => false);
+    return ok ? campos6() : null;
+  };
+  const salvar5 = async (nome, semArquivo) => {
+    if (nome) await p.fill('dialog[open] [name="name"]', nome).catch(() => {});
+    if (semArquivo) await p.setChecked('dialog[open] [name="_guardar"]', false).catch(() => {});
+    await p.click('dialog[open] [data-ok]').catch(() => {}); await p.waitForTimeout(700); await fecharJanelas(p);
+  };
+  const obj5 = (nome) => p.evaluate(async (nome) => {
+    const t = DB.raw('things').find((x) => x.name === nome); if (!t) return null;
+    let o = null; try { o = await Garantias.segredo(t); } catch (e) {}
+    return { id: t.id, g: t.garantia, json: JSON.stringify(t), o, ojson: JSON.stringify(o || {}), v: !!DB.col('vault').get('gv_' + t.id) };
+  }, nome);
+  const IA5 = { tipo: 'nota', produto: 'Celular Exemplo', marca: 'Marca Exemplo', modelo: 'CX-1', manualUrl: MANUAL5IA, serie: 'SN-DA-IA-0001', imei: IMEI5 };
+  const NFCE5 = NFCE6 + '\nManual do produto: ' + MANUAL5P;
+
+  /* ---------- G6: a série lida vai à vista; o IMEI, trancado e só no modo aberto; o link do manual nunca vem da leitura ---------- */
+  let c5 = await ler5(NFCE5, IA5, 21);
+  conferir(!!c5 && c5.serie === '' && c5.imei === IMEI6 && c5.imeiLbl === 'IMEI (celular ou tablet com chip; disque *#06#)' && !/Nº de série ou IMEI/.test(c5.txt),
+    'EQ5 (G6). o cupom com IMEI, Senhas da casa abertas: o IMEI vai para o campo trancado "IMEI (celular ou tablet com chip; disque *#06#)" e o "Número de série" (à vista) fica vazio (' + JSON.stringify(c5 && { serie: c5.serie, imei: c5.imei, rot: c5.imeiLbl }) + ')');
+  conferir(!!c5 && !c5.manual && !sobra6(c5.fora, [IMEI6, IMEI5, 'SN-DA-IA-0001', MANUAL5IA]).length, 'EQ5 (G6). ... nenhum campo aberto tem o IMEI, e a leitura não traz o link do manual nem a série ou o IMEI que a IA disser (não há campo do manual na conferência)' + (c5 ? ' (' + sobra6(c5.fora, [IMEI6, IMEI5, 'SN-DA-IA-0001', MANUAL5IA]).join(', ') + ')' : ''));
+  conferir(!!c5 && c5.larg, 'EQ5 (G6). a conferência com o "Número de série" cabe em 390 px');
+  if (c5) await salvar5('EQ5 Celular Exemplo');
+  let o5 = await obj5('EQ5 Celular Exemplo');
+  conferir(!!o5 && !o5.g.serie && !o5.json.includes(IMEI6) && !o5.g.manualUrl && o5.o && o5.o.imei === IMEI6 && o5.g.finais.imei === '3809' && !('serie' in o5.g.finais),
+    'EQ5 (G6). ... salvo: o IMEI só no item "gv_" das Senhas da casa (no objeto, só o final 3809), nada na série à vista e nenhum link do manual (' + JSON.stringify(o5 && { serie: o5.g.serie || '', manual: o5.g.manualUrl || '', finais: o5.g.finais }) + ')');
+  /* o IMEI com um algarismo lido errado (o dígito verificador não confere) continua sendo IMEI pelo rótulo: trancado, nunca à vista */
+  c5 = await ler5(NFCE6.replace(IMEI6, IMEI5X), null, 26);
+  conferir(!!c5 && c5.serie === '' && c5.imei === IMEI5X && !sobra6(c5.fora, [IMEI5X]).length, 'EQ5 (G6). um IMEI lido com um algarismo errado (o dígito verificador não confere) continua indo para o IMEI trancado, pelo rótulo, e nunca para o "Número de série" à vista (' + JSON.stringify(c5 && { serie: c5.serie, imei: c5.imei }) + ')');
+  if (c5) await salvar5('EQ5 Celular OCR');
+  o5 = await obj5('EQ5 Celular OCR');
+  conferir(!!o5 && !o5.json.includes(IMEI5X) && o5.o && o5.o.imei === IMEI5X, 'EQ5 (G6). ... salvo: esse IMEI só nas Senhas da casa');
+  /* um número de série com cara de IMEI (15 algarismos com o dígito verificador certo) vai trancado, como IMEI */
+  c5 = await ler5(DANFE6.replace(SERIE, IMEI5S), null, 22);
+  conferir(!!c5 && c5.serie === '' && c5.imei === IMEI5S && !sobra6(c5.fora, [IMEI5S]).length, 'EQ5 (G6). um "Nº de série" com cara de IMEI (o dígito verificador confere) vai para o IMEI trancado, nunca para o campo à vista (' + JSON.stringify(c5 && { serie: c5.serie, imei: c5.imei }) + ')');
+  if (c5) await salvar5('EQ5 Tablet Exemplo');
+  o5 = await obj5('EQ5 Tablet Exemplo');
+  conferir(!!o5 && !o5.json.includes(IMEI5S) && o5.o && o5.o.imei === IMEI5S, 'EQ5 (G6). ... salvo: o número só nas Senhas da casa, como IMEI');
+  /* Senhas da casa fechadas: a série continua indo para o campo à vista; o IMEI é descartado (nunca aparece) */
+  await p.evaluate(() => Vault.lock()); await p.waitForTimeout(300);
+  c5 = await ler5(DANFE6.replace(SERIE, SERIE5), null, 23);
+  conferir(!!c5 && c5.serie === SERIE5 && c5.nsec === 0 && /\(pedido, bilhete, IMEI, chave da nota e valor\) foram descartados/.test(c5.txt) && !/bilhete, série, chave/.test(c5.txt),
+    'EQ5 (G6). com as Senhas da casa fechadas, a série lida vai para o campo à vista (ela não é trancada) e o aviso diz que o pedido, o bilhete, o IMEI, a chave e o valor foram descartados (' + JSON.stringify(c5 && { serie: c5.serie, nsec: c5.nsec }) + ')');
+  if (c5) await salvar5('EQ5 Purificador sem Senhas', true);
+  o5 = await obj5('EQ5 Purificador sem Senhas');
+  conferir(!!o5 && o5.g.serie === SERIE5 && !o5.v, 'EQ5 (G6). ... salvo: a série à vista no objeto, nada nas Senhas da casa');
+  c5 = await ler5(NFCE5, null, 24);
+  conferir(!!c5 && c5.serie === '' && c5.nsec === 0 && !String(c5.txt).includes(IMEI6) && !sobra6(c5.fora, [IMEI6]).length, 'EQ5 (G6). com as Senhas da casa fechadas, o IMEI lido é descartado: não aparece na conferência nem vai para a série à vista');
+  if (c5) await salvar5('EQ5 Celular sem Senhas', true);
+  o5 = await obj5('EQ5 Celular sem Senhas');
+  conferir(!!o5 && !o5.json.includes(IMEI6) && !o5.g.serie && !o5.v, 'EQ5 (G6). ... salvo: o IMEI em lugar nenhum');
+  /* (ainda com as Senhas fechadas, sem números a gravar) "Ligar a" um equipamento com o link do manual, uma série e um "finais.serie" de antes
+     da EQ1: o link fica, a série lida vale e os finais são refeitos só com pedido, bilhete e IMEI */
+  const lig5 = await p.evaluate(async (a) => (await DB.put('things', { name: 'EQ5 Purificador Ligado', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: '2024-03-10' }, manualUrl: a.man, serie: a.velha, finais: { pedido: '', bilhete: '', serie: '9999', imei: '' } } }, true)).id, { man: MANUAL5, velha: SERIE5V });
+  c5 = await ler5(BILH6 + '\nManual: ' + MANUAL5P, Object.assign({}, IA_BIL, { manualUrl: MANUAL5IA, serie: 'SN-DA-IA-0001' }), 25, lig5);
+  conferir(!!c5 && c5.ligar === lig5 && c5.serie === SERIE && !c5.manual, 'EQ5 (G6). o 📷 da ficha de um equipamento com manual: a série lida vem para o campo à vista, sem campo do manual (' + JSON.stringify(c5 && { ligar: c5.ligar === lig5, serie: c5.serie }) + ')');
+  if (c5) await salvar5('', true);
+  o5 = await p.evaluate((id) => { const t = DB.get('things', id); return t ? { g: t.garantia } : null; }, lig5);
+  conferir(!!o5 && o5.g.manualUrl === MANUAL5 && o5.g.serie === SERIE && !('serie' in (o5.g.finais || {})) && 'imei' in (o5.g.finais || {}),
+    'EQ5 (G6). ... salvo: o link do manual de antes continua (a leitura nunca o preenche nem apaga), a série lida vale e os "finais" são refeitos só com pedido, bilhete e IMEI (' + JSON.stringify(o5 && { manual: o5.g.manualUrl, serie: o5.g.serie, finais: o5.g.finais }) + ')');
+  await p.evaluate(async () => { await Vault.unlock('senha-de-mentira-123'); }); await p.waitForTimeout(300);
+  const ia5 = await p.evaluate(() => ({ ia: window.__g6.ia.slice(), imgs: window.__g6.imgs }));
+  const iaS5 = sobra6(ia5.ia.join('\n'), [SERIE, SERIE5, SERIE5V, IMEI6, IMEI5S, IMEI5, IMEI5X, MANUAL5]);
+  conferir(ia5.ia.length === 6 && !iaS5.length && ia5.imgs === 0, 'EQ5 (G6). para a IA vai só o texto filtrado: sem o número de série, sem o IMEI, sem a ficha técnica nem o link do manual do equipamento ligado, e nenhuma imagem (' + ia5.ia.length + ' pedidos' + (iaS5.length ? '; sobrou: ' + iaS5.join(', ') : '') + ')');
+
+  /* ---------- G7: o 📥 com os campos novos, o IMEI trancado e os lembretes de manutenção (tudo ou nada) ---------- */
+  await p.evaluate(() => { Files.pick = async () => { window.__g7.picks++; return window.__g7.arq ? [window.__g7.arq] : []; }; });
+  const h5 = await p.evaluate(() => today()), d5 = (n) => new Date(Date.parse(h5 + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  const SEM5 = Object.assign({}, SEMNUM7, { imei: '' });
+  const ARQ5 = ARQ7([
+    IT7({ ref: 'eq5-0001', nome: 'Purificador Exemplo', voltagem: 'bivolt', cor: 'prata', codigo: '7890000000005', serie: SERIE5, manualUrl: MANUAL5, compra: { data: d5(-400) }, protegido: SEM5, atendimentos: [], obs: '',
+      manutencoes: [{ oque: 'Troca do refil do filtro de água', cadaMeses: 6, ultima: d5(-200), obs: 'pelo manual do fabricante' }, { oque: 'Limpeza da caixa', cadaMeses: 12, ultima: d5(-30), obs: '' }] }),
+    IT7({ ref: 'eq5-0002', nome: 'Celular Exemplo', compra: { data: '', naoSei: true }, estendida: { tem: 'nao' }, protegido: Object.assign({}, SEM5, { imei: IMEI5 }), atendimentos: [], obs: '',
+      manutencoes: [{ oque: 'Trocar a capa', cadaMeses: 12, ultima: '', obs: '' }] })
+  ]);
+  const estQ5 = () => p.evaluate(() => ({ things: DB.raw('things').length, files: DB.raw('files').length, vault: DB.raw('vault').length, maint: DB.raw('maint').length, refs: DB.raw('things').map((t) => (t.garantia && t.garantia.ref) || '').filter(Boolean) }));
+  let e5a = await estQ5();
+  let r5 = await trazer7(ARQ5);
+  conferir(r5.dlg && /2 equipamentos novos: Purificador Exemplo, Celular Exemplo/.test(r5.txt) && /🛠 3 lembretes de manutenção/.test(r5.txt) && /1 já atrasado/.test(r5.txt) && /1 sem a última vez: o app só avisa depois do primeiro ✓ Feito hoje/.test(r5.txt) && /1 com números ou valores/.test(r5.txt),
+    'EQ5 (G7). o resumo antes de gravar: 2 equipamentos novos, 3 lembretes de manutenção, 1 já atrasado e 1 sem a última vez ("o app só avisa depois do primeiro ✓ Feito hoje") (' + r5.txt.replace(/\s+/g, ' ').slice(0, 400) + ')');
+  conferir(!r5.txt.includes(IMEI5) && !r5.txt.includes(SERIE5), 'EQ5 (G7). o resumo não mostra o IMEI nem o número de série');
+  const fim5 = r5.dlg ? await confirmar7() : { fim: '', toasts: '' };
+  conferir(/✅ 2 equipamentos trazidos/.test(fim5.fim) && /Apague agora o arquivo do celular/.test(fim5.fim), 'EQ5 (G7). no fim: "✅ 2 equipamentos trazidos" e o pedido de apagar o arquivo (' + (fim5.fim || fim5.toasts).replace(/\s+/g, ' ').slice(0, 160) + ')');
+  const s5 = await p.evaluate(async () => {
+    const um = async (ref) => { const t = DB.raw('things').find((x) => x.garantia && x.garantia.ref === ref); if (!t) return null; let o = null; try { o = await Garantias.segredo(t); } catch (e) {} return { id: t.id, vis: t.vis, g: t.garantia, o, json: JSON.stringify(t) }; };
+    const a = await um('eq5-0001'), b = await um('eq5-0002');
+    const mts = DB.raw('maint').filter((m) => a && b && (m.coisa === a.id || m.coisa === b.id)).map((m) => JSON.parse(JSON.stringify(m)));
+    const lista = Maint.list().filter((m) => mts.some((x) => x.id === m.id)).map((m) => ({ t: m.title, d: m._days }));
+    let av = []; try { av = Alerts.list().filter((x) => /Purificador Exemplo/.test(x.t)).map((x) => ({ t: x.t, go: (x.go || []).join('/') })); } catch (e) {}
+    return { a, b, mts, lista, av, maint: JSON.stringify(DB.raw('maint')), things: JSON.stringify(DB.raw('things')) };
+  });
+  const A5i = s5.a || { g: { compra: {}, finais: {} } }, B5i = s5.b || { g: { compra: {}, finais: {} } };
+  conferir(!!s5.a && A5i.g.serie === SERIE5 && A5i.g.manualUrl === MANUAL5 && A5i.g.voltagem === 'bivolt' && A5i.g.cor === 'prata' && A5i.g.codigo === '7890000000005' && !!s5.b && B5i.g.compra.naoSei === true && !B5i.g.compra.data,
+    'EQ5 (G7). os campos novos entram: a série à vista, o link do manual, voltagem, cor, código e "Não sei a data da compra" (' + JSON.stringify({ a: s5.a && { serie: A5i.g.serie, man: A5i.g.manualUrl, v: A5i.g.voltagem }, b: s5.b && B5i.g.compra }) + ')');
+  conferir(!!s5.b && B5i.o && B5i.o.imei === IMEI5 && B5i.g.finais.imei === '0000' && !s5.things.includes(IMEI5) && !s5.maint.includes(IMEI5) && !(A5i.o && A5i.o.imei),
+    'EQ5 (G7). o IMEI (protegido.imei) vai trancado no item "gv_" das Senhas da casa; no objeto só o final; nunca na linha do objeto nem na do lembrete');
+  const mt5 = (coisa, tit) => s5.mts.find((m) => m.coisa === coisa && m.title === tit) || null;
+  const mA1 = mt5(A5i.id, 'Troca do refil do filtro de água — Purificador Exemplo'), mA2 = mt5(A5i.id, 'Limpeza da caixa — Purificador Exemplo'), mB1 = mt5(B5i.id, 'Trocar a capa — Celular Exemplo');
+  const bom5 = (m, iv, last, next, notes) => !!m && m.cat === 'eletro' && m.interval === iv && m.last === last && m.next === next && m.nextManual === false && m.notes === notes && Array.isArray(m.history) && !m.history.length && m.vis === 'familia';
+  conferir(s5.mts.length === 3 && bom5(mA1, 183, d5(-200), d5(-17), 'pelo manual do fabricante') && bom5(mA2, 365, d5(-30), d5(335), '') && bom5(mB1, 365, '', '', ''),
+    'EQ5 (G7). os 3 lembretes viram registros da Manutenção da casa ligados ao equipamento certo (coisa), "o que fazer — nome", em dias (6 meses = 183, 12 = 365), a próxima pela última vez (vazia sem ela), a observação e o "Quem vê" do objeto (' + JSON.stringify(s5.mts.map((m) => [m.title, m.coisa === A5i.id ? 'A' : m.coisa === B5i.id ? 'B' : '?', m.interval, m.last, m.next, m.vis])) + ')');
+  conferir(s5.lista.some((x) => /Troca do refil/.test(x.t) && x.d === -17) && s5.lista.some((x) => /Trocar a capa/.test(x.t) && x.d === null) && s5.av.some((x) => /Troca do refil/.test(x.t) && x.go === 'garantias/ficha/' + A5i.id),
+    'EQ5 (G7). o refil já atrasado avisa no 🔔 (tocar abre a ficha do purificador); o lembrete sem a última vez não avisa (' + JSON.stringify([s5.lista, s5.av]) + ')');
+  let e5b = await estQ5();
+  conferir(e5b.things === e5a.things + 2 && e5b.maint === e5a.maint + 3 && e5b.vault === e5a.vault + 1, 'EQ5 (G7). foram gravados 2 equipamentos, 3 lembretes e 1 item das Senhas (o do IMEI) (' + JSON.stringify({ things: e5b.things - e5a.things, maint: e5b.maint - e5a.maint, vault: e5b.vault - e5a.vault }) + ')');
+  /* de novo: o que já está no app fica de fora, também os lembretes */
+  r5 = await trazer7(ARQ5); e5a = await estQ5();
+  conferir(!r5.dlg && /já estão no app/.test(r5.toasts) && e5a.maint === e5b.maint && e5a.things === e5b.things, 'EQ5 (G7). o mesmo arquivo de novo: "já estão no app" e nenhum lembrete a mais (' + r5.toasts.slice(0, 160) + ')');
+  /* EN: o resumo com os lembretes em inglês */
+  await p.evaluate(() => setLang('en')); await p.waitForTimeout(200);
+  r5 = await trazer7(ARQ7([IT7({ ref: 'eq5-0003', nome: 'Ventilador Exemplo', protegido: SEM5, atendimentos: [], obs: '', manutencoes: [{ oque: 'Limpar as pás', cadaMeses: 3, ultima: '', obs: '' }] })]));
+  conferir(r5.dlg && /1 new item/.test(r5.txt) && /🛠 1 maintenance reminder/.test(r5.txt) && /1 without the last time: the app only reminds you after the first ✓ Done today/.test(r5.txt) && !/lembrete|atrasad|equipamento/.test(r5.txt),
+    'EQ5 (G7). EN: o resumo com "1 maintenance reminder" e "without the last time" (' + r5.txt.replace(/\s+/g, ' ').slice(0, 260) + ')');
+  if (r5.dlg) await confirmar7();
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(200);
+  /* tudo ou nada: o 2º lembrete não grava → os equipamentos, os números e o 1º lembrete são desfeitos */
+  e5a = await estQ5();
+  await p.evaluate(() => { window.__put5 = DB.put; let n = 0; DB.put = function (col) { if (col === 'maint' && ++n === 2) return Promise.reject(new Error('falha de mentira no 2º lembrete')); return window.__put5.apply(this, arguments); }; });
+  r5 = await trazer7(ARQ7([IT7({ ref: 'eq5-falha-1', nome: 'Falha Um Exemplo', protegido: Object.assign({}, SEM5, { imei: IMEI5S }), atendimentos: [], obs: '', manutencoes: [{ oque: 'Limpar', cadaMeses: 6, ultima: '', obs: '' }] }),
+    IT7({ ref: 'eq5-falha-2', nome: 'Falha Dois Exemplo', protegido: SEM5, atendimentos: [], obs: '', manutencoes: [{ oque: 'Limpar', cadaMeses: 6, ultima: '', obs: '' }] })]));
+  const fimF5 = r5.dlg ? await confirmar7() : { toasts: '' };
+  await p.evaluate(() => { DB.put = window.__put5; });
+  e5b = await estQ5();
+  conferir(r5.dlg && /Nada foi trazido/.test(fimF5.toasts) && e5b.things === e5a.things && e5b.maint === e5a.maint && e5b.vault === e5a.vault && e5b.files === e5a.files && !e5b.refs.some((x) => /^eq5-falha/.test(x)),
+    'EQ5 (G7). tudo ou nada: o 2º lembrete não grava → os 2 equipamentos, o IMEI nas Senhas e o 1º lembrete são desfeitos (' + JSON.stringify({ things: e5b.things - e5a.things, maint: e5b.maint - e5a.maint, vault: e5b.vault - e5a.vault, aviso: fimF5.toasts.slice(0, 80) }) + ')');
+
+  /* ---------- a ajuda (HELP().garantias, D-G13, D-G16, D-G17, D-G19), o AssistONE e a dica ---------- */
+  const aj5 = await p.evaluate(() => { const x = HELP().garantias; return x ? { t: x.t, steps: x.steps.map((s) => s.replace(/<[^>]+>/g, '')), note: x.note || '' } : null; });
+  const AJ5 = aj5 ? [aj5.t].concat(aj5.steps, [aj5.note]).join(' \n ') : '', passo5 = (re) => (aj5 ? aj5.steps.find((s) => re.test(s)) || '' : '');
+  conferir(!!aj5 && /^🧾 Equipamentos e garantias/.test(aj5.t), 'EQ5. ajuda: o título com o nome novo da aba (' + (aj5 && aj5.t) + ')');
+  conferir(/inventário/.test(AJ5) && /Não sei a data da compra/.test(AJ5) && /📋 Todos os equipamentos/.test(AJ5) && /🗄️ Vencidas/.test(passo5(/📋 Todos os equipamentos/)) && /arquivo/.test(passo5(/🗄️ Vencidas/)),
+    'EQ5. ajuda: o inventário (todo aparelho tem ficha, "Não sei a data da compra"), "📋 Todos os equipamentos" e "🗄️ Vencidas" como arquivo');
+  const ft5 = passo5(/🔌 Ficha técnica/);
+  conferir(/marca/.test(ft5) && /modelo/.test(ft5) && /código do produto/.test(ft5) && /número de série/.test(ft5) && /voltagem/.test(ft5) && /cor/.test(ft5) && /à vista para quem vê o equipamento/.test(ft5) && /IMEI/.test(ft5) && /trancado/.test(ft5),
+    'EQ5. ajuda: a 🔌 Ficha técnica (marca, modelo, código, número de série à vista para quem vê o equipamento, voltagem, cor) e o IMEI trancado (' + ft5.slice(0, 120) + ')');
+  const ma5 = passo5(/📘 Manual/);
+  conferir(/link do manual/.test(ma5) && /🔎 Procurar o manual na internet/.test(ma5) && /DuckDuckGo/.test(ma5) && /só com a marca e o modelo/.test(ma5) && /outra janela/.test(ma5) && /PDF/.test(ma5),
+    'EQ5. ajuda: o 📘 Manual (colar o link, "🔎 Procurar o manual na internet" no DuckDuckGo só com a marca e o modelo, em outra janela, ou guardar o PDF) (' + ma5.slice(0, 120) + ')');
+  const mn5 = passo5(/🛠 Manutenção/);
+  conferir(/Lembrete/.test(mn5) && /repete/.test(mn5) && /🔔/.test(mn5) && /Agenda/.test(mn5) && /celular/.test(mn5) && /✓ Feito hoje/.test(mn5) && /📅 Remarcar/.test(mn5) && /🚫 Parar de avisar/.test(mn5) && /Casa → Manutenção/.test(mn5) && /sai de casa/.test(mn5) && /MoneyTRIO/.test(mn5),
+    'EQ5. ajuda: a 🛠 Manutenção (o lembrete que se repete, 🔔, Agenda e celular, ✓ Feito hoje, 📅 Remarcar, 🚫 Parar de avisar, Casa → Manutenção, para quando sai de casa, nada ao MoneyTRIO) (' + mn5.slice(0, 120) + ')');
+  const tr5 = passo5(/Números e valores trancados/);
+  conferir(/IMEI/.test(tr5) && !/série\/IMEI/.test(AJ5) && /número de série não/.test(tr5) && /📷/.test(AJ5) && /série lid[ao] vai para a ficha/.test(passo5(/📷 Ler nota ou bilhete/)) && /link do manual nunca/.test(passo5(/📷 Ler nota ou bilhete/)),
+    'EQ5. ajuda: o IMEI trancado e o número de série à vista nos números trancados e no 📷 (sem "série/IMEI" trancados) (' + tr5.slice(0, 100) + ')');
+  conferir(/📥 Trazer equipamentos prontos \(arquivo\)/.test(AJ5) && /lembretes de manutenção/.test(passo5(/📥 Trazer equipamentos prontos/)), 'EQ5. ajuda: "📥 Trazer equipamentos prontos (arquivo)", com os lembretes de manutenção');
+  conferir(['garantia', 'equipamento', 'manual', 'número de série'].every((w) => aj5 && aj5.steps.some((s) => s.includes(w))), 'EQ5. ajuda: os passos têm "garantia", "equipamento", "manual" e "número de série" (a 🔍 indexa os passos)');
+  /* o exemplo do dono (D-G19), sem nenhum número dele: o purificador de R$ 559, a de fábrica de 12 meses até setembro de 2025 e a
+     estendida de 24 meses que só começa depois, até setembro de 2027, cobrindo a queima por pico de energia; sem marca, loja nem seguradora */
+  const src5 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'), iA5 = src5.indexOf('  AJUDA() {'), fA5 = src5.indexOf('  modo() {', iA5);
+  const ex5 = (iA5 > 0 && fA5 > iA5 ? ttChamadas(src5.slice(iA5, fA5)) : []).find((c) => /^<b>Exemplo<\/b>/.test((c.args[0] || {}).txt || ''));
+  const num5 = (t) => (String(t).replace(/<[^>]+>/g, '').match(/\d+/g) || []), soPermitidos5 = (t) => num5(t).every((n) => ['559', '12', '24', '2', '2024', '2025', '2027'].includes(n));
+  const limpo5 = (t) => !/www|https?:|@|ltda|s\.a\.|\.com|0800|3003/i.test(t);
+  const exT = ex5 ? ex5.args.map((a) => a.txt) : [];
+  conferir(!!ex5 && ex5.args.length === 3 && exT.every((t) => soPermitidos5(t) && limpo5(t)) && exT.every((t) => /559/.test(t) && /2024/.test(t) && /2025/.test(t) && /2027/.test(t)) &&
+    /12 meses/.test(exT[0]) && /24 meses/.test(exT[0]) && /só começou depois/.test(exT[0]) && /pico de energia/.test(exT[0]) && /setembro de 2024/.test(exT[0]) && /setembro de 2027/.test(exT[0]) &&
+    /power surge/.test(exT[1]) && /September 2027/.test(exT[1]) && /subida de tensión/.test(exT[2]) && /septiembre de 2027/.test(exT[2]) && !!aj5 && aj5.steps.some((s) => /^Exemplo/.test(s)),
+    'EQ5 (D-G19). ajuda: o exemplo do purificador de R$ 559 (fábrica de 12 meses até setembro de 2025; a estendida de 24 meses só começa depois e vai até setembro de 2027; cobre a queima por pico de energia) em PT, EN e ES, sem outro número, link, marca, loja nem seguradora' + (ex5 ? '' : ' (não achei o exemplo)'));
+  /* a 🔍 acha a ajuda pelas palavras novas, também em EN */
+  const bq5 = await p.evaluate(() => {
+    const aj = (q) => Search.find(q).some((x) => x.ic === '❓' && /Equipamentos e garantias|Equipment & warranties/.test(x.t));
+    const pt = { manual: aj('manual'), serie: aj('número de série'), equipamento: aj('equipamento'), manutencao: aj('manutenção refil') };
+    setLang('en'); const en = { appliance: aj('appliance'), manual: aj('manual'), serial: aj('serial number') }; setLang('pt');
+    return { pt, en };
+  });
+  conferir(Object.values(bq5.pt).every(Boolean) && Object.values(bq5.en).every(Boolean), 'EQ5. 🔍 acha a ajuda por "manual", "número de série", "equipamento" e "manutenção refil"; em EN por "appliance", "manual" e "serial number" (' + JSON.stringify(bq5) + ')');
+  /* AssistONE e a dica da tela (EQ2): o inventário, o manual e a manutenção */
+  const ao5 = await p.evaluate(() => { const h = AOne.HERE().garantias; return { t: h[0], txt: h[1], acts: h[2].map((a) => a[0]), dica: AOne.TIPS().garantias }; });
+  conferir(ao5.t === 'Equipamentos e garantias' && /nº de série/.test(ao5.txt) && /manual/.test(ao5.txt) && /manutenção/.test(ao5.txt) && ['＋ Novo equipamento', '📋 Todos os equipamentos', '⏰ O que vence?', '🆘 Estragou?', '❓ Como funciona'].every((x) => ao5.acts.includes(x)) && /manual/.test(ao5.dica),
+    'EQ5. AssistONE e a dica da tela com o inventário, o manual e a manutenção (' + JSON.stringify(ao5.acts) + ')');
+
+  /* ---------- "Passar o bastão": o IMEI nunca no texto, no PDF nem na linha do tempo; nem na linha do objeto ou do lembrete ---------- */
+  const ba5 = await p.evaluate(async (a) => {
+    const t = await DB.put('things', { name: 'EQ5 Smartphone Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, serie: a.serie } }, true);
+    const vid = await Garantias.guardarSegredo(t, { imei: a.imei });
+    await DB.put('things', Object.assign({}, t, { garantia: Object.assign({}, t.garantia, { vaultId: vid, finais: { pedido: '', bilhete: '', imei: GarCalc.final4(a.imei) } }) }), true);
+    await DB.put('maint', { title: 'Trocar a película — EQ5 Smartphone Exemplo', cat: 'eletro', interval: 30, last: addDays(today(), -30), next: today(), nextManual: false, history: [], coisa: t.id, vis: 'familia' }, true);
+    const u = new Date(Date.now() + 47 * 3600e3), ate = isoDate(u) + 'T' + pad(u.getHours()) + ':' + pad(u.getMinutes());
+    await DB.saveSetting({ handover: { active: true, from: S.meId, to: S.meId, until: ate, note: 'Recado de mentira', vaultIds: [], since: new Date().toISOString() } });
+    const ho = DB.setting().handover, tl = JSON.stringify(Handover.timeline(ho)), txt = Handover.text();
+    let pdf = ''; const mk0 = PDF.make, sh0 = window.shareFile;
+    PDF.make = async (tit, secs) => { pdf = JSON.stringify([tit, secs]); return new File(['x'], 'x.pdf', { type: 'application/pdf' }); }; window.shareFile = async () => {};
+    try { await ACT['ho.pdf'](); } catch (e) { pdf = pdf || 'erro: ' + e.message; } finally { PDF.make = mk0; window.shareFile = sh0; }
+    let o = null; try { o = await Garantias.segredo(DB.get('things', t.id)); } catch (e) {}
+    await DB.saveSetting({ handover: { active: false } });
+    return { tl, txt, pdf, imeiOk: !!(o && o.imei === a.imei), things: JSON.stringify(DB.raw('things')), maint: JSON.stringify(DB.raw('maint')) };
+  }, { imei: IMEI5, serie: 'SN-BASTAO-EXEMPLO-0001' });
+  conferir(ba5.imeiOk && !!ba5.pdf && !/^erro/.test(ba5.pdf) && /ASSUME A CASA/.test(ba5.txt) && ![ba5.txt, ba5.pdf, ba5.tl].some((x) => IMEIS_EQ5.concat([IMEI6, IMEI3]).some((i) => x.includes(i))),
+    'EQ5. "Passar o bastão": o IMEI (trancado nas Senhas da casa) nunca aparece no texto, no PDF nem na linha do tempo das próximas 48 horas');
+  conferir(!IMEIS_EQ5.concat([IMEI6, IMEI3]).some((i) => ba5.things.includes(i) || ba5.maint.includes(i)), 'EQ5. o IMEI nunca aparece na linha de nenhum objeto nem na de nenhum lembrete de manutenção');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ5: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -3447,6 +3696,9 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!/_sec/.test(fim.things) && ![PEDIDO, CHAVE, CPF].some((x) => fim.things.includes(x)), 'o registro dos objetos não tem "_sec", pedido, chave da nota nem CPF');
   const logs = consoleTxt.join('\n') + fim.telem;
   conferir(![PEDIDO, CHAVE, CPF].some((x) => logs.includes(x)), 'console e Telem sem pedido, chave da nota ou CPF');
+  /* EQ5 (D-G16 d, D-G17): o número de série pode ficar no objeto, mas nunca no console nem no Telem; o IMEI, em lugar nenhum */
+  const longos5 = [SERIE, IMEI3, IMEI6].concat(IMEIS_EQ5).filter((x) => logs.includes(x));
+  conferir(!longos5.length, 'console e Telem sem o número de série nem o IMEI (EQ5)' + (longos5.length ? ' (' + longos5.join(', ') + ')' : ''));
   conferir(!lixo.erros.length && !lixo.nativos.length, 'nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
   /* ---------- G3, o Giro: a troca da chave da família leva junto os papéis e os números das garantias ----------
@@ -3459,7 +3711,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     const { aparelho, entrarOmni, senhasDaCasa, cadeado225 } = require('./_nuvem');
     await prepararChaves({ soPub: [DAVI] });
     const A = await aparelho(browser, { nome: 'GAR-ana', base: require('./_base').BASE, vp: 'celular' }), a = A.p;
-    const FK0 = 'fk-teste', PIN_A = '736251';
+    const FK0 = 'fk-teste', PIN_A = '736251', IMEI_GIRO = '350000000050001', SERIE_GIRO = 'SN-GIRO-EXEMPLO-0001';
     try {
       await entrarOmni(a, ANA);
       await a.evaluate(() => { AOne.save({ hello: 1, tour: 1, tips: Object.assign({}, AOne.cfg().tips, { home: 1, settings: 1, house: 1, family: 1, garantias: 1 }) }); if (AOne.view) AOne.close(); lsSet(GuiaCofre.K, Date.now()); });
@@ -3476,7 +3728,10 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
       await a.waitForSelector('dialog[open] [name="_sec.pedido"]', { state: 'attached', timeout: 8000 });
       if (!(await a.evaluate(() => { const i = document.querySelector('dialog[open] [name="_sec.pedido"]'); return !!(i.offsetWidth || i.offsetHeight); }))) await a.click('dialog[open] #garmais');
       await a.fill('dialog[open] [name="_sec.pedido"]', PEDIDO); await a.fill('dialog[open] [name="_sec.valor"]', '500');
+      /* EQ5 (D-G16 d, D-G17): um IMEI de mentira trancado e a série à vista; e um lembrete de manutenção ligado ao equipamento */
+      await a.fill('dialog[open] [name="_sec.imei"]', IMEI_GIRO).catch(() => {}); await a.fill('dialog[open] [name="garantia.serie"]', SERIE_GIRO).catch(() => {});
       await a.click('dialog[open] [data-ok]'); await a.waitForTimeout(600);
+      const mtG = await a.evaluate(async (id) => (await DB.put('maint', { title: 'Troca do refil do filtro de água — Purificador Exemplo', cat: 'eletro', interval: 183, last: today(), next: addDays(today(), 183), nextManual: false, history: [], coisa: id, vis: 'familia' })).id, gid);
       await a.evaluate((id) => go('garantias', 'ficha', id), gid); await a.waitForTimeout(500);
       const [fc] = await Promise.all([a.waitForEvent('filechooser', { timeout: 8000 }), a.click('#screen [data-act="gar.papel"][data-tipo="nota"]')]);
       await fc.setFiles({ name: 'nota.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% nota do giro\n') });
@@ -3485,6 +3740,11 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
       const antes = await a.evaluate(async (id) => { const t = DB.get('things', id), f = Files.meta(t.garantia.arquivos[0].id); return { fid: f.id, fk: f.enc && f.enc.fk, temV: !!DB.col('vault').get('gv_' + id), fk0: Cofre.fk }; }, gid);
       const linhaV = db.omni_docs.find((d) => d.grupo_id === GID && d.colecao === 'vault' && d.id === 'gv_' + gid);
       conferir(antes.fk === FK0 && antes.fk0 === FK0 && antes.temV && linhaV && JSON.parse(linhaV.dados_cifrado).fk === FK0 && !linhaV.dados_cifrado.includes(PEDIDO), 'Giro. antes: a nota e o item "gv_" das Senhas da casa fechados com a chave de antes (no banco, embaralhado)');
+      /* EQ5: no banco, o IMEI só embaralhado no "gv_"; a série à vista na linha do objeto (D-G16 d); o IMEI nunca na linha do objeto nem na do lembrete */
+      const linhaT = db.omni_docs.find((x) => x.grupo_id === GID && x.colecao === 'things' && x.id === gid), linhaM = db.omni_docs.find((x) => x.grupo_id === GID && x.colecao === 'maint' && x.id === mtG);
+      const antesQ = await a.evaluate((a) => ({ serie: (DB.get('things', a.id).garantia || {}).serie, coisa: (DB.get('maint', a.m) || {}).coisa }), { id: gid, m: mtG });
+      conferir(!linhaV.dados_cifrado.includes(IMEI_GIRO) && !JSON.stringify(linhaV).includes(IMEI_GIRO) && linhaT && JSON.stringify(linhaT).includes(SERIE_GIRO) && !JSON.stringify(linhaT).includes(IMEI_GIRO) && linhaM && !JSON.stringify(linhaM).includes(IMEI_GIRO) && antesQ.serie === SERIE_GIRO && antesQ.coisa === gid,
+        'Giro (EQ5). antes: o IMEI de mentira só embaralhado no "gv_"; a série à vista na linha do objeto; o IMEI nunca na linha do objeto nem na do lembrete (' + JSON.stringify(antesQ) + ')');
       /* a troca e o "Terminar a troca" */
       const r = await a.evaluate(async () => { try { const x = await Giro.executar(() => {}, {}, { novo: true }); return { ok: true, anexos: x && x.anexos }; } catch (e) { return { erro: e.message }; } });
       const fkN = ((db.omni_docs.find((d) => d.grupo_id === GID && d.colecao === 'settings' && d.id === 'giro') || {}).dados || {}).para;
@@ -3502,13 +3762,19 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
       conferir(d.n != null && soltou && depois.outras === 0 && depois.fkAgora === fkN.fk, 'Giro. "Terminar a troca": a versão antiga é apagada e o aparelho solta a chave de antes (' + JSON.stringify(d) + ')');
       conferir(depois.fk === fkN.fk && depois.txt.startsWith('%PDF-1.4\n% nota do giro'), 'Giro. a nota da garantia passou para a chave nova e abre (' + depois.txt.slice(0, 30) + ')');
       conferir(depois.o && depois.o.pedido === PEDIDO && depois.o.valorCent === '50000' && depois.o.garantiaDe === gid && linhaV2 && JSON.parse(linhaV2.dados_cifrado).fk === fkN.fk, 'Giro. os números da garantia (item "gv_" das Senhas) passaram para a chave nova e abrem');
+      const depoisQ = await a.evaluate((a) => ({ serie: (DB.get('things', a.id).garantia || {}).serie, coisa: (DB.get('maint', a.m) || {}).coisa, mt: JSON.stringify(DB.get('maint', a.m) || {}), t: JSON.stringify(DB.get('things', a.id) || {}) }), { id: gid, m: mtG });
+      conferir(depois.o && depois.o.imei === IMEI_GIRO && !linhaV2.dados_cifrado.includes(IMEI_GIRO) && depoisQ.serie === SERIE_GIRO && depoisQ.coisa === gid && !depoisQ.t.includes(IMEI_GIRO) && !depoisQ.mt.includes(IMEI_GIRO),
+        'Giro (EQ5). depois da troca: o IMEI continua trancado no "gv_" (abre com a chave nova), a série à vista e o lembrete ligado ao equipamento iguais (' + JSON.stringify({ imei: !!(depois.o && depois.o.imei), serie: depoisQ.serie, coisa: depoisQ.coisa === gid }) + ')');
       await a.evaluate((id) => go('garantias', 'ficha', id), gid);
       await a.waitForFunction(() => document.querySelector('#garnum [data-olho]'), null, { timeout: 8000 }).catch(() => {});
-      const olhoG = await a.$('#garnum [data-olho]'); if (olhoG) await olhoG.click();
-      conferir(!!olhoG && (await a.locator('#garnum').innerText()).includes(PEDIDO), 'Giro. depois da troca e do "Terminar a troca", o 👁 da ficha mostra o número');
+      const olhosG = await a.locator('#garnum [data-olho]').elementHandles(), olhoG = olhosG[0];
+      for (const o of olhosG) await o.click().catch(() => {});
+      const numG = olhoG ? await a.locator('#garnum').innerText() : '';
+      conferir(!!olhoG && numG.includes(PEDIDO), 'Giro. depois da troca e do "Terminar a troca", o 👁 da ficha mostra o número');
+      conferir(!!olhoG && numG.includes(IMEI_GIRO), 'Giro (EQ5). ... e o 👁 mostra o IMEI (' + olhosG.length + ' 👁)');
       conferir(!A.lixo.erros.length && !A.lixo.nativos.length, 'Giro. nenhum erro de página nem alert nativo' + (A.lixo.erros.length ? ': ' + A.lixo.erros[0] : ''));
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos; EQ3b: a ficha dos equipamentos; EQ4: a manutenção dos equipamentos)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos; EQ3b: a ficha dos equipamentos; EQ4: a manutenção dos equipamentos; EQ5: a leitura, o 📥, a ajuda, o bastão e o Giro dos equipamentos)');
 })().catch((e) => { console.error(e); process.exit(1); });

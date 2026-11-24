@@ -623,7 +623,8 @@ sem framework: HTML, CSS e JavaScript puros.
   "Apagar o que está só neste aparelho" (`PetFoto.naNuvem`); apagar (só responsável, pelas regras do bucket) tira daqui e faz `DELETE`; sem internet, o
   caminho fica em `LS.petFotoApagar` e é apagado no próximo `reenviar`. Adicionar roda no `DGO.fundo` (tipo `foto`). "Só neste
   aparelho": sem envio. Sem cifra (foto de bicho).
-- `Garantias` (2.28.0) — **🧾 Garantias, aba própria** (`SCREENS.garantias`, rotas `garantias`, `garantias/lista`,
+- `Garantias` (2.28.0) — **🧾 Equipamentos e garantias, aba própria** (o inventário dos aparelhos da casa, com ou sem garantia, D-G13;
+  na barra de baixo e no topo, o nome curto "Equipamentos"; `SCREENS.garantias`, rotas `garantias`, `garantias/lista`,
   `garantias/ficha/<id>` e `garantias/estragou[/<id>]`; id `casa.garantias` em `Rec` — `TAB`, `ACT.gar` e `AJUDA` — e no
   `recursos-do-app.json`, todos os planos; ☰ › Casa, carro e papéis, depois de 🚗 Veículos; `canTab` como Casa: criança vê e não
   muda). Tudo mora num bloco só, `/* ===== 🧾 GARANTIAS (2.28.0) ===== */ … /* ===== fim de GARANTIAS ===== */` (antes das telas
@@ -640,15 +641,16 @@ sem framework: HTML, CSS e JavaScript puros.
   `seguro` (o da seguradora). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
   limites de texto e de lista, link só https, e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
   derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
-  ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, série/IMEI, chave da nota, valor, preço da estendida,
-  pagamento, final do cartão) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
+  ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, IMEI — D-G17 —, chave da nota, valor, preço da estendida,
+  pagamento, final do cartão; o número de série NÃO: fica à vista no objeto, D-G16 d) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
   `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. `Garantias.modo()` =
   aberto só para responsável com as Senhas abertas e sem troca da chave andando, conferido em cada janela (o relógio do
   formulário tira os `_sec.*` se as Senhas fecharem). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
   com `encrypt`, `restrito`); folheto e manual com o "Quem vê" do objeto; nome neutro (`nota-fiscal.pdf`), a marca `gar: <id>` no
   registro do arquivo e só no aparelho. `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
-  `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou (com confirmação). **Telas:** `listView` (filtros Valendo, Em 30
-  dias, Vai começar, Acabaram, "Faltam dados" no topo, `S.garF`), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
+  `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou (com confirmação). **Telas:** `listView` (filtros "📋 Todos os
+  equipamentos" — o padrão, por nome —, Valendo, Em 30 dias, Vai começar e "🗄️ Vencidas" — D-G14, como arquivo —; "Faltam dados" no topo, fechado em
+  Todos; "📦 Saíram de casa" no fim de Todos; `S.garF`), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
   em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
   `atendimento`, os contadores, a assistência técnica — contato `cat: "assistencia"` 🔧 em `CT_CATS`, ligado pelo id) e `rodape`
   (fontes no `moreBox`). CSS só com o prefixo `.gar` (alvos de 44 px). **Avisos (D-G4), nada gravado:** `marcos(hoje)` (30 e 7 dias
@@ -657,8 +659,8 @@ sem framework: HTML, CSS e JavaScript puros.
   a ficha). **📷 Ler nota ou bilhete** (`lerArquivos`, no `DGO.fundo`): OCR/`ShopImport.pdf` no aparelho → `mascarar` (nome, CPF,
   endereço, CEP, telefone, nascimento e os números longos, antes de qualquer IA) → `local` (duas passadas) e, opcional, a IA só com
   o texto filtrado (`prompt`, `daIA`; nunca a imagem; o telefone dela só entra com "Usar") → `conferir` (uma janela por arquivo,
-  🤖/📱) → `_salvarLido`. **📥 Trazer garantias prontas** (`importar` → `validar` → `resumo` → `gravar`, no `DGO.fundo`, tudo ou
-  nada): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
+  🤖/📱) → `_salvarLido`. **📥 Trazer equipamentos prontos** (`importar` → `validar` → `resumo` → `gravar`, no `DGO.fundo`, tudo ou
+  nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
   recusado sem ler, um item ruim recusa o arquivo todo, o que já está no app (pelo ref) fica de fora; no fim, o pedido de apagar o
   arquivo.
   **MoneyTRIO (D-G2):** nada vai (nem `Bridge.post`, nem `sol_ponte`); o valor é só referência. **Ajuda e AssistONE:**
@@ -669,7 +671,34 @@ sem framework: HTML, CSS e JavaScript puros.
   fica fora do painel), `Where.search` e `HouseViews.place` (o selo), `editThing` (nota e `onDelete`), `editVault` (a nota do item
   da garantia), `HELP()` (`"garantias"`), `AOne.helpHere`, `AOne.HERE`/`TIPS` e o CSS `.gar`. Também da 2.28.0, para o app todo
   (D-G10): `ShopImport.pdf` abre o PDF com `isEvalSupported: false` (CVE-2024-4367) e `LIBS.tesseract` tem a versão exata.
-  Teste: `teste/garantias-omni.js` (G1 a G8).
+  **Equipamentos (EQ1–EQ5, D-G13 a D-G19).** Campos novos em `t.garantia` (mesma chave, `v: 1`, todos opcionais na leitura; uma
+  versão antiga que edita o objeto mantém): `voltagem` (`GAR_ENUM.voltagem`: "", "127", "220", "bivolt"), `cor`, `codigo`, `serie` (à
+  vista para quem vê o objeto, em claro na nuvem e na cópia, como o nome; nunca vai à IA), `manualUrl` (só `Garantias.link`: http/https
+  de um site, sem IP, `localhost`, rede de casa, porta nem usuário:senha; conferido no formulário, no arquivo, na leitura e de novo ao
+  desenhar; nunca vem do OCR nem da IA) e `compra.naoSei` (situação `semData`: inventário, sem conta nem aviso, fora de "Faltam
+  dados"); os `finais` são `{ pedido, bilhete, imei }`. `GarCalc.semBase` é a conferência única da situação e dos avisos (o bilhete
+  com início e fim conta sem a data da compra). Funções do bloco: `link`, `href` (o endereço conferido vai no `href`), `dominio`,
+  `buscaManual` (DuckDuckGo, `kl=br-pt`, só "manual" + marca + modelo, sem "!" nem meias letras, nunca lança), `pareceImei` (15
+  algarismos + dígito verificador), `sugManut`, `foraDeCasa`, `fichaDe`, `visJunto`, `voltTxt`, `_mtMapa`/`_mtLinha` (um
+  `Maint.list()` por desenho da lista), `manut`, `lembrete` (a janela de 3 campos), `mtRemarcar`, `mtParar`, `colarManual`; e
+  `ACT["gar.manual" | "gar.manut" | "gar.mtdata" | "gar.mtparar"]`. A ficha: situação → próximo passo → 🗓️ (só com alguma data;
+  fechado em vencida ou saiu de casa) → 🔌 Ficha técnica → 📘 Manual → 🛠 Manutenção → 🛒 Compra → 🔐 (só com algo guardado) → 📎 →
+  🔧/🗂️ → 📝. **Lembrete de manutenção = registro `maint` com `coisa: <id do objeto>`** (como o `veiculo` do carro e o `pet`):
+  `cat: "eletro"`, título "o que fazer — nome", o `vis` do objeto (na criação, no `salvar`, no ✏️ do Onde está? e no 📥); nada em
+  `t.garantia`. **Ligação interna nova, nos dois sentidos, Equipamentos ↔ Manutenção da casa:** a ficha cria, liga ("Já existe…
+  Ligar"), mostra, conta e apaga os lembretes; o 🔔/Início/Inbox, a Agenda e a 🔍 da manutenção abrem a ficha (`fichaDe`); o que saiu
+  de casa, foi apagado ou a pessoa não vê não avisa (`Maint.list` com `foraDeCasa`, em try); apagar o objeto leva os lembretes, e os
+  que sobram de objeto apagado entram nas 🧹 Sobras. O custo do "✓ Feito" de um equipamento não vai ao MoneyTRIO (a caixinha some, como
+  nos pets; D-G2). **Links para fora, só no toque e sem `fetch`:** o do manual (o site da marca) e a busca do manual no DuckDuckGo, os
+  dois com `target="_blank"` e `rel="noopener noreferrer"`. **📷 (EQ5):** o `local` separa a série (à vista) do IMEI (pelo rótulo); na
+  conferência, a série vai para o campo à vista e o que tem cara de IMEI vai para o `_sec.imei`, só no modo aberto. **Linhas de fora do
+  bloco (EQ):** `TABS` (`curto`, `kw`), `renderNav` (topo e barra de baixo com o `curto`), `BarEd.lbl`, o laço das abas do
+  `Search.sources` (o `kw`) e o grupo da 🔍, `Maint.list` (`fora`), `Maint.edit` ("🔌 Ligado a", sem o veículo), `Maint.done` (sem a
+  caixinha do MoneyTRIO com `coisa`), `Alerts.list`, `ACT["ev.edit"]`, a 🔍 da manutenção, `HouseViews.maint` (a 2ª linha "📦 saiu de
+  casa"/"🗑 o equipamento foi apagado" e o `have` pelo começo do título), `Cars.gravar` e `Pets.ligarAntigos` (`!x.coisa`),
+  `editThing` (a nota nova e o 🗑 escondido de criança num equipamento), a nota do item das Senhas, `legal()` (a frase da série e do
+  manual) e o CSS `.gar` (filtros e caixinha). O `recursos-do-app.json` (`casa.garantias`) tem o nome e o "onde" novos.
+  Teste: `teste/garantias-omni.js` (G1 a G8 e EQ1 a EQ5).
 - `SaudeMT` (2.23.0) — **Saúde → MoneyTRIO**, híbrida e opcional (`DB.setting().mt.saude`, ⚙ → Integrações; só responsável, nuvem e
   Senhas da casa prontas — `SaudeMT.pode()`). `resumo()` = `{v:1, enviado_em, pessoas:[{perfil_id, apelido, operadora, validade, medico, especie?}]}`
   de quem tem plano, validade ou médico (pet com `especie: "pet"`); cifrado com a CF (`Cofre.vf`, formato `{c:1, kv, fk, iv, ct}`)
