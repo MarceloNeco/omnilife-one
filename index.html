@@ -8864,6 +8864,11 @@ const SCREENS = {};
 function render() {
   try { A11y.apply(); } catch (e) {}
   if (!S.booted) return;
+  /* o 🔔, o 📥 e o Início pedem as contas das garantias até 5 vezes por desenho: durante o desenho, faz uma vez só (Garantias.marcos) */
+  Garantias._mc = {};
+  try { renderTela(); } finally { Garantias._mc = null; }
+}
+function renderTela() {
   if (!canTab(S.route.tab) || !SCREENS[S.route.tab]) S.route = { tab: S.mode === "advertiser" ? "ads" : "home", sub: null, arg: null };
   renderHeader(); renderNav();
   document.body.classList.toggle("kid", isChild());
@@ -13418,13 +13423,15 @@ const Garantias = {
   },
   /* para a 🔍: "🧾 nome · situação · loja". Nunca um número, nem o final. O índice (q, que não aparece) acha também pela ficha técnica
      (código, série, cor, voltagem) e pelas palavras "equipamento" (nos três idiomas, como o kw da aba), "número de série" (só com a
-     série) e "manual" (só com o link ou o papel do manual) */
+     série), "manual" (só com o link ou o papel do manual), "garantia" (só quando o app conta a garantia), "estendida seguro" (só com
+     a estendida) e "nota fiscal" (só com a nota guardada ou o nº do pedido) */
   busca() {
     return this.itens(today()).map((x) => {
-      const g = x.g, manual = !!g.manualUrl || (Array.isArray(g.arquivos) && g.arquivos.some((a) => a && a.tipo === "manual"));
+      const g = x.g, papel = (k) => Array.isArray(g.arquivos) && g.arquivos.some((a) => a && a.tipo === k), manual = !!g.manualUrl || papel("manual");
       return { id: x.t.id, t: x.t.name || "", s: [x.novo ? tt("Atualize o app para ver", "Update the app to see it", "Actualiza la app para verlo") : GarCalc.curta(x.sit), g.compra && g.compra.loja].filter(Boolean).join(" · "),
         q: [g.marca, g.modelo, g.compra && g.compra.loja, g.codigo, g.serie, g.cor, this.voltTxt(g.voltagem), "equipamento aparelho eletrodomestico equipment appliance device aparato electrodomestico", g.serie ? "numero de serie serial number" : "", manual ? "manual" : "",
-          tt("garantia estendida nota fiscal seguro", "warranty extended invoice insurance", "garantía extendida factura seguro")].filter(Boolean).join(" ") };
+          !x.novo && !GarCalc.semBase(g) && tt("garantia", "warranty", "garantía"), g.estendida && g.estendida.tem === "sim" && tt("estendida seguro", "extended insurance", "extendida seguro"),
+          (papel("nota") || (g.finais && g.finais.pedido)) && tt("nota fiscal", "invoice", "factura")].filter(Boolean).join(" ") };
     });
   },
   /* AssistONE desta tela (AOne.HERE) e a dica da tela (AOne.TIPS) */
@@ -14145,6 +14152,7 @@ const Garantias = {
   /* os avisos de hoje, do mais perto ao mais longe. Vermelho só no de 7 dias quando nada cobre depois: nem a estendida
      emendando no dia seguinte, nem o "talvez" dela (os meses podem contar depois da de fábrica) */
   marcos(hoje) {
+    const mc = this._mc; if (mc && mc[hoje]) return mc[hoje];   /* dentro de um desenho (render), o resultado da 1ª vez */
     const out = [];
     this._avisam((t, g, nome) => {
       const e = GarCalc.estendida(g);
@@ -14153,7 +14161,9 @@ const Garantias = {
         out.push({ id: t.id, nome, tipo: a.tipo, marco: a.marco, data: a.data, nivel: a.marco === 7 && !a.depois && !talvez ? "bad" : "warn", txt: this._avisoTxt(a, g, e, talvez) });
       });
     });
-    return out.sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0));
+    out.sort((x, y) => (x.data < y.data ? -1 : x.data > y.data ? 1 : 0));
+    if (mc) mc[hoje] = out;
+    return out;
   },
   /* o texto do aviso, para leigo e sem nenhum número guardado: o que acaba, quando e o que fazer */
   _avisoTxt(a, g, e, talvez) {

@@ -661,7 +661,8 @@ sem framework: HTML, CSS e JavaScript puros.
   em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
   `atendimento`, os contadores, a assistência técnica — contato `cat: "assistencia"` 🔧 em `CT_CATS`, ligado pelo id) e `rodape`
   (fontes no `moreBox`). CSS só com o prefixo `.gar` (alvos de 44 px). **Avisos (D-G4), nada gravado:** `marcos(hoje)` (30 e 7 dias
-  antes do fim da de fábrica e da estendida, e o começo da estendida; nada para o que saiu de casa) alimenta o `Alerts.list`, o
+  antes do fim da de fábrica e da estendida, e o começo da estendida; nada para o que saiu de casa; durante um desenho, `render()` liga
+  `Garantias._mc` e as contas saem uma vez só, porque o 🔔, o 📥 e o Início pedem até 5 vezes; fora do desenho, sempre na hora) alimenta o `Alerts.list`, o
   `Notify.tick` (`once("gar-…")`, depois das 9h) e `agenda(de, ate)` o `Agenda.occurrences` (linhas `gar-<id>-…`; o `ev.edit` abre
   a ficha). **📷 Ler nota ou bilhete** (`lerArquivos`, no `DGO.fundo`): OCR/`ShopImport.pdf` no aparelho → `mascarar` (nome, CPF,
   RG, endereço, CEP, telefone, nascimento, a saudação do e-mail, o IMEI em grupos, os números longos e todo link com "?" ou "#",
@@ -673,8 +674,9 @@ sem framework: HTML, CSS e JavaScript puros.
   arquivo.
   **MoneyTRIO (D-G2):** nada vai (nem `Bridge.post`, nem `sol_ponte`); o valor é só referência. **Ajuda e AssistONE:**
   `Garantias.AJUDA()` (o tópico `HELP().garantias`), `AQUI()` (`AOne.HERE().garantias`), `DICA()` (`AOne.TIPS().garantias`),
-  `busca()` (🔍) e `selo(t)` (Onde está?). **Linhas fora do bloco** (procure por "garantia"): `canTab`, `Rec` (`TAB`, `ACT`,
-  `AJUDA`), `TABS`, `ICONS.garantias`, `DRAWER_GROUPS`/`DRAWER_SUBS`, `Search.sources` (o grupo e a linha), `Alerts.list`,
+  `busca()` (🔍; as palavras "garantia", "estendida seguro" e "nota fiscal" só entram no índice de quem tem a data, a estendida e a
+  nota ou o pedido) e `selo(t)` (Onde está?). **Linhas fora do bloco** (procure por "garantia"): `canTab`, `Rec` (`TAB`, `ACT`,
+  `AJUDA`), `TABS`, `ICONS.garantias`, `DRAWER_GROUPS`/`DRAWER_SUBS`, `Search.sources` (o grupo e a linha), `Alerts.list`, `render()` (liga e desliga o `Garantias._mc`; o resto foi para `renderTela()`),
   `Notify.tick`, `Agenda.occurrences`, `ACT["ev.edit"]`, `legal()` (o parágrafo 🧾), `CT_CATS`, "Passar o bastão" (o item `gv_`
   fica fora do painel), `Where.search` e `HouseViews.place` (o selo), `editThing` (nota e `onDelete`), `editVault` (a nota do item
   da garantia), `HELP()` (`"garantias"`), `AOne.helpHere`, `AOne.HERE`/`TIPS` e o CSS `.gar`. Também da 2.28.0, para o app todo

@@ -161,6 +161,11 @@
      - D5: a estendida que acaba junto com a de fábrica (ou antes) não cobre nada a mais: o aviso de 7 dias em vermelho, sem "começou a
        estendida" nem a linha dela na Agenda, e a ficha diz por quê
      - D8: o lembrete sugerido acha o mesmo cuidado em PT, EN ou ES (a família com dois idiomas não ganha um 2º lembrete)
+     Revisão regressoes (2.28.0)
+     - RG2: um desenho de qualquer tela lê cada equipamento no máximo 2 vezes, e não 5 (o 🔔, o 📥 e o Início pediam as contas das
+       garantias de novo); o 🔔 continua certo (fora do desenho, sempre na hora; o idioma novo vale na hora)
+     - RG4: a 🔍 "seguro", "estendida", "nota fiscal" e "garantia" (e em EN) só acha os equipamentos a que a palavra se aplica, e a
+       ajuda não some com o corte em 60
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -4099,6 +4104,70 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(/already exists/.test(d8RD.msg) && d8RD.ligou && d8RD.novos === 0 && !d8RD.abriu,
     'Revisão dados D8. ... e em EN, a sugestão acha o "Troca do refil do filtro de água" de Casa → Manutenção e pergunta se liga (fica um só) (' + JSON.stringify(d8RD) + ')');
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('home'); });
+  await p.waitForTimeout(300);
+
+  /* =====================================================================
+     Revisão regressoes (2.28.0): as contas das garantias uma vez por desenho, e não cinco (RG2), e a 🔍 de "seguro", "estendida",
+     "nota fiscal" e "garantia" só com os equipamentos a que a palavra se aplica (RG4). Tudo de mentira
+     ===================================================================== */
+  console.log('\n— Revisão regressoes: as contas das garantias uma vez por desenho e a 🔍 só com o que se aplica');
+  await fecharJanelas(p);
+
+  /* ---------- RG2: cada desenho, em qualquer tela, fazia as contas de todas as garantias 5 vezes (o 🔔, o 📥 e o Início pedem) ---------- */
+  const rg2RR = await p.evaluate(async (papel) => {
+    S.role = papel; if (S.lang !== 'pt') setLang('pt');
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const td = today(), N = 40;
+    /* 40 equipamentos com a de fábrica acabando entre 6 e 25 dias: cada um dá um aviso no 🔔 */
+    for (let i = 0; i < N; i++) await DB.put('things', { id: 'rr2-' + i, name: 'RR Aparelho ' + i, place: '', vis: 'familia', tags: [], garantia: { v: 1, ref: 'gar_rr2-' + i, compra: { data: addDays(td, -340 - (i % 20)) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' } } }, true);
+    /* quantas vezes cada equipamento é lido (Garantias.ler) em um desenho de cada tela */
+    const oL = Garantias.ler; let nL = 0; const por = {};
+    Garantias.ler = function (t) { if (t && /^rr2-/.test(t.id)) nL++; return oL.call(this, t); };
+    try { for (const [tab, sub] of [['home'], ['shop'], ['house', 'maint'], ['agenda']]) { go(tab, sub); nL = 0; render(); por[tab + (sub ? '/' + sub : '')] = nL; } } finally { Garantias.ler = oL; }
+    /* o que o desenho mostra continua certo, e nada fica velho fora do desenho */
+    go('home'); render();
+    const badge = () => ((document.querySelector('#bellbtn .dot') || {}).textContent || '0'), nao = () => Alerts.list().filter((a) => a.level !== 'info').length;
+    const n0 = nao(), b0 = badge(), gar0 = Alerts.list().filter((a) => a.ic === '🧾' && /^rr2-/.test(a.go[2])).length;
+    DB.col('things').delete('rr2-0');   /* some na hora, sem esperar (como um apagar que chega da nuvem) */
+    const semA = !Alerts.list().some((a) => a.ic === '🧾' && a.go[2] === 'rr2-0');
+    render(); const b1 = badge();
+    setLang('en'); const en = (Alerts.list().find((a) => a.ic === '🧾') || {}).t || ''; setLang('pt');
+    return { N, por, n0, b0, gar0, semA, b1, en };
+  }, papel0);
+  conferir(Object.values(rg2RR.por).every((n) => n > 0 && n <= 2 * rg2RR.N),
+    'Revisão regressoes RG2. com ' + rg2RR.N + ' equipamentos, um desenho do Início, de Compras, de Casa → Manutenção e da Agenda lê cada equipamento no máximo 2 vezes, e não 5 (' + JSON.stringify(rg2RR.por) + ')');
+  conferir(rg2RR.gar0 === rg2RR.N && rg2RR.b0 === String(rg2RR.n0) && rg2RR.semA && rg2RR.b1 === String(rg2RR.n0 - 1) && /^RR Aparelho \d+: the factory warranty ends/.test(rg2RR.en),
+    'Revisão regressoes RG2. ... e o 🔔 continua certo: um aviso por equipamento, o número do 🔔 igual à lista, o equipamento apagado sai na hora (fora do desenho e no desenho seguinte) e o idioma novo vale na hora (' + JSON.stringify({ gar0: rg2RR.gar0, n0: rg2RR.n0, b0: rg2RR.b0, b1: rg2RR.b1, semA: rg2RR.semA, en: rg2RR.en.slice(0, 60) }) + ')');
+
+  /* ---------- RG4: a 🔍 de "seguro", "estendida" e "nota fiscal" trazia todo equipamento, e o corte em 60 tirava a ajuda ---------- */
+  const rg4RR = await p.evaluate(async () => {
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    const td = today(), put = (id, nome, g) => DB.put('things', { id, name: nome, place: '', vis: 'familia', tags: [], garantia: Object.assign({ v: 1, ref: 'gar_' + id, compra: { data: addDays(td, -100) }, fabrica: { meses: 12 }, estendida: { tem: 'nao' } }, g) }, true);
+    for (let i = 0; i < 70; i++) await put('rr4-' + i, 'RR Aparelho ' + i, {});
+    await put('rr4-est', 'RR Geladeira com estendida', { estendida: { tem: 'sim', meses: 24, contaDe: 'fimFabrica', quem: 'seguradora' } });
+    await put('rr4-nota', 'RR Fogão com nota', { arquivos: [{ id: 'f-rr4-nota', tipo: 'nota', hash: '', em: td, emitidoEm: '', antigo: false }] });
+    await put('rr4-ped', 'RR TV com pedido', { finais: { pedido: '0001', bilhete: '', imei: '' } });
+    await put('rr4-sem', 'RR Ventilador sem data', { compra: { naoSei: true } });
+    const eq = (q) => Search.find(q).filter((x) => x.ic === '🧾' && /^RR /.test(x.t)).map((x) => x.t).sort();
+    const aj = (q) => Search.find(q).some((x) => x.ic === '❓' && /Equipamentos e garantias|Equipment & warranties/.test(x.t));
+    const qDe = (id) => (Search.sources().find((x) => x.ic === '🧾' && x.t === DB.get('things', id).name) || {}).q || '';
+    const out = {};
+    for (const q of ['seguro', 'estendida', 'garantia estendida', 'nota fiscal']) out[q] = { eq: eq(q), aj: aj(q), n: Search.find(q).length };
+    out.garantia = { comData: /garantia/.test(qDe('rr4-0')), semData: /garantia/.test(qDe('rr4-sem')), aj: aj('garantia'), aba: Search.find('garantia').some((x) => x.grp === 'Funções' && x.t === 'Equipamentos e garantias') };
+    setLang('en'); out.en = { extended: eq('extended'), insurance: eq('insurance'), invoice: eq('invoice'), aj: aj('extended') }; setLang('pt');
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    return out;
+  });
+  const soEstRR = JSON.stringify(['RR Geladeira com estendida']), notaRR = JSON.stringify(['RR Fogão com nota', 'RR TV com pedido']);
+  conferir(['seguro', 'estendida', 'garantia estendida'].every((q) => JSON.stringify(rg4RR[q].eq) === soEstRR && rg4RR[q].aj),
+    'Revisão regressoes RG4. com 70 equipamentos sem estendida, a 🔍 "seguro", "estendida" e "garantia estendida" acha só o que tem a estendida, e a ajuda continua aparecendo (' + JSON.stringify(['seguro', 'estendida', 'garantia estendida'].map((q) => [q, rg4RR[q].n, rg4RR[q].eq.length, rg4RR[q].eq.slice(0, 2), rg4RR[q].aj])) + ')');
+  conferir(JSON.stringify(rg4RR['nota fiscal'].eq) === notaRR,
+    'Revisão regressoes RG4. ... "nota fiscal" acha só o que tem a nota guardada ou o nº do pedido (' + rg4RR['nota fiscal'].n + ' resultados: ' + JSON.stringify(rg4RR['nota fiscal'].eq.slice(0, 3)) + ')');
+  conferir(rg4RR.garantia.comData && !rg4RR.garantia.semData && rg4RR.garantia.aj && rg4RR.garantia.aba,
+    'Revisão regressoes RG4. ... "garantia" acha o que tem data (o app conta a garantia), não o "Não sei a data da compra", e acha a aba e a ajuda (' + JSON.stringify(rg4RR.garantia) + ')');
+  conferir(JSON.stringify(rg4RR.en.extended) === soEstRR && JSON.stringify(rg4RR.en.insurance) === soEstRR && JSON.stringify(rg4RR.en.invoice) === notaRR && rg4RR.en.aj,
+    'Revisão regressoes RG4. ... em EN, "extended" e "insurance" acham só o que tem a estendida e "invoice" só o que tem a nota ou o pedido (' + JSON.stringify(rg4RR.en) + ')');
+  await p.evaluate(() => go('home'));
   await p.waitForTimeout(300);
 
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
