@@ -24,7 +24,7 @@
      G3 — a ficha, o formulário, as Senhas da casa, os papéis, o Onde está? e o apagar
      - cadastro mínimo (nome + data da compra; o resto em "＋ Mais detalhes"), "Ligar a" um objeto que já existe, o que o
        formulário recusa; a ficha (a frase grande, as três garantias com ≈, o "próximo passo", o 🆘)
-     - pedido, bilhete, série, chave da nota, valor, preço da estendida, pagamento e final do cartão só no item "gv_" + id das
+     - pedido, bilhete, IMEI (EQ1, D-G17), chave da nota, valor, preço da estendida, pagamento e final do cartão só no item "gv_" + id das
        Senhas da casa (D-G11); no objeto, só os finais; "final 0001" e o 👁 só no modo aberto (a voz esconde de novo); as
        Senhas fechando com a janela aberta; fechadas e quem não é responsável: nada protegido; o editVault mantém as chaves
      - os papéis: a nota trancada, só responsáveis, "nota-fiscal.pdf" e a marca gar; o folheto com o "Quem vê" do objeto;
@@ -83,6 +83,14 @@
      - o idioma, lendo o código: todo tt( do bloco e das linhas de fora com 3 argumentos (PT, EN, ES); ES ≠ PT e ≠ EN nos textos
        de 3 palavras ou mais; o ES sem palavra do Brasil (billete, nota fiscal, protocolo, celular, cadastro, loja, estragou,
        assistência); o PT sem jargão; "lei brasileira" no EN e no ES do rodapé e da ajuda
+     EQ1 — Equipamentos e garantias: os dados e as contas (D-G13 a D-G17)
+     - a ficha técnica na leitura: voltagem (lista branca), cor, código e a série à vista; o link do manual (só http/https de um
+       site: nada de javascript:, IP, localhost, rede de casa, porta nem usuário:senha; vazio em vez de cortado; o href é o
+       endereço conferido) e o domínio; "Não sei a data da compra" (semData: sem conta, sem aviso, fora de "Faltam dados"); o
+       bilhete com início e fim conta mesmo sem a data da compra (semBase); "🗄️ Venceu"; a busca do manual (só "manual" + marca +
+       modelo, DuckDuckGo kl=br-pt, sem "!", nunca erro); "parece IMEI" (Luhn); a sugestão de lembrete; foraDeCasa e fichaDe
+     - o IMEI trancado no lugar da série (GAR_SEC, os finais; a série antiga guardada vira o IMEI); o 📥 com os campos novos, o
+       IMEI em "protegido", a série à vista e os lembretes de manutenção (limites: 1 a 60 meses, até 10 por item e 100 no arquivo)
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -268,7 +276,8 @@ const CASOS = [
   ['ler', [{ id: 't1', garantia: { ref: 'exemplo-0001' } }], { ref: 'exemplo-0001' }, 'ler: o ref de um arquivo trazido fica'],
   ['ler', [{ id: 't1', garantia: { obs: 'x'.repeat(5000), estendida: { acionar: { tel: 'x'.repeat(400), whats: 'x'.repeat(50) } }, atendimentos: [{ id: 'a1', protocolo: 'x'.repeat(100), oque: 'x'.repeat(900), com: 'x'.repeat(100) }] } }],
     (r) => r.obs.length === 1000 && r.estendida.acionar.tel.length === 300 && r.estendida.acionar.whats.length === 30 && r.atendimentos[0].protocolo.length === 60 && r.atendimentos[0].oque.length === 500 && r.atendimentos[0].com.length === 80, 'ler: textos cortados nos limites (obs 1000, telefones 300, WhatsApp 30, protocolo 60, o que disseram 500, com quem 80)'],
-  ['ler', [{ id: 't1', garantia: { finais: { pedido: PEDIDO, bilhete: 12345678, serie: 'SN-ABC-9876' } } }], { finais: { pedido: '0001', bilhete: '', serie: '9876' } }, 'ler: os "finais" nunca guardam o número completo'],
+  /* EQ1 (troca de propósito, D-G16 d e D-G17): a série saiu dos "finais" (fica à vista na ficha) e o IMEI entrou no lugar dela */
+  ['ler', [{ id: 't1', garantia: { finais: { pedido: PEDIDO, bilhete: 12345678, imei: '352000001234560', serie: 'SN-ABC-9876' } } }], (r) => canon(r.finais) === canon({ pedido: '0001', bilhete: '', imei: '4560' }), 'ler: os "finais" nunca guardam o número completo (pedido, bilhete e IMEI; a série não fica nos finais)'],
   ['ler', [{ id: 't1', garantia: { saiu: 'doado' } }], { saiu: null }, 'ler: "saiu" que não é objeto não vale'],
   ['ler', [{ id: 't1', garantia: { saiu: { como: 'xyz', em: '2025-02-30' } } }], { saiu: { como: 'outro', em: '' } }, 'ler: "saiu" com jeito desconhecido vira "outro"'],
   ['ler', [{ id: 't1', garantia: {} }], { v: 1, ref: 'gar_t1', duravel: true, compra: { data: '', entrega: '', loja: '' }, fabrica: { meses: null, fim: '', legalInclusa: 'naosei' }, estendida: { tem: 'naosei', quem: 'naosei', contaDe: 'naosei', cancelada: false, acionar: { daIA: false } }, saiu: null, origem: 'manual', obs: '' }, 'ler: garantia vazia ganha os padrões'],
@@ -337,6 +346,7 @@ const rodar = (p, casos) => p.evaluate((casos) => casos.map(([fn, args]) => {
     if (fn === 'ler') return { r: Garantias.ler(args[0]) };
     if (fn === 'validar') return { r: Garantias.validar(args[0]) };
     if (fn === 'validarObj') return { r: Garantias.validar(JSON.parse(args[0])) };
+    if (fn.startsWith('G.')) return { r: Garantias[fn.slice(2)].apply(Garantias, args) };   /* EQ1: as funções novas do Garantias */
     return { r: GarCalc[fn].apply(GarCalc, args) };
   } catch (e) { return { lancou: String((e && e.message) || e) }; }
 }), casos.map((c) => [c[0], c[1]]));
@@ -624,6 +634,9 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   console.log('\n— G3: a ficha, o formulário, as Senhas da casa e os papéis');
   await p.evaluate((papel) => { S.role = papel; }, papel0);
   const BILHETE = 'BILHETE-EXEMPLO-0002', SERIE = 'SERIE-EXEMPLO-0003';
+  /* EQ1 (troca de propósito, D-G17): o campo trancado passou a ser o IMEI (a série vai à vista, D-G16 d). IMEI de mentira, com o
+     dígito verificador certo e o final 0003 */
+  const IMEI3 = '350000000030003';
   const okForm = async () => { await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(500); };
   const telaTxt = () => p.evaluate(() => document.querySelector('#screen').innerText);
   const ficha = async (id) => { await p.evaluate((id) => go('garantias', 'ficha', id), id); await p.waitForTimeout(500); };
@@ -700,7 +713,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   const abriuE = await p.waitForSelector('dialog[open] [name="_sec.pedido"]', { state: 'attached', timeout: 5000 }).then(() => true, () => false);
   if (abriuE) {
     if (!(await p.evaluate(() => { const i = document.querySelector('dialog[open] [name="_sec.pedido"]'); return !!(i.offsetWidth || i.offsetHeight); }))) await p.click('dialog[open] #garmais');
-    for (const [k, v] of [['pedido', PEDIDO], ['number', BILHETE], ['serie', SERIE], ['chaveNF', CHAVE], ['valor', '1299.9'], ['preco', '199.9'], ['pagamento', 'Cartão de crédito em 10x'], ['cartaoFinal', '4321']]) await p.fill('dialog[open] [name="_sec.' + k + '"]', v);
+    for (const [k, v] of [['pedido', PEDIDO], ['number', BILHETE], ['imei', IMEI3], ['chaveNF', CHAVE], ['valor', '1299.9'], ['preco', '199.9'], ['pagamento', 'Cartão de crédito em 10x'], ['cartaoFinal', '4321']]) await p.fill('dialog[open] [name="_sec.' + k + '"]', v, { timeout: 5000 }).catch(() => {});   /* campo que falta: as conferências abaixo dão ✗ */
     await okForm();
   }
   const sg = await p.evaluate(async (id) => {
@@ -708,17 +721,17 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     return { t: JSON.stringify(t), finais: t && t.garantia && t.garantia.finais, v: v ? { kind: v.kind, vis: v.vis, cru: JSON.stringify(v) } : null, o,
       idb: JSON.stringify(await IDB.entries('docs')), ls: JSON.stringify(Object.assign({}, localStorage)) + JSON.stringify(Object.assign({}, sessionStorage)), busca: JSON.stringify(Search.sources()) };
   }, tid3);
-  const LONGOS = [PEDIDO, BILHETE, SERIE, CHAVE, 'Cartão de crédito em 10x'];
+  const LONGOS = [PEDIDO, BILHETE, IMEI3, CHAVE, 'Cartão de crédito em 10x'];
   conferir(abriuE && !LONGOS.some((x) => sg.t.includes(x)) && !/_sec|129990|19990|1299[.,]9|valorCent|precoCent|cartaoFinal|"pagamento"/.test(sg.t), 'G3. o objeto não guarda número, valor, pagamento nem final do cartão (nem "_sec")');
-  conferir(sg.finais && sg.finais.pedido === '0001' && sg.finais.bilhete === '0002' && sg.finais.serie === '0003', 'G3. no objeto, só os finais: 0001, 0002 e 0003 (' + JSON.stringify(sg.finais) + ')');
-  conferir(sg.v && sg.v.kind === 'seguro' && sg.v.vis === 'restrito' && !LONGOS.some((x) => sg.v.cru.includes(x)) && sg.o && sg.o.pedido === PEDIDO && sg.o.number === BILHETE && sg.o.serie === SERIE && sg.o.chaveNF === CHAVE &&
+  conferir(sg.finais && sg.finais.pedido === '0001' && sg.finais.bilhete === '0002' && sg.finais.imei === '0003' && !('serie' in sg.finais), 'G3. no objeto, só os finais: 0001, 0002 e 0003 (pedido, bilhete e IMEI; sem "serie") (' + JSON.stringify(sg.finais) + ')');
+  conferir(sg.v && sg.v.kind === 'seguro' && sg.v.vis === 'restrito' && !LONGOS.some((x) => sg.v.cru.includes(x)) && sg.o && sg.o.pedido === PEDIDO && sg.o.number === BILHETE && sg.o.imei === IMEI3 && !('serie' in sg.o) && sg.o.chaveNF === CHAVE &&
     sg.o.valorCent === '129990' && sg.o.precoCent === '19990' && sg.o.pagamento === 'Cartão de crédito em 10x' && sg.o.cartaoFinal === '4321' && sg.o.garantiaDe === tid3 && sg.o.title === 'Purificador Exemplo G3 — números da garantia',
-    'G3. pedido, bilhete, série, chave da nota, valor, preço da estendida, pagamento e final do cartão trancados no item "gv_" + id das Senhas da casa (seguro, só responsáveis) (' + JSON.stringify(sg.o && Object.keys(sg.o)) + ')');
+    'G3. pedido, bilhete, IMEI, chave da nota, valor, preço da estendida, pagamento e final do cartão trancados no item "gv_" + id das Senhas da casa (seguro, só responsáveis) (' + JSON.stringify(sg.o && Object.keys(sg.o)) + ')');
   conferir(!LONGOS.slice(0, 4).some((x) => sg.idb.includes(x) || sg.ls.includes(x) || sg.busca.includes(x)), 'G3. nada aberto no aparelho (IndexedDB, localStorage) nem na 🔍');
   await ficha(tid3);
   await p.waitForFunction(() => document.querySelector('#garnum [data-olho]'), null, { timeout: 5000 }).catch(() => {});
   ft = await telaTxt();
-  conferir(/final 0001/.test(ft) && /final 0002/.test(ft) && /final 0003/.test(ft) && !LONGOS.slice(0, 4).some((x) => ft.includes(x)), 'G3. a ficha mostra "final 0001" (pedido, bilhete, série) e esconde o número completo');
+  conferir(/final 0001/.test(ft) && /final 0002/.test(ft) && /final 0003/.test(ft) && !LONGOS.slice(0, 4).some((x) => ft.includes(x)), 'G3. a ficha mostra "final 0001" (pedido, bilhete, IMEI) e esconde o número completo');
   conferir(/1\.299,90/.test(ft) && /199,90/.test(ft) && /final 4321/.test(ft) && /nada é enviado ao MoneyTRIO/.test(ft), 'G3. "💰 Referência" no modo aberto (valor, preço da estendida, cartão final 4321) e "nada é enviado ao MoneyTRIO"');
   const olho = await p.$('#garnum [data-olho]');
   if (olho) await olho.click();
@@ -1225,7 +1238,8 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     ep: ['A de fábrica e o prazo da lei acabaram, e o seguro só começa em ' + F5.p10 + '. Se for defeito de fabricação, reclame com a loja ou o fabricante e guarde o protocolo.'],
     ac: ['Se for defeito de fabricação que apareceu agora, reclame com a loja ou o fabricante em até 90 dias de quando ele apareceu (até ' + F5.p70 + ', contando do dia em que o defeito apareceu). Se negarem: Procon ou consumidor.gov.br.'],
     a0: ['reclame com a loja ou o fabricante em até 90 dias de quando ele apareceu. Se negarem: Procon ou consumidor.gov.br.'],
-    fl: ['Informe a data da compra. A garantia da lei vale sempre, mesmo sem papel (CDC art. 24): loja ou fabricante.']
+    /* EQ1 (troca de propósito, D-G13): o equipamento sem data também é inventário; o texto diz que a lei vale sem papel, mas tem prazo */
+    fl: ['Sem a data da compra, o app não conta os prazos. A garantia da lei não depende de papel (CDC art. 24), mas tem prazo: 90 dias para reclamar (30 se não for coisa que dura), contados da entrega ou do dia em que apareceu um defeito escondido. Fale com a loja ou o fabricante.']
   };
   const NAO5 = { es: /Sem o telefone/, fa: /Acione a seguradora/, a0: /\(até /, el: /Acione a seguradora/, sn: /Acione pela loja/ };
   const telas5 = {};
@@ -1520,7 +1534,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     return { txt: m.innerText, tipo: v('_tipo'), ligar: v('_ligar'), nome: v('name'), data: v('garantia.compra.data'), loja: v('garantia.compra.loja'), marca: v('garantia.marca'), modelo: v('garantia.modelo'),
       seg: v('garantia.estendida.seguradora'), quem: v('garantia.estendida.quem'), ini: v('garantia.estendida.inicio'), fim: v('garantia.estendida.fim'), emit: v('garantia.estendida.emitidoEm'), meses: v('_estMeses'),
       tel: v('garantia.estendida.acionar.tel'), whats: v('garantia.estendida.acionar.whats'), app: v('garantia.estendida.acionar.app'), guardar: v('_guardar'),
-      pedido: v('_sec.pedido'), number: v('_sec.number'), serie: v('_sec.serie'), chave: v('_sec.chaveNF'), valor: v('_sec.valor'), preco: v('_sec.preco'), nsec: m.querySelectorAll('[name^="_sec."]').length, vSec: vis('_sec.number'),
+      pedido: v('_sec.pedido'), number: v('_sec.number'), imei: v('_sec.imei'), chave: v('_sec.chaveNF'), valor: v('_sec.valor'), preco: v('_sec.preco'), nsec: m.querySelectorAll('[name^="_sec."]').length, vSec: vis('_sec.number'),
       hNome: hint('name'), hData: hint('garantia.compra.data'), hSeg: hint('garantia.estendida.seguradora'), hTel: hint('garantia.estendida.acionar.tel'),
       sug: sug ? sug.innerText : '', usar: usar ? Math.round(usar.getBoundingClientRect().height) : 0, larg: m.scrollWidth <= innerWidth + 1 && document.documentElement.scrollWidth <= innerWidth + 1,
       fora: [...m.querySelectorAll('input, textarea, select')].filter((i) => !/^_sec\./.test(i.name)).map((i) => (i.tagName === 'SELECT' ? (i.selectedOptions[0] || {}).textContent : i.value)).join(' | ') };
@@ -1533,7 +1547,9 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(c61.tipo === 'nota' && c61.nome === 'Purificador Exemplo' && c61.data === '2024-03-10' && c61.marca === 'Marca Exemplo' && c61.modelo === 'ABC1234' && c61.ligar === '' && c61.guardar === true,
     'G6. a nota (PDF): o que é, a data da compra, a marca e o modelo; "Ligar a: Nova" e "Guardar este arquivo" marcado (' + JSON.stringify({ tipo: c61.tipo, nome: c61.nome, data: c61.data, ligar: c61.ligar }) + ')');
   conferir(/🤖/.test(c61.hNome || '') && /Lido com a IA/.test(c61.hNome || '') && /📱/.test(c61.hData || '') && /Lido no aparelho/.test(c61.hData || ''), 'G6. cada campo lido diz de onde veio: "🤖 Lido com a IA" (o nome) e "📱 Lido no aparelho" (a data) (' + c61.hNome + ' / ' + c61.hData + ')');
-  conferir(c61.pedido === PEDIDO && c61.serie === SERIE && c61.chave === CHAVE && c61.valor === '1299', 'G6. com as Senhas da casa abertas (responsável), os números lidos aparecem na conferência, para conferir');
+  /* EQ1 (troca de propósito, D-G17): o campo trancado da conferência agora é o _sec.imei; até a EQ5 separar a série (à vista) do IMEI,
+     o número lido continua trancado, nesse campo */
+  conferir(c61.pedido === PEDIDO && c61.imei === SERIE && c61.chave === CHAVE && c61.valor === '1299', 'G6. com as Senhas da casa abertas (responsável), os números lidos aparecem na conferência, para conferir');
   conferir(!sobra6(c61.fora, PESSOAIS6.concat([PEDIDO, SERIE, CHAVE])).length, 'G6. nos campos que não são protegidos, nada de nome, CPF, endereço ou número' + (sobra6(c61.fora, PESSOAIS6).length ? ' (' + sobra6(c61.fora, PESSOAIS6).join(', ') + ')' : ''));
   if (abriu6) { await p.fill('dialog[open] [name="name"]', 'Purificador Exemplo G6'); await okForm(); }
   const abriu62 = await p.waitForFunction(() => /2 de 2/.test((document.querySelector('dialog[open]') || {}).innerText || ''), null, { timeout: 8000 }).then(() => true, () => false);
@@ -1548,7 +1564,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     'G6. OK: uma garantia nova com a data da compra, a marca, o modelo e "foto" (' + JSON.stringify(s61 && s61.g) + ')');
   conferir(s61 && s61.m.enc && s61.m.vis === 'restrito' && s61.m.name === 'nota-fiscal.pdf' && s61.m.gar === id61 && s61.a.tipo === 'nota' && /^[0-9a-f]{64}$/.test(s61.a.hash) && s61.txt.startsWith('%PDF-1.4\n% nota de mentira G6'),
     'G6. ... a nota guardada trancada (só um responsável abre), com o nome "nota-fiscal.pdf", a marca gar e o SHA-256 (' + JSON.stringify(s61 && Object.assign({}, s61.m, { tipo: s61.a.tipo })) + ')');
-  conferir(s61 && s61.o && s61.o.pedido === PEDIDO && s61.o.serie === SERIE && s61.o.chaveNF === CHAVE && s61.o.valorCent === '129900' && s61.g.finais.pedido === '0001' && s61.g.finais.serie === '0003',
+  conferir(s61 && s61.o && s61.o.pedido === PEDIDO && s61.o.imei === SERIE && !('serie' in s61.o) && s61.o.chaveNF === CHAVE && s61.o.valorCent === '129900' && s61.g.finais.pedido === '0001' && s61.g.finais.imei === '0003' && !('serie' in s61.g.finais),
     'G6. ... os números e o valor só nas Senhas da casa (item "gv_"); no objeto, só os finais');
   conferir(s61 && !sobra6(s61.json + s61.files, PESSOAIS6.concat([PEDIDO, SERIE, CHAVE])).length && !s61.json.includes('129900') && !s61.json.includes('1.299'), 'G6. ... no objeto e no registro do arquivo, nada de nome, CPF, endereço, número ou valor (nem o nome original do arquivo, com CPF)');
   const c62 = abriu62 ? await campos6() : {};
@@ -1973,6 +1989,223 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(aj8.some((c) => c.args.length === 3 && /Estragou\? E agora\?/.test(c.args[0].txt) && /Broken\? What now\?/.test(c.args[1].txt) && /¿Se ha estropeado\? ¿Y ahora qué\?/.test(c.args[2].txt)), 'G8. idioma: a ajuda chama o "Estragou? E agora?" pelo mesmo nome da tela, em EN e em ES');
   conferir(!lixo.erros.length && !lixo.nativos.length, 'G8: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     EQ1 — Equipamentos e garantias: os dados e as contas (D-G13 a D-G17)
+     ===================================================================== */
+  console.log('\n— EQ1: Equipamentos e garantias — os dados e as contas');
+  await fecharJanelas(p);
+  await p.evaluate((papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); }, papel0);
+  const hojeQ = await p.evaluate(() => today()), amanhaQ = await p.evaluate(() => GarCalc.somaDias(today(), 1));
+  /* IMEI de mentira: o 1º passa no dígito verificador (Luhn), o 2º não (o último algarismo trocado) */
+  const IMEI_Q = '352000001234560', IMEI_Q2 = '352000001234561';
+  const MAN = 'https://www.exemplo.com.br/manuais/px-100.pdf', L500 = 'https://exemplo.com.br/' + 'a'.repeat(477), L501 = L500 + 'a';
+  const LERQ = (g) => [{ id: 't1', garantia: g }];
+  /* o link do manual: só http/https de um site de verdade; o resto vira vazio (nunca cortado: link cortado vira outro link) */
+  const RUINS_Q = [['javascript:alert(1)', 'javascript:'], ['JAVASCRIPT:alert(1)', 'JAVASCRIPT: (maiúsculas)'], ['javascript://exemplo.com.br/%0Aalert(1)', 'javascript:// com cara de site'],
+    ['data:text/html,<b>x</b>', 'data:'], ['file:///etc/passwd', 'file:'], ['blob:https://exemplo.com.br/x', 'blob:'], ['vbscript:x', 'vbscript:'], ['ftp://exemplo.com.br/manual.pdf', 'ftp:'],
+    ['https://u:s@exemplo.com.br/', 'usuário e senha no link'], ['http://192.168.0.1/manual.pdf', 'IP da rede de casa'], ['http://127.0.0.1/', '127.0.0.1'], ['http://2130706433/', 'IP escrito como número'],
+    ['http://[::1]/', 'IP v6'], ['http://localhost:8080/', 'localhost com porta'], ['https://exemplo.com.br:8443/', 'porta'], ['http://impressora.local/', '.local'], ['https://roteador.lan/', '.lan'],
+    ['https://roteador.home/', '.home'], ['https://servidor.internal/', '.internal'], ['http://intranet/', 'sem ponto'], ['https:\\\\exemplo.com.br', 'barra invertida'], [L501, '501 letras'],
+    ['https://exemplo.com.br/manual px-100.pdf', 'com espaço'], ['https://exemplo.com.br/"x"', 'com aspas'], ['https://exemplo.com.br/<x>', 'com < e >'], [5, 'número'], [null, 'nada']];
+  const CASOS_EQ1 = [
+    /* voltagem (lista branca), cor, código e a série à vista (D-G16 c, d) */
+    ['ler', LERQ({ voltagem: '380' }), { voltagem: '' }, 'ler: voltagem "380" (fora da lista) vira "não sei"'],
+    ['ler', LERQ({ voltagem: 220 }), { voltagem: '' }, 'ler: voltagem em número vira "não sei"'],
+    ...['127', '220', 'bivolt'].map((v) => ['ler', LERQ({ voltagem: v }), { voltagem: v }, 'ler: voltagem "' + v + '" fica']),
+    ['ler', LERQ({ serie: 'SN-EXEMPLO-0001', cor: 'prata', codigo: '00000001' }), { serie: 'SN-EXEMPLO-0001', cor: 'prata', codigo: '00000001' }, 'ler: o número de série fica à vista (D-G16 d), com a cor e o código do produto'],
+    ['ler', LERQ({ cor: 'x'.repeat(50), codigo: 'y'.repeat(50), serie: 'z'.repeat(70) }), (r) => r.cor.length === 40 && r.codigo.length === 40 && r.serie.length === 60, 'ler: cor e código cortados em 40 letras, a série em 60'],
+    ['ler', LERQ({ cor: 5, codigo: {}, serie: [] }), { cor: '', codigo: '', serie: '' }, 'ler: cor, código e série que não são texto viram vazio'],
+    ['ler', LERQ({}), (r) => bate(r, { voltagem: '', cor: '', codigo: '', serie: '', manualUrl: '', compra: { naoSei: false } }) && canon(r.finais) === canon({ pedido: '', bilhete: '', imei: '' }), 'ler: garantia vazia ganha os campos novos vazios (e os finais só com pedido, bilhete e IMEI)'],
+    /* o link do manual */
+    ...RUINS_Q.map(([x, nome]) => ['G.link', [x], false, 'link do manual recusa: ' + nome]),
+    ...RUINS_Q.map(([x, nome]) => ['ler', LERQ({ manualUrl: x }), { manualUrl: '' }, 'ler: link do manual (' + nome + ') vira vazio']),
+    ['G.link', [MAN], true, 'link do manual aceita https de um site'], ['G.link', ['http://exemplo.com.br/manual.pdf'], true, 'link do manual aceita http de um site (a ficha avisa "sem cadeado")'],
+    ['G.link', [L500], true, 'link do manual com 500 letras entra'],
+    ['ler', LERQ({ manualUrl: MAN }), { manualUrl: MAN }, 'ler: link https de site fica'], ['ler', LERQ({ manualUrl: 'http://exemplo.com.br/manual.pdf' }), { manualUrl: 'http://exemplo.com.br/manual.pdf' }, 'ler: link http de site fica'],
+    ['ler', LERQ({ manualUrl: L500 }), (r) => r.manualUrl === L500, 'ler: link com 500 letras fica inteiro'],
+    ['G.href', ['https://WWW.Exemplo.com.br/Manuais/PX-100.pdf'], 'https://www.exemplo.com.br/Manuais/PX-100.pdf', 'href: o endereço conferido (new URL().href), não o texto gravado'],
+    ['G.href', ['http://exemplo.com.br'], 'http://exemplo.com.br/', 'href: http de site, como o navegador escreve'],
+    ['G.href', ['javascript:alert(1)'], '', 'href: link ruim → vazio'], ['G.href', ['http://192.168.0.1/'], '', 'href: IP → vazio'], ['G.href', [null], '', 'href: nada → vazio'],
+    ['G.dominio', ['https://WWW.Exemplo.com.br/x'], 'exemplo.com.br', 'domínio do link, sem o www'], ['G.dominio', ['http://manuais.exemplo.com.br/x'], 'manuais.exemplo.com.br', 'domínio de um subdomínio fica inteiro'],
+    ['G.dominio', ['javascript:x'], '', 'domínio de link ruim → vazio'],
+    /* "Não sei a data da compra" (D-G13) */
+    ['ler', LERQ({ compra: { naoSei: true } }), { compra: { naoSei: true, data: '' } }, 'ler: "Não sei a data da compra" fica'],
+    ['ler', LERQ({ compra: { naoSei: true, data: '2024-03-10' } }), { compra: { naoSei: false, data: '2024-03-10' } }, 'ler: "Não sei" com a data da compra → falso (vale a data)'],
+    ['ler', LERQ({ compra: { naoSei: true, entrega: '2024-03-12' } }), { compra: { naoSei: false } }, 'ler: "Não sei" com a data da entrega → falso'],
+    ['ler', LERQ({ compra: { naoSei: 'sim' } }), { compra: { naoSei: false } }, 'ler: "Não sei" que não é true → falso'],
+    /* semData e semBase */
+    ['situacao', [{ v: 1, compra: { naoSei: true } }, '2025-04-01'], { k: 'semData', ate: null }, 'só o nome + "Não sei a data da compra": "semData" (o app não conta a garantia)'],
+    ['avisos', [{ v: 1, compra: { naoSei: true } }, '2025-04-01'], [], '... sem aviso'],
+    ['proximoFim', [{ v: 1, compra: { naoSei: true } }, '2025-04-01'], null, '... sem próximo fim'],
+    ['fabrica', [{ v: 1, compra: { naoSei: true } }], null, '... sem a de fábrica'], ['lei', [{ v: 1, compra: { naoSei: true } }], null, '... e sem o prazo da lei'],
+    ['situacao', [{ v: 1 }, '2025-04-01'], { k: 'faltam' }, 'só o nome (sem "Não sei"): continua "Faltam dados"'],
+    ['situacao', [{ v: 1, compra: { naoSei: true, data: '2024-03-10' }, fabrica: { meses: 12 } }, '2024-12-01'], { k: 'fabrica', ate: '2025-03-10' }, '"Não sei" gravado junto com a data da compra: vale a data (de fábrica)'],
+    ['situacao', [{ v: 1, compra: { naoSei: true }, estendida: { tem: 'sim', inicio: '2026-01-10', fim: '2027-01-09' } }, '2026-12-20'], { k: 'estendida', ate: '2027-01-09', est: false }, 'só o nome + "Não sei" + bilhete de 10/jan/2026 a 09/jan/2027: na estendida (as datas do bilhete contam)'],
+    ['avisos', [{ v: 1, compra: { naoSei: true }, estendida: { tem: 'sim', inicio: '2026-01-10', fim: '2027-01-09' } }, '2026-12-20'], [{ tipo: 'est', marco: 30, data: '2027-01-09', dias: 20 }], '... e o aviso de 30 dias dela'],
+    ['proximoFim', [{ v: 1, compra: { naoSei: true }, estendida: { tem: 'sim', inicio: '2026-01-10', fim: '2027-01-09' } }, '2026-12-20'], '2027-01-09', '... e o próximo fim é o dela'],
+    ['situacao', [{ v: 1, estendida: { tem: 'sim', inicio: '2026-03-01' } }, '2026-03-01'], { k: 'faltam' }, 'só o nome + bilhete só com o início: "Faltam dados" (sem o fim, o app não conta)'],
+    ['avisos', [{ v: 1, estendida: { tem: 'sim', inicio: '2026-03-01' } }, '2026-03-01'], [], '... e nenhum aviso (nem o do começo da estendida: a ficha diz que o app não conta)'],
+    ['situacao', [{ v: 1, compra: { naoSei: true }, estendida: { tem: 'sim', inicio: '2026-03-01' } }, '2026-03-01'], { k: 'semData' }, '"Não sei" + bilhete só com o início: "semData"'],
+    ['avisos', [{ v: 1, compra: { naoSei: true }, estendida: { tem: 'sim', inicio: '2026-03-01' } }, '2026-03-01'], [], '... sem aviso'],
+    ['situacao', [{ v: 1, compra: { naoSei: true }, saiu: SAIU }, '2025-04-01'], { k: 'saiu' }, '"Não sei" de coisa que saiu de casa: "saiu" (só histórico)'],
+    /* a frase curta: "📋 Sem a data da compra" e "🗄️ Venceu" (D-G14) */
+    ['curta', [{ k: 'semData' }], '📋 Sem a data da compra', 'frase curta de "semData": "📋 Sem a data da compra"'],
+    ['curta', [{ k: 'encerrados', ate: '2025-03-10' }], '🗄️ Venceu em 10/Mar/2025', 'frase curta das vencidas: "🗄️ Venceu em 10/Mar/2025" (D-G14)'],
+    ['curta', [{ k: 'encerrados', ate: null }], '🗄️ Venceu', 'frase curta das vencidas sem data: "🗄️ Venceu"'],
+    /* parece IMEI? (15 algarismos + o dígito verificador, Luhn) */
+    ['G.pareceImei', [IMEI_Q], true, 'parece IMEI: 15 algarismos com o dígito verificador certo'],
+    ['G.pareceImei', ['35-200000-123456-0'], true, 'parece IMEI: com hífens'], ['G.pareceImei', ['35 2000 0012 3456 0'], true, 'parece IMEI: com espaços'], ['G.pareceImei', ['35.2000.0012.3456.0'], true, 'parece IMEI: com pontos'],
+    ['G.pareceImei', [IMEI_Q2], false, 'não parece IMEI: o dígito verificador trocado'], ['G.pareceImei', ['35200000123456'], false, 'não parece IMEI: 14 algarismos'],
+    ['G.pareceImei', ['3520000012345600'], false, 'não parece IMEI: 16 algarismos'], ['G.pareceImei', ['35200000123456A'], false, 'não parece IMEI: com letra'],
+    ['G.pareceImei', ['SN-EXEMPLO-0001'], false, 'não parece IMEI: número de série com letras'], ['G.pareceImei', [null], false, 'não parece IMEI: nada'], ['G.pareceImei', [{}], false, 'não parece IMEI: objeto'],
+    /* sugestão de lembrete pelo nome (o texto em PT e EN igual ao das Sugestões rápidas de Casa → Manutenção) */
+    ...[['Purificador de água da cozinha', 'Troca do refil do filtro de água', 6], ['Filtro de Água Exemplo', 'Troca do refil do filtro de água', 6], ['Bebedouro Exemplo', 'Troca do refil do filtro de água', 6],
+      ['Ar-condicionado do quarto', 'Limpeza do ar-condicionado', 6], ['Ar condicionado Exemplo', 'Limpeza do ar-condicionado', 6], ['Split Exemplo 9000', 'Limpeza do ar-condicionado', 6],
+      ['Máquina de lavar Exemplo', 'Limpeza da máquina de lavar', 2], ['Lavadora Exemplo', 'Limpeza da máquina de lavar', 2]]
+      .map(([n, o, m]) => ['G.sugManut', [n], { oque: o, meses: m }, 'sugestão para "' + n + '": "' + o + '", a cada ' + m + ' meses']),
+    ...[['Geladeira Exemplo'], ['Splitter de antena'], [''], [null], [5], [{}]].map(([n]) => ['G.sugManut', [n], null, 'sem sugestão para ' + JSON.stringify(n)])
+  ];
+  conferirCasos(CASOS_EQ1, await rodar(p, CASOS_EQ1), 'EQ1. ');
+  /* o arquivo (📥): os campos novos, o IMEI trancado, a série à vista e os lembretes de manutenção (§7) */
+  const MT_Q = (o) => Object.assign({ oque: 'Troca do refil do filtro de água', cadaMeses: 6, ultima: '', obs: '' }, o || {});
+  const ARQ_Q = (n, por) => Object.assign({}, EX, { itens: Array.from({ length: n }, (_, i) => fundir(EX.itens[0], { ref: 'eq1-' + i, manutencoes: Array.from({ length: por(i) }, () => MT_Q()) })) });
+  const CASOS_EQ1_V = [
+    ['validar', [EX], (r) => r.ok && bate(r.itens[0].garantia, { voltagem: '', cor: '', codigo: '', serie: '', manualUrl: '', compra: { naoSei: false }, finais: { imei: '' } }) && Array.isArray(r.itens[0].manutencoes) && !r.itens[0].manutencoes.length && !('serie' in r.itens[0].protegido),
+      'arquivo da G1, sem os campos novos (e com protegido.serie vazio): continua valendo'],
+    ['validar', [X1({ protegido: { serie: 'X1' } })], nao(/número de série agora fica fora do 'protegido', em 'serie'/), "protegido.serie com número: recusado (\"o número de série agora fica fora do 'protegido', em 'serie'\")"],
+    ['validar', [X1({ serie: 'SN-EXEMPLO-0001' })], (r) => r.ok && r.itens[0].garantia.serie === 'SN-EXEMPLO-0001' && !JSON.stringify(r.itens[0].protegido).includes('SN-EXEMPLO'), 'a série entra à vista, fora do "protegido" (D-G16 d)'],
+    ['validar', [X1({ serie: IMEI_Q })], nao(/parece um IMEI: ponha em protegido\.imei/), 'série com cara de IMEI: recusada ("ponha em protegido.imei")'],
+    ['validar', [X1({ serie: '35-200000-123456-0' })], nao(/parece um IMEI/), 'série com cara de IMEI (com hífens): recusada'],
+    ['validar', [X1({ serie: 'x'.repeat(61) })], nao(/Item 1/), 'série com mais de 60 letras: recusada'],
+    ['validar', [X1({ protegido: { imei: IMEI_Q } })], (r) => r.ok && r.itens[0].protegido.imei === IMEI_Q && r.itens[0].garantia.finais.imei === '4560' && !JSON.stringify(r.itens[0].garantia).includes(IMEI_Q) &&
+      canon(Object.keys(r.itens[0].protegido).sort()) === canon(['cartaoFinal', 'chaveNF', 'imei', 'number', 'pagamento', 'pedido', 'precoCent', 'valorCent']), 'o IMEI vai para "protegido" (as Senhas da casa); na garantia, só o final (D-G17)'],
+    ['validar', [X1({ protegido: { imei: '1'.repeat(31) } })], nao(/Item 1/), 'IMEI com mais de 30 letras: recusado'],
+    ['validar', [X1({ voltagem: '380' })], nao(/voltagem: use 127, 220 ou bivolt/), 'voltagem "380": recusada ("voltagem: use 127, 220 ou bivolt")'],
+    ['validar', [X1({ voltagem: 220 })], nao(/voltagem/), 'voltagem em número: recusada'],
+    ['validar', [X1({ voltagem: 'bivolt', cor: 'prata', codigo: '00000001', manualUrl: MAN })], (r) => r.ok && bate(r.itens[0].garantia, { voltagem: 'bivolt', cor: 'prata', codigo: '00000001', manualUrl: MAN }), 'voltagem, cor, código e o link do manual entram'],
+    ['validar', [X1({ cor: 'x'.repeat(41) })], nao(/Item 1/), 'cor com mais de 40 letras: recusada'], ['validar', [X1({ codigo: 'x'.repeat(41) })], nao(/Item 1/), 'código com mais de 40 letras: recusado'],
+    ['validar', [X1({ manualUrl: 'http://192.168.0.1/manual.pdf' })], nao(/link do manual precisa ser o endereço de um site/), 'link do manual com IP: recusado'],
+    ['validar', [X1({ manualUrl: 'javascript:alert(1)' })], nao(/link do manual/), 'link do manual javascript: recusado'], ['validar', [X1({ manualUrl: L501 })], nao(/Item 1/), 'link do manual com 501 letras: recusado'],
+    ['validar', [X1({ compra: { naoSei: 'sim' } })], nao(/naoSei/), '"naoSei" que não é true/false: recusado'],
+    ['validar', [X1({ compra: { data: '', naoSei: true } })], (r) => r.ok && r.itens[0].garantia.compra.naoSei === true, '"Não sei a data da compra" entra'],
+    ['validar', [X1({ compra: { naoSei: true } })], (r) => r.ok && r.itens[0].garantia.compra.naoSei === false, '"Não sei" com a data da compra vira falso (vale a data)'],
+    ['validar', [X1({ manutencoes: [MT_Q({ obs: 'pelo manual do fabricante' }), MT_Q({ oque: 'Limpeza do filtro', cadaMeses: 12, ultima: '2025-01-10' })] })],
+      (r) => r.ok && canon(r.itens[0].manutencoes) === canon([{ title: 'Troca do refil do filtro de água — Purificador Exemplo', interval: 183, last: '', obs: 'pelo manual do fabricante' }, { title: 'Limpeza do filtro — Purificador Exemplo', interval: 365, last: '2025-01-10', obs: '' }]) && !('manutencoes' in r.itens[0].garantia),
+      'lembretes: "o que fazer — nome", 6 meses = 183 dias, 12 = 365, a última vez e a observação, fora da garantia'],
+    ...[[0, '0'], [61, '61'], [1.5, '1,5'], ['6', 'em texto'], [null, 'sem']].map(([c, n]) => ['validar', [X1({ manutencoes: [MT_Q({ cadaMeses: c })] })], nao(/Item 1/), 'lembrete a cada ' + n + ' meses: recusado (de 1 a 60)']),
+    ['validar', [X1({ manutencoes: [MT_Q({ oque: '' })] })], nao(/Item 1/), 'lembrete sem o que fazer: recusado'], ['validar', [X1({ manutencoes: [MT_Q({ oque: 'x'.repeat(81) })] })], nao(/Item 1/), 'lembrete com mais de 80 letras: recusado'],
+    ['validar', [X1({ manutencoes: [MT_Q({ obs: 'x'.repeat(301) })] })], nao(/Item 1/), 'observação do lembrete com mais de 300 letras: recusada'],
+    ['validar', [X1({ manutencoes: [MT_Q({ ultima: '2024-02-30' })] })], nao(/Item 1/), 'última vez em 30/fev/2024 (não existe): recusada'],
+    ['validar', [X1({ manutencoes: [MT_Q({ ultima: amanhaQ })] })], nao(/depois de hoje/), 'última vez depois de hoje: recusada'],
+    ['validar', [X1({ manutencoes: [MT_Q({ ultima: '2024-03-09' })] })], nao(/antes da compra/), 'última vez antes da compra (10/mar/2024): recusada'],
+    ['validar', [X1({ manutencoes: [MT_Q({ ultima: '2024-03-10' }), MT_Q({ ultima: hojeQ })] })], (r) => r.ok && r.itens[0].manutencoes.length === 2, 'última vez no dia da compra e hoje: entram'],
+    ['validar', [X1({ saiu: { como: 'doado', em: '2025-01-01' }, manutencoes: [MT_Q()] })], nao(/saiu de casa não tem lembrete/), 'lembrete em coisa que saiu de casa: recusado'],
+    ['validar', [X1({ saiu: { como: 'doado', em: '2025-01-01' }, manutencoes: [] })], (r) => r.ok, 'coisa que saiu de casa com a lista vazia: entra'],
+    ['validar', [X1({ manutencoes: Array.from({ length: 11 }, () => MT_Q()) })], nao(/Item 1/), '11 lembretes num item: recusado (até 10)'],
+    ['validar', [X1({ manutencoes: Array.from({ length: 10 }, () => MT_Q()) })], (r) => r.ok && r.itens[0].manutencoes.length === 10, '10 lembretes num item: entram'],
+    ['validar', [ARQ_Q(11, (i) => (i === 10 ? 1 : 10))], nao(/100 lembretes/), '101 lembretes no arquivo inteiro: recusado (até 100)'],
+    ['validar', [ARQ_Q(10, () => 10)], (r) => r.ok && r.itens.reduce((s, x) => s + x.manutencoes.length, 0) === 100, '100 lembretes no arquivo: entram'],
+    ['validar', [X1({ manutencoes: 'x' })], nao(/Item 1/), '"manutencoes" que não é lista: recusado'], ['validar', [X1({ manutencoes: [5] })], nao(/Item 1/), 'lembrete que não é objeto: recusado']
+  ];
+  conferirCasos(CASOS_EQ1_V, await rodar(p, CASOS_EQ1_V), 'EQ1. 📥 ');
+  /* o arquivo com os campos novos passa pela leitura sem mudar nada */
+  const idaQ = await p.evaluate((x) => { try { const r = Garantias.validar(x); if (!r.ok) return { erro: r.erro }; const g = r.itens[0].garantia; return { g, ida: Garantias.ler({ id: 'x1', garantia: g }) }; } catch (e) { return { erro: e.message }; } },
+    X1({ voltagem: '220', cor: 'prata', codigo: '00000001', serie: 'SN-EXEMPLO-0001', manualUrl: MAN, compra: { data: '', naoSei: true }, protegido: { imei: IMEI_Q } }));
+  conferir(!idaQ.erro && canon(idaQ.ida) === canon(Object.assign({}, idaQ.g, { vaultId: 'gv_x1' })), 'EQ1. 📥 o item com voltagem, cor, código, série, manual, "Não sei" e IMEI passa pela leitura sem mudar nada' + (idaQ.erro ? ' (' + idaQ.erro + ')' : ''));
+  /* GAR_SEC: o IMEI trancado no lugar da série (D-G16 d, D-G17) */
+  const secQ = await p.evaluate(() => (typeof GAR_SEC === 'undefined' ? [] : GAR_SEC.slice()));
+  conferir(canon(secQ) === canon(['number', 'pedido', 'imei', 'chaveNF', 'valorCent', 'precoCent', 'pagamento', 'cartaoFinal']), 'EQ1. o que fica trancado nas Senhas da casa: bilhete, pedido, IMEI, chave da nota, valor, preço da estendida, pagamento e final do cartão (sem a série) (' + secQ.join(', ') + ')');
+  /* um item das Senhas gravado antes, com a série trancada: ao gravar de novo, ela vira o IMEI e a chave "serie" some (nada sobra sem dono) */
+  const migQ = await p.evaluate(async (a) => {
+    try {
+      const t = await DB.put('things', { name: 'EQ1 Celular Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, vaultId: 'x', finais: { pedido: '', bilhete: '', serie: '0009' } } }, true);
+      await DB.put('vault', { id: 'gv_' + t.id, kind: 'seguro', enc: await Vault.encObj({ kind: 'seguro', title: 'EQ1 Celular Exemplo — números da garantia', serie: a.velha, pedido: '', garantiaDe: t.id }), files: [], vis: 'restrito' }, true);
+      go('garantias', 'ficha', t.id); await new Promise((r) => setTimeout(r, 400));
+      ACT['gar.edit']({ id: t.id });
+      for (let i = 0; i < 50 && !document.querySelector('dialog[open] [name="_sec.pedido"]'); i++) await new Promise((r) => setTimeout(r, 100));
+      const campo = document.querySelector('dialog[open] [name="_sec.imei"]'), abriu = campo ? campo.value : null, velhoCampo = !!document.querySelector('dialog[open] [name="_sec.serie"]');
+      document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) {} });
+      await Garantias.guardarSegredo(DB.get('things', t.id), { pedido: a.pedido });
+      const o = await Vault.decObj(DB.col('vault').get('gv_' + t.id).enc);
+      return { id: t.id, abriu, velhoCampo, imei: o.imei, temSerie: 'serie' in o, pedido: o.pedido };
+    } catch (e) { return { erro: e.message }; }
+  }, { velha: 'SN-VELHA-0009', pedido: 'PEDIDO-EQ1-0009' });
+  conferir(!migQ.erro && migQ.abriu === 'SN-VELHA-0009' && !migQ.velhoCampo, 'EQ1. o ✏️ abre o campo trancado do IMEI com o número que estava guardado como série (' + JSON.stringify(migQ) + ')');
+  conferir(!migQ.erro && migQ.imei === 'SN-VELHA-0009' && !migQ.temSerie && migQ.pedido === 'PEDIDO-EQ1-0009', 'EQ1. gravar de novo o item das Senhas: a série antiga vira o IMEI e a chave "serie" some (' + JSON.stringify(migQ) + ')');
+  /* a busca do manual na internet: só "manual" + marca + modelo, no DuckDuckGo, região Brasil, sem "!" (D-G16 a) */
+  const bmQ = await p.evaluate(() => {
+    const b = (g) => { try { return { u: Garantias.buscaManual(g) }; } catch (e) { return { lancou: e.message }; } };
+    const ler = (g) => Garantias.ler({ id: 't1', name: 'Purificador da Cozinha', garantia: g });
+    const cheio = Object.assign(ler({ marca: 'Marca Exemplo', modelo: 'PX-100', serie: 'SN-EXEMPLO-0001', codigo: '7890000000001', cor: 'prata', dono: 'p1', compra: { loja: 'Loja Exemplo', vendedor: 'Vendedor Exemplo' } }), { nome: 'Purificador da Cozinha', name: 'Purificador da Cozinha', id: 't1' });
+    const dec = (r) => { try { return decodeURIComponent((/[?&]q=([^&]*)/.exec(r.u || '') || [])[1] || ''); } catch (e) { return 'erro: ' + e.message; } };
+    const m80 = ler({ marca: 'Marca Exemplo', modelo: 'X'.repeat(79) + '😀Y' }), m120 = ler({ marca: 'M'.repeat(40), modelo: 'A'.repeat(71) + '😀' + 'Z'.repeat(7) });
+    const r = { cheio: b(cheio), semModelo: b(ler({ marca: 'Marca Exemplo' })), vazio: b(ler({ marca: 'Marca Exemplo', modelo: '   ' })), bang: b(ler({ marca: 'Marca Exemplo', modelo: 'PX-100 !g' })), barra: b(ler({ marca: 'Marca\\Exemplo', modelo: 'PX-100' })),
+      m80: b(m80), m120: b(m120), nada: b(null), lixo: b(5), proxy: b(new Proxy({}, { get() { throw new Error('getter que quebra'); } })) };
+    return Object.assign(r, { dCheio: dec(r.cheio), d80: dec(r.m80), d120: dec(r.m120), m80modelo: m80.modelo.length });
+  });
+  conferir(bmQ.cheio.u === 'https://duckduckgo.com/?q=manual%20Marca%20Exemplo%20PX-100&kl=br-pt', 'EQ1. 🔎 com nome, série, código, loja e dono preenchidos, a busca leva só "manual", a marca e o modelo, no DuckDuckGo (kl=br-pt) (' + JSON.stringify(bmQ.cheio) + ')');
+  conferir(bmQ.semModelo.u === '' && bmQ.vazio.u === '', 'EQ1. 🔎 sem o modelo, sem busca (o botão some) (' + JSON.stringify([bmQ.semModelo, bmQ.vazio]) + ')');
+  conferir(bmQ.bang.u && !bmQ.bang.u.includes('!') && !/%21/i.test(bmQ.bang.u) && /PX-100%20g&kl=br-pt$/.test(bmQ.bang.u), 'EQ1. 🔎 "PX-100 !g": nenhum "!" na busca (o DuckDuckGo mandaria a busca para outro site) (' + bmQ.bang.u + ')');
+  conferir(bmQ.barra.u && !/%5C/i.test(bmQ.barra.u), 'EQ1. 🔎 sem barra invertida na busca (' + bmQ.barra.u + ')');
+  conferir(bmQ.m80modelo === 80 && bmQ.m80.u && /^manual Marca Exemplo X{79}/.test(bmQ.d80) && !/[\uD800-\uDFFF]/.test(bmQ.d80), 'EQ1. 🔎 emoji cortado na posição 80 do modelo: a busca sai, sem erro e sem meia letra (' + JSON.stringify(bmQ.m80) + ')');
+  conferir(bmQ.m120.u && Array.from(bmQ.d120).length <= 120 && !/[\uD800-\uDFFF]/.test(bmQ.d120) && /^manual M{40} A{71}/.test(bmQ.d120), 'EQ1. 🔎 emoji na posição 120 da busca: até 120 letras, sem erro e sem meia letra (' + bmQ.d120.length + ')');
+  conferir(bmQ.nada.u === '' && bmQ.lixo.u === '' && bmQ.proxy.u === '' && !bmQ.nada.lancou && !bmQ.lixo.lancou && !bmQ.proxy.lancou, 'EQ1. 🔎 com lixo (nada, número, um objeto que quebra ao ler): vazio, nunca erro (' + JSON.stringify([bmQ.nada, bmQ.lixo, bmQ.proxy]) + ')');
+  /* a sugestão de lembrete usa o mesmo texto das Sugestões rápidas de Casa → Manutenção (em PT e em EN), para achar o repetido */
+  const sugQ = await p.evaluate(() => {
+    const um = () => { const T = MT_TEMPLATES().map((t) => t[0]); return [Garantias.sugManut('Purificador Exemplo'), Garantias.sugManut('Split Exemplo'), Garantias.sugManut('Lavadora Exemplo')].map((s) => !!s && T.includes(s.oque)); };
+    try { const pt = um(); setLang('en'); const en = um(), oqEn = (Garantias.sugManut('Purificador Exemplo') || {}).oque; setLang('pt'); return { pt, en, oqEn }; } catch (e) { setLang('pt'); return { erro: e.message }; }
+  });
+  conferir(!sugQ.erro && sugQ.pt.every(Boolean) && sugQ.en.every(Boolean) && sugQ.oqEn === 'Water filter refill', 'EQ1. a sugestão de lembrete tem o mesmo texto das Sugestões rápidas de Casa → Manutenção, em PT e em EN (' + JSON.stringify(sugQ) + ')');
+  /* semData: a frase da ficha, de quem cobrar, o "Estragou? E agora?" e o selo do Onde está? */
+  const txQ = await p.evaluate(() => {
+    const t = (fn) => { try { return fn(); } catch (e) { return 'lançou: ' + e.message; } }, h = today();
+    const gS = Garantias.ler({ id: 'x', garantia: { v: 1, compra: { naoSei: true } } }), gF = Garantias.ler({ id: 'y', garantia: { v: 1 } });
+    const r = { frase: t(() => Garantias.frase({ k: 'semData' }, gS)), cobrar: t(() => Garantias.cobrar({ k: 'semData' }, gS)), cobrarE: t(() => Garantias.cobrar({ k: 'encerrados' }, gS)),
+      est: t(() => Garantias._cobrarTxt({ k: 'semData' }, gS, h)), estF: t(() => Garantias._cobrarTxt({ k: 'faltam' }, gF, h)),
+      selo: t(() => Garantias.selo({ id: 'x', garantia: { v: 1, compra: { naoSei: true } } })) };
+    setLang('en'); r.en = [t(() => GarCalc.curta({ k: 'semData' })), t(() => GarCalc.curta({ k: 'encerrados', ate: '2025-03-10' })), t(() => GarCalc.curta({ k: 'encerrados' })), t(() => Garantias.frase({ k: 'semData' }, gS))]; setLang('pt');
+    return r;
+  });
+  const LEI_Q = 'Sem a data da compra, o app não conta os prazos. A garantia da lei não depende de papel (CDC art. 24), mas tem prazo: 90 dias para reclamar (30 se não for coisa que dura), contados da entrega ou do dia em que apareceu um defeito escondido. Fale com a loja ou o fabricante.';
+  conferir(txQ.frase === 'Sem a data da compra, o app não conta a garantia. Se aparecer um defeito de fabricação, ainda pode haver direito: veja 🆘 Estragou? E agora?', 'EQ1. a frase da ficha de "semData" (' + txQ.frase + ')');
+  conferir(txQ.cobrar === txQ.cobrarE && /a loja ou o fabricante, se for defeito de fabricação/.test(txQ.cobrar), 'EQ1. "De quem cobrar hoje" de "semData": o mesmo das vencidas (' + txQ.cobrar + ')');
+  conferir(txQ.est === LEI_Q && txQ.estF === LEI_Q, 'EQ1. 🆘 "De quem cobrar" sem a data (com e sem "Não sei"): a lei vale sem papel, mas tem prazo (' + txQ.est + ' | ' + txQ.estF + ')');
+  conferir(txQ.selo === '', 'EQ1. o selo do Onde está? de "semData": nenhum (' + txQ.selo + ')');
+  conferir(canon(txQ.en) === canon(['📋 No purchase date', '🗄️ Expired on Mar/10/2025', '🗄️ Expired', 'Without the purchase date, the app can\'t work out the warranty. If a manufacturing defect shows up, you may still have rights: see 🆘 Broken? What now?']), 'EQ1. em EN: "📋 No purchase date", "🗄️ Expired on…", "🗄️ Expired" e a frase (' + JSON.stringify(txQ.en) + ')');
+  /* "Não sei a data" não entra em "Faltam dados"; só o nome, sim */
+  const grQ = await p.evaluate(async () => {
+    await DB.put('things', { name: 'EQ1 Sem data (não sei)', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { naoSei: true } } }, true);
+    await DB.put('things', { name: 'EQ1 Sem data', place: '', tags: [], vis: 'familia', garantia: { v: 1 } }, true);
+    try { const G = Garantias.grupos(today()); return { faltam: G.faltam.map((x) => x.t.name), sit: (Garantias.itens(today()).find((x) => x.t.name === 'EQ1 Sem data (não sei)') || { sit: {} }).sit.k }; } catch (e) { return { erro: e.message, faltam: [] }; }
+  });
+  conferir(grQ.faltam.includes('EQ1 Sem data') && !grQ.faltam.includes('EQ1 Sem data (não sei)') && grQ.sit === 'semData', 'EQ1. "Não sei a data da compra" não entra em "⚠️ Faltam dados" (a pessoa disse que não sabe); só o nome, sim (' + JSON.stringify(grQ) + ')');
+  /* foraDeCasa (os lembretes de manutenção param) e fichaDe (o toque no aviso abre a ficha) */
+  const fdQ = await p.evaluate(async () => {
+    const mk = async (name, g, vis) => (await DB.put('things', { name, place: '', tags: [], vis: vis || 'familia', garantia: g }, true)).id;
+    const ok = await mk('EQ1 Em casa', { v: 1, compra: { data: today() } }), saiu = await mk('EQ1 Saiu', { v: 1, compra: { data: today() }, saiu: { como: 'doado', em: today(), obs: '' } });
+    const restr = await mk('EQ1 Restrito', { v: 1, compra: { data: today() } }, 'restrito'), apag = await mk('EQ1 Apagado', { v: 1, compra: { data: today() } });
+    const lixos = []; for (const g of [null, 5, {}, 'x', { saiu: 'doado' }, { saiu: [] }]) lixos.push(await mk('EQ1 Lixo', g));
+    await DB.del('things', apag);
+    /* um objeto com id estranho existe de verdade: só a conferência do id o deixa de fora (o Início e a Inbox põem o id sem escape) */
+    await DB.put('things', { id: 'a<b', name: 'EQ1 Id estranho', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } }, true);
+    const fc = (id) => { try { return Garantias.foraDeCasa(id); } catch (e) { return 'lançou: ' + e.message; } }, fi = (m) => { try { return Garantias.fichaDe(m); } catch (e) { return 'lançou: ' + e.message; } };
+    const papel = S.role, r = { ok: fc(ok), saiu: fc(saiu), restr: fc(restr), apag: fc(apag), feio: fc('eq1-nao-existe'), lixoId: [null, 5, {}, undefined, ''].map(fc), lixoObj: lixos.map(fc),
+      fOk: fi({ coisa: ok }), fRestr: fi({ coisa: restr }), fFeio: fi({ coisa: 'a<b' }), fApag: fi({ coisa: apag }), fLixo: [null, 5, 'x', {}, { coisa: 5 }, { coisa: {} }, { coisa: '' }].map(fi), ids: { ok, restr } };
+    S.role = 'adulto'; r.restrM = fc(restr); r.saiuM = fc(saiu); r.fRestrM = fi({ coisa: restr }); S.role = papel;
+    const lig = SolverRecursos.ligado; SolverRecursos.ligado = function (id, d) { return id === 'casa.garantias' ? false : lig.call(this, id, d); }; r.fDesl = fi({ coisa: ok }); SolverRecursos.ligado = lig;
+    S.role = 'crianca'; me().controls = Object.assign({}, me().controls, { seeHouse: false }); r.fCrianca = fi({ coisa: ok });
+    const c = Object.assign({}, me().controls); delete c.seeHouse; me().controls = c; S.role = papel;
+    await DB.del('things', 'a<b');
+    return r;
+  });
+  conferir(fdQ.ok === '' && fdQ.saiu === 'saiu' && fdQ.restr === '' && fdQ.apag === 'sem' && fdQ.feio === 'sem', 'EQ1. foraDeCasa: em casa "", saiu de casa "saiu", apagado (ou que não existe) "sem"; o responsável vê o restrito (' + JSON.stringify([fdQ.ok, fdQ.saiu, fdQ.restr, fdQ.apag, fdQ.feio]) + ')');
+  conferir(fdQ.restrM === 'sem' && fdQ.saiuM === 'saiu', 'EQ1. foraDeCasa: o "Só responsáveis" para quem não é responsável é "sem" (não vê o equipamento) (' + JSON.stringify([fdQ.restrM, fdQ.saiuM]) + ')');
+  conferir(fdQ.lixoId.every((x) => x === '') && fdQ.lixoObj.every((x) => x === ''), 'EQ1. foraDeCasa com lixo (id nulo, número, objeto; garantia nula, número, {}, texto, "saiu" que não é objeto): "", sem erro (' + JSON.stringify([fdQ.lixoId, fdQ.lixoObj]) + ')');
+  conferir(canon(fdQ.fOk) === canon(['garantias', 'ficha', fdQ.ids.ok]) && canon(fdQ.fRestr) === canon(['garantias', 'ficha', fdQ.ids.restr]), 'EQ1. fichaDe: o lembrete de um equipamento abre a ficha dele (' + JSON.stringify([fdQ.fOk, fdQ.fRestr]) + ')');
+  conferir(fdQ.fFeio === null && fdQ.fApag === null && fdQ.fLixo.every((x) => x === null), 'EQ1. fichaDe: id "a<b" (mesmo existindo um objeto com ele), equipamento apagado e lixo → null (vai para Casa → Manutenção), sem erro (' + JSON.stringify([fdQ.fFeio, fdQ.fApag, fdQ.fLixo]) + ')');
+  conferir(fdQ.fRestrM === null && fdQ.fDesl === null && fdQ.fCrianca === null, 'EQ1. fichaDe: null para quem não vê o equipamento, com Garantias desligada e para criança sem "ver a Casa" (' + JSON.stringify([fdQ.fRestrM, fdQ.fDesl, fdQ.fCrianca]) + ')');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ1: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -2058,5 +2291,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos)');
 })().catch((e) => { console.error(e); process.exit(1); });

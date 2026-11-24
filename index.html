@@ -12859,7 +12859,8 @@ SCREENS.pets = {
 /* ===== 🧾 GARANTIAS (2.28.0) =====
    A garantia de uma coisa da casa mora no objeto do "Onde está?" (things.garantia): sem coleção nova e sem mudar o banco,
    e a versão antiga, ao editar o objeto, mantém o campo (o formulário junta o que já estava). Números (pedido, bilhete,
-   série, chave da nota) e dinheiro nunca ficam aqui em claro: vão trancados nas Senhas da casa (D-G11); aqui só o final.
+   IMEI, chave da nota) e dinheiro nunca ficam aqui em claro: vão trancados nas Senhas da casa (D-G11, D-G17); aqui só o
+   final. O número de série fica à vista, como o nome (D-G16 d).
    GarCalc: as contas, puras (sem tela), só com Date.UTC, para o fuso e o horário de verão não mudarem nenhuma data. Entrada
    ruim → null, nunca erro: um registro estragado (vindo da nuvem, da cópia ou do banco) não pode derrubar o 🔔 da família.
    Pela lei brasileira: CDC arts. 18, 24, 26 e 50; Lei 15.040/2024 (seguro); Circ. SUSEP 659/2022; Res. CNSP 436. */
@@ -12867,7 +12868,8 @@ const GAR_ENUM = {   /* o 1º de cada lista é o padrão: o valor desconhecido v
   legalInclusa: ["naosei", "sim", "nao"], tem: ["naosei", "sim", "nao"], quem: ["naosei", "seguradora", "loja", "fabricante", "cartao"],
   contaDe: ["naosei", "fimFabrica", "compra"], como: ["outro", "doado", "vendido", "descartado", "devolvido"],
   arquivo: ["nota", "bilhete", "termo", "manual", "defeito"],   /* papel de tipo desconhecido vira "nota": o mais protegido */
-  com: ["outro", "loja", "fabricante", "assistencia", "seguradora"], situacao: ["aberto", "resolvido", "negado"], origem: ["manual", "foto", "importado"]
+  com: ["outro", "loja", "fabricante", "assistencia", "seguradora"], situacao: ["aberto", "resolvido", "negado"], origem: ["manual", "foto", "importado"],
+  voltagem: ["", "127", "220", "bivolt"]   /* "" = não sei; "127" = 110/127 V */
 };
 const GAR_FORNECEDOR = ["loja", "fabricante", "assistencia"];   /* respondem pelo defeito (CDC art. 18); a seguradora tem a conta dela */
 const GarCalc = {
@@ -12880,6 +12882,9 @@ const GarCalc = {
   _ms(s) { return Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); },
   _iso(ms) { const d = new Date(ms); if (isNaN(d)) return null; const s = d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()); return this.ehData(s) ? s : null; },
   _datas(g) { const c = this._o(g.compra); return { nota: this._d(c.data), entrega: this._d(c.entrega) }; },
+  /* sem a data da compra e sem a da entrega, só o bilhete com início e fim conta (a estendida tem datas próprias). Uma conferência
+     só para a situação e para os avisos: o 🔔 nunca avisa enquanto a ficha diz que o app não conta */
+  semBase(g) { const b = this._datas(g), e = this.estendida(g); return !b.nota && !b.entrega && !(e && e.fim && !e.est); },
   /* "AAAA-MM-DD" que existe no calendário, com o ano entre 1990 e 2100 */
   ehData(s) {
     const m = typeof s === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(s) : null; if (!m) return false;
@@ -12975,7 +12980,8 @@ const GarCalc = {
     if (!this._ok(g) || !this.ehData(hoje)) return null;
     const r = (k, o) => Object.assign({ k, ate: null, alt: null, desde: null, dias: null, quem: null, est: false }, o);
     if (this._saiu(g)) return r("saiu", { desde: this._d(g.saiu.em) || null });
-    const b = this._datas(g); if (!b.nota && !b.entrega) return r("faltam");
+    /* "Não sei a data da compra" (D-G13): é inventário, não "Faltam dados" */
+    if (this.semBase(g)) return r(this._o(g.compra).naoSei === true ? "semData" : "faltam");
     const fab = this.fabrica(g), e = this.estendida(g), le = this.lei(g);
     if (fab && hoje <= fab.fim) return r("fabrica", { ate: fab.fim, est: fab.est });
     if (e && e.fim && e.inicio <= hoje && hoje <= e.fim) return r("estendida", { ate: e.fim, quem: e.quem, est: e.est });
@@ -12999,8 +13005,9 @@ const GarCalc = {
       case "reclamado": return "📣 " + tt("Reclamação aberta", "Complaint open", "Reclamación abierta");
       case "defeito": return "🔧 " + tt("Reclame até ", "Complain by ", "Reclama hasta el ") + a(s.ate);
       case "espera": return "⏳ " + tt("Começa em ", "Starts on ", "Empieza el ") + a(s.ate, s.est);
-      case "encerrados": return "— " + (this.ehData(s.ate) ? tt("Acabou em ", "Ended on ", "Terminó el ") + a(s.ate) : tt("Acabou", "Ended", "Terminada"));
+      case "encerrados": return "🗄️ " + (this.ehData(s.ate) ? tt("Venceu em ", "Expired on ", "Venció el ") + a(s.ate) : tt("Venceu", "Expired", "Vencida"));   /* D-G14 */
       case "faltam": return "⚠️ " + tt("Falta a data", "Date missing", "Falta la fecha");
+      case "semData": return "📋 " + tt("Sem a data da compra", "No purchase date", "Sin fecha de compra");
       case "faltaFim": return "⚠️ " + tt("Falta o fim da estendida", "Extended warranty end date missing", "Falta el fin de la extendida");
       case "saiu": return "📦 " + tt("Saiu de casa", "No longer at home", "Ya no está en casa");
       default: return "";
@@ -13019,7 +13026,7 @@ const GarCalc = {
   /* avisos de 30 e 7 dias antes de acabar (fábrica e estendida) e do começo da estendida, até 3 dias depois (D-G4).
      Nada é gravado: dois celulares não criam nada em dobro */
   avisos(g, hoje) {
-    if (!this._ok(g) || !this.ehData(hoje) || this._saiu(g)) return [];
+    if (!this._ok(g) || !this.ehData(hoje) || this._saiu(g) || this.semBase(g)) return [];
     const out = [], fab = this.fabrica(g), e = this.estendida(g);
     const marco = (dias) => (dias >= 8 && dias <= 30 ? 30 : dias >= 0 && dias <= 7 ? 7 : 0);
     const poe = (tipo, data, est, depois) => { const dias = this.diasEntre(hoje, data), m = marco(dias); if (m) out.push({ tipo, marco: m, data, dias, est, depois }); };
@@ -13052,14 +13059,73 @@ const GAR_REGRAS_EM = "2026-11-23";
 /* em que filtro da lista cada situação entra; "Em 30 dias" sai do próximo fim, não da situação, e "Faltam dados" fica no topo */
 const GAR_FILTROS = { valendo: ["fabrica", "estendida", "talvezEst", "lei", "reclamado", "defeito"], vai: ["espera"], acabaram: ["encerrados"] };
 /* números e dinheiro da garantia: trancados num item das Senhas da casa (D-G11), como o custo do seguro do carro (CAR_SEC).
-   "number" = nº do bilhete do seguro (o mesmo campo do item das Senhas); "serie" guarda também o IMEI */
-const GAR_SEC = ["number", "pedido", "serie", "chaveNF", "valorCent", "precoCent", "pagamento", "cartaoFinal"];
+   "number" = nº do bilhete do seguro (o mesmo campo do item das Senhas). O IMEI do celular fica trancado (D-G17); o número de
+   série, não: ele fica à vista no objeto (D-G16 d) */
+const GAR_SEC = ["number", "pedido", "imei", "chaveNF", "valorCent", "precoCent", "pagamento", "cartaoFinal"];
 /* os papéis: [tipo, ícone, nome, nome neutro do arquivo (nunca o original, que pode ter CPF ou nome), vai trancado?] */
 const GAR_PAPEIS = () => [["nota", "🧾", tt("Nota fiscal", "Invoice", "Factura"), "nota-fiscal", true], ["bilhete", "🛡️", tt("Bilhete do seguro", "Insurance certificate", "Certificado del seguro"), "bilhete", true],
   ["termo", "📄", tt("Folheto de garantia", "Warranty leaflet", "Folleto de garantía"), "folheto", false], ["manual", "📘", tt("Manual", "Manual", "Manual"), "manual", false], ["defeito", "📷", tt("Foto do defeito", "Photo of the defect", "Foto del defecto"), "defeito", true]];
 const Garantias = {
   /* link do app da seguradora ou da loja: só https (nada de "javascript:"); confere de novo ao desenhar */
   https(x) { try { return typeof x === "string" && new URL(x).protocol === "https:"; } catch (e) { return false; } },
+  /* link do manual: só http/https de um site de verdade (nada de javascript:, IP, localhost, rede de casa, porta nem
+     usuário:senha). Conferido no formulário, no arquivo, na leitura e de novo ao desenhar */
+  link(x) {
+    try {
+      if (typeof x !== "string" || !x || x.length > 500 || /[\s"'`<>\\]/.test(x)) return false;
+      const u = new URL(x), h = u.hostname.toLowerCase().replace(/\.$/, "");
+      if ((u.protocol !== "http:" && u.protocol !== "https:") || u.username || u.password || u.port) return false;
+      return h.includes(".") && !/^\d+(\.\d+){3}$/.test(h) && !h.startsWith("[") && !/(^|\.)(localhost|local|lan|home|internal)$/.test(h);
+    } catch (e) { return false; }
+  },
+  /* o que vai no href é o endereço conferido (como o navegador o lê), não o texto gravado */
+  href(x) { try { return this.link(x) ? new URL(x).href : ""; } catch (e) { return ""; } },
+  dominio(x) { try { return this.link(x) ? new URL(x).hostname.replace(/^www\./, "") : ""; } catch (e) { return ""; } },
+  /* 🔎 a busca do manual na internet (só no toque): só "manual" + marca + modelo, nunca nome, série, loja ou dono. Sem meias
+     letras (um emoji cortado faria o encodeURIComponent lançar e derrubar a ficha), sem "!" (o DuckDuckGo obedece a "!g" e
+     mandaria a busca a outro site) e sem barra invertida. kl=br-pt = região Brasil (mais manual em português) */
+  buscaManual(g) {
+    try {
+      const o = GarCalc._o(g), s = (x) => (typeof x === "string" ? x.trim() : "");
+      if (!s(o.modelo)) return "";
+      const q = ["manual", s(o.marca), s(o.modelo)].filter(Boolean).join(" ").replace(/[\uD800-\uDFFF!\\]/g, " ").replace(/\s+/g, " ").trim();
+      return "https://duckduckgo.com/?q=" + encodeURIComponent(Array.from(q).slice(0, 120).join("")) + "&kl=br-pt";
+    } catch (e) { return ""; }
+  },
+  /* parece o IMEI de um celular? 15 algarismos (sem espaço, ponto e hífen) que passam no dígito verificador (Luhn) */
+  pareceImei(s) {
+    if (typeof s !== "string") return false;
+    const d = s.replace(/[\s.-]/g, ""); if (!/^\d{15}$/.test(d)) return false;
+    let soma = 0;
+    for (let i = 0; i < 15; i++) { let n = +d[i]; if (i % 2) { n *= 2; if (n > 9) n -= 9; } soma += n; }
+    return soma % 10 === 0;
+  },
+  /* a sugestão de lembrete pelo nome do equipamento. O PT e o EN são os mesmos das Sugestões rápidas de Casa → Manutenção
+     (MT_TEMPLATES): assim o "já existe" e a sugestão de lá acham o repetido */
+  sugManut(nome) {
+    const n = typeof nome === "string" ? norm(nome) : "";
+    if (/purificador|filtro de agua|bebedouro/.test(n)) return { oque: tt("Troca do refil do filtro de água", "Water filter refill", "Cambio del filtro de agua"), meses: 6 };
+    if (/\bar[- ]?condicionado\b|\bsplit\b/.test(n)) return { oque: tt("Limpeza do ar-condicionado", "A/C cleaning", "Limpieza del aire acondicionado"), meses: 6 };
+    if (/maquina de lavar|lavadora/.test(n)) return { oque: tt("Limpeza da máquina de lavar", "Washing machine cleaning", "Limpieza de la lavadora"), meses: 2 };
+    return null;
+  },
+  /* para os lembretes de manutenção ligados a um equipamento (maint.coisa): "saiu" (saiu de casa), "sem" (apagado, ou esta
+     pessoa não vê) ou "" (em casa). Id que não é texto: "" (o lembrete segue como os outros). Nunca lança erro */
+  foraDeCasa(id) {
+    try {
+      if (typeof id !== "string" || !id) return "";
+      const t = DB.col("things").get(id); if (!t || !canSee(t)) return "sem";
+      return GarCalc._saiu(t.garantia) ? "saiu" : "";
+    } catch (e) { return ""; }
+  },
+  /* o toque no aviso, na Agenda e na 🔍 de um lembrete de equipamento abre a ficha dele (null: Casa → Manutenção). O id vai sem
+     escape para o data-arg do Início e da Inbox: id estranho fica de fora */
+  fichaDe(m) {
+    try {
+      const id = m && m.coisa;
+      return typeof id === "string" && /^[A-Za-z0-9_.:-]{1,80}$/.test(id) && Rec.ok("garantias") && canTab("garantias") && DB.get("things", id) ? ["garantias", "ficha", id] : null;
+    } catch (e) { return null; }
+  },
   /* a única porta de leitura: devolve uma cópia saneada (ou null se não houver garantia) e nunca lança erro. O registro chega
      também pela nuvem, pela cópia protegida e pelo banco direto: nada daqui confia no que está gravado */
   ler(t) {
@@ -13075,13 +13141,15 @@ const Garantias = {
       return {
         v: 1, ref: typeof g.ref === "string" && /^[A-Za-z0-9_.:-]{3,60}$/.test(g.ref) ? g.ref : t.id ? "gar_" + t.id : "",   /* fixo: o mesmo nos dois celulares */
         duravel: g.duravel !== false, marca: txt(g.marca, 80), modelo: txt(g.modelo, 80), dono: id(g.dono),
-        compra: { data: d(c.data), entrega: d(c.entrega), loja: txt(c.loja, 80), vendedor: txt(c.vendedor, 80) },
+        /* a ficha técnica (D-G16 c, d): a série à vista; o link do manual só se for de um site, e nunca cortado (link cortado é outro link) */
+        voltagem: en(g.voltagem, GAR_ENUM.voltagem), cor: txt(g.cor, 40), codigo: txt(g.codigo, 40), serie: txt(g.serie, 60), manualUrl: Garantias.link(g.manualUrl) ? g.manualUrl : "",
+        compra: { data: d(c.data), entrega: d(c.entrega), loja: txt(c.loja, 80), vendedor: txt(c.vendedor, 80), naoSei: c.naoSei === true && !d(c.data) && !d(c.entrega) },
         fabrica: { meses: GarCalc._meses(f.meses), fim: d(f.fim), legalInclusa: en(f.legalInclusa, GAR_ENUM.legalInclusa) },
         estendida: { tem: en(e.tem, GAR_ENUM.tem), quem: en(e.quem, GAR_ENUM.quem), seguradora: txt(e.seguradora, 80), contaDe: en(e.contaDe, GAR_ENUM.contaDe),
           inicio: d(e.inicio), fim: d(e.fim), meses: GarCalc._meses(e.meses), emitidoEm: d(e.emitidoEm), cancelada: e.cancelada === true,
           acionar: { tel: txt(ac.tel, 300), whats: txt(ac.whats, 30), app: Garantias.https(app) ? app : "", daIA: ac.daIA === true } },
         saiu: s ? { como: en(s.como, GAR_ENUM.como), em: d(s.em), obs: txt(s.obs, 1000) } : null,
-        finais: { pedido: GarCalc.final4(fi.pedido), bilhete: GarCalc.final4(fi.bilhete), serie: GarCalc.final4(fi.serie) },
+        finais: { pedido: GarCalc.final4(fi.pedido), bilhete: GarCalc.final4(fi.bilhete), imei: GarCalc.final4(fi.imei) },
         vaultId: t.id ? "gv_" + t.id : "",   /* sempre o item deste objeto: um vaultId de lixo nunca aponta para o item de outra coisa */
         arquivos: lista(g.arquivos, 30, (a, i) => ({ id: i, tipo: en(a.tipo, GAR_ENUM.arquivo), hash: typeof a.hash === "string" && /^[0-9a-f]{1,128}$/i.test(a.hash) ? a.hash : "", em: txt(a.em, 40), emitidoEm: d(a.emitidoEm), antigo: a.antigo === true })),
         assistencia: id(g.assistencia),
@@ -13105,11 +13173,13 @@ const Garantias = {
       if (typeof d.versao === "number" && d.versao > 1) return nao(tt("Este arquivo é de uma versão mais nova. Atualize o app.", "This file is from a newer version. Update the app.", "Este archivo es de una versión más nueva. Actualiza la app."));
       if (d.versao !== 1) return nao(tt("A versão do arquivo não foi reconhecida.", "The file version wasn't recognized.", "No se ha reconocido la versión del archivo."));
       if (!Array.isArray(d.itens) || !d.itens.length || d.itens.length > 300) return nao(tt("O arquivo precisa ter de 1 a 300 garantias.", "The file needs to have 1 to 300 warranties.", "El archivo tiene que tener de 1 a 300 garantías."));
-      const refs = new Set(), itens = []; let bytes = 0;
+      const refs = new Set(), itens = []; let bytes = 0, lembretes = 0;
       for (let i = 0; i < d.itens.length; i++) {
         const r = this._item(d.itens[i], i + 1, refs); if (r.erro) return nao(r.erro);
         r.arquivos.forEach((a) => (bytes += a.bytes));
         if (bytes > 40 * 1048576) return nao(tt("Os papéis do arquivo passam de 40 MB juntos.", "The documents in the file add up to more than 40 MB.", "Los documentos del archivo suman más de 40 MB."));
+        /* uma enxurrada de lembretes viraria uma enxurrada de avisos */
+        if ((lembretes += r.manutencoes.length) > 100) return nao(tt("O arquivo passa de 100 lembretes de manutenção.", "The file has more than 100 maintenance reminders.", "El archivo supera los 100 recordatorios de mantenimiento."));
         itens.push(r);
       }
       return { ok: true, itens };
@@ -13140,11 +13210,20 @@ const Garantias = {
       if (!nome || nome.length > 80) falha(tt("o nome é obrigatório (até 80 letras)", "the name is required (up to 80 characters)", "el nombre es obligatorio (hasta 80 caracteres)"));
       if (x.duravel != null && typeof x.duravel !== "boolean") falha('"duravel"' + tt(" precisa ser true ou false", " must be true or false", " tiene que ser true o false"));
       const c = obj(x.compra, "compra"), f = obj(x.fabrica, "fabrica"), e = obj(x.estendida, "estendida"), ac = obj(e.acionar, "acionar"), p = obj(x.protegido, "protegido");
+      const cData = data(c.data, tt("data da compra", "purchase date", "fecha de compra")), cEnt = data(c.entrega, tt("data da entrega", "delivery date", "fecha de entrega"));
+      if (c.naoSei != null && typeof c.naoSei !== "boolean") falha('"naoSei"' + tt(" precisa ser true ou false", " must be true or false", " tiene que ser true o false"));
+      /* a ficha técnica (D-G16 c, d): a série à vista; o IMEI, que não pode ir à vista, só em "protegido" (D-G17) */
+      const volt = x.voltagem == null || x.voltagem === "" ? "" : GAR_ENUM.voltagem.includes(x.voltagem) ? x.voltagem : falha(tt("voltagem: use 127, 220 ou bivolt", "voltage: use 127, 220 or bivolt", "voltaje: usa 127, 220 o bivolt"));
+      const serie = txt(x.serie, 60, tt("número de série", "serial number", "número de serie"));
+      if (serie && this.pareceImei(serie)) falha(tt("o número em 'serie' parece um IMEI: ponha em protegido.imei", "the number in 'serie' looks like an IMEI: put it in protegido.imei", "el número de 'serie' parece un IMEI: ponlo en protegido.imei"));
+      if (p.serie != null && p.serie !== "") falha(tt("o número de série agora fica fora do 'protegido', em 'serie'", "the serial number now goes outside 'protegido', in 'serie'", "el número de serie ahora va fuera de 'protegido', en 'serie'"));
+      const man = txt(x.manualUrl, 500, tt("link do manual", "manual link", "enlace del manual"));
+      if (man && !this.link(man)) falha(tt("o link do manual precisa ser o endereço de um site, começando com http:// ou https://", "the manual link must be a website address starting with http:// or https://", "el enlace del manual tiene que ser la dirección de una web que empiece por http:// o https://"));
       /* a situação do bilhete não é guardada (sai das datas): "cancelada" vira cancelada; "reemitida" fica valendo, com a observação */
       const sit = en(e.situacao, ["", "ativa", "naocomecou", "encerrada", "cancelada", "reemitida"], tt("situação da estendida", "extended warranty status", "situación de la extendida"));
       const app = txt(ac.app, 300, tt("app ou site", "app or website", "app o web"));
       if (app && !this.https(app)) falha(tt("o link do app ou site precisa começar com https://", "the app or website link must start with https://", "el enlace de la app o web tiene que empezar por https://"));
-      const pedido = txt(p.pedido, 60, tt("número do pedido", "order number", "número de pedido")), bilhete = txt(p.bilhete, 60, tt("número do bilhete", "certificate number", "número del certificado del seguro")), serie = txt(p.serie, 60, tt("número de série", "serial number", "número de serie"));
+      const pedido = txt(p.pedido, 60, tt("número do pedido", "order number", "número de pedido")), bilhete = txt(p.bilhete, 60, tt("número do bilhete", "certificate number", "número del certificado del seguro")), imei = txt(p.imei, 30, "IMEI");
       const cartao = txt(p.cartaoFinal, 4, tt("final do cartão", "card ending", "últimos dígitos de la tarjeta"));
       if (cartao && !/^\d{4}$/.test(cartao)) falha(tt("final do cartão: 4 números", "card ending: 4 digits", "últimos dígitos de la tarjeta: 4 números"));
       const s = x.saiu == null ? null : obj(x.saiu, "saiu");
@@ -13170,15 +13249,27 @@ const Garantias = {
           oque: txt(a.oque, 500, tt("o que disseram no ", "what they said in ", "lo que dijeron en el ") + q), situacao: en(a.situacao, GAR_ENUM.situacao, tt("situação do ", "status of ", "situación del ") + q), defeito: desc ? porDesc.get(desc) : "" };
       });
       if (defeitos.length > 20) falha(tt("mais de 20 defeitos diferentes", "more than 20 different defects", "más de 20 defectos distintos"));
+      /* os lembretes de manutenção (D-G16 b) viram registros da Manutenção da casa ligados ao objeto: ficam fora da garantia */
+      const manutencoes = lista(x.manutencoes, "manutencoes", 10).map((m0, j) => {
+        const m = obj(m0, "manutencoes"), q = tt("lembrete ", "reminder ", "recordatorio ") + (j + 1);
+        const oque = txt(m.oque, 80, q + tt(": o que fazer", ": what to do", ": qué hacer")).trim();
+        if (!oque) falha(q + tt(": falta o que fazer", ": what to do is missing", ": falta qué hacer"));
+        if (!Number.isInteger(m.cadaMeses) || m.cadaMeses < 1 || m.cadaMeses > 60) falha(q + tt(": a cada quantos meses precisa ser um número inteiro de 1 a 60", ": every how many months must be a whole number from 1 to 60", ": cada cuántos meses tiene que ser un número entero de 1 a 60"));
+        const ultima = data(m.ultima, q + tt(": data da última vez", ": date of the last time", ": fecha de la última vez"));
+        if (ultima && ultima > today()) falha(q + tt(": a última vez não pode ser depois de hoje", ": the last time can't be after today", ": la última vez no puede ser posterior a hoy"));
+        if (ultima && cData && ultima < cData) falha(q + tt(": a última vez não pode ser antes da compra", ": the last time can't be before the purchase", ": la última vez no puede ser anterior a la compra"));
+        return { title: oque + " — " + nome, interval: Math.round(m.cadaMeses * 30.44), last: ultima, obs: txt(m.obs, 300, q + tt(": observação", ": note", ": observación")) };
+      });
+      if (manutencoes.length && s) falha(tt("coisa que saiu de casa não tem lembrete de manutenção", "an item that is no longer at home has no maintenance reminders", "lo que ya no está en casa no tiene recordatorios de mantenimiento"));
       let obs = txt(x.obs, 1000, tt("observações", "notes", "observaciones"));
       if (sit === "reemitida") obs = ((obs ? obs + " · " : "") + tt("bilhete reemitido", "certificate reissued", "certificado del seguro reemitido")).slice(0, 1000);
       return {
-        ref: x.ref, nome, arquivos,
-        protegido: { number: bilhete, pedido, serie, chaveNF: txt(p.chaveNF, 60, tt("chave da nota", "invoice access key", "clave de la factura")), valorCent: cent(p.valorCent, tt("valor pago", "amount paid", "importe pagado")),
+        ref: x.ref, nome, arquivos, manutencoes,
+        protegido: { number: bilhete, pedido, imei, chaveNF: txt(p.chaveNF, 60, tt("chave da nota", "invoice access key", "clave de la factura")), valorCent: cent(p.valorCent, tt("valor pago", "amount paid", "importe pagado")),
           precoCent: cent(p.precoCent, tt("preço da estendida", "extended warranty price", "precio de la extendida")), pagamento: txt(p.pagamento, 60, tt("forma de pagamento", "payment method", "forma de pago")), cartaoFinal: cartao },
         garantia: { v: 1, ref: x.ref, duravel: x.duravel !== false, marca: txt(x.marca, 80, tt("marca", "brand", "marca")), modelo: txt(x.modelo, 80, tt("modelo", "model", "modelo")), dono: "",
-          compra: { data: data(c.data, tt("data da compra", "purchase date", "fecha de compra")), entrega: data(c.entrega, tt("data da entrega", "delivery date", "fecha de entrega")),
-            loja: txt(c.loja, 80, tt("loja", "store", "tienda")), vendedor: txt(c.vendedor, 80, tt("vendedor", "seller", "vendedor")) },
+          voltagem: volt, cor: txt(x.cor, 40, tt("cor", "color", "color")), codigo: txt(x.codigo, 40, tt("código do produto", "product code", "código del producto")), serie, manualUrl: man,
+          compra: { data: cData, entrega: cEnt, loja: txt(c.loja, 80, tt("loja", "store", "tienda")), vendedor: txt(c.vendedor, 80, tt("vendedor", "seller", "vendedor")), naoSei: c.naoSei === true && !cData && !cEnt },
           fabrica: { meses: meses(f.meses, tt("meses de fábrica", "factory warranty months", "meses de garantía de fábrica")), fim: data(f.fim, tt("data do fim da de fábrica", "factory warranty end date", "fecha de fin de la de fábrica")),
             legalInclusa: en(f.legalInclusa, GAR_ENUM.legalInclusa, tt("os 90 dias da lei dentro da de fábrica", "the 90 legal days inside the factory warranty", "los 90 días legales dentro de la de fábrica")) },
           estendida: { tem: en(e.tem, GAR_ENUM.tem, tt("tem estendida", "has extended warranty", "tiene garantía extendida")), quem: en(e.quem, GAR_ENUM.quem, tt("quem cobre a estendida", "who covers the extended warranty", "quién cubre la extendida")),
@@ -13187,7 +13278,7 @@ const Garantias = {
             meses: meses(e.meses, tt("meses da estendida", "extended warranty months", "meses de la extendida")), emitidoEm: data(e.emitidoEm, tt("data de emissão do bilhete", "certificate issue date", "fecha de emisión del certificado del seguro")), cancelada: sit === "cancelada",
             acionar: { tel: txt(ac.tel, 300, tt("telefones", "phone numbers", "teléfonos")), whats: txt(ac.whats, 30, "WhatsApp"), app, daIA: false } },
           saiu: s ? { como: en(s.como, GAR_ENUM.como, tt("como saiu de casa", "how it left home", "cómo salió de casa")), em: data(s.em, tt("data em que saiu de casa", "date it left home", "fecha en que salió de casa")), obs: txt(s.obs, 1000, tt("observação de quando saiu", "note on leaving", "nota de cuando salió")) } : null,
-          finais: { pedido: GarCalc.final4(pedido), bilhete: GarCalc.final4(bilhete), serie: GarCalc.final4(serie) }, arquivos: [], assistencia: "", defeitos, atendimentos, origem: "importado", obs } };
+          finais: { pedido: GarCalc.final4(pedido), bilhete: GarCalc.final4(bilhete), imei: GarCalc.final4(imei) }, arquivos: [], assistencia: "", defeitos, atendimentos, origem: "importado", obs } };
     } catch (e) { if (e && e.garErro) return { erro: e.garErro }; throw e; }
   },
   /* ---------- a aba 🧾 Garantias: a lista ---------- */
@@ -13323,10 +13414,13 @@ const Garantias = {
     if (!v && t.garantia && t.garantia.vaultId) return vid;   /* guardado e não está aqui: não cria outro por cima */
     let o = {}; if (v) { try { o = await Vault.decObj(v.enc); } catch (e) { return vid; } }
     const limpo = {}; GAR_SEC.forEach((k) => (limpo[k] = String(sec[k] == null ? "" : sec[k]).trim()));
+    /* antes da EQ1 a série ficava aqui (e guardava também o IMEI): ela vira o IMEI, continua trancada e a chave velha não sobra */
+    if (o.serie && !limpo.imei) limpo.imei = String(o.serie).trim();
     if (!v && !GAR_SEC.some((k) => limpo[k])) return "";
     const e = GarCalc._o(GarCalc._o(t.garantia).estendida), f1 = Cars.fones(GarCalc._o(e.acionar).tel).find((f) => !/whats/i.test(f.r));
     const payload = Object.assign({}, o, limpo, { kind: "seguro", title: o.title || String(t.name || "") + " — " + tt("números da garantia", "warranty numbers", "números de la garantía"),
       company: (typeof e.seguradora === "string" && e.seguradora) || o.company || "", valid: (GarCalc.ehData(e.fim) && e.fim) || o.valid || "", phone: o.phone || (f1 ? f1.n : ""), garantiaDe: t.id });
+    delete payload.serie;
     /* nada mudou: não regrava (na nuvem, regravar à toa vira conflito) */
     if (v && Object.keys(payload).every((k) => payload[k] === o[k])) return vid;
     const pm = Cofre.podeMudar(); if (!pm.ok) throw new Error(pm.texto);   /* nem no meio da troca da chave, nem com a chave velha */
@@ -13389,7 +13483,7 @@ const Garantias = {
       { k: "_sec.cartaoFinal", m: 1, label: tt("Final do cartão (os 4 últimos números)", "Card ending (the last 4 digits)", "Últimos dígitos de la tarjeta (los 4 últimos)"), im: "numeric" },
       { k: "_sec.preco", m: 1, label: tt("Preço da estendida (R$)", "Extended warranty price (R$)", "Precio de la extendida (R$)"), type: "number", step: "any" },
       { k: "_sec.pedido", m: 1, label: tt("Nº do pedido", "Order number", "Nº de pedido") }, { k: "_sec.number", m: 1, label: tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro") },
-      { k: "_sec.serie", m: 1, label: tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI") }, { k: "_sec.chaveNF", m: 1, label: tt("Chave da nota fiscal (44 números)", "Invoice access key (44 digits)", "Clave de la factura (44 números)"), im: "numeric" });
+      { k: "_sec.imei", m: 1, label: tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI") }, { k: "_sec.chaveNF", m: 1, label: tt("Chave da nota fiscal (44 números)", "Invoice access key (44 digits)", "Clave de la factura (44 números)"), im: "numeric" });
     else f.push(h("🔐 " + tt("Protegido", "Protected", "Protegido")), nota("🔒 " + (modo === "visitante" ? tt("No modo visitante não dá para guardar os números.", "Numbers can't be saved in visitor mode.", "En modo visitante no se pueden guardar los números.") : modo === "espera" ? esc(Cofre.podeMudar().texto || "") :
       modo === "falta" ? tt("Os números desta garantia não estão neste aparelho agora, então não mudam por aqui.", "This warranty's numbers aren't on this device right now, so they can't be changed here.", "Los números de esta garantía no están en este dispositivo ahora, así que no se cambian desde aquí.") :
       isGuardian() ? tt("O valor pago, o pedido, o bilhete e a série ficam trancados nas Senhas da casa. Para ver ou mudar, abra as Senhas da casa antes e volte aqui.", "The amount paid, the order, the certificate and the serial number stay locked in the vault. To see or change them, open the vault first and come back.", "El importe pagado, el pedido, el certificado del seguro y el número de serie quedan bajo llave en las Contraseñas de casa. Para verlos o cambiarlos, abre antes las Contraseñas de casa y vuelve aquí.") :
@@ -13439,7 +13533,7 @@ const Garantias = {
     const vals = Object.assign({}, t, { garantia: deepMerge(raw, s) }), fm = g.fabrica.meses, padrao = [0, 3, 6, 12, 24, 36];
     Object.assign(vals, { _duravel: g.duravel ? "sim" : "nao", _fabMeses: fm == null ? "" : padrao.includes(fm) ? String(fm) : "outro", _fabOutro: fm != null && !padrao.includes(fm) ? fm : "", _estMeses: g.estendida.meses == null ? "" : g.estendida.meses,
       _saiuComo: g.saiu ? g.saiu.como : "", _saiuEm: g.saiu ? g.saiu.em : "", _saiuObs: g.saiu ? g.saiu.obs : "" });
-    if (modo === "aberto") { const o = sec0 || {}; vals._sec = {}; ["pedido", "number", "serie", "chaveNF", "pagamento", "cartaoFinal"].forEach((k) => (vals._sec[k] = o[k] == null ? "" : o[k])); vals._sec.valor = o.valorCent ? +o.valorCent / 100 : ""; vals._sec.preco = o.precoCent ? +o.precoCent / 100 : ""; }
+    if (modo === "aberto") { const o = sec0 || {}; vals._sec = {}; ["pedido", "number", "imei", "chaveNF", "pagamento", "cartaoFinal"].forEach((k) => (vals._sec[k] = o[k] == null ? "" : o[k])); if (!vals._sec.imei && o.serie) vals._sec.imei = o.serie; vals._sec.valor = o.valorCent ? +o.valorCent / 100 : ""; vals._sec.preco = o.precoCent ? +o.precoCent / 100 : ""; }
     const ligaveis = t.id ? [] : DB.all("things").filter((x) => !x.garantia).sort((a, b) => String(a.name).localeCompare(String(b.name))), fields = this.campos(modo, ligaveis);
     const r = await formModal({ title: "🧾 " + (t.id ? esc(t.name || "") : tt("Nova garantia", "New warranty", "Nueva garantía")), fields, values: vals, wide: true,
       after: (el) => this.ligarForm(el, fields, ligaveis, modo, !!t.id), onOk: (o) => this.conferirForm(o) });
@@ -13459,7 +13553,8 @@ const Garantias = {
     g.estendida = GarCalc._o(g.estendida); g.estendida.meses = x.em === "" || x.em == null ? null : +x.em;
     g.saiu = x.sc ? { como: x.sc, em: x.se || "", obs: String(x.so || "").slice(0, 1000) } : null;
     g.origem = GAR_ENUM.origem.includes(g.origem) ? g.origem : "manual";
-    g.finais = GarCalc._o(g.finais); g.arquivos = Array.isArray(g.arquivos) ? g.arquivos : [];
+    const f0 = GarCalc._o(g.finais); g.finais = { pedido: GarCalc.final4(f0.pedido), bilhete: GarCalc.final4(f0.bilhete), imei: GarCalc.final4(f0.imei) };
+    g.arquivos = Array.isArray(g.arquivos) ? g.arquivos : [];
     /* saiu de casa agora (D-G9): oferece apagar a nota, o bilhete e os números; fica só o histórico */
     let tirar = false;
     if (g.saiu && !(antes && antes.saiu) && (g.arquivos.some((a) => a && (a.tipo === "nota" || a.tipo === "bilhete")) || DB.col("vault").get("gv_" + d.id) || g.vaultId || Object.values(g.finais).some(Boolean)))
@@ -13469,12 +13564,12 @@ const Garantias = {
       const v = DB.col("vault").get("gv_" + d.id);
       if (v && this.modo() === "aberto") { for (const id of v.files || []) await Files.remove(id); await DB.del("vault", v.id); delete g.vaultId; }
       else if (v || g.vaultId) toast(tt("Os números continuam nas Senhas da casa: abra-as para apagar.", "The numbers stay in the vault: open it to delete them.", "Los números siguen en las Contraseñas de casa: ábrelas para borrarlos."), 6000);
-      g.finais = { pedido: "", bilhete: "", serie: "" };
+      g.finais = { pedido: "", bilhete: "", imei: "" };
     } else if (modo === "aberto" && S.vaultKey) {
       const sec = Object.assign({}, sec0, { valorCent: this.cent(sec0.valor), precoCent: this.cent(sec0.preco) }); delete sec.valor; delete sec.preco;
       try {
         const vid = await this.guardarSegredo(d, sec);
-        if (vid) { g.vaultId = vid; if (DB.col("vault").get(vid)) g.finais = { pedido: GarCalc.final4(String(sec.pedido || "")), bilhete: GarCalc.final4(String(sec.number || "")), serie: GarCalc.final4(String(sec.serie || "")) }; }
+        if (vid) { g.vaultId = vid; if (DB.col("vault").get(vid)) g.finais = { pedido: GarCalc.final4(String(sec.pedido || "")), bilhete: GarCalc.final4(String(sec.number || "")), imei: GarCalc.final4(String(sec.imei || "")) }; }
       } catch (e) { toast(tt("Não consegui trancar os números: ", "Couldn't lock the numbers: ", "No he podido guardar bajo llave los números: ") + (e.message || e), 6000); }
     } else if (modo === "aberto") toast(tt("As Senhas da casa fecharam enquanto você editava: a garantia foi salva, mas os números e o valor não mudaram. Abra as Senhas da casa e edite de novo.", "The vault closed while you were editing: the warranty was saved, but the numbers and the amount didn't change. Open the vault and edit again.", "Las Contraseñas de casa se cerraron mientras editabas: la garantía se ha guardado, pero los números y el importe no han cambiado. Ábrelas y vuelve a editar."), 6000);
     await DB.put("things", d);
@@ -13581,6 +13676,7 @@ const Garantias = {
     switch (s.k) {
       case "saiu": { const sa = g.saiu || {}; return tt("Saiu de casa: ", "No longer at home: ", "Ya no está en casa: ") + (como[sa.como] || como.outro) + (GarCalc.ehData(sa.em) ? tt(" em ", " on ", " el ") + fmtDate(sa.em) : "") + ". " + tt("Fica como histórico.", "It stays as history.", "Queda como historial."); }
       case "faltam": return tt("Falta a data da compra", "The purchase date is missing", "Falta la fecha de compra");
+      case "semData": return tt("Sem a data da compra, o app não conta a garantia. Se aparecer um defeito de fabricação, ainda pode haver direito: veja 🆘 Estragou? E agora?", "Without the purchase date, the app can't work out the warranty. If a manufacturing defect shows up, you may still have rights: see 🆘 Broken? What now?", "Sin la fecha de compra, la app no calcula la garantía. Si aparece un defecto de fabricación, aún puede haber derecho: mira 🆘 ¿Se ha estropeado? ¿Y ahora qué?");
       case "fabrica": return tt("Na garantia de fábrica até ", "Under the factory warranty until ", "En garantía de fábrica hasta el ") + d(s.ate, s.est);
       case "estendida": return tt("Na garantia estendida até ", "Under the extended warranty until ", "En garantía extendida hasta el ") + d(s.ate, s.est) + tt(": quem cobre agora é ", ": the one covering it now is ", ": ahora la cubre ") + this._quem(s.quem, g);
       case "faltaFim": return tt("Falta o fim da estendida: ele não está no bilhete", "The end of the extended warranty is missing: it isn't on the certificate", "Falta el fin de la extendida: no figura en el certificado del seguro");
@@ -13600,7 +13696,7 @@ const Garantias = {
     const k = (sit || {}).k, lf = tt("a loja ou o fabricante", "the store or the manufacturer", "la tienda o el fabricante"), fab = tt(", se for defeito de fabricação", ", if it's a manufacturing defect", ", si es un defecto de fabricación");
     const r = { fabrica: tt("a assistência autorizada ou a loja (pela lei brasileira, os dois respondem)", "the authorized repair service or the store (under Brazilian consumer law, both are responsible)", "el servicio técnico autorizado o la tienda (según la ley de consumo brasileña, los dos responden)"),
       estendida: this._quem(sit.quem, g), faltaFim: this._quem(sit.quem, g), talvezEst: tt("primeiro a loja ou o seguro; se disserem que acabou, também o fabricante", "first the store or the insurance; if they say it's over, the manufacturer too", "primero la tienda o el seguro; si dicen que ha terminado, también el fabricante"),
-      lei: lf, reclamado: lf, defeito: lf, espera: lf + fab, encerrados: lf + fab, faltam: lf + tt(": a garantia da lei vale sempre, mesmo sem papel", ": the legal warranty always applies, even without paperwork", ": la garantía legal vale siempre, incluso sin papeles") }[k];
+      lei: lf, reclamado: lf, defeito: lf, espera: lf + fab, encerrados: lf + fab, semData: lf + fab, faltam: lf + tt(": a garantia da lei vale sempre, mesmo sem papel", ": the legal warranty always applies, even without paperwork", ": la garantía legal vale siempre, incluso sin papeles") }[k];
     return r ? tt("De quem cobrar hoje: ", "Who to ask today: ", "A quién reclamar hoy: ") + r : "";
   },
   /* a ficha: situação, próximo passo, as três garantias, compra (com a referência trancada), números, papéis e onde está */
@@ -13636,7 +13732,7 @@ const Garantias = {
     h += '<div class="card"><h3>🛒 ' + tt("Compra", "Purchase", "Compra") + '</h3><div class="list">' + lc(tt("Comprado em", "Bought on", "Comprado el"), GarCalc.ehData(c.data) ? fmtDate(c.data) : "") + lc(tt("Entregue em", "Delivered on", "Entregado el"), GarCalc.ehData(c.entrega) ? fmtDate(c.entrega) : "") +
       lc(tt("Loja", "Store", "Tienda"), c.loja) + lc(tt("Vendedor", "Seller", "Vendedor"), c.vendedor) + '</div><div id="garref"></div></div>';
     /* os números: só o final; o completo só no 👁, no modo aberto */
-    const fins = [["pedido", tt("Nº do pedido", "Order number", "Nº de pedido")], ["bilhete", tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro")], ["serie", tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI")]].filter((x) => g.finais[x[0]]);
+    const fins = [["pedido", tt("Nº do pedido", "Order number", "Nº de pedido")], ["bilhete", tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro")], ["imei", tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI")]].filter((x) => g.finais[x[0]]);
     const aviso = modo === "aberto" ? "" : modo === "membro" ? tt("Só os responsáveis veem os números completos.", "Only guardians see the full numbers.", "Solo los responsables ven los números completos.") : modo === "visitante" ? tt("No modo visitante não dá para guardar os números.", "Numbers can't be saved in visitor mode.", "En modo visitante no se pueden guardar los números.") : modo === "espera" ? Cofre.podeMudar().texto || "" : tt("Os números completos e o valor pago ficam trancados nas Senhas da casa.", "The full numbers and the amount paid stay locked in the vault.", "Los números completos y el importe pagado quedan bajo llave en las Contraseñas de casa.");
     h += '<div class="card"><h3>🔐 ' + tt("Números", "Numbers", "Números") + '</h3><div id="garnum" data-id="' + tid + '">' + (fins.length ? '<div class="list">' + fins.map((x) => lc(x[1], tt("final ", "ending ", "termina en ") + g.finais[x[0]])).join("") + "</div>" : "") +
       (aviso ? '<p class="small muted">🔒 ' + esc(aviso) + "</p>" + (modo === "fechado" && canVault() ? '<button class="btn" data-act="gar.abrircasa">🔓 ' + tt("Abrir as Senhas da casa", "Open the vault", "Abrir las Contraseñas de casa") + "</button>" : "") : !fins.length && ed ? '<p class="small muted">' + tt("Nada guardado ainda. Toque em ✏️ para preencher.", "Nothing saved yet. Tap ✏️ to fill in.", "Todavía no hay nada guardado. Toca ✏️ para rellenarlo.") + "</p>" : "") + "</div></div>";
@@ -13671,7 +13767,7 @@ const Garantias = {
     if (o && o._falta) { box.insertAdjacentHTML("beforeend", '<p class="small muted">⏳ ' + tt("Os números desta garantia não estão neste aparelho agora: podem ainda estar chegando pela nuvem ou estar nas senhas antigas (Senhas da casa → Trazer as senhas antigas).", "This warranty's numbers aren't on this device right now: they may still be arriving from the cloud or be in the old passwords (Home passwords → Bring the old passwords).", "Los números de esta garantía no están en este dispositivo ahora: puede que aún estén llegando desde la nube o que estén en las contraseñas antiguas.") + "</p>"); return; }
     if (!o) return;
     const sg = [], row = (rot, val) => { if (!val) return ""; const i = sg.push(String(val)) - 1; return '<div class="li"><div class="main"><div class="s">' + rot + '</div><div class="t">' + esc(tt("final ", "ending ", "termina en ") + GarCalc.final4(String(val))) + ' · <span class="mono" data-sg="' + i + '">••••••</span></div></div><button class="btn ghost" data-olho="' + i + '" aria-pressed="false" aria-label="' + tt("Mostrar o número", "Show the number", "Mostrar el número") + '">👁</button></div>'; };
-    const rows = row(tt("Nº do pedido", "Order number", "Nº de pedido"), o.pedido) + row(tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro"), o.number) + row(tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI"), o.serie) + row(tt("Chave da nota fiscal", "Invoice access key", "Clave de la factura"), o.chaveNF);
+    const rows = row(tt("Nº do pedido", "Order number", "Nº de pedido"), o.pedido) + row(tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro"), o.number) + row(tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI"), o.imei || o.serie) + row(tt("Chave da nota fiscal", "Invoice access key", "Clave de la factura"), o.chaveNF);
     box.innerHTML = rows ? '<div class="list">' + rows + '</div><p class="tiny faint" style="margin-top:6px">🔒 ' + tt("Escondido até você tocar no 👁. Não aparece em listas, busca nem avisos, e não vai para a IA.", "Hidden until you tap 👁. Not shown in lists, search or alerts, and never sent to the AI.", "Oculto hasta que toques el 👁. No aparece en listas, búsqueda ni avisos, y no va a la IA.") + "</p>" : '<p class="small muted">' + tt("Nada guardado ainda. Toque em ✏️ para preencher.", "Nothing saved yet. Tap ✏️ to fill in.", "Todavía no hay nada guardado. Toca ✏️ para rellenarlo.") + "</p>";
     box.querySelectorAll("[data-olho]").forEach((b) => (b.onclick = () => { const x = box.querySelector('[data-sg="' + b.dataset.olho + '"]'), ver = x.textContent === "••••••"; x.textContent = ver ? sg[+b.dataset.olho] : "••••••"; b.setAttribute("aria-pressed", String(ver)); }));
     const ref = $("#garref", root), it = [o.valorCent ? tt("Valor pago: ", "Amount paid: ", "Importe pagado: ") + money(+o.valorCent / 100) : "", o.pagamento ? tt("Pagamento: ", "Payment: ", "Pago: ") + o.pagamento : "", o.cartaoFinal ? tt("Cartão: final ", "Card: ending ", "Tarjeta: termina en ") + o.cartaoFinal : "", o.precoCent ? tt("Preço da estendida: ", "Extended warranty price: ", "Precio de la extendida: ") + money(+o.precoCent / 100) : ""].filter(Boolean);
@@ -13808,7 +13904,10 @@ const Garantias = {
       case "reclamado": return pt(this.frase(sit, g)) + " " + tt("Cobre a resposta, com o protocolo em mãos.", "Chase up the answer, with the reference number at hand.", "Reclama la respuesta, con el número de reclamación a mano.");
       case "defeito": return pt(this.frase(sit, g)) + " " + prot;
       case "espera": return tt("A de fábrica e o prazo da lei acabaram, e o seguro só começa em ", "The factory warranty and the legal deadline are over, and the insurance only starts on ", "La de fábrica y el plazo legal han terminado, y el seguro no empieza hasta el ") + d(sit.ate, sit.est) + ". " + tt("Se for defeito de fabricação, reclame com a loja ou o fabricante e guarde o protocolo.", "If it's a manufacturing defect, complain to the store or the manufacturer and keep the reference number.", "Si es un defecto de fabricación, reclama a la tienda o al fabricante y guarda el número de reclamación.");
-      case "faltam": return tt("Informe a data da compra. A garantia da lei vale sempre, mesmo sem papel (CDC art. 24): loja ou fabricante.", "Enter the purchase date. The legal warranty always applies, even without paperwork (CDC art. 24): the store or the manufacturer.", "Indica la fecha de compra. La garantía legal vale siempre, incluso sin papeles (CDC art. 24): la tienda o el fabricante.");
+      /* sem a data (com ou sem "Não sei"): a lei não depende de papel, mas tem prazo (CDC arts. 24 e 26) */
+      case "faltam": case "semData": return tt("Sem a data da compra, o app não conta os prazos. A garantia da lei não depende de papel (CDC art. 24), mas tem prazo: 90 dias para reclamar (30 se não for coisa que dura), contados da entrega ou do dia em que apareceu um defeito escondido. Fale com a loja ou o fabricante.",
+        "Without the purchase date, the app can't work out the deadlines. The legal warranty doesn't depend on paperwork (CDC art. 24), but it has a deadline: 90 days to complain (30 if it isn't a durable item), counted from delivery or from the day a hidden defect showed up. Talk to the store or the manufacturer.",
+        "Sin la fecha de compra, la app no calcula los plazos. La garantía legal no depende de papeles (CDC art. 24), pero tiene plazo: 90 días para reclamar (30 si no es algo duradero), contados desde la entrega o desde el día en que apareció un defecto oculto. Habla con la tienda o el fabricante.");
       default: return novo() + " " + tt("Se negarem: Procon ou consumidor.gov.br.", "If they say no: Procon or consumidor.gov.br (Brazil's consumer services).", "Si lo rechazan: Procon (oficina de consumo de Brasil) o consumidor.gov.br.");
     }
   },
@@ -14230,14 +14329,14 @@ const Garantias = {
       '</div><div class="row" style="margin-top:6px"><button type="button" class="btn ghost" data-garia>' + tt("Usar", "Use", "Usar") + "</button></div></div>" });
     if (temSec) fields.push(h("🔐 " + tt("Protegido (fica trancado nas Senhas da casa)", "Protected (kept locked in the vault)", "Protegido (queda bajo llave en las Contraseñas de casa)"), "gar-s"),
       { k: "_sec.pedido", label: tt("Nº do pedido", "Order number", "Nº de pedido") }, { k: "_sec.number", label: tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro") },
-      { k: "_sec.serie", label: tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI") }, { k: "_sec.chaveNF", label: tt("Chave da nota fiscal (44 números)", "Invoice access key (44 digits)", "Clave de la factura (44 números)"), im: "numeric" },
+      { k: "_sec.imei", label: tt("Nº de série ou IMEI", "Serial number or IMEI", "Nº de serie o IMEI") }, { k: "_sec.chaveNF", label: tt("Chave da nota fiscal (44 números)", "Invoice access key (44 digits)", "Clave de la factura (44 números)"), im: "numeric" },
       { k: "_sec.valor", label: "💰 " + tt("Valor pago (R$)", "Amount paid (R$)", "Importe pagado (R$)"), type: "number", step: "any" }, { k: "_sec.preco", label: tt("Preço da estendida (R$)", "Extended warranty price (R$)", "Precio de la extendida (R$)"), type: "number", step: "any" });
     else fields.push({ type: "html", html: '<div class="note small">🔒 ' + tt("Os números lidos (pedido, bilhete, série, chave da nota e valor) foram descartados: eles só aparecem com as Senhas da casa abertas, para um responsável.", "The numbers that were read (order, certificate, serial, invoice key and amount) were discarded: they only show with the vault open, for a guardian.", "Los números leídos (pedido, certificado del seguro, serie, clave de la factura e importe) se han descartado: solo aparecen con las Contraseñas de casa abiertas, para un responsable.") + "</div>" });
     fields.push({ k: "_guardar", type: "check", label: "📎 " + tt("Guardar este arquivo junto (trancado: só um responsável abre)", "Save this file too (locked: only a guardian opens it)", "Guardar también este archivo (bajo llave: solo lo abre un responsable)") });
     const vals = { _tipo: L.tipo, _ligar: alvo ? alvo.id : "", name: alvo ? String(alvo.name || "") : c.nome.v, _guardar: true, _fabMeses: c.fabMeses.v || "", _estMeses: c.meses.v || "",
       garantia: { marca: c.marca.v, modelo: c.modelo.v, compra: { data: c.data.v, loja: c.loja.v },
         estendida: { quem: c.quem.v || "naosei", seguradora: c.seguradora.v, inicio: c.inicio.v, fim: c.fim.v, emitidoEm: c.emitidoEm.v, acionar: { tel: L.acionar.tel, whats: L.acionar.whats, app: L.acionar.app } } } };
-    if (temSec) vals._sec = { pedido: sec.pedido || "", number: sec.number || "", serie: sec.serie || "", chaveNF: sec.chaveNF || "", valor: sec.valor || "", preco: sec.preco || "" };
+    if (temSec) vals._sec = { pedido: sec.pedido || "", number: sec.number || "", imei: sec.serie || "", chaveNF: sec.chaveNF || "", valor: sec.valor || "", preco: sec.preco || "" };
     const after = (el) => {
       fields.forEach((f) => { const i = f.k && el.querySelector('[name="' + f.k + '"]'), b = i && i.closest(".fld, .check"); if (b && f.e) b.classList.add("gar-e"); });
       const tp = el.querySelector('[name="_tipo"]'), aplicar = () => el.querySelectorAll(".gar-e").forEach((b) => b.classList.toggle("hidden", tp.value !== "bilhete"));
@@ -14311,7 +14410,7 @@ const Garantias = {
         : tt("O arquivo não foi guardado (só um responsável guarda a nota e o bilhete, que ficam trancados); o resto foi salvo.", "The file wasn't saved (only a guardian saves the invoice and the certificate, which stay locked); the rest was saved.", "El archivo no se ha guardado (solo un responsable guarda la factura y el certificado del seguro, que quedan bajo llave); el resto sí.")), 6000);
     }
     /* os números: só se o modo aberto ainda vale agora e as Senhas não fecharam com a janela aberta; juntam-se aos que já estavam */
-    const s0 = GarCalc._o(r._sec), lidos = { pedido: s0.pedido, number: s0.number, serie: s0.serie, chaveNF: s0.chaveNF, valorCent: this.cent(s0.valor), precoCent: this.cent(s0.preco) };
+    const s0 = GarCalc._o(r._sec), lidos = { pedido: s0.pedido, number: s0.number, imei: s0.imei, chaveNF: s0.chaveNF, valorCent: this.cent(s0.valor), precoCent: this.cent(s0.preco) };
     if (x.lido.sec && !antigo && Object.values(lidos).some((v) => v !== "" && v != null)) {
       if (estado.fechou || this.modo() !== "aberto") toast(tt("As Senhas da casa fecharam: os números lidos não foram guardados.", "The vault closed: the numbers that were read weren't saved.", "Las Contraseñas de casa se cerraron: los números leídos no se han guardado."), 6000);
       else {
@@ -14322,7 +14421,7 @@ const Garantias = {
             const s = {}; GAR_SEC.forEach((k) => (s[k] = atual && atual[k] != null ? atual[k] : ""));
             Object.keys(lidos).forEach((k) => { if (lidos[k] !== "" && lidos[k] != null) s[k] = String(lidos[k]).trim(); });
             const vid = await this.guardarSegredo(t, s);
-            if (vid) { g.vaultId = vid; if (DB.col("vault").get(vid)) g.finais = { pedido: GarCalc.final4(String(s.pedido || "")), bilhete: GarCalc.final4(String(s.number || "")), serie: GarCalc.final4(String(s.serie || "")) }; }
+            if (vid) { g.vaultId = vid; if (DB.col("vault").get(vid)) g.finais = { pedido: GarCalc.final4(String(s.pedido || "")), bilhete: GarCalc.final4(String(s.number || "")), imei: GarCalc.final4(String(s.imei || "")) }; }
           }
         } catch (e) { toast(tt("Não consegui trancar os números: ", "Couldn't lock the numbers: ", "No he podido guardar bajo llave los números: ") + (e.message || e), 6000); }
       }
