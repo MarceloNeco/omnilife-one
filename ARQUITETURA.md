@@ -639,7 +639,8 @@ sem framework: HTML, CSS e JavaScript puros.
   `alt`), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
   `curta`, `proximoFim`, `avisos`, `art18` (o contador dos 30 dias para consertar, por defeito, só loja/fabricante/assistência) e
   `seguro` (o da seguradora). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
-  limites de texto e de lista, link só https, e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
+  limites de texto e de lista, link só https (o app ou site para acionar sem o que vem depois do "?" ou do "#", `Garantias.app`,
+  também no que vem do papel, da IA, do 📥 e do formulário), e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
   derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
   ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, IMEI — D-G17 —, chave da nota, valor, preço da estendida,
   pagamento, final do cartão; o número de série NÃO: fica à vista no objeto, D-G16 d) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
@@ -647,8 +648,9 @@ sem framework: HTML, CSS e JavaScript puros.
   aberto só para responsável com as Senhas abertas e sem troca da chave andando, conferido em cada janela (o relógio do
   formulário tira os `_sec.*` se as Senhas fecharem). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
   com `encrypt`, `restrito`); folheto e manual com o "Quem vê" do objeto; nome neutro (`nota-fiscal.pdf`), a marca `gar: <id>` no
-  registro do arquivo e só no aparelho. `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
-  `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou (com confirmação). **Telas:** `listView` (filtros "📋 Todos os
+  registro do arquivo e só no aparelho; o "＋ papel" à mão só aceita foto ou PDF pelos primeiros bytes (`tipoReal`). `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
+  `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou e o papel que saiu da ficha em outro aparelho (o "saiu de casa" +
+  Apagar num aparelho sem o arquivo; lá, o `tirarPapeis` avisa) (com confirmação). **Telas:** `listView` (filtros "📋 Todos os
   equipamentos" — o padrão, por nome —, Valendo, Em 30 dias, Vai começar e "🗄️ Vencidas" — D-G14, como arquivo —; "Faltam dados" no topo, fechado em
   Todos; "📦 Saíram de casa" no fim de Todos; `S.garF`), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
   em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
@@ -657,7 +659,8 @@ sem framework: HTML, CSS e JavaScript puros.
   antes do fim da de fábrica e da estendida, e o começo da estendida; nada para o que saiu de casa) alimenta o `Alerts.list`, o
   `Notify.tick` (`once("gar-…")`, depois das 9h) e `agenda(de, ate)` o `Agenda.occurrences` (linhas `gar-<id>-…`; o `ev.edit` abre
   a ficha). **📷 Ler nota ou bilhete** (`lerArquivos`, no `DGO.fundo`): OCR/`ShopImport.pdf` no aparelho → `mascarar` (nome, CPF,
-  endereço, CEP, telefone, nascimento e os números longos, antes de qualquer IA) → `local` (duas passadas) e, opcional, a IA só com
+  RG, endereço, CEP, telefone, nascimento, a saudação do e-mail, o IMEI em grupos, os números longos e todo link com "?" ou "#",
+  antes de qualquer IA; pelos rótulos e formatos que conhece, por isso a ajuda diz "tenta tirar") → `local` (duas passadas) e, opcional, a IA só com
   o texto filtrado (`prompt`, `daIA`; nunca a imagem; o telefone dela só entra com "Usar") → `conferir` (uma janela por arquivo,
   🤖/📱) → `_salvarLido`. **📥 Trazer equipamentos prontos** (`importar` → `validar` → `resumo` → `gravar`, no `DGO.fundo`, tudo ou
   nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB

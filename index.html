@@ -13090,6 +13090,9 @@ const GAR_PAPEIS = () => [["nota", "🧾", tt("Nota fiscal", "Invoice", "Factura
 const Garantias = {
   /* link do app da seguradora ou da loja: só https (nada de "javascript:"); confere de novo ao desenhar */
   https(x) { try { return typeof x === "string" && new URL(x).protocol === "https:"; } catch (e) { return false; } },
+  /* o app ou site para acionar como fica gravado: só https e sem o que vem depois do "?" ou do "#" (num link do papel, ali podem vir
+     o CPF, o nº do bilhete ou um token). Lido do papel, sugerido pela IA, do 📥, do formulário e ao ler o que está gravado */
+  app(x) { const s = typeof x === "string" ? x.trim().replace(/[?#].*$/, "") : ""; return this.https(s) ? s.slice(0, 300) : ""; },
   /* link do manual: só http/https de um site de verdade (nada de javascript:, IP, localhost, rede de casa, porta nem
      usuário:senha). Conferido no formulário, no arquivo, na leitura e de novo ao desenhar */
   link(x) {
@@ -13169,7 +13172,7 @@ const Garantias = {
         fabrica: { meses: GarCalc._meses(f.meses), fim: d(f.fim), legalInclusa: en(f.legalInclusa, GAR_ENUM.legalInclusa) },
         estendida: { tem: en(e.tem, GAR_ENUM.tem), quem: en(e.quem, GAR_ENUM.quem), seguradora: txt(e.seguradora, 80), contaDe: en(e.contaDe, GAR_ENUM.contaDe),
           inicio: d(e.inicio), fim: d(e.fim), meses: GarCalc._meses(e.meses), emitidoEm: d(e.emitidoEm), cancelada: e.cancelada === true,
-          acionar: { tel: txt(ac.tel, 300), whats: txt(ac.whats, 30), app: Garantias.https(app) ? app : "", daIA: ac.daIA === true } },
+          acionar: { tel: txt(ac.tel, 300), whats: txt(ac.whats, 30), app: Garantias.app(app), daIA: ac.daIA === true } },
         saiu: s ? { como: en(s.como, GAR_ENUM.como), em: d(s.em), obs: txt(s.obs, 1000) } : null,
         finais: { pedido: GarCalc.final4(fi.pedido), bilhete: GarCalc.final4(fi.bilhete), imei: GarCalc.final4(fi.imei) },
         vaultId: t.id ? "gv_" + t.id : "",   /* sempre o item deste objeto: um vaultId de lixo nunca aponta para o item de outra coisa */
@@ -13298,7 +13301,7 @@ const Garantias = {
             seguradora: txt(e.seguradora, 80, tt("seguradora", "insurer", "aseguradora")), contaDe: en(e.contaDe, GAR_ENUM.contaDe, tt("de quando contam os meses da estendida", "when the extended warranty months start", "desde cuándo cuentan los meses de la extendida")),
             inicio: data(e.inicio, tt("data de início da estendida", "extended warranty start date", "fecha de inicio de la extendida")), fim: data(e.fim, tt("data de fim da estendida", "extended warranty end date", "fecha de fin de la extendida")),
             meses: meses(e.meses, tt("meses da estendida", "extended warranty months", "meses de la extendida")), emitidoEm: data(e.emitidoEm, tt("data de emissão do bilhete", "certificate issue date", "fecha de emisión del certificado del seguro")), cancelada: sit === "cancelada",
-            acionar: { tel: txt(ac.tel, 300, tt("telefones", "phone numbers", "teléfonos")), whats: txt(ac.whats, 30, "WhatsApp"), app, daIA: false } },
+            acionar: { tel: txt(ac.tel, 300, tt("telefones", "phone numbers", "teléfonos")), whats: txt(ac.whats, 30, "WhatsApp"), app: this.app(app), daIA: false } },
           saiu: s ? { como: en(s.como, GAR_ENUM.como, tt("como saiu de casa", "how it left home", "cómo salió de casa")), em: data(s.em, tt("data em que saiu de casa", "date it left home", "fecha en que salió de casa")), obs: txt(s.obs, 1000, tt("observação de quando saiu", "note on leaving", "nota de cuando salió")) } : null,
           finais: { pedido: GarCalc.final4(pedido), bilhete: GarCalc.final4(bilhete), imei: GarCalc.final4(imei) }, arquivos: [], assistencia: "", defeitos, atendimentos, origem: "importado", obs } };
     } catch (e) { if (e && e.garErro) return { erro: e.garErro }; throw e; }
@@ -13463,9 +13466,9 @@ const Garantias = {
       tt("<b>Números e valores trancados</b>: pedido, bilhete, IMEI, chave da nota, valor pago, forma de pagamento, final do cartão e preço da estendida ficam nas 🔐 Senhas da casa, só para os responsáveis. Na ficha aparece só o final (ex.: “final 0001”); o 👁 mostra o resto com as Senhas abertas. A nota e o bilhete também vão trancados e ficam só no aparelho onde foram guardados. Nada disso vai para listas, busca, avisos ou para a IA, e nada é enviado ao MoneyTRIO. O número de série não é trancado: ele fica à vista na 🔌 Ficha técnica.",
         "<b>Locked numbers and amounts</b>: order, certificate, IMEI, invoice key, amount paid, payment method, card ending and the extended warranty's price stay in the 🔐 vault, for guardians only. The page shows only the end (e.g. “ending 0001”); 👁 shows the rest with the vault open. The invoice and the certificate are locked too and stay only on the device where they were saved. None of this goes to lists, search, reminders or the AI, and nothing is sent to MoneyTRIO. The serial number isn't locked: it's visible in 🔌 Specs.",
         "<b>Números e importes bajo llave</b>: el pedido, el certificado del seguro, el IMEI, la clave de la factura, lo que pagaste, la forma de pago, los últimos dígitos de la tarjeta y el precio de la extendida se quedan en las 🔐 Contraseñas de casa, solo para los responsables. En la ficha solo sale el final (p. ej. «termina en 0001»); el 👁 enseña el resto con las Contraseñas abiertas. La factura y el certificado también van bajo llave y se quedan solo en el dispositivo donde se guardaron. Nada de esto va a listas, búsqueda, avisos ni a la IA, y no se envía nada a MoneyTRIO. El número de serie no va bajo llave: se ve en la 🔌 Ficha técnica."),
-      tt("<b>📷 Ler nota ou bilhete</b>: escolha uma ou várias fotos ou PDFs. O app lê no próprio aparelho, em segundo plano (dá para sair da tela). Se você usa IA, vai para ela só o texto, sem nome, CPF, endereço, telefone e números, nunca a imagem. Você confere tudo antes de salvar: 📱 = lido no aparelho, 🤖 = lido com a IA (o telefone que a IA sugerir só entra se você tocar em <b>Usar</b>). O número de série lido vai para a ficha; um IMEI vai trancado, só com as Senhas da casa abertas. O link do manual nunca vem da leitura.",
-        "<b>📷 Read invoice or certificate</b>: pick one or several photos or PDFs. The app reads them on the device itself, in the background (you can leave the screen). If you use AI, only the text goes to it, without name, CPF number, address, phone and numbers, never the image. You check everything before saving: 📱 = read on the device, 🤖 = read with the AI (a phone number the AI suggests only goes in if you tap <b>Use</b>). The serial number that's read goes to the record; an IMEI goes in locked, only with the vault open. The manual link never comes from the reading.",
-        "<b>📷 Leer factura o certificado</b>: elige una o varias fotos o PDF. La app los lee en el propio dispositivo, en segundo plano (puedes salir de la pantalla). Si usas IA, solo le llega el texto, sin nombre, CPF, dirección, teléfono ni números, y nunca la imagen. Lo compruebas todo antes de guardar: 📱 = leído en el dispositivo, 🤖 = leído con la IA (el teléfono que sugiera la IA solo entra si tocas <b>Usar</b>). El número de serie leído va a la ficha; un IMEI va bajo llave, solo con las Contraseñas de casa abiertas. El enlace del manual nunca sale de la lectura."),
+      tt("<b>📷 Ler nota ou bilhete</b>: escolha uma ou várias fotos ou PDFs. O app lê no próprio aparelho, em segundo plano (dá para sair da tela). Se você usa IA, vai para ela só o texto, nunca a imagem, e antes o app tenta tirar o nome, o CPF, o endereço, o telefone e os números (o que ele não reconhecer pode passar: com um papel muito pessoal, deixe a IA desligada). Você confere tudo antes de salvar: 📱 = lido no aparelho, 🤖 = lido com a IA (o telefone que a IA sugerir só entra se você tocar em <b>Usar</b>). O número de série lido vai para a ficha; um IMEI vai trancado, só com as Senhas da casa abertas. O link do manual nunca vem da leitura.",
+        "<b>📷 Read invoice or certificate</b>: pick one or several photos or PDFs. The app reads them on the device itself, in the background (you can leave the screen). If you use AI, only the text goes to it, never the image, and the app first tries to remove the name, CPF number, address, phone and numbers (anything it doesn't recognise may get through: with a very personal document, leave the AI off). You check everything before saving: 📱 = read on the device, 🤖 = read with the AI (a phone number the AI suggests only goes in if you tap <b>Use</b>). The serial number that's read goes to the record; an IMEI goes in locked, only with the vault open. The manual link never comes from the reading.",
+        "<b>📷 Leer factura o certificado</b>: elige una o varias fotos o PDF. La app los lee en el propio dispositivo, en segundo plano (puedes salir de la pantalla). Si usas IA, solo le llega el texto, nunca la imagen, y antes la app intenta quitar el nombre, el CPF, la dirección, el teléfono y los números (lo que no reconozca puede pasar: con un documento muy personal, deja la IA apagada). Lo compruebas todo antes de guardar: 📱 = leído en el dispositivo, 🤖 = leído con la IA (el teléfono que sugiera la IA solo entra si tocas <b>Usar</b>). El número de serie leído va a la ficha; un IMEI va bajo llave, solo con las Contraseñas de casa abiertas. El enlace del manual nunca sale de la lectura."),
       tt("<b>📥 Trazer equipamentos prontos (arquivo)</b>: só um responsável, com as Senhas da casa abertas. O app confere o arquivo inteiro antes (um item com erro recusa o arquivo todo e diz qual), deixa de fora o que já está no app e mostra o resumo antes de gravar, com os lembretes de manutenção que vêm junto (o que vier sem a última vez só avisa depois do primeiro ✓ Feito hoje): é tudo ou nada. No fim, apague o arquivo do celular, porque ele tem os números abertos.",
         "<b>📥 Bring in ready-made items (file)</b>: guardians only, with the vault open. The app checks the whole file first (one bad item rejects the whole file and says which), leaves out what's already in the app and shows a summary before saving, with the maintenance reminders that come with it (one without the last time only reminds you after the first ✓ Done today): it's all or nothing. At the end, delete the file from your phone, because it has the numbers in the open.",
         "<b>📥 Traer aparatos ya preparados (archivo)</b>: solo un responsable, con las Contraseñas de casa abiertas. La app comprueba antes el archivo entero (un elemento con error rechaza todo el archivo y dice cuál), deja fuera lo que ya está en la app y enseña el resumen antes de guardar, con los recordatorios de mantenimiento que vienen con él (el que venga sin la última vez solo avisa después del primer ✓ Hecho hoy): es todo o nada. Al final, borra el archivo del móvil, porque tiene los números a la vista."),
@@ -13657,6 +13660,7 @@ const Garantias = {
     g.duravel = x.du !== "nao";
     g.fabrica = GarCalc._o(g.fabrica); g.fabrica.meses = x.fm === "" || x.fm == null ? null : x.fm === "outro" ? +x.fo : +x.fm;
     g.estendida = GarCalc._o(g.estendida); g.estendida.meses = x.em === "" || x.em == null ? null : +x.em;
+    if (g.estendida.acionar && typeof g.estendida.acionar === "object" && g.estendida.acionar.app) g.estendida.acionar.app = this.app(g.estendida.acionar.app);
     g.saiu = x.sc ? { como: x.sc, em: x.se || "", obs: String(x.so || "").slice(0, 1000) } : null;
     g.origem = GAR_ENUM.origem.includes(g.origem) ? g.origem : "manual";
     g.manualUrl = String(g.manualUrl || "").trim();
@@ -13669,7 +13673,7 @@ const Garantias = {
     if (g.saiu && !(antes && antes.saiu) && (g.arquivos.some((a) => a && (a.tipo === "nota" || a.tipo === "bilhete")) || DB.col("vault").get("gv_" + d.id) || g.vaultId || Object.values(g.finais).some(Boolean)))
       tirar = await confirmBox(esc(tt("Apagar a nota, o bilhete e o que está trancado (pedido, nº do bilhete, IMEI e valor pago)? O número de série e o resto da ficha ficam como histórico.", "Delete the invoice, the certificate and what is locked (order, certificate number, IMEI and amount paid)? The serial number and the rest of the record stay as history.", "¿Borrar la factura, el certificado del seguro y lo que está bajo llave (pedido, nº del certificado, IMEI e importe pagado)? El número de serie y el resto de la ficha quedan como historial.")), tt("Apagar", "Delete", "Borrar"), true);
     if (tirar) {
-      await this.tirarPapeis(d, g, ["nota", "bilhete"]);
+      if (await this.tirarPapeis(d, g, ["nota", "bilhete"])) toast(tt("A nota ou o bilhete foi guardado em outro aparelho: lá, a lista de Equipamentos mostra o 🧹 para um responsável apagar.", "The invoice or certificate was saved on another device: there, the Equipment list shows the 🧹 for a guardian to delete it.", "La factura o el certificado del seguro se guardó en otro dispositivo: allí, la lista de Aparatos muestra el 🧹 para que un responsable lo borre."), 7000);
       const v = DB.col("vault").get("gv_" + d.id);
       if (v && this.modo() === "aberto") { for (const id of v.files || []) await Files.remove(id); await DB.del("vault", v.id); delete g.vaultId; }
       else if (v || g.vaultId) toast(tt("Os números continuam nas Senhas da casa: abra-as para apagar.", "The numbers stay in the vault: open it to delete them.", "Los números siguen en las Contraseñas de casa: ábrelas para borrarlos."), 6000);
@@ -13698,10 +13702,13 @@ const Garantias = {
       }
     } catch (e) { console.error(e); }
   },
-  /* tira papéis de uma garantia: só sai o arquivo com a marca deste objeto (um registro estragado não apaga o de outra coisa) */
+  /* tira papéis de uma garantia: só sai o arquivo com a marca deste objeto (um registro estragado não apaga o de outra coisa).
+     Devolve quantos não estão neste aparelho (o arquivo fica só no aparelho que o guardou): lá, ele aparece nas 🧹 Sobras */
   async tirarPapeis(t, g, tipos) {
-    for (const a of g.arquivos.filter((y) => y && tipos.includes(y.tipo))) { const m = DB.col("files").get(a.id); if (m && m.gar === t.id) await Files.remove(a.id); }
+    let fora = 0;
+    for (const a of g.arquivos.filter((y) => y && tipos.includes(y.tipo))) { const m = DB.col("files").get(a.id); if (m && m.gar === t.id) await Files.remove(a.id); else if (!m) fora++; }
     g.arquivos = g.arquivos.filter((y) => !(y && tipos.includes(y.tipo)));
+    return fora;
   },
   /* ＋ papel: a nota, o bilhete e a foto do defeito vão trancados (só com as Senhas da casa abertas); o folheto e o manual vão com
      o "Quem vê" do objeto. Nome neutro pelo tipo (o nome original pode ter CPF ou nome) e a marca gar */
@@ -13720,14 +13727,29 @@ const Garantias = {
       const pm = Cofre.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);
     }
     const [f] = await Files.pick("image/*,application/pdf", false); if (!f) return;
+    /* o tipo vem dos primeiros bytes, não do que o arquivo diz (como no 📥): um "manual" que é página da internet fica de fora */
+    const mime = await this.tipoReal(f);
+    if (!mime) return toast(tt("Só foto (JPG, PNG, WEBP ou HEIC) ou PDF. Este arquivo não foi guardado.", "Only a photo (JPG, PNG, WEBP or HEIC) or a PDF. This file wasn't saved.", "Solo una foto (JPG, PNG, WEBP o HEIC) o un PDF. Este archivo no se ha guardado."), 5000);
     if (tranca && !S.vaultKey) return toast(tt("As Senhas da casa fecharam: o papel não foi guardado. Abra e tente de novo.", "The vault closed: the document wasn't saved. Open it and try again.", "Las Contraseñas de casa se cerraron: el documento no se ha guardado. Ábrelas y vuelve a intentarlo."), 6000);   /* fechadas, o Files.save cifraria com nada */
-    const n = tipo === "defeito" ? "-" + (g.arquivos.filter((a) => a.tipo === "defeito").length + 1) : "", ext = /pdf/.test(f.type) ? ".pdf" : /png/.test(f.type) ? ".png" : ".jpg";
-    const fid = await Files.save(new File([f], P[3] + n + ext, { type: f.type }), { encrypt: tranca, vis: tranca || t.vis === "restrito" ? "restrito" : "familia", raw: /pdf/.test(f.type) });
+    const n = tipo === "defeito" ? "-" + (g.arquivos.filter((a) => a.tipo === "defeito").length + 1) : "", ext = /pdf/.test(mime) ? ".pdf" : /png/.test(mime) ? ".png" : ".jpg";
+    const fid = await Files.save(new File([f], P[3] + n + ext, { type: mime }), { encrypt: tranca, vis: tranca || t.vis === "restrito" ? "restrito" : "familia", raw: /pdf/.test(mime) });
     if (!fid) return;
     await DB.put("files", Object.assign({}, Files.meta(fid), { gar: t.id }), true);   /* a marca: apagar o objeto leva o papel junto */
     const hash = await Batch.hash(f), atual = DB.get("things", id) || t, raw = GarCalc._o(atual.garantia);
     await DB.put("things", Object.assign({}, atual, { garantia: Object.assign({}, raw, { arquivos: (Array.isArray(raw.arquivos) ? raw.arquivos : []).concat({ id: fid, tipo, hash: /^[0-9a-f]+$/.test(hash) ? hash : "", em: today(), emitidoEm: "", antigo: false }) }) }));
     toast("✓ " + P[2] + (tranca ? " · 🔒 " + tt("trancado", "locked", "bajo llave") : ""), 3000);
+  },
+  /* o tipo de verdade de um arquivo, pelos primeiros bytes: PDF, JPG, PNG, WEBP ou HEIC; "" para o resto */
+  async tipoReal(f) {
+    try {
+      const b = String.fromCharCode(...new Uint8Array(await f.slice(0, 12).arrayBuffer()));
+      if (b.startsWith("%PDF")) return "application/pdf";
+      if (b.startsWith("\xff\xd8\xff")) return "image/jpeg";
+      if (b.startsWith("\x89PNG")) return "image/png";
+      if (b.startsWith("RIFF") && b.slice(8, 12) === "WEBP") return "image/webp";
+      if (b.slice(4, 8) === "ftyp" && /^(heic|heix|hevc|heim|heis|mif1|msf1)$/.test(b.slice(8, 12))) return "image/heic";
+    } catch (e) {}
+    return "";
   },
   async tirarPapel(fid, tid) {
     const t = DB.get("things", tid); if (!t) return;
@@ -13857,10 +13879,13 @@ const Garantias = {
   },
   /* sobras de coisa apagada (num app de antes, ou por quem não abre as Senhas): papéis com a marca gar, itens das Senhas com
      garantiaDe e lembretes de manutenção com coisa (EQ4) de um objeto que não existe mais. Só o responsável, com as Senhas abertas, vê; só sai com confirmação e os nomes,
-     para não apagar o que ainda está chegando pela nuvem */
+     para não apagar o que ainda está chegando pela nuvem. Também o papel que saiu da ficha em outro aparelho ("saiu de casa" e
+     Apagar lá): a coisa existe, mas a ficha já não lista o papel, que só este aparelho tem */
   async sobras() {
     if (!isGuardian() || !S.vaultKey) return null;
-    const vivos = new Set(DB.raw("things").map((t) => t.id)), papeis = DB.raw("files").filter((f) => typeof f.gar === "string" && f.gar && !vivos.has(f.gar)), numeros = [];
+    const vivos = new Map(DB.raw("things").map((t) => [t.id, t])), numeros = [];
+    const naFicha = (f) => { const a = GarCalc._o(vivos.get(f.gar).garantia).arquivos; return Array.isArray(a) && a.some((x) => x && x.id === f.id); };
+    const papeis = DB.raw("files").filter((f) => typeof f.gar === "string" && f.gar && (!vivos.has(f.gar) || !naFicha(f)));
     for (const v of DB.raw("vault")) { if (v.id === "_meta" || v.id === "_em" || !v.enc) continue; try { const o = await Vault.decObj(v.enc); if (o && typeof o.garantiaDe === "string" && o.garantiaDe && !vivos.has(o.garantiaDe)) numeros.push({ v, o }); } catch (e) {} }
     const lembretes = DB.raw("maint").filter((m) => typeof m.coisa === "string" && m.coisa && !vivos.has(m.coisa));
     return { papeis, numeros, lembretes };
@@ -13874,7 +13899,7 @@ const Garantias = {
   async sobrasCartao(root) {
     const box = $("#garsobras", root); if (!box) return;
     const s = await this.sobras(); if (!box.isConnected || !s || (!s.papeis.length && !s.numeros.length && !s.lembretes.length)) return;
-    box.innerHTML = '<div class="card warnc"><h3>🧹 ' + tt("Sobrou de coisa apagada: ", "Left over from deleted items: ", "Ha sobrado de cosas borradas: ") + esc(this.contagem(s)) + '</h3><p class="small muted">' + tt("Papéis, números e lembretes de manutenção de coisas que já foram apagadas. Confira os nomes antes de apagar.", "Documents, numbers and maintenance reminders from items that were already deleted. Check the names before deleting.", "Documentos, números y recordatorios de mantenimiento de cosas que ya se borraron. Revisa los nombres antes de borrar.") + '</p><button class="btn ghost" data-act="gar.sobras">🧹 ' + tt("Ver e apagar", "See and delete", "Ver y borrar") + "</button></div>";
+    box.innerHTML = '<div class="card warnc"><h3>🧹 ' + tt("Sobrou de coisa apagada: ", "Left over from deleted items: ", "Ha sobrado de cosas borradas: ") + esc(this.contagem(s)) + '</h3><p class="small muted">' + tt("Papéis, números e lembretes de manutenção de coisas que já foram apagadas, e papéis que alguém tirou da ficha em outro aparelho. Confira os nomes antes de apagar.", "Documents, numbers and maintenance reminders from items that were already deleted, and documents someone removed from a record on another device. Check the names before deleting.", "Documentos, números y recordatorios de mantenimiento de cosas que ya se borraron, y documentos que alguien quitó de una ficha en otro dispositivo. Revisa los nombres antes de borrar.") + '</p><button class="btn ghost" data-act="gar.sobras">🧹 ' + tt("Ver e apagar", "See and delete", "Ver y borrar") + "</button></div>";
   },
   async tirarSobras() {
     const s = await this.sobras(); if (!s || (!s.papeis.length && !s.numeros.length && !s.lembretes.length)) return;
@@ -14375,17 +14400,23 @@ const Garantias = {
     const solto = (ws) => new RegExp("(?<![\\p{L}\\d])" + ws.map(letras).join("\\s+") + "(?![\\p{L}\\d])", "giu");
     const negocio = (v) => /ltda|\bme\b|eireli|s\/?a\b|s\.a\.|com[eé]rcio|magazine|lojas?\b|varejo|seguradora|companhia|\bcia\b/i.test(v);
     const DATA = "\\b\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4}\\b";
+    /* 0. o IMEI em grupos, como o celular e a etiqueta da caixa mostram ("35 209900 176148 1"): depois do rótulo ("IMEI", "IMEI 1",
+       "IMEI1"), com espaço, ponto ou hífen, e sozinho no formato 2-6-6-1 (a regra 1 só junta grupos de 4 ou mais algarismos) */
+    tira(/(\bimei\s*\d?\b[^\d\n]{0,12})\d(?:[ \t.-]?\d){14}(?!\d)/gi, "$1[numero]");
+    tira(/\b\d{2}[ \t-]?\d{6}[ \t-]?\d{6}[ \t-]?\d\b/g, "[numero]");
     /* 1. a chave da nota, o IMEI e todo número comprido: 15 ou mais algarismos em grupos de 4 ou mais, com espaço, ponto ou quebra
        de linha (o "O" que o OCR põe no lugar do 0 conta). Não come "1.299,00" nem o NCM com o CFOP */
     tira(/(?<![\dA-Za-z])\d[\dOo]{2,}\d(?:[ \t.]*(?:\r?\n)?[ \t.]*\d[\dOo]{2,}\d)*(?![\dA-Za-z])/g, (m) => (m.replace(/[^\dOo]/g, "").length >= 15 ? "[numero]" : m));
-    /* 2. o link da NFC-e (leva a chave) */
+    /* 2. o link da NFC-e (leva a chave) e todo link com "?" ou "#" (depois deles podem vir o CPF, o nº do bilhete ou um token) */
     tira(/\bhttps?:\/\/\S*(?:[?&]p=|chNFe=)\S*/gi, "[link]");
-    /* 3. o bloco do destinatário do DANFE: do título até o próximo título (ou 8 linhas) */
+    tira(/\bhttps?:\/\/[^\s?#]*[?#]\S*/gi, "[link]");
+    /* 3. o bloco do destinatário do DANFE: do título até o próximo título (ou 30 linhas: o leitor de PDF põe o rótulo e o valor de
+       cada caixa em linhas separadas) */
     const L = t.split("\n"), FIM = /^\s*(fatura|duplicatas?|c[aá]lculo\s+do\s+imposto|transportador|dados\s+dos?\s+produtos?|dados\s+adicionais)/i;
     for (let i = 0; i < L.length; i++) {
       const tit = L[i].match(/^(\s*destinat[aá]rio(?:\s*\/\s*remetente)?)(?![ \t]*:)/i); if (!tit) continue;
       L[i] = tit[1]; let j = i + 1;
-      while (j < L.length && j <= i + 8 && !FIM.test(L[j])) L[j++] = null;
+      while (j < L.length && j <= i + 30 && !FIM.test(L[j])) L[j++] = null;
       if (j > i + 1) L[i + 1] = "[destinatário]";
       i = j - 1;
     }
@@ -14403,14 +14434,19 @@ const Garantias = {
     tira(/(\bcep\b\.?[ \t]*:?[ \t]*)\d{5}-?\d{3}\b/gi, "$1[cep]");
     tira(/\b\d{5}-\d{3}\b/g, "[cep]");
     /* 7. pedido, série, IMEI e o número do bilhete (certificado, apólice), depois do rótulo */
-    const NUMS = { pedido: "[pedido]", serie: "[serie]", serial: "[serie]", imei: "[serie]", bilhete: "[bilhete]", certificado: "[bilhete]", apolice: "[bilhete]" };
-    tira(/(\b(?:(?:n[º°o]\.?|n[uú]m(?:ero)?\.?)\s*(?:d[eoa]\s+)?)?(pedido|s[ée]rie|serial|imei|bilhete|certificado|ap[oó]lice)\b(?:\s+d[eo]\s+seguro\b)?(?:\s+(?:n[º°o]\.?|n[uú]mero))?[ \t]*[:#]?[ \t]*)((?=[A-Za-z0-9.\/-]*\d)[A-Za-z0-9][A-Za-z0-9.\/-]{3,})/gi, (m0, rot, k) => rot + (NUMS[norm(k)] || "[numero]"));
+    const NUMS = { pedido: "[pedido]", serie: "[serie]", serial: "[serie]", "s/n": "[serie]", "n/s": "[serie]", sn: "[serie]", imei: "[serie]", bilhete: "[bilhete]", certificado: "[bilhete]", apolice: "[bilhete]" };
+    /* (uma palavra pode vir entre o rótulo e os dois-pontos: "Nº do Pedido Loja: …") */
+    tira(/(\b(?:(?:n[º°o]\.?|n[uú]m(?:ero)?\.?)\s*(?:d[eoa]\s+)?)?(pedido|s[ée]rie|serial(?:\s+number)?|s\/n|n\/s|sn|imei|bilhete|certificado|ap[oó]lice)\b(?:\s+d[eo]\s+seguro\b)?(?:\s+(?:n[º°o]\.?|n[uú]mero))?(?:[ \t]+[A-Za-zÀ-ÿ]{2,20}(?=[ \t]*:))?[ \t]*[:#]?[ \t]*)((?=[A-Za-z0-9.\/-]*\d)[A-Za-z0-9][A-Za-z0-9.\/-]{3,})/gi, (m0, rot, k) => rot + (NUMS[norm(k).split(/\s/)[0]] || "[numero]"));
     /* 8. a parte geral do Vida.mascarar: CPF, o CNPJ depois de "CPF/CNPJ" (o da loja fica), e-mail, telefone de pessoa (o 0800 da
        empresa fica), razão social, endereço e cliente, e os nomes da família */
     tira(/(\bcpf\s*\/\s*cnpj\s*:?\s*)\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/gi, "$1[cnpj]");
+    tira(/(\b(?:rg|rne|identidade)\b\.?[ \t]*(?:n[º°o]\.?)?[ \t]*[:#]?[ \t]*)\d[\dXx.\/ -]{3,}[\dXx]\b/gi, "$1[rg]");
     tira(/\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-.\s]?\d{2}\b/g, "[cpf]");
     tira(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[e-mail]");
-    tira(/(\b(?:tel(?:efone)?|fone|cel(?:ular)?|whats\s?app|contato)\b\.?\s*:?\s*)(?:\+?55\s*)?\(?\d{2}\)?[\s.-]?9?\s?\d{4}[\s.-]?\d{4}\b/gi, "$1[telefone]");
+    tira(/(\b(?:tel(?:efone)?|fone|fax|cel(?:ular)?|whats\s?app|contato)\b\.?\s*:?\s*)(?:\+?55\s*)?\(?\d{2}\)?[\s.-]?9?\s?\d{4}[\s.-]?\d{4}\b/gi, "$1[telefone]");
+    /* o telefone sem parênteses na linha de baixo de um rótulo de telefone ("FONE / FAX" e, embaixo, "1133334444"); o 0800 e o 4004
+       da empresa ficam */
+    tira(/^([^\n]*\b(?:tel(?:efone)?s?|fone|fax|cel(?:ular)?|whats\s?app)\b[^\n]*\n)([^\n]*)$/gim, (m0, cab, l) => cab + l.replace(/(?<!\d)(?:\+?55[ \t]*)?\(?\d{2}\)?[ \t.-]?9?[ \t]?\d{4}[ \t.-]?\d{4}(?!\d)/g, "[telefone]"));
     tira(/\(\d{2}\)\s?9?\d{4}[\s-]?\d{4}\b|\b\d{2}\s9?\s?\d{4}[\s-]\d{4}\b|\b9?\d{4}-\d{4}\b/g, "[telefone]");
     tira(/^([^\n:]*\b(?:raz[aã]o\s+social|destinat[aá]rio|tomador)\b[^\n:]*\n)(?!\[)([^\n]+)$/gimu, (m0, cab, val) => {
       if (negocio(val)) return m0; const k = val.search(new RegExp("\\[(cpf|cnpj)\\]|" + DATA)); return cab + "[nome]" + (k > 0 ? " " + val.slice(k) : "");
@@ -14419,8 +14455,11 @@ const Garantias = {
     const ROT = "(?<!\\[)(\\b(?:cliente|nome(?:\\s*\\/\\s*raz[aã]o\\s+social)?|raz[aã]o\\s+social|destinat[aá]rio|tomador|consumidor|propriet[aá]rio|respons[aá]vel|sra?\\.)(?:\\s+do\\s+cliente)?";
     tira(new RegExp(ROT + "[ \\t]*:?[ \\t]*)(?![ \\t:]*\\[)([^\\n]*?)(?=[ \\t]{2,}|[ \\t]+[\\p{L}.]{2,}[ \\t]*:|$)", "gimu"), (m0, rot, val) => (!val.trim() || negocio(val) ? m0 : rot + "[nome]"));
     tira(new RegExp(ROT + "[ \\t]*:[ \\t]*\\n)(?![^\\n]*(?:[\\p{L}.]{2,}[ \\t]*:|" + DATA + "|\\d,\\d{2}[ \\t]*$))([^\\n]+)", "gimu"), (m0, rot, val) => (negocio(val) ? m0 : rot + "[nome]"));
-    tira(/(?<!\[)((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)[ \t]*:?[ \t]*)(?![ \t:]*\[)([^\n]*?)(?=[ \t]{2,}|[ \t]+[\p{L}.]{2,}[ \t]*:|$)/gimu, (m0, rot, val) => (!val.trim() ? m0 : rot + "[endereço]"));
-    tira(/(?<!\[)((?:\b(?:endere[cç]o|cep|bairro)\b|\bend\.)[ \t]*:[ \t]*\n)(?![^\n]*(?:[\p{L}.]{2,}[ \t]*:|\d,\d{2}[ \t]*$))([^\n]+)/gimu, "$1[endereço]");
+    tira(/(?<!\[)((?:\b(?:endere[cç]o(?:\s+d[eoa]\s+\p{L}+)?|cep|bairro|logradouro|complemento|munic[ií]pio|cidade)\b|\bend\.)[ \t]*:?[ \t]*)(?![ \t:]*\[)([^\n]*?)(?=[ \t]{2,}|[ \t]+[\p{L}.]{2,}[ \t]*:|$)/gimu, (m0, rot, val) => (!val.trim() ? m0 : rot + "[endereço]"));
+    tira(/(?<!\[)((?:\b(?:endere[cç]o(?:\s+d[eoa]\s+\p{L}+)?|cep|bairro|logradouro|complemento|munic[ií]pio|cidade)\b|\bend\.)[ \t]*:[ \t]*\n)(?![^\n]*(?:[\p{L}.]{2,}[ \t]*:|\d,\d{2}[ \t]*$))([^\n]+)/gimu, "$1[endereço]");
+    /* a saudação do e-mail ("Prezado(a) FULANO,", "Olá, FULANO!") e o nome na linha de baixo do título "Dados do segurado" */
+    tira(/^([ \t]*(?:prezad[oa]s?|car[oa]s?|ol[aá]|oi)(?:[ \t]*\([oa]\))?[ \t,]+)(?!\[)([^\n,!;:]+)/gimu, "$1[nome]");
+    tira(/^([ \t]*dados\s+d[oa]\s+(?:segurad[oa]|cliente|comprador(?:a)?|titular|consumidor(?:a)?)\b[^\n]*\n)(?!\[)([^\n]+)$/gimu, "$1[nome]");
     try {
       People.list().forEach((p) => {
         const ws = String(p.name || "").split(/\s+/).filter((w) => norm(w).length >= 2);
@@ -14430,9 +14469,10 @@ const Garantias = {
     } catch (e) {}
     return t;
   },
-  /* um texto curto para um campo aberto: sem as marcas do filtro ([nome], [cpf]…), sem pontas soltas e com pelo menos 2 letras */
+  /* um texto curto para um campo aberto: sem número de 15 ou mais algarismos (o IMEI, mesmo em grupos), sem as marcas do filtro
+     ([nome], [cpf]…), sem pontas soltas e com pelo menos 2 letras */
   _limpo(v, n) {
-    const s = String(v == null ? "" : v).replace(/\[[^\]\n]*\]/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s\-–—:|,.]+|[\s\-–—:|,]+$/g, "").trim().slice(0, n || 80);
+    const s = String(v == null ? "" : v).replace(/\d(?:[ \t.-]?\d){14,}/g, " ").replace(/\[[^\]\n]*\]/g, " ").replace(/\s{2,}/g, " ").replace(/^[\s\-–—:|,.]+|[\s\-–—:|,]+$/g, "").trim().slice(0, n || 80);
     return /\p{L}{2}/u.test(s) ? s : "";
   },
   /* a leitura no aparelho, sem IA, em duas passadas: (1) no texto inteiro, os números (que só vão para as Senhas da casa), as datas, o
@@ -14453,7 +14493,7 @@ const Garantias = {
     /* passada 1: o texto inteiro */
     let chave = (t.match(/(?:[?&]p=|chNFe=)(\d{44})(?!\d)/i) || [])[1] || "";
     if (!chave) { const x = t.match(/(?<![\dA-Za-z])(?:\d[ \t.\r\n]{0,3}){43}\d(?!\d)/); if (x) chave = x[0].replace(/\D/g, ""); }
-    const imei = (t.match(/\bimei\b[^\d\n]{0,12}(\d{15})(?!\d)/i) || [])[1] || "";
+    const imei = ((t.match(/\bimei\s*\d?\b[^\d\n]{0,12}(\d(?:[ \t.-]?\d){14})(?!\d)/i) || [])[1] || "").replace(/\D/g, "");
     const emissao = dataApos(/data\s+d[ae]\s+emiss[aã]o|emiss[aã]o|emitid[oa]\s+em/i), compra = dataApos(/data\s+da\s+compra/i, 60);
     const ini = naLinha(/in[ií]cio\s+d[ae]\s+(?:vig[eê]ncia|cobertura)/i), fimL = naLinha(/(?:fim|t[eé]rmino|final)\s+d[ae]\s+(?:vig[eê]ncia|cobertura)/i), per = datas(naLinha(/vig[eê]ncia|per[ií]odo\s+de\s+cobertura/i));
     const inicio = inicioDe(datas(ini)[0] || per[0]), fim = (datas(fimL)[0] || per[1] || {}).iso || "";
@@ -14469,7 +14509,7 @@ const Garantias = {
     });
     const wl = t.split("\n").find((l) => /whats\s?app/i.test(l) && !/\bsegurad[oa]s?\b|cliente|comprador|titular|destinat|consumidor/i.test(l)) || "";
     const whats = ((wl.match(/whats\s?app[^\d\n(+]{0,20}((?:\+?55\s*)?\(?\d{2}\)?\s?9?\s?\d{4}[\s.-]?\d{4})/i) || [])[1] || "").trim().slice(0, 30);
-    const app = ((t.match(/https:\/\/[^\s"'<>|]+/gi) || []).map((u) => u.replace(/[.,;:)\]]+$/, "")).find((u) => !/[?&]p=|chnfe|sefaz|fazenda|\.gov\.br|\/\/nfe\./i.test(u) && this.https(u)) || "").slice(0, 300);
+    const app = this.app((t.match(/https:\/\/[^\s"'<>|]+/gi) || []).map((u) => u.replace(/[.,;:)\]]+$/, "")).find((u) => !/[?&]p=|chnfe|sefaz|fazenda|\.gov\.br|\/\/nfe\./i.test(u) && this.https(u)) || "");
     /* passada 2: o texto filtrado */
     const FIMV = "(?=[ \\t]{2,}|[ \\t]+(?:n[º°o]\\.?\\s+)?(?:d[eoa]\\s+)?[\\p{L}.]{2,}[ \\t]*:|$)";
     const rot = (k) => { const x = m.match(new RegExp("(?:" + k + ")[ \\t]*:[ \\t]*([^\\n]*?)" + FIMV, "imu")); return x ? this._limpo(x[1]) : ""; };
@@ -14478,13 +14518,14 @@ const Garantias = {
     const NEG = /\b(ltda|eireli|s\.?\/?a\.?|me|epp)(?![\p{L}])|com[eé]rcio|magazine|lojas?\b|varejo/iu;
     const loja = bil ? rot("representante(?:\\s+de\\s+seguros?)?|estipulante|varejista|\\bloja\\b|vendido\\s+por")
       : this._limpo((m.split(/^\s*destinat[aá]rio/im)[0].split("\n").find((l) => NEG.test(l) && !/danfe|documento\s+auxiliar|nota\s+fiscal|cnpj/i.test(l)) || "").replace(/\bcnpj\b.*$/i, ""));
-    let nome = rot("bem\\s+segurado|objeto\\s+segurado|\\bproduto\\b|descri[cç][aã]o\\s+d[oa]\\s+(?:bem|produto|item)|equipamento|aparelho").replace(/\s+(?:imei|s\/n|serial|(?:n[º°o]\.?\s*(?:de\s+)?)?s[ée]rie)\b.*$/i, "");
+    const corta = (v) => v.replace(/\s+(?:imei|s\/n|serial|(?:n[º°o]\.?\s*(?:de\s+)?)?s[ée]rie)\b.*$/i, "");   /* o "IMEI …" ou "Série …" que vem no fim da linha */
+    let nome = corta(rot("bem\\s+segurado|objeto\\s+segurado|\\bproduto\\b|descri[cç][aã]o\\s+d[oa]\\s+(?:bem|produto|item)|equipamento|aparelho"));
     if (!nome) {
       const i = m.search(/dados\s+dos?\s+produtos?/i), corpo = i >= 0 ? m.slice(i).split("\n").slice(1) : m.split("\n");
       const l = corpo.find((x) => new RegExp(PRECO + "\\s*$").test(x.trim()) && !/total|valor|pagar|pago|desconto|troco|pix|dinheiro|cart[aã]o|cr[eé]dito|d[eé]bito|parcela|subtotal|imposto|tributo/i.test(x)) || "";
       nome = this._limpo(l.replace(/^\s*\d{1,14}\s+/, "").split(/\s+(?=imei\b|ncm\b|\[|\d{8}\b|\d+(?:[.,]\d+)?\s*(?:un|und|unid|p[cç]|cx|kg|lt?)\b|\d{1,3}(?:\.\d{3})*,\d{2}\b)/i)[0]);
     }
-    return { tipo: bil ? "bilhete" : "nota", ia: false, nome, marca: rot("\\bmarca\\b"), modelo: rot("\\bmodelo\\b"), loja, seguradora: seg, quem: seg ? "seguradora" : "naosei",
+    return { tipo: bil ? "bilhete" : "nota", ia: false, nome, marca: corta(rot("\\bmarca\\b")), modelo: corta(rot("\\bmodelo\\b")), loja, seguradora: seg, quem: seg ? "seguradora" : "naosei",
       data: bil ? compra : compra || emissao || ((datas(t).find((d) => d.iso <= today()) || {}).iso || ""), inicio: bil ? inicio : "", fim: bil ? fim : "", meses: bil ? mEst : null, emitidoEm: bil ? emissao : "", fabMeses: mFab,
       acionar: { tel: tel.join("\n"), whats, app },
       /* EQ5: a série (à vista, D-G16 d) e o IMEI (trancado, D-G17) vêm separados; o IMEI pelo rótulo, mesmo que o OCR erre um algarismo */
@@ -14507,7 +14548,7 @@ const Garantias = {
   daIA(j) {
     if (!j || typeof j !== "object" || Array.isArray(j)) return null;
     const s = (x) => this._limpo(x), d = (x) => (GarCalc.ehData(x) ? x : ""), mm = (x) => GarCalc._meses(typeof x === "number" ? x : parseInt(x, 10)) || null;
-    const ac = GarCalc._o(j.acionar), app = typeof ac.app === "string" && this.https(ac.app.trim()) ? ac.app.trim().slice(0, 300) : "";
+    const ac = GarCalc._o(j.acionar), app = this.app(ac.app);
     return { tipo: j.tipo === "bilhete" || j.tipo === "nota" ? j.tipo : "", ia: true, nome: s(j.produto), marca: s(j.marca), modelo: s(j.modelo), loja: s(j.loja), seguradora: s(j.seguradora),
       quem: GAR_ENUM.quem.includes(j.quem) ? j.quem : "", data: d(j.dataCompra), inicio: d(j.inicio), fim: d(j.fim), meses: mm(j.meses), emitidoEm: d(j.emitidoEm), fabMeses: mm(j.mesesFabrica),
       acionar: { tel: typeof ac.tel === "string" ? ac.tel.replace(/[<>]/g, "").trim().slice(0, 300) : "", whats: typeof ac.whats === "string" ? ac.whats.replace(/[^\d()+\s.-]/g, "").trim().slice(0, 30) : "", app } };
@@ -14685,7 +14726,7 @@ const Garantias = {
         const e = g.estendida = GarCalc._o(g.estendida); e.tem = "sim"; e.cancelada = false;
         ["quem", "seguradora", "inicio", "fim", "emitidoEm"].forEach((k) => por(e, k, re[k]));
         if (r._estMeses !== "" && r._estMeses != null) e.meses = +r._estMeses;
-        e.acionar = GarCalc._o(e.acionar); ["tel", "whats", "app"].forEach((k) => por(e.acionar, k, ra[k]));
+        e.acionar = GarCalc._o(e.acionar); ["tel", "whats", "app"].forEach((k) => por(e.acionar, k, k === "app" ? this.app(ra[k]) : ra[k]));
         if (ra.tel || ra.whats || ra.app) e.acionar.daIA = !!estado.daIA;
       }
     }

@@ -144,6 +144,12 @@
      - "Passar o bastão" sem o IMEI; o IMEI nunca na linha do objeto nem na do lembrete; o LONGOS da G3 invertido para a série (ela pode
        ficar no objeto, nunca no item das Senhas, na lista, no que a 🔍 mostra, nos avisos, no console nem no Telem); no Giro, o IMEI
        trancado, a série à vista e o lembrete ligado iguais depois da troca
+     Revisão seguranca (2.28.0)
+     - S1: o IMEI escrito em grupos não vai à IA nem a um campo à vista (fica só no trancado); "S/N" e "Serial number" saem do texto
+     - S2: endereço, RG, saudação, "Dados do Segurado", telefone embaixo do rótulo, fax, pedido com uma palavra no meio e o DANFE do
+       pdf.js saem do texto da IA (o 0800, o modelo e o valor ficam); a ajuda diz "o app tenta tirar"
+     - S3: o app ou site para acionar sem o que vem depois do "?" ou do "#" em todo caminho, e esse pedaço não vai à IA
+     - S4: "saiu de casa" + Apagar num aparelho sem a nota: o aviso e, no aparelho que a tem, as 🧹 Sobras; S5: o "＋ papel" só foto ou PDF
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -3673,6 +3679,201 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!IMEIS_EQ5.concat([IMEI6, IMEI3]).some((i) => ba5.things.includes(i) || ba5.maint.includes(i)), 'EQ5. o IMEI nunca aparece na linha de nenhum objeto nem na de nenhum lembrete de manutenção');
   conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ5: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
+
+  /* =====================================================================
+     Revisão seguranca (2.28.0): o filtro antes da IA (S1: o IMEI escrito em grupos; S2: endereço, nome, RG, telefone e o DANFE
+     lido pelo pdf.js), o link do próprio papel (S3), a nota guardada em outro aparelho (S4) e o tipo do papel guardado à mão (S5).
+     Tudo de mentira: os IMEIs têm o dígito verificador certo, mas não são de ninguém
+     ===================================================================== */
+  console.log('\n— Revisão seguranca: o filtro antes da IA, o link do papel, a nota em outro aparelho e o tipo do papel');
+  await fecharJanelas(p);
+  const IMR = '351234567890124', IMR2 = '359876543210983', grR = (s) => s.slice(0, 2) + ' ' + s.slice(2, 8) + ' ' + s.slice(8, 14) + ' ' + s.slice(14);
+  /* sobrou um pedaço do IMEI? 6 algarismos seguidos dele (juntando os que sobram no texto) ou um grupo de 4 ou mais que é parte dele */
+  const vazaR = (t, im) => { const s = String(t || ''), d = s.replace(/\D/g, ''); for (let i = 0; i + 6 <= im.length; i++) if (d.includes(im.slice(i, i + 6))) return true; return (s.match(/\d{4,}/g) || []).some((x) => im.includes(x)); };
+  const temR = (t, l) => l.filter((x) => String(t || '').includes(x));
+  await p.evaluate(async (papel) => {
+    S.role = papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123');
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    /* a leitura de mentira (OCR, PDF e IA): guarda o que vai para a IA; uma foto nova a cada leitura (o mesmo arquivo não é lido duas vezes) */
+    window.__rs = { texto: '', pdf: '', ia: null, prompts: [], imgs: 0, escolha: [], toasts: [] };
+    OCR.read = async () => window.__rs.texto;
+    window.pdfjsLib = { GlobalWorkerOptions: {}, getDocument() { return { promise: Promise.resolve({ numPages: 1, getPage: async () => ({ getTextContent: async () => ({ items: String(window.__rs.pdf).split('\n').map((s) => ({ str: s, hasEOL: true })) }) }) }) }; } };
+    loadScript.cache = loadScript.cache || {}; loadScript.cache[LIBS.pdfjs] = Promise.resolve();
+    AI.on = () => true; Net.canAI = () => true;
+    AI.ask0 = async (pr, imgs) => { window.__rs.prompts.push(String(pr)); window.__rs.imgs += (imgs || []).length; return window.__rs.ia; };
+    Files.pick = async () => window.__rs.escolha;
+    new MutationObserver(() => document.querySelectorAll('#toasts .toast').forEach((x) => { if (!window.__rs.toasts.includes(x.textContent)) window.__rs.toasts.push(x.textContent); })).observe(document.querySelector('#toasts') || document.body, { childList: true, subtree: true, characterData: true });
+    go('garantias');
+  }, papel0);
+  await p.waitForTimeout(300);
+  /* lê um papel (foto ou PDF) pelo "📷 Ler nota ou bilhete" e devolve os campos da conferência */
+  const lerR = async (o) => {
+    await p.evaluate(async (a) => {
+      window.__rs.texto = a.texto || ''; window.__rs.pdf = a.pdf || ''; window.__rs.ia = a.ia || null; window.__rs.prompts.length = 0;
+      let f;
+      if (a.pdf) f = new File([new TextEncoder().encode('%PDF-1.4\n% revisao ' + a.n + '\n')], 'papel.pdf', { type: 'application/pdf' });
+      else { const cv = document.createElement('canvas'); cv.width = cv.height = a.n; f = new File([await new Promise((r) => cv.toBlob(r, 'image/jpeg'))], 'papel.jpg', { type: 'image/jpeg' }); }
+      window.__rs.escolha = [f]; ACT['gar.foto']({});
+    }, o);
+    if (!(await p.waitForSelector('dialog[open] [name="_tipo"]', { timeout: 12000 }).then(() => true, () => false))) return null;
+    return p.evaluate(() => {
+      const m = document.querySelector('dialog[open]'), v = (n) => { const i = m.querySelector('[name="' + n + '"]'); return i ? i.value : null; };
+      return { nome: v('name'), marca: v('garantia.marca'), modelo: v('garantia.modelo'), app: v('garantia.estendida.acionar.app'), imei: v('_sec.imei'), number: v('_sec.number'), prompts: window.__rs.prompts.slice(), imgs: window.__rs.imgs,
+        fora: [...m.querySelectorAll('input, textarea, select')].filter((i) => !/^_sec\./.test(i.name)).map((i) => (i.tagName === 'SELECT' ? (i.selectedOptions[0] || {}).textContent : i.value)).join(' | ') };
+    });
+  };
+
+  /* ---------- S1: o IMEI escrito em grupos (o formato oficial, como o celular e a etiqueta da caixa mostram) ---------- */
+  const CASOS_S1 = ['IMEI: ' + grR(IMR), 'IMEI 1: ' + grR(IMR) + ' / IMEI 2: ' + grR(IMR2), 'Nº Série/IMEI ' + grR(IMR), 'IMEI: 3512 3456 7890 124', 'IMEI1: 35123-45678-90124',
+    'Modelo: A15 IMEI ' + grR(IMR), 'Marca: Marca Exemplo IMEI ' + grR(IMR), 'Aparelho: SMARTPHONE EXEMPLO A15 ' + grR(IMR)];
+  const s1 = await p.evaluate((a) => {
+    try {
+      const c = a.casos.map((x) => { const m = Garantias.mascarar(x), l = Garantias.local(x, m); return { x, m, nome: l.nome, marca: l.marca, modelo: l.modelo, imei: l.sec.imei }; });
+      const ia = Garantias.daIA({ tipo: 'nota', produto: 'Celular Exemplo ' + a.g, marca: 'Marca Exemplo', modelo: 'A15 IMEI ' + a.g });
+      const sn = ['S/N: SN12345ABC', 'Serial number: SN98765XYZ'].map((x) => ({ m: Garantias.mascarar(x), serie: Garantias.local(x).sec.serie }));
+      return { c, ia: { nome: ia.nome, modelo: ia.modelo }, sn, preco: Garantias.mascarar('SMARTPHONE EXEMPLO IMEI ' + a.g + ' 1.299,00') };
+    } catch (e) { return { erro: e.message, c: [] }; }
+  }, { casos: CASOS_S1, g: grR(IMR) });
+  const c1R = s1.c, iaR = c1R.filter((x, i) => vazaR(x.m, IMR) || (i === 1 && vazaR(x.m, IMR2)));
+  conferir(c1R.length === CASOS_S1.length && !iaR.length, 'Revisão seguranca S1. o IMEI em grupos ("35 123456 789012 4", "IMEI 1:" e "IMEI 2:", "Nº Série/IMEI", de 4 em 4, "IMEI1" com hífens, no Modelo, na Marca e sem rótulo) não vai para a IA' +
+    (s1.erro ? ' (' + s1.erro + ')' : iaR.length ? ' (passou: ' + iaR.map((x) => JSON.stringify(x.m)).join(' · ') + ')' : ''));
+  conferir(c1R.length && c1R.slice(0, 7).every((x) => x.imei === IMR), 'Revisão seguranca S1. ... e a leitura no aparelho acha esse IMEI pelo rótulo (com espaço, hífen, "IMEI 1" e "IMEI1") e o põe só no campo trancado (' + JSON.stringify(c1R.map((x) => x.imei)) + ')');
+  conferir(c1R.length && !c1R.some((x) => [x.nome, x.marca, x.modelo].some((v) => vazaR(v, IMR))) && c1R[5].modelo === 'A15' && c1R[6].marca === 'Marca Exemplo' && c1R[7].nome === 'SMARTPHONE EXEMPLO A15',
+    'Revisão seguranca S1. ... nenhum campo à vista (o que é, marca, modelo) recebe o IMEI nem a palavra "IMEI": Modelo "A15", Marca "Marca Exemplo" (' + JSON.stringify(c1R.map((x) => [x.nome, x.marca, x.modelo])) + ')');
+  conferir(!!s1.ia && !vazaR(s1.ia.nome, IMR) && !vazaR(s1.ia.modelo, IMR), 'Revisão seguranca S1. ... e um IMEI na resposta da IA também não chega aos campos à vista (' + JSON.stringify(s1.ia) + ')');
+  conferir(!!s1.preco && !vazaR(s1.preco, IMR) && s1.preco.includes('1.299,00'), 'Revisão seguranca S1. ... e o preço que vem logo depois do IMEI fica ("1.299,00") (' + JSON.stringify(s1.preco) + ')');
+  conferir(!!s1.sn && !s1.sn[0].m.includes('SN12345ABC') && !s1.sn[1].m.includes('SN98765XYZ') && s1.sn[0].serie === 'SN12345ABC', 'Revisão seguranca S1. "S/N:" e "Serial number:" também saem do texto da IA (a série lida continua indo para a ficha, à vista) (' + JSON.stringify(s1.sn) + ')');
+
+  /* ---------- S2: endereço, nome, RG e telefone em formatos comuns; o DANFE lido pelo pdf.js ---------- */
+  const CASOS_S2 = [['Endereço de cobrança: Av. Exemplo, 1000 apto 12', ['Av. Exemplo', '1000', 'apto 12']], ['Logradouro: R DAS FLORES EXEMPLO 123', ['FLORES']], ['Complemento: apto 45 bloco B', ['apto 45']],
+    ['RG: 12.345.678-9', ['12.345.678']], ['Identidade nº 12.345.678-9 SSP/SP', ['12.345.678']], ['Prezado(a) BELTRANO EXEMPLO DE TAL,', ['BELTRANO']], ['Olá, BELTRANO EXEMPLO!', ['BELTRANO']],
+    ['Dados do Segurado\nBeltrano Exemplo de Tal\nCPF ' + CPF, ['Beltrano', CPF]], ['FONE / FAX\n1133334444', ['1133334444']], ['Telefone residencial / comercial\n1133335555', ['1133335555']], ['Fax: 1133334444', ['1133334444']], ['Nº do Pedido Exemplo: 1402345678901', ['1402345678901']], ['Município: Cidade Exemplo', ['Cidade Exemplo']]];
+  const FICA_S2 = ['Central de atendimento: 0800 000 0000', 'Telefones para acionar:\n0800 000 0000\n3003 4288 (capitais)', 'Modelo: ABC1234', 'Valor total: R$ 1.299,00', 'Olá! Seu certificado está pronto.', 'Seguradora: SEGURADORA EXEMPLO S.A.'];
+  /* um DANFE de mentira desenhado caixa por caixa (o rótulo e, embaixo, o valor) e lido pelo pdfjs-dist@3.11.174, a versão do LIBS.pdfjs:
+     o rótulo e o valor saem em linhas separadas e o bloco do destinatário fica com 24 linhas */
+  const DANFE_R = ['DANFE ', 'LOJA EXEMPLO COMERCIO LTDA ', 'DESTINATÁRIO / REMETENTE ', 'NOME / RAZÃO SOCIAL ', 'FULANO EXEMPLO DE TAL ', 'CNPJ / CPF ', CPF + ' ', 'DATA DA EMISSÃO ', '10/03/2024 ', 'ENDEREÇO ',
+    'RUA DAS FLORES EXEMPLO, 123 APTO 45 ', 'BAIRRO / DISTRITO ', 'JARDIM EXEMPLO ', 'CEP ', '01234-567 ', 'DATA DA SAÍDA/ENTRADA ', '12/03/2024 ', 'MUNICÍPIO ', 'CIDADE EXEMPLO ', 'FONE / FAX ', '1133334444 ', 'UF ', 'SP ',
+    'INSCRIÇÃO ESTADUAL   HORA DA SAÍDA/ENTRADA ', '14:00:00 ', 'FATURA / DUPLICATAS', 'CÁLCULO DO IMPOSTO ', 'VALOR TOTAL DA NOTA ', '1.299,00 '].join('\n');
+  const PES_DANFE_R = ['FULANO', CPF, 'RUA DAS FLORES', 'APTO 45', 'JARDIM EXEMPLO', '01234-567', 'CIDADE EXEMPLO', '1133334444'];
+  const s2 = await p.evaluate((a) => { try { return { sai: a.sai.map(([x]) => Garantias.mascarar(x)), fica: a.fica.map((x) => Garantias.mascarar(x)), danfe: Garantias.mascarar(a.danfe) }; } catch (e) { return { erro: e.message, sai: [], fica: [] }; } },
+    { sai: CASOS_S2, fica: FICA_S2, danfe: DANFE_R });
+  const s2sobra = CASOS_S2.map(([x, l], i) => [x, temR(s2.sai[i], l), s2.sai[i]]).filter((y) => !y[2] || y[1].length);
+  conferir(s2.sai.length === CASOS_S2.length && !s2sobra.length, 'Revisão seguranca S2. saem do texto da IA: "Endereço de cobrança:", logradouro, complemento, RG e identidade, "Prezado(a) …," e "Olá, …!", o nome embaixo de "Dados do Segurado", o telefone embaixo de "FONE / FAX" ou de outro rótulo de telefone, o fax, o pedido com uma palavra no meio e o município' +
+    (s2.erro ? ' (' + s2.erro + ')' : s2sobra.length ? ' (sobrou: ' + s2sobra.map((y) => JSON.stringify(y[2])).join(' · ') + ')' : ''));
+  const s2muda = FICA_S2.filter((x, i) => s2.fica[i] !== x);
+  conferir(s2.fica.length === FICA_S2.length && !s2muda.length, 'Revisão seguranca S2. ... e ficam o 0800 e o 3003 da empresa (também embaixo de um rótulo de telefone), o código do modelo, o valor, um "Olá!" sem nome e a seguradora' + (s2muda.length ? ' (mudou: ' + s2muda.map((x, i) => JSON.stringify(s2.fica[FICA_S2.indexOf(x)])).join(' · ') + ')' : ''));
+  const dSobra = temR(s2.danfe, PES_DANFE_R);
+  conferir(!!s2.danfe && !dSobra.length && s2.danfe.includes('LOJA EXEMPLO COMERCIO LTDA') && s2.danfe.includes('1.299,00') && /CÁLCULO DO IMPOSTO/.test(s2.danfe), 'Revisão seguranca S2. o DANFE lido pelo pdf.js (rótulo e valor em linhas separadas, 24 linhas no destinatário): sai o bloco inteiro até o próximo título; ficam a loja, o valor e o "CÁLCULO DO IMPOSTO"' + (dSobra.length ? ' (sobrou: ' + dSobra.join(', ') + ')' : ''));
+  /* o caminho de verdade: o PDF lido pelo leitor de PDF e o texto que vai para a IA */
+  let cRS = await lerR({ pdf: DANFE_R, n: 51 });
+  const pD = cRS ? cRS.prompts.join('\n') : '';
+  conferir(!!cRS && cRS.prompts.length === 1 && cRS.imgs === 0 && !temR(pD, PES_DANFE_R).length && pD.includes('1.299,00'), 'Revisão seguranca S2. ... e pelo 📷 Ler nota ou bilhete (PDF): a IA recebe só o texto, sem o destinatário' + (cRS ? ' (sobrou: ' + temR(pD, PES_DANFE_R).join(', ') + ')' : ' (a conferência não abriu)'));
+  await fecharJanelas(p); await p.waitForTimeout(300);
+  const ajR = await p.evaluate(() => { const x = HELP().garantias; return x ? x.steps.map((s) => s.replace(/<[^>]+>/g, '')).find((s) => /📷 Ler nota ou bilhete/.test(s)) || '' : ''; });
+  conferir(/tenta tirar/.test(ajR) && !/só o texto, sem nome, CPF/.test(ajR) && /nunca a imagem/.test(ajR) && /deixe a IA desligada/.test(ajR), 'Revisão seguranca S2. a ajuda não promete o que um filtro não garante: "o app tenta tirar…" e, com um papel muito pessoal, "deixe a IA desligada" (' + ajR.slice(0, 160) + ')');
+
+  /* ---------- S3: o link do próprio papel, com o CPF, o nº do bilhete e um token depois do "?" ---------- */
+  const LINK_R = 'https://certificados.exemplo.com.br/ver?cpf=12345678900&cert=119800000&token=abcDEF123', LINK_R2 = 'https://www.exemplo.com.br/sinistro#cpf=12345678900&cert=119800000';
+  const s3 = await p.evaluate((a) => {
+    try {
+      const bil = (u) => 'CERTIFICADO DE SEGURO - GARANTIA ESTENDIDA\nSegurado: FULANO EXEMPLO   CPF: 123.456.789-00\nCertificado nº 119800000\nVeja seu certificado em ' + u;
+      const ex = JSON.parse(JSON.stringify(a.ex)); ex.itens[0].estendida.acionar.app = a.l1;
+      const v = Garantias.validar(ex);
+      return { l1: Garantias.local(bil(a.l1)).acionar.app, l2: Garantias.local(bil(a.l2)).acionar.app, ia: Garantias.daIA({ acionar: { app: a.l1 } }).acionar.app,
+        ler: Garantias.ler({ id: 'rs3', name: 'x', garantia: { v: 1, estendida: { tem: 'sim', acionar: { app: a.l1 } } } }).estendida.acionar.app,
+        arq: v && v.ok ? v.itens[0].garantia.estendida.acionar.app : 'recusado: ' + (v && v.erro), m: Garantias.mascarar(bil(a.l1)) + '\n' + Garantias.mascarar(bil(a.l2)) };
+    } catch (e) { return { erro: e.message }; }
+  }, { l1: LINK_R, l2: LINK_R2, ex: EX });
+  conferir(s3.l1 === 'https://certificados.exemplo.com.br/ver' && s3.l2 === 'https://www.exemplo.com.br/sinistro', 'Revisão seguranca S3. o "App ou site para acionar" lido do papel fica só com o endereço do site, sem a parte depois do "?" ou do "#" (' + JSON.stringify([s3.l1, s3.l2]) + ')');
+  conferir(s3.ia === 'https://certificados.exemplo.com.br/ver' && s3.ler === 'https://certificados.exemplo.com.br/ver' && s3.arq === 'https://certificados.exemplo.com.br/ver', 'Revisão seguranca S3. ... o mesmo no que a IA sugere, ao ler o que está gravado e no 📥 arquivo de equipamentos prontos (' + JSON.stringify([s3.ia, s3.ler, s3.arq]) + ')');
+  conferir(!!s3.m && !temR(s3.m, ['119800000', 'abcDEF123', '12345678900', 'token=', 'cert=']).length, 'Revisão seguranca S3. ... e a parte depois do "?" ou do "#" não vai para a IA' + (s3.m ? ' (sobrou: ' + temR(s3.m, ['119800000', 'abcDEF123', '12345678900', 'token=', 'cert=']).join(', ') + ')' : ' (' + s3.erro + ')'));
+
+  /* ---------- S1 + S2 + S3 pelo caminho de verdade: o bilhete por foto, a conferência e o que é salvo ---------- */
+  const BIL_R = ['CERTIFICADO DE SEGURO - GARANTIA ESTENDIDA', 'Prezado(a) BELTRANO EXEMPLO DE TAL,', 'Dados do Segurado', 'Beltrano Exemplo de Tal', 'RG: 12.345.678-9', 'Endereço de cobrança: Av. Exemplo, 1000 apto 12',
+    'FONE / FAX', '1133334444', 'Nº do Pedido Exemplo: 1402345678901', 'Seguradora: SEGURADORA EXEMPLO S.A.', 'Bem segurado: SMARTPHONE EXEMPLO', 'Modelo: A15 IMEI ' + grR(IMR), 'Certificado nº 119800000',
+    'Vigência: das 24h do dia 10/03/2025 às 24h do dia 10/03/2027', 'Veja seu certificado em ' + LINK_R].join('\n');
+  const PES_BIL_R = ['BELTRANO', 'Beltrano', '12.345.678', 'Av. Exemplo', '1000 apto', '1133334444', '1402345678901', '119800000', '12345678900', 'abcDEF123', 'token=', 'cert='];
+  cRS = await lerR({ texto: BIL_R, n: 52 });
+  const pB = cRS ? cRS.prompts.join('\n') : '';
+  conferir(!!cRS && cRS.prompts.length === 1 && !vazaR(pB, IMR) && !temR(pB, PES_BIL_R).length && pB.includes('SEGURADORA EXEMPLO S.A.'), 'Revisão seguranca. o bilhete por foto: a IA recebe o texto sem o IMEI em grupos, o nome, o RG, o endereço, o telefone, o pedido, o nº do bilhete e o que vem depois do "?" do link' +
+    (cRS ? (vazaR(pB, IMR) ? ' (o IMEI passou)' : '') + (temR(pB, PES_BIL_R).length ? ' (sobrou: ' + temR(pB, PES_BIL_R).join(', ') + ')' : '') : ' (a conferência não abriu)'));
+  conferir(!!cRS && cRS.modelo === 'A15' && cRS.app === 'https://certificados.exemplo.com.br/ver' && cRS.imei === IMR && cRS.number === '119800000' && !vazaR(cRS.fora, IMR) && !/[?#]|token|12345678900/.test(cRS.fora),
+    'Revisão seguranca. ... a conferência: Modelo "A15", o site sem a parte depois do "?", o IMEI e o nº do bilhete só nos campos trancados; nenhum campo à vista com o IMEI (' + JSON.stringify(cRS && { modelo: cRS.modelo, app: cRS.app, imei: cRS.imei === IMR, number: cRS.number }) + ')');
+  if (cRS) { await p.fill('dialog[open] [name="garantia.estendida.acionar.app"]', LINK_R).catch(() => {}); await p.fill('dialog[open] [name="name"]', 'RS Smartphone Exemplo').catch(() => {}); await p.setChecked('dialog[open] [name="_guardar"]', false).catch(() => {}); await p.click('dialog[open] [data-ok]').catch(() => {}); await p.waitForTimeout(800); await fecharJanelas(p); }
+  const oR = await p.evaluate(async () => { const t = DB.raw('things').find((x) => x.name === 'RS Smartphone Exemplo'); if (!t) return null; let o = null; try { o = await Garantias.segredo(t); } catch (e) {} return { json: JSON.stringify(t), vista: [t.name, t.garantia.marca, t.garantia.modelo, t.garantia.serie, t.garantia.codigo].join(' | '), imei: o && o.imei, number: o && o.number, app: ((t.garantia.estendida || {}).acionar || {}).app }; });
+  /* (no objeto, só o final do IMEI, "0124", como decidido na G3) */
+  conferir(!!oR && !oR.json.includes(IMR) && !oR.json.includes(grR(IMR)) && !vazaR(oR.vista, IMR) && !/token|12345678900|119800000|\?cpf/.test(oR.json) && oR.app === 'https://certificados.exemplo.com.br/ver' && oR.imei === IMR && oR.number === '119800000',
+    'Revisão seguranca. ... salvo (com o link do papel escrito de novo à mão, com o "?"): no equipamento (que vai à nuvem e toda a família vê) nem o IMEI, nem o nº do bilhete, nem o CPF ou o token do link; o IMEI e o nº do bilhete trancados nas Senhas da casa (' + JSON.stringify(oR && { app: oR.app, imei: oR.imei === IMR, number: oR.number }) + ')');
+  /* a IA que responde com um IMEI no modelo e um link com "?": nada disso chega aos campos à vista, nem pelo "Usar" */
+  cRS = await lerR({ texto: BIL_R, n: 53, ia: { tipo: 'bilhete', produto: 'Smartphone Exemplo', marca: 'Marca Exemplo', modelo: 'A15 IMEI ' + grR(IMR), acionar: { tel: '', whats: '', app: 'https://ia.example.com/acionar?cpf=12345678900&token=abcDEF123' } } });
+  let usouR = null;
+  if (cRS) { await p.click('dialog[open] [data-garia]').catch(() => {}); await p.waitForTimeout(200); usouR = await p.evaluate(() => (document.querySelector('dialog[open] [name="garantia.estendida.acionar.app"]') || {}).value || ''); }
+  conferir(!!cRS && !vazaR(cRS.fora, IMR) && !vazaR(cRS.modelo, IMR) && usouR === 'https://ia.example.com/acionar', 'Revisão seguranca. ... a IA que responde com um IMEI no modelo e um link com "?": o modelo fica sem o IMEI e o "Usar" põe só o endereço do site (' + JSON.stringify(cRS && { modelo: cRS.modelo, usou: usouR }) + ')');
+  await fecharJanelas(p); await p.waitForTimeout(300);
+  const fR = await p.evaluate(async (l) => { try { const d = await Garantias.salvar({ name: 'RS Formulario Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() }, estendida: { tem: 'sim', quem: 'seguradora', acionar: { tel: '', whats: '', app: l } } } }, {}, 'membro');
+    return ((DB.col('things').get(d.id).garantia.estendida || {}).acionar || {}).app; } catch (e) { return 'erro: ' + e.message; } }, LINK_R);
+  conferir(fR === 'https://certificados.exemplo.com.br/ver', 'Revisão seguranca S3. o formulário do equipamento também grava o site sem a parte depois do "?" (' + fR + ')');
+
+  /* ---------- S4: "Saiu de casa" + Apagar num aparelho que não tem a nota (files fica só no aparelho que guardou, NUVEM_LOCAL) ----------
+     No aparelho B (este, sem os arquivos), a ficha lista a nota e o bilhete que estão no aparelho A. Depois, como o aparelho A: a ficha
+     (que veio da nuvem) já não lista os dois, mas os arquivos (trancados, com CPF e endereço) continuam aqui, com a marca do objeto vivo */
+  const tR4 = await p.evaluate(async () => {
+    const t = await DB.put('things', { name: 'RS Purificador Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } });
+    const termo = await Files.save(new File([new TextEncoder().encode('%PDF-1.4\n% folheto revisao\n')], 'folheto.pdf', { type: 'application/pdf' }), { vis: 'familia', raw: true });
+    await DB.put('files', Object.assign({}, Files.meta(termo), { gar: t.id }), true);
+    await DB.put('things', Object.assign({}, t, { garantia: Object.assign({}, t.garantia, { arquivos: [{ id: 'f-rs-outro-nota', tipo: 'nota', hash: '', em: today(), emitidoEm: '', antigo: false }, { id: 'f-rs-outro-bilhete', tipo: 'bilhete', hash: '', em: today(), emitidoEm: '', antigo: false }, { id: termo, tipo: 'termo', hash: '', em: today(), emitidoEm: '', antigo: false }] }) }));
+    document.querySelectorAll('#toasts .toast').forEach((x) => x.remove()); window.__rs.toasts.length = 0; go('garantias', 'ficha', t.id);
+    return { id: t.id, termo };
+  });
+  await p.waitForTimeout(500);
+  await p.click('#screen [data-act="gar.edit"]').catch(() => {});
+  let pergR = false;
+  if (await p.waitForSelector('dialog[open] [name="_saiuComo"]', { state: 'attached', timeout: 5000 }).then(() => true, () => false)) {
+    if (!(await p.evaluate(() => { const i = document.querySelector('dialog[open] [name="_saiuComo"]'); return !!(i.offsetWidth || i.offsetHeight); }))) await p.click('dialog[open] #garmais');
+    await p.selectOption('dialog[open] [name="_saiuComo"]', 'doado'); await p.fill('dialog[open] [name="_saiuEm"]', await p.evaluate(() => today()));
+    await p.click('dialog[open] [data-ok]');
+    pergR = await p.waitForSelector('dialog[open] [data-yes]', { timeout: 5000 }).then(() => true, () => false);
+    if (pergR) await p.click('dialog[open] [data-yes]');
+    await p.waitForTimeout(800);
+  }
+  const b4R = await p.evaluate((a) => ({ arq: ((DB.get('things', a.id).garantia || {}).arquivos || []).map((x) => x.tipo), termo: !!Files.meta(a.termo), toasts: window.__rs.toasts.join(' · ') }), tR4);
+  conferir(pergR && JSON.stringify(b4R.arq) === '["termo"]' && b4R.termo && /outro aparelho/.test(b4R.toasts) && /🧹/.test(b4R.toasts),
+    'Revisão seguranca S4. aparelho B (sem os arquivos): "Apagar" tira a nota e o bilhete da ficha e avisa que eles estão em outro aparelho e saem lá, pelo 🧹 (' + JSON.stringify(b4R) + ')');
+  /* o aparelho A: os dois arquivos trancados com a marca do objeto (vivo), que a ficha já não lista */
+  const a4 = await p.evaluate(async (a) => {
+    const guardar = async (nome) => { const id = await Files.save(new File([new TextEncoder().encode('%PDF-1.4\n% ' + nome + ' com CPF de mentira\n')], nome, { type: 'application/pdf' }), { encrypt: true, vis: 'restrito', raw: true }); await DB.put('files', Object.assign({}, Files.meta(id), { gar: a.id }), true); return id; };
+    const n = await guardar('nota-fiscal.pdf'), b = await guardar('bilhete.pdf');
+    const s = await Garantias.sobras();
+    return { n, b, ids: s ? s.papeis.map((f) => f.id) : null };
+  }, tR4);
+  conferir(!!a4.ids && a4.ids.includes(a4.n) && a4.ids.includes(a4.b) && !a4.ids.includes(tR4.termo), 'Revisão seguranca S4. aparelho A: a nota e o bilhete que saíram da ficha aparecem nas 🧹 Sobras (com os nomes, para o responsável apagar); o folheto, que continua na ficha, não (' + JSON.stringify(a4.ids) + ')');
+  await p.evaluate(() => { go('garantias'); }); await p.waitForTimeout(600);
+  const temSobraR = await p.waitForFunction(() => /Sobrou/.test((document.querySelector('#garsobras') || {}).innerText || ''), null, { timeout: 5000 }).then(() => true, () => false);
+  if (temSobraR) { await p.click('#screen [data-act="gar.sobras"]').catch(() => {}); if (await p.waitForSelector('dialog[open] [data-yes]', { timeout: 5000 }).then(() => true, () => false)) await p.click('dialog[open] [data-yes]'); await p.waitForTimeout(600); }
+  const a4b = await p.evaluate((a) => ({ n: !!Files.meta(a.n), b: !!Files.meta(a.b), termo: !!Files.meta(a.termo) }), Object.assign({}, a4, tR4));
+  conferir(temSobraR && !a4b.n && !a4b.b && a4b.termo, 'Revisão seguranca S4. ... "🧹 Ver e apagar": a nota e o bilhete saem de vez deste aparelho; o folheto fica (' + JSON.stringify(a4b) + ')');
+  await fecharJanelas(p);
+
+  /* ---------- S5: o papel guardado à mão ("＋ Guardar o manual…") só entra se for foto ou PDF de verdade (pelos primeiros bytes) ---------- */
+  const s5R = await p.evaluate(async () => {
+    const t = await DB.put('things', { name: 'RS Manual Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } });
+    const html = '<html><body><script>window.opener && (window.opener.__rsXss = 1)</script></body></html>', cv = document.createElement('canvas'); cv.width = cv.height = 8;
+    const jpg = await new Promise((r) => cv.toBlob(r, 'image/jpeg'));
+    const casos = [['manual', new File([html], 'manual.html', { type: 'text/html' })], ['termo', new File([html], 'folheto.pdf', { type: 'application/pdf' })], ['nota', new File([html], 'nota.jpg', { type: 'image/jpeg' })],
+      ['manual', new File([new TextEncoder().encode('%PDF-1.4\n% manual de mentira\n')], 'manual.pdf', { type: 'application/pdf' })], ['defeito', new File([jpg], 'defeito.png', { type: 'image/png' })]];
+    const out = [];
+    for (const [tipo, f] of casos) {
+      window.__rs.escolha = [f]; document.querySelectorAll('#toasts .toast').forEach((x) => x.remove()); window.__rs.toasts.length = 0; const n0 = DB.raw('files').length;
+      await Garantias.addPapel(t.id, tipo); await new Promise((r) => setTimeout(r, 150));
+      out.push({ tipo, novos: DB.raw('files').length - n0, toasts: window.__rs.toasts.join(' · ') });
+    }
+    const g = DB.get('things', t.id).garantia, tipos = (g.arquivos || []).map((a) => { const m = Files.meta(a.id) || {}; return [a.tipo, m.enc ? m.enc.type : m.type]; });
+    return { out, tipos };
+  });
+  conferir(s5R.out.slice(0, 3).every((x) => x.novos === 0 && /Só foto/.test(x.toasts)), 'Revisão seguranca S5. "＋ Guardar o manual / folheto / nota" recusa uma página da internet (.html, ou com nome e tipo de PDF ou de foto), dizendo que só entra foto ou PDF (' + JSON.stringify(s5R.out.slice(0, 3)) + ')');
+  conferir(s5R.out[3].novos === 1 && s5R.out[4].novos === 1 && JSON.stringify(s5R.tipos) === JSON.stringify([['manual', 'application/pdf'], ['defeito', 'image/jpeg']]), 'Revisão seguranca S5. ... e guarda o PDF e a foto de verdade, com o tipo que os primeiros bytes dizem (uma foto JPG chamada .png fica JPG) (' + JSON.stringify(s5R.tipos) + ')');
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); go('home'); });
+  await p.waitForTimeout(300);
 
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
