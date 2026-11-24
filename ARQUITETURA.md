@@ -58,7 +58,8 @@ sem framework: HTML, CSS e JavaScript puros.
 ## Mapa do `index.html` (procure pelos nomes)
 
 - `S` — estado global. `LS` — nomes das chaves do localStorage. `APP_VERSION` — versão.
-- `tt(pt, en)` — todo texto nasce nas duas línguas. `fmtDate` — datas `24/Set/2026` / `Sep/24/2026`.
+- `tt(pt, en)` — todo texto nasce nas duas línguas. `fmtDate` — datas `24/Set/2026` / `Sep/24/2026`. O módulo 🧾 Garantias (2.28.0)
+  já escreve também o espanhol, `tt(pt, en, es)`: o `tt` ignora o 3º argumento até o app inteiro ir para o ES.
 - `DB` — dados (drivers: `MemoryDriver` visitante, `LocalDriver` IndexedDB "docs" deste aparelho, `CloudDriver` nuvem). `DB.patch` para campos.
 - `CloudDriver` (v2.14.0, Etapa 2b) — registros da família no Supabase (`omni_docs`, um registro = uma linha, `dados` = o registro
   sem o `id`; `vis` `familia` ↔ `publico`). A tela lê sempre a **cópia do aparelho** (IndexedDB v2, store `nuvem`, chave
@@ -622,6 +623,53 @@ sem framework: HTML, CSS e JavaScript puros.
   "Apagar o que está só neste aparelho" (`PetFoto.naNuvem`); apagar (só responsável, pelas regras do bucket) tira daqui e faz `DELETE`; sem internet, o
   caminho fica em `LS.petFotoApagar` e é apagado no próximo `reenviar`. Adicionar roda no `DGO.fundo` (tipo `foto`). "Só neste
   aparelho": sem envio. Sem cifra (foto de bicho).
+- `Garantias` (2.28.0) — **🧾 Garantias, aba própria** (`SCREENS.garantias`, rotas `garantias`, `garantias/lista`,
+  `garantias/ficha/<id>` e `garantias/estragou[/<id>]`; id `casa.garantias` em `Rec` — `TAB`, `ACT.gar` e `AJUDA` — e no
+  `recursos-do-app.json`, todos os planos; ☰ › Casa, carro e papéis, depois de 🚗 Veículos; `canTab` como Casa: criança vê e não
+  muda). Tudo mora num bloco só, `/* ===== 🧾 GARANTIAS (2.28.0) ===== */ … /* ===== fim de GARANTIAS ===== */` (antes das telas
+  da Casa), e todo texto do bloco é `tt(pt, en, es)`: o `tt` ignora o ES, que fica escrito para quando o app inteiro for para o
+  espanhol (D-G7; o teste confere). **Dados, sem SQL:** a garantia mora no objeto do Onde está? (`things.garantia`, formato `v: 1`;
+  `v > 1` = de um app mais novo, só leitura e toda ação `gar.*` que grava recusa). O formulário antigo junta o que já estava
+  (`deepMerge`) e o `merge3` mantém o campo que só um lado tem: a versão de antes, ao editar o objeto, não apaga a garantia.
+  `ref = "gar_" + id` (fixo nos 2 celulares; o importado guarda o ref do arquivo); listas internas (`arquivos`, `defeitos`,
+  `atendimentos`) com `id`. **`GarCalc`** — as contas, puras e só com `Date.UTC` (o fuso não muda data): `somaMeses` (dia que não
+  existe = o último do mês, a data mais cedo), a de fábrica (conta da nota; ≈12 meses sem informação), o prazo da lei (conta da
+  entrega, 90/30 dias, CDC art. 26), a estendida (só cobre depois da de fábrica; "não sei" de quando contam os meses dá duas datas,
+  `alt`), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
+  `curta`, `proximoFim`, `avisos`, `art18` (o contador dos 30 dias para consertar, por defeito, só loja/fabricante/assistência) e
+  `seguro` (o da seguradora). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
+  limites de texto e de lista, link só https, e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
+  derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
+  ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, série/IMEI, chave da nota, valor, preço da estendida,
+  pagamento, final do cartão) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
+  `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. `Garantias.modo()` =
+  aberto só para responsável com as Senhas abertas e sem troca da chave andando, conferido em cada janela (o relógio do
+  formulário tira os `_sec.*` se as Senhas fecharem). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
+  com `encrypt`, `restrito`); folheto e manual com o "Quem vê" do objeto; nome neutro (`nota-fiscal.pdf`), a marca `gar: <id>` no
+  registro do arquivo e só no aparelho. `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
+  `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou (com confirmação). **Telas:** `listView` (filtros Valendo, Em 30
+  dias, Vai começar, Acabaram, "Faltam dados" no topo, `S.garF`), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
+  em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
+  `atendimento`, os contadores, a assistência técnica — contato `cat: "assistencia"` 🔧 em `CT_CATS`, ligado pelo id) e `rodape`
+  (fontes no `moreBox`). CSS só com o prefixo `.gar` (alvos de 44 px). **Avisos (D-G4), nada gravado:** `marcos(hoje)` (30 e 7 dias
+  antes do fim da de fábrica e da estendida, e o começo da estendida; nada para o que saiu de casa) alimenta o `Alerts.list`, o
+  `Notify.tick` (`once("gar-…")`, depois das 9h) e `agenda(de, ate)` o `Agenda.occurrences` (linhas `gar-<id>-…`; o `ev.edit` abre
+  a ficha). **📷 Ler nota ou bilhete** (`lerArquivos`, no `DGO.fundo`): OCR/`ShopImport.pdf` no aparelho → `mascarar` (nome, CPF,
+  endereço, CEP, telefone, nascimento e os números longos, antes de qualquer IA) → `local` (duas passadas) e, opcional, a IA só com
+  o texto filtrado (`prompt`, `daIA`; nunca a imagem; o telefone dela só entra com "Usar") → `conferir` (uma janela por arquivo,
+  🤖/📱) → `_salvarLido`. **📥 Trazer garantias prontas** (`importar` → `validar` → `resumo` → `gravar`, no `DGO.fundo`, tudo ou
+  nada): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
+  recusado sem ler, um item ruim recusa o arquivo todo, o que já está no app (pelo ref) fica de fora; no fim, o pedido de apagar o
+  arquivo.
+  **MoneyTRIO (D-G2):** nada vai (nem `Bridge.post`, nem `sol_ponte`); o valor é só referência. **Ajuda e AssistONE:**
+  `Garantias.AJUDA()` (o tópico `HELP().garantias`), `AQUI()` (`AOne.HERE().garantias`), `DICA()` (`AOne.TIPS().garantias`),
+  `busca()` (🔍) e `selo(t)` (Onde está?). **Linhas fora do bloco** (procure por "garantia"): `canTab`, `Rec` (`TAB`, `ACT`,
+  `AJUDA`), `TABS`, `ICONS.garantias`, `DRAWER_GROUPS`/`DRAWER_SUBS`, `Search.sources` (o grupo e a linha), `Alerts.list`,
+  `Notify.tick`, `Agenda.occurrences`, `ACT["ev.edit"]`, `legal()` (o parágrafo 🧾), `CT_CATS`, "Passar o bastão" (o item `gv_`
+  fica fora do painel), `Where.search` e `HouseViews.place` (o selo), `editThing` (nota e `onDelete`), `editVault` (a nota do item
+  da garantia), `HELP()` (`"garantias"`), `AOne.helpHere`, `AOne.HERE`/`TIPS` e o CSS `.gar`. Também da 2.28.0, para o app todo
+  (D-G10): `ShopImport.pdf` abre o PDF com `isEvalSupported: false` (CVE-2024-4367) e `LIBS.tesseract` tem a versão exata.
+  Teste: `teste/garantias-omni.js` (G1 a G8).
 - `SaudeMT` (2.23.0) — **Saúde → MoneyTRIO**, híbrida e opcional (`DB.setting().mt.saude`, ⚙ → Integrações; só responsável, nuvem e
   Senhas da casa prontas — `SaudeMT.pode()`). `resumo()` = `{v:1, enviado_em, pessoas:[{perfil_id, apelido, operadora, validade, medico, especie?}]}`
   de quem tem plano, validade ou médico (pet com `especie: "pet"`); cifrado com a CF (`Cofre.vf`, formato `{c:1, kv, fk, iv, ct}`)

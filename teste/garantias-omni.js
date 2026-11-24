@@ -75,6 +75,14 @@
        arquivo, o atendimento e o defeito; "saiu de casa" só como histórico (sem aviso); "reemitida" e "cancelada"; o ref
        "constructor" entra; o que já está no app (pelo ref) fica de fora; um papel que não grava ou as Senhas que fecham no meio
        desfazem tudo; no fim, o pedido de apagar o arquivo do celular; EN
+     G8 — a ajuda, o AssistONE, o 💬 e o idioma
+     - o tópico de ajuda "Garantias" (as três garantias para leigo, "Estragou? E agora?", a fonte e a data da lei, o resto do
+       módulo, sem jargão); o ❓ abre o tópico pelo AssistONE ("❓ Como funciona" e "Mais ajuda sobre esta tela" na lista, na
+       ficha e no "Estragou?"), pela 🔍 e pelo índice "Ajuda e tutoriais"; desligada no RootifyONE, some da 🔍; 390 px; EN
+     - 💬 em cada tela: o "Dar uma opinião" do ☰ leva a tela e o título "Garantias" (EN "Warranties"), sem o id
+     - o idioma, lendo o código: todo tt( do bloco e das linhas de fora com 3 argumentos (PT, EN, ES); ES ≠ PT e ≠ EN nos textos
+       de 3 palavras ou mais; o ES sem palavra do Brasil (billete, nota fiscal, protocolo, celular, cadastro, loja, estragou,
+       assistência); o PT sem jargão; "lei brasileira" no EN e no ES do rodapé e da ajuda
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -94,6 +102,26 @@ const bate = (r, e) => {
   return ehObj(r) && Object.keys(e).every((k) => bate(r[k], e[k]));
 };
 const canon = (x) => JSON.stringify(x, (k, v) => (ehObj(v) ? Object.keys(v).sort().reduce((o, kk) => ((o[kk] = v[kk]), o), {}) : v));
+/* G8, idioma: as chamadas tt( lidas do código (o tt ignora o 3º argumento, então só no código dá para ver o ES). Para cada uma,
+   os argumentos — o código e o texto (só o que está entre aspas) — e a linha dentro do trecho lido */
+const ttChamadas = (s) => {
+  const out = [], re = /(^|[^\w$.])tt\(/g; let m;
+  while ((m = re.exec(s))) {
+    let i = m.index + m[0].length, dep = 0, cod = '', txt = '';
+    const args = [], fecha = () => { args.push({ cod: cod.trim(), txt: txt.trim() }); cod = ''; txt = ''; };
+    for (; i < s.length; i++) {
+      const c = s[i];
+      if (c === '"' || c === "'" || c === '`') { let j = i + 1; while (j < s.length && s[j] !== c) { if (s[j] === '\\') { txt += s[j + 1]; j += 2; continue; } txt += s[j]; j++; } cod += s.slice(i, j + 1); i = j; continue; }
+      if ('([{'.includes(c)) { dep++; cod += c; continue; }
+      if (')]}'.includes(c)) { if (!dep) { fecha(); break; } dep--; cod += c; continue; }
+      if (c === ',' && !dep) { fecha(); continue; }
+      cod += c;
+    }
+    out.push({ args, linha: s.slice(0, m.index).split('\n').length });
+    re.lastIndex = i;
+  }
+  return out;
+};
 
 /* padrão do desenho: compra 2024-03-10, 12 meses de fábrica (até 2025-03-10), "não sei" se a lei está dentro */
 const BASE = { v: 1, compra: { data: '2024-03-10' }, fabrica: { meses: 12, legalInclusa: 'naosei' } };
@@ -1823,6 +1851,128 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   await fecharJanelas(p);
   conferir(!lixo.erros.length && !lixo.nativos.length, 'G7: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
 
+  /* =====================================================================
+     G8 — a ajuda "Garantias", o AssistONE, o 💬 em cada tela e o idioma
+     ===================================================================== */
+  console.log('\n— G8: a ajuda "Garantias", o AssistONE, o 💬 em cada tela e o idioma');
+  await fecharJanelas(p);
+  await p.evaluate((papel) => { S.role = papel; if (S.lang !== 'pt') setLang('pt'); S.garF = 'valendo'; go('garantias'); }, papel0);
+  await p.waitForTimeout(400);
+  const PROIB8 = /sem garantia|não tem (mais )?direito|vida útil|a loja é obrigada|vício|decadência|contratual/i;
+
+  /* ---------- o tópico de ajuda (HELP().garantias) ---------- */
+  const ajuda8 = await p.evaluate(() => { const x = HELP().garantias; return { x: x ? { t: x.t, steps: x.steps, note: x.note || '' } : null, em: fmtDate(GAR_REGRAS_EM) }; });
+  const A8 = ajuda8.x, a8 = A8 ? [A8.t].concat(A8.steps, [A8.note]).join(' \n ').replace(/<[^>]+>/g, '') : '';
+  conferir(!!A8 && /🧾/.test(A8.t) && /Garantias/.test(A8.t) && A8.steps.length >= 6 && !!A8.note, 'G8. o tópico de ajuda "Garantias" existe (' + (A8 ? A8.steps.length + ' passos' : 'não existe') + ')');
+  conferir(/de fábrica/.test(a8) && /folheto/.test(a8) && /prazo da lei/.test(a8) && /90 dias/.test(a8) && /30 para/.test(a8) && /entrega/.test(a8) && /mesmo sem nenhum papel/.test(a8) && /estendida/.test(a8) && /só cobre depois/.test(a8), 'G8. ajuda: as três garantias para leigo (a de fábrica, do folheto; o prazo da lei, 90 ou 30 dias da entrega, mesmo sem papel; a estendida, que só cobre depois)');
+  conferir(/Estragou\? E agora\?/.test(a8) && /de quem cobrar/.test(a8) && /o que levar/.test(a8) && /protocolo/.test(a8) && /30 dias para consertar/.test(a8) && /Procon/.test(a8), 'G8. ajuda: "Estragou? E agora?" (de quem cobrar, o que levar, o protocolo, o contador dos 30 dias para consertar, o Procon)');
+  conferir(/pela lei brasileira/i.test(a8) && /CDC/.test(a8) && /Lei 15\.040\/2024/.test(a8) && /SUSEP 659\/2022/.test(a8) && /CNSP 496\/2026/.test(a8) && a8.includes('conferido em ' + ajuda8.em), 'G8. ajuda: a fonte e a data da lei ("pela lei brasileira", CDC, Lei 15.040/2024, Circ. SUSEP 659/2022, Res. CNSP 496/2026 e "conferido em ' + ajuda8.em + '")');
+  conferir(/nome da coisa/.test(a8) && /data da compra/.test(a8) && /≈/.test(a8) && /30 e 7 dias/.test(a8) && /seguradora/.test(a8) && /Senhas da casa/.test(a8) && /final 0001/.test(a8) && /📷/.test(a8) && /📥/.test(a8) && /Saiu de casa/.test(a8) && /não é assessoria jurídica/.test(a8), 'G8. ajuda: o resto do módulo (cadastro mínimo, ≈, avisos de 30 e 7 dias, a seguradora, os números trancados, 📷, 📥, "saiu de casa", não é assessoria jurídica)');
+  conferir(!!A8 && !PROIB8.test(a8), 'G8. ajuda sem jargão (vício, decadência, contratual, "sem garantia"…)' + (PROIB8.test(a8) ? ' (' + a8.match(PROIB8)[0] + ')' : ''));
+
+  /* ---------- o ❓ abre o tópico (e não o índice "Ajuda e tutoriais") ---------- */
+  const janela8 = () => p.evaluate(() => {
+    const d = document.querySelector('dialog[open]'); if (!d) return null;
+    const r = d.getBoundingClientRect();
+    return { txt: d.innerText, passos: d.querySelectorAll('ol.helpsteps li').length, larg: document.documentElement.scrollWidth <= innerWidth + 1 && r.width <= innerWidth + 1,
+      peq: [...d.querySelectorAll('.mf button, ol.helpsteps a')].filter((b) => { const q = b.getBoundingClientRect(); return q.width && q.height && q.height < 44; }).map((b) => b.innerText.trim().slice(0, 20)) };
+  });
+  const ehTopico8 = (j) => !!j && !!A8 && j.passos === A8.steps.length && /Garantias/.test(j.txt);
+  await fecharJanelas(p);
+  await p.evaluate(() => { const a = AOne.HERE().garantias[2].find((x) => /Como funciona/.test(x[0])); a[1](); }); await p.waitForTimeout(400);
+  const j8 = await janela8();
+  conferir(ehTopico8(j8), 'G8. AssistONE "❓ Como funciona" abre o tópico "Garantias" (não o índice das ajudas)' + (j8 ? ' (' + j8.passos + ' passos)' : ' (nenhuma janela)'));
+  conferir(!!j8 && j8.larg && !j8.peq.length, 'G8. a ajuda a 390 px: nada passa da largura e os botões têm 44 px' + (j8 && j8.peq.length ? ': ' + j8.peq.join(' · ') : ''));
+  /* "Mais ajuda sobre esta tela" do balão do AssistONE, em cada tela do módulo */
+  const gid8 = await p.evaluate(async () => (await DB.put('things', { name: 'G8 Purificador Exemplo', place: '', tags: [], vis: 'familia', garantia: { v: 1, compra: { data: today() } } })).id);
+  const telas8 = [['lista', null], ['ficha', gid8], ['estragou', null], ['estragou', gid8]];
+  const balao8 = [];
+  for (const [sub, arg] of telas8) {
+    await fecharJanelas(p);
+    await p.evaluate((a) => go('garantias', a.sub, a.arg), { sub, arg }); await p.waitForTimeout(400);
+    await p.evaluate(() => { AOne.open(); const b = AOne.bub && AOne.bub.querySelector('[data-o="help"]'); if (b) b.click(); }); await p.waitForTimeout(400);
+    balao8.push(sub + (arg ? '/id' : '') + ':' + (ehTopico8(await janela8()) ? 'tópico' : 'não'));
+  }
+  conferir(balao8.every((x) => /:tópico$/.test(x)), 'G8. AssistONE "Mais ajuda sobre esta tela" abre o tópico na lista, na ficha e no "Estragou?" (' + balao8.join(' ') + ')');
+  /* a 🔍 (como a pessoa faz: abre a busca, escreve e toca no resultado) e o índice do ☰. A ajuda aberta fecha pelo "Entendi" */
+  const fecharAjuda8 = async () => { await p.click('dialog[open] .mf [data-x]').catch(() => {}); await p.waitForTimeout(300); await fecharJanelas(p); await p.waitForTimeout(200); };
+  await fecharAjuda8();
+  await p.evaluate(() => Search.open()); await p.waitForSelector('#gsq', { timeout: 8000 }).catch(() => {});
+  await p.fill('#gsq', 'três garantias estendida').catch(() => {}); await p.waitForTimeout(500);
+  const b8 = await p.evaluate(() => { const bs = [...document.querySelectorAll('#gsr [data-i]')], b = bs.find((x) => /❓/.test(x.innerText) && /Garantias/.test(x.innerText)); if (b) b.click(); return { ok: !!b, n: bs.length }; }); await p.waitForTimeout(500);
+  const jb8 = await janela8();
+  conferir(b8.ok && ehTopico8(jb8), 'G8. a 🔍 acha a ajuda "Garantias" (por "três garantias estendida") e o toque abre o tópico (' + b8.n + ' resultado(s)' + (jb8 ? '' : ', sem janela') + ')');
+  await fecharAjuda8();
+  await p.evaluate(() => Help.open()); await p.waitForTimeout(300);
+  const ind8 = await p.evaluate(() => { const el = document.querySelector('dialog[open] [data-h="garantias"]'); if (el) el.click(); return !!el; }); await p.waitForTimeout(400);
+  conferir(ind8 && ehTopico8(await janela8()), 'G8. "Ajuda e tutoriais" lista "Garantias" e abre o tópico');
+  await fecharAjuda8();
+  const lig8 = await p.evaluate(() => {
+    const conta = () => Search.sources().filter((x) => x.ic === '❓' && /Garantias/.test(x.t)).length, o = SolverRecursos.ligado, on = conta();
+    SolverRecursos.ligado = function (id, d) { return id === 'casa.garantias' ? false : o.call(this, id, d); };
+    try { return { on, off: conta() }; } finally { SolverRecursos.ligado = o; }
+  });
+  conferir(lig8.on === 1 && lig8.off === 0, 'G8. a ajuda segue o casa.garantias: ligada, uma vez na 🔍; desligada no RootifyONE, some (' + JSON.stringify(lig8) + ')');
+  /* EN */
+  await p.evaluate(() => { setLang('en'); Help.open('garantias'); }); await p.waitForTimeout(400);
+  const en8 = await janela8();
+  const PT_NO_EN8 = /[ãõç]|garantia|Estragou|Senhas da casa|bilhete|lei brasileira/i;
+  conferir(!!en8 && !!A8 && en8.passos === A8.steps.length && /Warranties/.test(en8.txt) && /Brazilian consumer law/.test(en8.txt) && /Broken\? What now\?/.test(en8.txt) && /legal advice/.test(en8.txt) && /checked on/.test(en8.txt) && !PT_NO_EN8.test(en8.txt), 'G8. EN: a ajuda em inglês ("Brazilian consumer law", "Broken? What now?", "checked on"), sem português' + (en8 && PT_NO_EN8.test(en8.txt) ? ' (' + en8.txt.match(PT_NO_EN8)[0] + ')' : ''));
+  await fecharJanelas(p);
+
+  /* ---------- 💬 em cada tela: o "Dar uma opinião" do ☰ leva a tela certa ---------- */
+  await p.evaluate(() => { setLang('pt'); window.__fb8 = []; window.__fbA8 = DGO.feedback.abrir; DGO.feedback.abrir = (o) => { window.__fb8.push(o); }; });
+  const fb8 = [];
+  for (const [sub, arg] of telas8) {
+    await fecharJanelas(p);
+    await p.evaluate((a) => { window.__fb8.length = 0; go('garantias', a.sub, a.arg); }, { sub, arg }); await p.waitForTimeout(400);
+    await p.click('#hambbtn'); await p.waitForTimeout(400);
+    const r = await p.evaluate(() => { const b = document.querySelector('#drawer [data-dact="fb.open"]'); if (b) b.click(); const o = window.__fb8[0] || {}; return { b: !!b, tela: o.tela, titulo: o.titulo }; });
+    fb8.push(Object.assign({ quer: 'garantias/' + sub }, r));
+    await fecharJanelas(p);
+  }
+  await p.evaluate(() => { DGO.feedback.abrir = window.__fbA8; });
+  conferir(fb8.every((x) => x.b && x.tela === x.quer && x.titulo === 'Garantias'), 'G8. 💬 em cada tela (lista, ficha, "Estragou?"): o ☰ tem o "Dar uma opinião" e ele leva a tela e o título "Garantias" (' + fb8.map((x) => (x.b ? '' : 'sem 💬 ') + x.tela + '·' + x.titulo).join(' ') + ')');
+  await p.evaluate((id) => { setLang('en'); go('garantias', 'ficha', id); }, gid8); await p.waitForTimeout(400);
+  const fbEn8 = await p.evaluate(() => { const t = Fb.tela(); setLang('pt'); return t; });
+  conferir(fbEn8.tela === 'garantias/ficha' && fbEn8.titulo === 'Warranties', 'G8. 💬 em EN: o título da tela é "Warranties" e o endereço não leva o id (' + JSON.stringify(fbEn8) + ')');
+  await p.evaluate((id) => DB.del('things', id), gid8);
+
+  /* ---------- idioma, lendo o código: todo texto do módulo nasce em PT, EN e ES (D-G7) ---------- */
+  const SRC8 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const i08 = SRC8.indexOf('/* ===== 🧾 GARANTIAS (2.28.0) ====='), i18 = SRC8.indexOf('/* ===== fim de GARANTIAS ===== */');
+  const BLOCO8 = i08 > 0 && i18 > i08 ? SRC8.slice(i08, i18) : '', L08 = SRC8.slice(0, Math.max(i08, 0)).split('\n').length - 1;
+  const doBloco8 = ttChamadas(BLOCO8).map((c) => Object.assign(c, { bloco: true, onde: 'linha ' + (L08 + c.linha) }));
+  /* as linhas de fora do bloco com texto do módulo (o 1º tt( depois de cada marca) */
+  const FORA8 = [['TABS', 'id: "garantias", ic: "🧾", t: tt('], ['☰ Lista', 'garantias: [["lista", tt('], ['☰ Estragou?', '["estragou", tt('], ['aviso legal', '"<p>🧾 " + tt('],
+    ['contato 🔧', '["assistencia", "🔧", tt('], ['grupo da 🔍', 'gr: tt('], ['✏️ do Onde está?', 'const gar = t.garantia ? [{ type: "note", html: "🧾 " + tt('], ['item das Senhas da casa', 'if (o.garantiaDe) f.splice(']];
+  const fora8 = FORA8.map(([nome, marca]) => {
+    let k = -1; for (let a = SRC8.indexOf(marca); a >= 0; a = SRC8.indexOf(marca, a + 1)) if (a < i08 || a > i18) { k = a; break; }
+    const c = k >= 0 ? ttChamadas(SRC8.slice(k, k + 4000))[0] : null;
+    return c ? Object.assign(c, { onde: nome }) : { nome };
+  });
+  const naoAchei8 = fora8.filter((c) => !c.args).map((c) => c.nome), todos8 = doBloco8.concat(fora8.filter((c) => c.args));
+  const cita8 = (cs, n) => cs.slice(0, 3).map((c) => c.onde + ' "' + ((c.args[n] || c.args[0] || {}).txt || '').slice(0, 50) + '"').join(' | ');
+  const sem3 = todos8.filter((c) => c.args.length !== 3);
+  conferir(doBloco8.length >= 600 && !sem3.length && !naoAchei8.length, 'G8. idioma: todo tt( do módulo tem 3 argumentos, PT, EN e ES (' + doBloco8.length + ' no bloco e ' + (fora8.length - naoAchei8.length) + ' nas linhas de fora)' + (sem3.length ? ' — sem 3: ' + cita8(sem3, 0) : '') + (naoAchei8.length ? ' — não achei: ' + naoAchei8.join(', ') : ''));
+  const pal8 = (t) => (t.match(/\p{L}{2,}/gu) || []).length;
+  const iguais8 = todos8.filter((c) => c.args.length === 3 && pal8(c.args[0].txt) >= 3 && (c.args[2].txt === c.args[0].txt || c.args[2].txt === c.args[1].txt));
+  conferir(!iguais8.length, 'G8. idioma: nos textos de 3 palavras ou mais, o ES não é cópia do PT nem do EN' + (iguais8.length ? ' — ' + cita8(iguais8, 2) : ''));
+  /* o pedido para a IA (Garantias.prompt) fica fora desta conferência: leva os códigos que o app lê de volta na resposta (loja, bilhete, nota) */
+  const ES_PROIB8 = /\b(billete|nota fiscal|protocolo|celular|cadastr\w*|loja|estragou|assist[eê]ncia)\b/i;
+  const pI8 = BLOCO8.indexOf('  prompt(texto) {'), pF8 = BLOCO8.indexOf('  daIA(j) {'), lP0 = BLOCO8.slice(0, pI8).split('\n').length, lP1 = BLOCO8.slice(0, pF8).split('\n').length;
+  const noPrompt8 = (c) => c.bloco && c.linha >= lP0 && c.linha <= lP1;
+  const esRuim8 = todos8.filter((c) => c.args.length === 3 && ES_PROIB8.test(c.args[2].txt) && !noPrompt8(c));
+  conferir(pI8 > 0 && pF8 > pI8 && doBloco8.filter(noPrompt8).length <= 4 && !esRuim8.length, 'G8. idioma: o ES (da Espanha) sem palavra do Brasil — billete, nota fiscal, protocolo, celular, cadastro, loja, estragou, assistência (só o pedido para a IA leva os códigos)' + (esRuim8.length ? ' — ' + esRuim8.slice(0, 3).map((c) => c.onde + ' "' + c.args[2].txt.match(ES_PROIB8)[0] + '"').join(' | ') : ''));
+  const ptRuim8 = todos8.filter((c) => c.args.length === 3 && PROIB8.test(c.args[0].txt));
+  conferir(!ptRuim8.length, 'G8. idioma: o PT sem jargão (sem garantia, não tem direito, vida útil, a loja é obrigada, vício, decadência, contratual)' + (ptRuim8.length ? ' — ' + ptRuim8.slice(0, 3).map((c) => c.onde + ' "' + c.args[0].txt.match(PROIB8)[0] + '"').join(' | ') : ''));
+  const regiao8 = (de, ate) => { const a = BLOCO8.indexOf(de), b = a >= 0 ? BLOCO8.indexOf(ate, a + 1) : -1; return a > 0 && b > a ? ttChamadas(BLOCO8.slice(a, b)) : []; };
+  const rod8 = regiao8('  rodape() {', '  busca() {'), aj8 = regiao8('  AJUDA() {', '  modo() {');
+  const leiBR8 = (cs) => cs.some((c) => c.args.length === 3 && /lei brasileira/i.test(c.args[0].txt) && /Brazilian consumer law/.test(c.args[1].txt) && /ley de consumo brasileña/.test(c.args[2].txt));
+  conferir(leiBR8(rod8) && leiBR8(aj8), 'G8. idioma: "lei brasileira" no EN ("Brazilian consumer law") e no ES ("la ley de consumo brasileña"), no rodapé e na ajuda (rodapé ' + leiBR8(rod8) + ', ajuda ' + leiBR8(aj8) + ')');
+  conferir(aj8.some((c) => c.args.length === 3 && /Estragou\? E agora\?/.test(c.args[0].txt) && /Broken\? What now\?/.test(c.args[1].txt) && /¿Se ha estropeado\? ¿Y ahora qué\?/.test(c.args[2].txt)), 'G8. idioma: a ajuda chama o "Estragou? E agora?" pelo mesmo nome da tela, em EN e em ES');
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'G8: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -1908,5 +2058,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma)');
 })().catch((e) => { console.error(e); process.exit(1); });
