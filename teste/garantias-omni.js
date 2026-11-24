@@ -117,6 +117,21 @@
        ruim gravado à força no banco não vira link; "🔎 Procurar o manual na internet" (o href exato, a frase, "Sem internet agora.";
        nunca para criança nem sem o modelo; nada buscado sem o toque); colar o link (recusa com a janela aberta; só o link muda);
        criança, app mais novo e saiu de casa não gravam; o papel "manual" no 📘; a frase a mais do aviso legal; 390 px; EN; idioma
+     EQ4 — Equipamentos e garantias: a manutenção (D-G16 b; decisões técnicas 2 e 3)
+     - o 🛠 da ficha (entre o 📘 e o 🛒): "＋ Lembrete: {sugestão}" abre a janela de 3 campos (o que fazer, a cada quanto tempo, a última
+       vez = hoje) e grava um lembrete da Manutenção da casa com coisa = o objeto, "… — nome", em dias, e o "Quem vê" do objeto; o "já
+       existe" em Casa → Manutenção sem equipamento ("Ligar" grava só o coisa e o "Quem vê"; "Cancelar" segue para a janela); sem
+       sugestão, "＋ Lembrete de manutenção"; a última vez no futuro recusada; a sugestão rápida de Casa → Manutenção some (pelo começo
+       do título); ✓ Feito hoje (sem a caixinha do MoneyTrio e nada no Bridge.post), editar pelo título (intervalo fora da lista "como
+       está"), 📅 Remarcar e 🚫 Parar de avisar (com a pergunta); nada gravado na garantia
+     - os avisos: vencido no 🔔 (vermelho), no Início, na Agenda, no celular (uma vez) e na 4ª linha; tocar no 🔔, na Agenda e na 🔍
+       abre a ficha; sem a última vez (do 📥): o texto do 🛠 e nenhum aviso; saiu de casa (some do 🔔, da Agenda, do celular e do bastão;
+       "📦 saiu de casa" em Casa → Manutenção; volta ao desfazer); apagado só com DB.del como a 2.27.0 ("🗑 o equipamento foi apagado"
+       para o responsável, some para os outros, nas 🧹 Sobras); objeto "Só responsáveis" com o lembrete "Toda a família" (o membro não
+       vê em lugar nenhum); lixo no coisa e o Garantias.foraDeCasa quebrado não derrubam o 🔔
+     - Cars.importar e Pets.ligarAntigos não pegam lembrete de equipamento; o ✏️ de Casa → Manutenção sem "🚗 De qual veículo" e com
+       "🔌 Ligado a"; apagar pelo ✏️ do Onde está? leva os lembretes; "casa.manutencao" desligada: sem o 🛠; criança sem ＋, ✓, 📅 e 🚫;
+       390 px com 44 px; EN; idioma
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -3044,6 +3059,372 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ3b: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
 
+  /* =====================================================================
+     EQ4 — Equipamentos e garantias: a manutenção (D-G16 b)
+     ===================================================================== */
+  console.log('\n— EQ4: Equipamentos e garantias — a manutenção');
+  await fecharJanelas(p);
+  /* cada aparelho de mentira com um papel nesta parte (o 🧹 das sobras pode ter papéis e números das partes de antes) */
+  const q4 = await p.evaluate(async (a) => {
+    S.role = a.papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123'); S.garF = 'todos';
+    for (const t of DB.raw('things')) await DB.del('things', t.id);
+    for (const m of DB.raw('maint')) await DB.del('maint', m.id);
+    const h = today(), d = (n) => GarCalc.somaDias(h, n);
+    const novo = async (name, vis, id) => (await DB.put('things', Object.assign(id ? { id } : {}, { name, place: '', tags: [], vis: vis || 'familia', garantia: { v: 1, marca: 'Marca Exemplo', modelo: 'PX-100', compra: { data: d(-100), loja: 'Loja Exemplo' }, fabrica: { meses: 12 } } }), true)).id;
+    const ids = { pu: await novo('Purificador Exemplo'), ar: await novo('Ar-condicionado Exemplo', 'restrito'), be: await novo('Bebedouro Exemplo'), ge: await novo('Gerador Exemplo', 'restrito'),
+      ba: await novo('Batedeira Exemplo'), to: await novo('Torradeira Exemplo'), nb: await novo('Notebook Exemplo', 'restrito'), se: await novo('Secador Exemplo'), xi: await novo('EQ4 Id estranho', 'familia', 'a<b') };
+    /* em Casa → Manutenção, sem equipamento: a limpeza do ar-condicionado (para o "Ligar") */
+    const m1 = await DB.put('maint', { title: 'Limpeza do ar-condicionado', cat: 'casa', interval: 180, last: d(-10), next: d(170), nextManual: false, history: [{ d: d(-10), cost: 0, note: '', by: S.meId }], vis: 'familia' }, true);
+    return { ids, h, m1: m1.id, d: { m190: d(-190), m100: d(-100), m10: d(-10), m7: d(-7), m3: d(-3), m2: d(-2), m1: d(-1), 5: d(5), 20: d(20), 183: d(183), 265: d(265) }, f20: fmtDate(d(20)) };
+  }, { papel: papel0 });
+  const I4q = q4.ids, D4q = q4.d, H4 = q4.h;
+  const coisas4 = () => p.evaluate((ids) => JSON.stringify(['pu', 'ar', 'be', 'ge'].map((k) => DB.col('things').get(ids[k]))), I4q);
+  const things4 = await coisas4();
+  const mtDe = (id) => p.evaluate((id) => DB.raw('maint').filter((m) => m.coisa === id).map((m) => JSON.parse(JSON.stringify(m))), id);
+  const mtId = (id) => p.evaluate((id) => JSON.parse(JSON.stringify(DB.col('maint').get(id) || null)), id);
+  /* o cartão 🛠 da ficha: o texto, as ações (com a sugestão e o lembrete), os botões, as linhas e os botões pequenos */
+  const mtQ4 = async (id) => {
+    await p.evaluate((id) => { document.querySelectorAll('#toasts .toast').forEach((x) => x.remove()); go('garantias', 'ficha', id); }, id); await p.waitForTimeout(450);
+    return p.evaluate(() => {
+      const c = document.querySelector('#screen #garmt');
+      return { tem: !!c, txt: c ? c.innerText : '', acts: c ? [...c.querySelectorAll('[data-act]')].map((b) => b.dataset.act + (b.dataset.sug ? ':sug' : '')) : [], botoes: c ? [...c.querySelectorAll('button')].map((b) => b.textContent.trim()) : [],
+        linhas: c ? [...c.querySelectorAll('.gar-mtl')].map((l) => l.innerText.replace(/\s+/g, ' ').trim()) : [], xs: c ? c.querySelectorAll('.btn.xs').length : -1, h3: c ? (c.querySelector('h3') || {}).textContent : '' };
+    });
+  };
+  const toastQ4 = () => p.evaluate(() => [...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || '');
+  const janelaMt = () => p.evaluate(() => {
+    const m = document.querySelector('dialog[open]'); if (!m || !m.querySelector('[name="oque"]')) return null;
+    const v = (n) => (m.querySelector('[name="' + n + '"]') || {}).value, s = m.querySelector('[name="cada"]');
+    return { txt: m.innerText, oque: v('oque'), cada: v('cada'), last: v('last'), n: m.querySelectorAll('.mb input, .mb select, .mb textarea').length, opts: s ? [...s.options].map((o) => o.value + ':' + o.textContent.trim()) : [], parar: !!m.querySelector('[data-parar]'), del: !!m.querySelector('[data-del]') };
+  });
+  const abreMtQ4 = async (sel) => { await p.click('#screen #garmt ' + sel, { timeout: 5000 }).catch(() => {}); return p.waitForSelector('dialog[open] [name="oque"]', { timeout: 4000 }).then(() => true, () => false); };
+  const confirmaQ4 = async (sim) => { const ok = await p.waitForSelector('dialog[open] [data-yes]', { timeout: 4000 }).then(() => true, () => false); const t = ok ? await p.locator('dialog[open]:has([data-yes])').innerText() : ''; if (ok) await p.click(sim ? 'dialog[open] [data-yes]' : 'dialog[open] [data-no]'); await p.waitForTimeout(500); return t; };
+  const chipsCasa = async () => { await p.evaluate(() => go('house', 'maint')); await p.waitForTimeout(400); return p.evaluate(() => [...document.querySelectorAll('#screen [data-act="mt.tpl"]')].map((c) => c.textContent.trim())); };
+
+  /* ---------- ＋ Lembrete com a sugestão: a janela de 3 campos e o registro da Manutenção da casa ---------- */
+  const chip0 = await chipsCasa();
+  const c0Q4 = await mtQ4(I4q.pu);
+  conferir(c0Q4.tem && c0Q4.h3 === '🛠 Manutenção' && c0Q4.botoes.includes('＋ Lembrete: Troca do refil do filtro de água (a cada 6 meses)') && c0Q4.botoes.includes('＋ Outro lembrete') && !c0Q4.botoes.some((b) => b === '＋ Lembrete') &&
+    /Nenhum lembrete\. Ex\.: trocar o refil a cada 6 meses, limpar o filtro do ar-condicionado\./.test(c0Q4.txt), 'EQ4. 🛠 na ficha do purificador: "Nenhum lembrete. Ex.: …", "＋ Lembrete: Troca do refil do filtro de água (a cada 6 meses)" e "＋ Outro lembrete" (nunca "＋ Lembrete" sozinho) (' + JSON.stringify(c0Q4.botoes) + ')');
+  const ordem4 = (await fichaQb(I4q.pu)).blocos, iOf = (b, x) => b.indexOf(x);
+  conferir(iOf(ordem4, '📘') >= 0 && iOf(ordem4, '📘') + 1 === iOf(ordem4, '🛠') && iOf(ordem4, '🛠') + 1 === iOf(ordem4, '🛒'), 'EQ4. com a garantia contando, o 🛠 Manutenção fica entre o 📘 Manual e o 🛒 Compra (' + JSON.stringify(ordem4) + ')');
+  const abriu4 = await abreMtQ4('[data-act="gar.manut"][data-sug]');
+  const j4 = abriu4 ? await janelaMt() : null;
+  conferir(abriu4 && j4 && j4.n === 3 && j4.oque === 'Troca do refil do filtro de água' && j4.cada === '6' && j4.last === H4 && /🛠 Lembrete — Purificador Exemplo/.test(j4.txt) && /O que fazer/.test(j4.txt) && /A cada quanto tempo\?/.test(j4.txt) && /Quando foi a última vez\?/.test(j4.txt) &&
+    /Se não lembra, deixe hoje: o primeiro aviso sai depois desse tempo\./.test(j4.txt) && j4.opts.join('|') === '1:1 mês|2:2 meses|3:3 meses|6:6 meses|12:1 ano|24:2 anos' && !j4.parar && !j4.del,
+    'EQ4. "＋ Lembrete: …" abre a janela de 3 campos ("🛠 Lembrete — Purificador Exemplo": O que fazer = a sugestão, A cada quanto tempo? = 6 meses, Quando foi a última vez? = hoje, com a dica) (' + JSON.stringify(j4 && Object.assign({}, j4, { txt: '' })) + ')');
+  if (abriu4) { await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(600); }
+  let mPu = await mtDe(I4q.pu);
+  const prox183 = await p.evaluate(() => addDays(today(), 183));
+  conferir(mPu.length === 1 && mPu[0].title === 'Troca do refil do filtro de água — Purificador Exemplo' && mPu[0].interval === 183 && mPu[0].last === H4 && mPu[0].next === prox183 && mPu[0].nextManual === false && mPu[0].vis === 'familia' && mPu[0].cat === 'eletro' && Array.isArray(mPu[0].history) && !mPu[0].history.length && !mPu[0].veiculo && !mPu[0].pet,
+    'EQ4. OK: um lembrete da Manutenção da casa com coisa = o purificador, "Troca do refil do filtro de água — Purificador Exemplo", a cada 183 dias, a última vez hoje, a próxima em hoje + 183 e o "Quem vê" do objeto (' + JSON.stringify(mPu) + ')');
+  const mid4 = mPu.length ? mPu[0].id : 'nenhum';
+  const chip1 = await chipsCasa();
+  conferir(chip0.includes('＋ Troca do refil do filtro de água') && !chip1.includes('＋ Troca do refil do filtro de água') && chip1.includes('＋ Dedetização'), 'EQ4. Casa → Manutenção: a sugestão rápida "＋ Troca do refil do filtro de água" some (o lembrete "… — Purificador Exemplo" começa com ela) e as outras ficam (' + JSON.stringify([chip0.length, chip1.length]) + ')');
+  const linCasa = await p.evaluate((mid) => { const b = document.querySelector('#screen [data-act="mt.edit"][data-id="' + mid + '"]'); return b ? b.closest('.li').innerText.replace(/\s+/g, ' ') : ''; }, mid4);
+  conferir(/Troca do refil do filtro de água — Purificador Exemplo/.test(linCasa), 'EQ4. ... e o lembrete aparece em Casa → Manutenção, com o nome do equipamento (' + linCasa + ')');
+
+  /* ---------- "Ligar" o que já existe em Casa → Manutenção (fica um só); "Cancelar" segue para a janela ---------- */
+  const m1a = await mtId(q4.m1);
+  await mtQ4(I4q.ar);
+  await p.click('#screen #garmt [data-act="gar.manut"][data-sug]', { timeout: 5000 }).catch(() => {});
+  const pLig = await confirmaQ4(true);
+  const abriuLig = await p.waitForSelector('dialog[open] [name="oque"]', { timeout: 800 }).then(() => true, () => false);
+  const m1b = await mtId(q4.m1), semCV = (m) => { const x = Object.assign({}, m); ['coisa', 'vis', 'updatedAt', 'updatedBy'].forEach((k) => delete x[k]); return canon(x); };
+  const nLimp = await p.evaluate(() => DB.raw('maint').filter((m) => norm(m.title).startsWith(norm('Limpeza do ar-condicionado'))).length);
+  conferir(/Já existe “Limpeza do ar-condicionado” em Casa → Manutenção\. Ligar a este equipamento\? \(fica um só\)/.test(pLig) && /Ligar/.test(pLig) && !abriuLig && m1b && m1b.coisa === I4q.ar && m1b.vis === 'restrito' && semCV(m1b) === semCV(m1a) && nLimp === 1,
+    'EQ4. já existe "Limpeza do ar-condicionado" sem equipamento: "Já existe … Ligar a este equipamento? (fica um só)" → "Ligar" grava só o coisa e o "Quem vê" do objeto (o título, as datas e o histórico ficam), sem abrir a janela, e fica um lembrete só (' + JSON.stringify([pLig.replace(/\s+/g, ' ').slice(0, 120), m1b && m1b.coisa, m1b && m1b.vis, nLimp]) + ')');
+  const cAr = await mtQ4(I4q.ar);
+  conferir(cAr.linhas.length === 1 && /^Limpeza do ar-condicionado/.test(cAr.linhas[0]) && !cAr.acts.includes('gar.manut:sug') && cAr.botoes.includes('＋ Outro lembrete'), 'EQ4. ... o lembrete ligado aparece no 🛠 do ar-condicionado e a sugestão não se oferece de novo (fica o "＋ Outro lembrete") (' + JSON.stringify(cAr.botoes) + ')');
+  const m2 = await p.evaluate(async (d) => (await DB.put('maint', { title: 'Troca do refil do filtro de água', cat: 'casa', interval: 180, last: d, next: addDays(d, 180), nextManual: false, history: [], vis: 'familia' }, true)).id, D4q.m10);
+  const m2a = await mtId(m2);
+  await mtQ4(I4q.be);
+  await p.click('#screen #garmt [data-act="gar.manut"][data-sug]', { timeout: 5000 }).catch(() => {});
+  const pBe = await confirmaQ4(false);
+  const jBe = await p.waitForSelector('dialog[open] [name="oque"]', { timeout: 3000 }).then(() => janelaMt(), () => null);
+  if (jBe) { await p.click('dialog[open] .mf [data-x]'); await p.waitForTimeout(400); }
+  conferir(/Já existe “Troca do refil do filtro de água”/.test(pBe) && jBe && jBe.oque === 'Troca do refil do filtro de água' && canon(await mtId(m2)) === canon(m2a) && !(await mtDe(I4q.be)).length,
+    'EQ4. "Cancelar" no "Já existe…": segue para a janela de 3 campos; cancelar a janela não grava nada (' + JSON.stringify(jBe && jBe.oque) + ')');
+
+  /* ---------- sem sugestão: "＋ Lembrete de manutenção", a data no futuro recusada com a janela aberta, o "Quem vê" do objeto ---------- */
+  const cGe = await mtQ4(I4q.ge);
+  conferir(cGe.botoes.join('|') === '＋ Lembrete de manutenção' && !cGe.acts.includes('gar.manut:sug'), 'EQ4. sem sugestão pelo nome ("Gerador Exemplo"): só "＋ Lembrete de manutenção" (' + JSON.stringify(cGe.botoes) + ')');
+  const abriuGe = await abreMtQ4('[data-act="gar.manut"]');
+  const jGe = abriuGe ? await janelaMt() : null;
+  let futGe = {};
+  if (abriuGe) {
+    await p.fill('dialog[open] [name="oque"]', 'Limpeza do filtro de ar'); await p.selectOption('dialog[open] [name="cada"]', '3'); await p.fill('dialog[open] [name="last"]', D4q[5]);
+    await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(500);
+    futGe = { aberta: !!(await janelaMt()), toast: await toastQ4(), n: (await mtDe(I4q.ge)).length };
+    await p.fill('dialog[open] [name="last"]', D4q.m10).catch(() => {}); await p.click('dialog[open] [data-ok]').catch(() => {}); await p.waitForTimeout(600);
+  }
+  const mGe = await mtDe(I4q.ge), nextGe = await p.evaluate((d) => addDays(d, 91), D4q.m10);
+  conferir(abriuGe && jGe && jGe.oque === '' && jGe.cada === '6' && jGe.last === H4, 'EQ4. "＋ Lembrete de manutenção": a janela vazia, a cada 6 meses e a última vez hoje (' + JSON.stringify(jGe && Object.assign({}, jGe, { txt: '' })) + ')');
+  conferir(futGe.aberta && futGe.n === 0 && /depois de hoje/.test(futGe.toast), 'EQ4. "Quando foi a última vez?" depois de hoje: recusado com a janela aberta e nada gravado (' + JSON.stringify(futGe) + ')');
+  conferir(mGe.length === 1 && mGe[0].title === 'Limpeza do filtro de ar — Gerador Exemplo' && mGe[0].interval === 91 && mGe[0].last === D4q.m10 && mGe[0].next === nextGe && mGe[0].vis === 'restrito', 'EQ4. ... gravado com 3 meses = 91 dias e o "Quem vê" do objeto ("Só responsáveis") (' + JSON.stringify(mGe) + ')');
+  const mGeId = mGe.length ? mGe[0].id : 'nenhum';
+
+  /* ---------- vencido: 🔔 (vermelho), Início, Agenda, celular uma vez, a 4ª linha e a 🔍; tocar abre a ficha ---------- */
+  await p.evaluate(async (a) => { const m = DB.col('maint').get(a.id); if (m) await DB.put('maint', Object.assign({}, m, { last: a.last, next: addDays(a.last, 183) }), true); }, { id: mid4, last: D4q.m190 });
+  const TIT4 = 'Troca do refil do filtro de água — Purificador Exemplo';
+  const avMt = () => p.evaluate((t) => Alerts.list().filter((a) => a.t.startsWith(t)).map((a) => ({ level: a.level, ic: a.ic, t: a.t, go: (a.go || []).join('/') })), TIT4);
+  const av4 = await avMt();
+  conferir(av4.length === 1 && av4[0].level === 'bad' && av4[0].ic === '🛠' && av4[0].go === 'garantias/ficha/' + I4q.pu, 'EQ4. vencido há 7 dias: um aviso vermelho no 🔔 (🛠), que leva à ficha do equipamento (' + JSON.stringify(av4) + ')');
+  await p.evaluate(() => go('home')); await p.waitForTimeout(400);
+  await p.evaluate(() => ACT.bell()); await p.waitForSelector('dialog[open] [data-i]', { timeout: 5000 }).catch(() => {});
+  const sino4 = await p.evaluate((t) => { const el = [...document.querySelectorAll('dialog[open] [data-i]')].find((x) => (x.textContent || '').includes(t)); return el ? { i: el.dataset.i, bad: /bad/.test((el.querySelector('.badge') || {}).className || '') } : null; }, TIT4);
+  if (sino4) await p.click('dialog[open] [data-i="' + sino4.i + '"]');
+  await p.waitForTimeout(500);
+  conferir(sino4 && await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, I4q.pu), 'EQ4. tocar no aviso do 🔔 abre a ficha do purificador (' + JSON.stringify(sino4) + ')');
+  await fecharJanelas(p);
+  await p.evaluate(() => go('home')); await p.waitForTimeout(500);
+  const ini4 = await p.evaluate((t) => [...document.querySelectorAll('#screen .fi')].filter((el) => el.textContent.includes(t)).map((el) => [el.dataset.tab, el.dataset.sub, el.dataset.arg].join('/')), TIT4);
+  conferir(ini4.length === 1 && ini4[0] === 'garantias/ficha/' + I4q.pu, 'EQ4. Início ("Para você agora"): o lembrete vencido leva à ficha (' + JSON.stringify(ini4) + ')');
+  const ag4 = await p.evaluate((a) => Agenda.occurrences(a.de, a.ate, { extras: true }).filter((o) => o.id === 'mt-' + a.id).map((o) => ({ date: o.date, title: o.title })), { de: D4q.m10, ate: H4, id: mid4 });
+  conferir(ag4.length === 1 && ag4[0].date === D4q.m7 && ag4[0].title === '🛠 ' + TIT4, 'EQ4. Agenda: uma linha de dia inteiro "🛠 Troca do refil do filtro de água — Purificador Exemplo" no dia em que venceu (' + JSON.stringify(ag4) + ')');
+  await p.evaluate((d) => go('agenda', 'cal', d), D4q.m7); await p.waitForTimeout(600);
+  const evMt = await p.$('#screen [data-act="ev.edit"][data-v="mt-' + mid4 + '"]');
+  if (evMt) await evMt.click();
+  await p.waitForTimeout(500);
+  conferir(!!evMt && await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, I4q.pu), 'EQ4. tocar na linha da Agenda abre a ficha do purificador');
+  await fecharJanelas(p);
+  const toqueMt = (hora, zerar) => p.evaluate(([hora, zerar]) => {
+    const out = [], show0 = Notify.show, gh = Date.prototype.getHours;
+    Notify.show = function (title, body, tag) { if (/^mt-/.test(tag || '')) out.push({ title, body, tag }); };
+    Date.prototype.getHours = function () { return hora; };
+    try { if (zerar) lsSet(LS.notified, {}); Notify.tick(); Notify.tick(); } finally { Date.prototype.getHours = gh; Notify.show = show0; }
+    return out;
+  }, [hora, zerar]);
+  const nt4 = await toqueMt(10, true), nt4b = await toqueMt(11, false), nt4pu = nt4.filter((x) => x.tag === 'mt-' + mid4 + '-' + D4q.m7);
+  conferir(nt4pu.length === 1 && nt4pu[0].title === '🛠 ' + TIT4 && !nt4b.length, 'EQ4. celular: uma notificação "🛠 Troca do refil… — Purificador Exemplo" (depois das 9h), e tocar de novo não repete (' + JSON.stringify(nt4.map((x) => x.tag)) + ')');
+  await p.evaluate(() => { S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(500);
+  const l4 = await p.evaluate(() => { const l = [...document.querySelectorAll('#screen .gar-lista .li')].find((x) => (x.querySelector('.t') || {}).textContent === 'Purificador Exemplo'); return l ? ((l.querySelector('.gar-mt') || {}).textContent || '') : null; });
+  conferir(l4 === '🛠 Troca do refil do filtro de água: atrasada há 7 dias', 'EQ4. a 4ª linha da lista: "🛠 Troca do refil do filtro de água: atrasada há 7 dias" (' + JSON.stringify(l4) + ')');
+  const c4v = await mtQ4(I4q.pu);
+  conferir(c4v.linhas.length === 1 && c4v.linhas[0].startsWith('Troca do refil do filtro de água') && !c4v.linhas[0].includes('— Purificador') && /a cada 6 meses/.test(c4v.linhas[0]) && /última: /.test(c4v.linhas[0]) && /atrasada há 7 dias/.test(c4v.linhas[0]) &&
+    ['mt.done', 'gar.mtdata', 'gar.mtparar', 'gar.manut'].every((a) => c4v.acts.includes(a)) && c4v.botoes.includes('✓ Feito hoje') && c4v.botoes.includes('📅 Remarcar') && c4v.botoes.includes('🚫 Parar de avisar') && !c4v.xs,
+    'EQ4. 🛠 na ficha: o título sem o " — nome", "a cada 6 meses", "última: …", "atrasada há 7 dias" e os botões ✓ Feito hoje, 📅 Remarcar e 🚫 Parar de avisar (nunca o botão pequeno de Casa) (' + JSON.stringify(c4v.linhas) + ')');
+  await p.evaluate(() => Search.open()); await p.waitForSelector('#gsq', { timeout: 5000 }).catch(() => {}); await p.fill('#gsq', 'Troca do refil'); await p.waitForTimeout(500);
+  const b4 = await p.evaluate((t) => { const b = [...document.querySelectorAll('#gsr [data-i]')].find((x) => x.innerText.includes(t)); if (b) b.click(); return !!b; }, TIT4); await p.waitForTimeout(500);
+  conferir(b4 && await p.evaluate((id) => S.route.tab === 'garantias' && S.route.sub === 'ficha' && S.route.arg === id, I4q.pu), 'EQ4. 🔍 acha o lembrete e tocar abre a ficha do purificador');
+  await fecharJanelas(p);
+
+  /* ---------- ✓ Feito hoje: a próxima em hoje + 183 e o histórico; sem a caixinha do MoneyTrio (com a ponte ligada) e nada no Bridge.post ---------- */
+  const mt0 = await p.evaluate(() => window.__mt.length), ponteLigada = await p.evaluate(() => Bridge.cfg().enabled === true);
+  await p.evaluate((id) => go('garantias', 'ficha', id), I4q.pu); await p.waitForTimeout(400);
+  await p.click('#screen #garmt [data-act="mt.done"]', { timeout: 5000 }).catch(() => {});
+  const abriuFq4 = await p.waitForSelector('dialog[open] [name="cost"]', { timeout: 4000 }).then(() => true, () => false);
+  const jF = abriuFq4 ? await p.evaluate(() => { const m = document.querySelector('dialog[open]'); return { mt: !!m.querySelector('[name="mt"]'), d: (m.querySelector('[name="d"]') || {}).value }; }) : {};
+  if (abriuFq4) { await p.fill('dialog[open] [name="cost"]', '45'); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(600); }
+  const mF = await mtId(mid4);
+  conferir(abriuFq4 && ponteLigada && !jF.mt && jF.d === H4, 'EQ4. "✓ Feito hoje" (com a ponte do MoneyTrio ligada): a janela de sempre com hoje, sem a caixinha "💰 Enviar o custo para o MoneyTrio" (' + JSON.stringify(jF) + ')');
+  conferir(mF && mF.last === H4 && mF.next === prox183 && mF.nextManual === false && (mF.history || []).length === 1 && mF.history[0].d === H4 && +mF.history[0].cost === 45 && mF.coisa === I4q.pu && await p.evaluate(() => window.__mt.length) === mt0,
+    'EQ4. ... registrar (com custo): a última vez hoje, a próxima em hoje + 183, o histórico com o custo, o coisa fica, e nada vai ao Bridge.post (' + JSON.stringify(mF && { last: mF.last, next: mF.next, h: mF.history }) + ')');
+  const jM2 = await p.evaluate(async (id) => { Maint.done(id); await new Promise((r) => setTimeout(r, 400)); const m = document.querySelector('dialog[open]'), c = m && m.querySelector('[name="mt"]'); return { tem: !!c, marcada: !!(c && c.checked) }; }, m2);
+  await fecharJanelas(p);
+  conferir(jM2.tem && jM2.marcada, 'EQ4. ... a caixinha do MoneyTrio continua (marcada) num lembrete da casa sem equipamento (' + JSON.stringify(jM2) + ')');
+
+  /* ---------- tocar no título edita na mesma janela; intervalo fora da lista; 📅 Remarcar; 🚫 Parar de avisar ---------- */
+  await mtQ4(I4q.pu);
+  const abriuEq4 = await abreMtQ4('[data-act="gar.manut"][data-m]');
+  const jE = abriuEq4 ? await janelaMt() : null;
+  if (abriuEq4) { await p.selectOption('dialog[open] [name="cada"]', '12'); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(600); }
+  const mE = (await mtId(mid4)) || {};
+  conferir(abriuEq4 && jE && jE.oque === 'Troca do refil do filtro de água' && jE.cada === '6' && jE.last === H4 && jE.parar && !jE.del && mE.interval === 365 && mE.title === TIT4 && (mE.history || []).length === 1 && mE.coisa === I4q.pu && mE.vis === 'familia',
+    'EQ4. tocar no título abre a mesma janela (sem o " — nome", com o "🚫 Parar de avisar"); mudar para 1 ano grava 365 dias e mantém o histórico, o título e o coisa (' + JSON.stringify(jE && Object.assign({}, jE, { txt: '' })) + ')');
+  await p.evaluate(async (id) => { const m = DB.col('maint').get(id); if (m) await DB.put('maint', Object.assign({}, m, { interval: 200 }), true); }, mGeId);
+  await mtQ4(I4q.ge);
+  const abriu200 = await abreMtQ4('[data-act="gar.manut"][data-m]');
+  const j200 = abriu200 ? await janelaMt() : null;
+  if (abriu200) { await p.click('dialog[open] .mf [data-x]'); await p.waitForTimeout(300); }
+  conferir(j200 && j200.cada === 'd200' && j200.opts.includes('d200:a cada 200 dias (como está)'), 'EQ4. editar um lembrete a cada 200 dias: aparece "a cada 200 dias (como está)", escolhido (' + JSON.stringify(j200 && j200.opts) + ')');
+  await mtQ4(I4q.pu);
+  await p.click('#screen #garmt [data-act="gar.mtdata"]', { timeout: 5000 }).catch(() => {});
+  const abriuRq4 = await p.waitForSelector('dialog[open] [name="next"]', { timeout: 4000 }).then(() => true, () => false);
+  const jR = abriuRq4 ? await p.evaluate(() => { const m = document.querySelector('dialog[open]'); return { txt: m.innerText, n: m.querySelectorAll('.mb input, .mb select, .mb textarea').length }; }) : {};
+  if (abriuRq4) { await p.fill('dialog[open] [name="next"]', D4q[20]); await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(600); }
+  const mR = (await mtId(mid4)) || {}, cR = await mtQ4(I4q.pu);
+  conferir(abriuRq4 && jR.n === 1 && /Avisar de novo em/.test(jR.txt) && mR.next === D4q[20] && mR.nextManual === true && mR.last === H4 && /em 20 dias/.test(cR.linhas[0] || ''), 'EQ4. "📅 Remarcar": um campo ("Avisar de novo em") → a próxima e o nextManual, e a linha diz "em 20 dias" (' + JSON.stringify([mR.next, mR.nextManual, cR.linhas]) + ')');
+  await p.click('#screen #garmt [data-act="gar.mtparar"]', { timeout: 5000 }).catch(() => {});
+  const pP1 = await confirmaQ4(false), ficaQ4 = !!(await mtId(mid4));
+  await p.click('#screen #garmt [data-act="gar.mtparar"]', { timeout: 5000 }).catch(() => {});
+  const pP2 = await confirmaQ4(true), cP = await mtQ4(I4q.pu);
+  conferir(/Apagar o lembrete “Troca do refil do filtro de água”\? Ele para de avisar, e o histórico das vezes feitas some junto\./.test(pP1) && ficaQ4 && pP2 && !(await mtId(mid4)) && !cP.linhas.length && cP.acts.includes('gar.manut:sug'),
+    'EQ4. "🚫 Parar de avisar" pergunta ("Apagar o lembrete “…”? Ele para de avisar, e o histórico das vezes feitas some junto."); "Cancelar" deixa, "sim" apaga e a sugestão volta (' + JSON.stringify(pP1.replace(/\s+/g, ' ').slice(0, 140)) + ')');
+  conferir(await coisas4() === things4, 'EQ4. nada é gravado na garantia: criar, ligar, ✓ Feito, editar, remarcar e parar mudam só a Manutenção da casa (os objetos ficam iguais)');
+
+  /* ---------- sem a última vez (como vem do 📥): o texto do 🛠 e nenhum aviso ---------- */
+  const mSe = await p.evaluate(async (id) => (await DB.put('maint', { title: 'Limpar o filtro — Secador Exemplo', cat: 'eletro', interval: 183, last: '', next: '', nextManual: false, history: [], coisa: id, vis: 'familia' }, true)).id, I4q.se);
+  const cSe = await mtQ4(I4q.se);
+  conferir(/Sem a última vez, o app não sabe quando avisar\. Toque em ✓ Feito hoje quando fizer\./.test(cSe.linhas[0] || '') && !(await p.evaluate((id) => Alerts.list().some((a) => a.t.includes('Secador Exemplo')), mSe)), 'EQ4. sem a última vez: "Sem a última vez, o app não sabe quando avisar. Toque em ✓ Feito hoje quando fizer." e nenhum aviso (' + JSON.stringify(cSe.linhas) + ')');
+
+  /* ---------- saiu de casa: some do 🔔, da Agenda, do celular e do bastão; fica em Casa → Manutenção com "📦 saiu de casa"; volta ao desfazer ---------- */
+  const mBa = await p.evaluate(async (a) => (await DB.put('maint', { title: 'Limpeza das pás — Batedeira Exemplo', cat: 'eletro', interval: 183, last: addDays(a.d, -183), next: a.d, nextManual: false, history: [], coisa: a.id, vis: 'familia' }, true)).id, { id: I4q.ba, d: D4q.m3 });
+  const tudoMt = (t, id, next) => p.evaluate(async (a) => {
+    const out = [], show0 = Notify.show, gh = Date.prototype.getHours;
+    Notify.show = function (title, body, tag) { if (tag === 'mt-' + a.id + '-' + a.next) out.push(tag); }; Date.prototype.getHours = function () { return 10; };
+    try { lsSet(LS.notified, {}); Notify.tick(); } finally { Date.prototype.getHours = gh; Notify.show = show0; }
+    return { av: Alerts.list().filter((x) => x.t.startsWith(a.t)).length, ag: Agenda.occurrences(a.de, a.ate, { extras: true }).filter((o) => o.id === 'mt-' + a.id).length, nt: out.length,
+      bastao: Handover.timeline({}).filter((x) => String(x.title).includes(a.t)).length, lista: Maint.list().filter((m) => m.id === a.id).map((m) => ({ fora: m.fora || '', days: m._days })) };
+  }, { t, id, next, de: D4q.m10, ate: H4 });
+  const ba0 = await tudoMt('Limpeza das pás — Batedeira Exemplo', mBa, D4q.m3);
+  await p.evaluate(async (a) => { const t = DB.col('things').get(a.id); await DB.put('things', Object.assign({}, t, { garantia: Object.assign({}, t.garantia, { saiu: { como: 'doado', em: a.d, obs: '' } }) }), true); }, { id: I4q.ba, d: D4q.m1 });
+  const ba1 = await tudoMt('Limpeza das pás — Batedeira Exemplo', mBa, D4q.m3);
+  await p.evaluate(() => go('house', 'maint')); await p.waitForTimeout(400);
+  const casaBa = await p.evaluate((mid) => { const b = document.querySelector('#screen [data-act="mt.edit"][data-id="' + mid + '"]'); return b ? b.closest('.li').innerText.replace(/\s+/g, ' ') : ''; }, mBa);
+  const cBa = await mtQ4(I4q.ba), ordBa = (await fichaQb(I4q.ba)).blocos;
+  conferir(ba0.av === 1 && ba0.ag === 1 && ba0.nt === 1, 'EQ4. a batedeira em casa, com o lembrete vencido: 🔔, Agenda e celular avisam (' + JSON.stringify(ba0) + ')');
+  conferir(!ba1.av && !ba1.ag && !ba1.nt && !ba1.bastao && ba1.lista.length === 1 && ba1.lista[0].fora === 'saiu' && ba1.lista[0].days === null, 'EQ4. saiu de casa: some do 🔔, da Agenda, do celular e do "Passar o bastão" (' + JSON.stringify(ba1) + ')');
+  conferir(/Limpeza das pás — Batedeira Exemplo/.test(casaBa) && /📦 saiu de casa/.test(casaBa) && !/atrasada/.test(casaBa), 'EQ4. ... e fica em Casa → Manutenção com "📦 saiu de casa" (sem "atrasada") (' + casaBa + ')');
+  conferir(/📦 Saiu de casa: os lembretes pararam \(o histórico continua aqui\)\./.test(cBa.txt) && cBa.linhas.length === 1 && /^Limpeza das pás/.test(cBa.linhas[0]) && !cBa.acts.length && !/atrasada/.test(cBa.txt) &&
+    iOf(ordBa, '🔌') >= 0 && iOf(ordBa, '🛠') > iOf(ordBa, '🔌') && iOf(ordBa, '🛠') < iOf(ordBa, '🗓️ fechado') && iOf(ordBa, '🗓️ fechado') < iOf(ordBa, '🛒'),
+    'EQ4. ... na ficha: "📦 Saiu de casa: os lembretes pararam (o histórico continua aqui).", o lembrete sem ＋, ✓, 📅 e 🚫, e o 🛠 em cima do "🗓️ Ver as datas" fechado (' + JSON.stringify([cBa.acts, ordBa]) + ')');
+  await p.evaluate(async (id) => { const t = DB.col('things').get(id); await DB.put('things', Object.assign({}, t, { garantia: Object.assign({}, t.garantia, { saiu: null }) }), true); }, I4q.ba);
+  const ba2 = await tudoMt('Limpeza das pás — Batedeira Exemplo', mBa, D4q.m3);
+  conferir(ba2.av === 1 && ba2.ag === 1 && ba2.nt === 1, 'EQ4. desfazer o "saiu de casa": os avisos voltam (' + JSON.stringify(ba2) + ')');
+
+  /* ---------- objeto apagado só com DB.del (à moda 2.27.0): nenhum aviso; "🗑 o equipamento foi apagado" para o responsável; nas 🧹 Sobras ---------- */
+  const mTo = await p.evaluate(async (a) => (await DB.put('maint', { title: 'Descalcificar — Torradeira Exemplo', cat: 'eletro', interval: 183, last: addDays(a.d, -183), next: a.d, nextManual: false, history: [], coisa: a.id, vis: 'familia' }, true)).id, { id: I4q.to, d: D4q.m2 });
+  const to0 = await tudoMt('Descalcificar — Torradeira Exemplo', mTo, D4q.m2);
+  await p.evaluate(async (id) => { await DB.del('things', id); }, I4q.to);
+  const to1 = await tudoMt('Descalcificar — Torradeira Exemplo', mTo, D4q.m2);
+  await p.evaluate(() => go('house', 'maint')); await p.waitForTimeout(400);
+  const casaTo = await p.evaluate((mid) => { const b = document.querySelector('#screen [data-act="mt.edit"][data-id="' + mid + '"]'); return b ? b.closest('.li').innerText.replace(/\s+/g, ' ') : ''; }, mTo);
+  conferir(to0.av === 1 && to0.ag === 1 && to0.nt === 1 && !to1.av && !to1.ag && !to1.nt && to1.lista.length === 1 && to1.lista[0].fora === 'sem', 'EQ4. equipamento apagado só com DB.del (como a 2.27.0): o lembrete não avisa mais (' + JSON.stringify([to0, to1]) + ')');
+  conferir(/Descalcificar — Torradeira Exemplo/.test(casaTo) && /🗑 o equipamento foi apagado/.test(casaTo), 'EQ4. ... para o responsável, em Casa → Manutenção: "🗑 o equipamento foi apagado" (' + casaTo + ')');
+  await p.evaluate(() => { S.role = 'adulto'; go('house', 'maint'); }); await p.waitForTimeout(400);
+  const casaToM = await p.evaluate(() => document.querySelector('#screen').innerText), listaToM = await p.evaluate((id) => Maint.list().some((m) => m.id === id), mTo);
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(!/Torradeira Exemplo/.test(casaToM) && !listaToM, 'EQ4. ... para quem não é responsável, o lembrete do equipamento apagado some (nem em Casa → Manutenção)');
+  await p.evaluate(() => { S.garF = 'todos'; go('garantias'); }); await p.waitForTimeout(300);
+  await p.waitForFunction(() => /Sobrou de coisa apagada/.test((document.querySelector('#garsobras') || {}).innerText || ''), null, { timeout: 5000 }).catch(() => {});
+  const sob4 = await p.evaluate(() => (document.querySelector('#garsobras') || {}).innerText || '');
+  await p.click('#screen [data-act="gar.sobras"]').catch(() => {});
+  const pSob = await confirmaQ4(true);
+  conferir(/Sobrou de coisa apagada: .*1 lembrete/.test(sob4) && /🔧 Descalcificar — Torradeira Exemplo/.test(pSob) && !(await mtId(mTo)), 'EQ4. 🧹 Sobras: "… 1 lembrete" no cartão, "🔧 Descalcificar — Torradeira Exemplo" na confirmação, e sai com o "sim" (' + JSON.stringify([sob4.replace(/\s+/g, ' ').slice(0, 90), pSob.replace(/\s+/g, ' ').slice(0, 160)]) + ')');
+
+  /* ---------- objeto "Só responsáveis" com o lembrete "Toda a família" (à moda 2.27.0): o membro não vê o lembrete em lugar nenhum ---------- */
+  const mNb = await p.evaluate(async (a) => (await DB.put('maint', { title: 'Limpeza do teclado — Notebook Exemplo', cat: 'eletro', interval: 183, last: addDays(a.d, -183), next: a.d, nextManual: false, history: [], coisa: a.id, vis: 'familia' }, true)).id, { id: I4q.nb, d: D4q.m3 });
+  const nb0 = await tudoMt('Limpeza do teclado — Notebook Exemplo', mNb, D4q.m3);
+  await p.evaluate(() => { S.role = 'adulto'; });
+  const nb1 = await tudoMt('Limpeza do teclado — Notebook Exemplo', mNb, D4q.m3);
+  const nbB = await p.evaluate(() => Search.sources().filter((x) => /Notebook Exemplo/.test(x.t)).length);
+  await p.evaluate(() => go('house', 'maint')); await p.waitForTimeout(400);
+  const nbC = await p.evaluate(() => document.querySelector('#screen').innerText);
+  await p.evaluate(() => go('home')); await p.waitForTimeout(400);
+  const nbI = await p.evaluate(() => document.querySelector('#screen').innerText);
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(nb0.av === 1 && nb0.ag === 1 && nb0.nt === 1 && !nb1.av && !nb1.ag && !nb1.nt && !nb1.lista.length && !nbB && !/Notebook Exemplo/.test(nbC + nbI), 'EQ4. objeto "Só responsáveis" com o lembrete "Toda a família" (como a 2.27.0 deixaria): quem não é responsável não vê o lembrete no 🔔, no Início, na Agenda, no celular, na 🔍 nem em Casa → Manutenção (' + JSON.stringify([nb0, nb1, nbB]) + ')');
+
+  /* ---------- Cars.importar e Pets.ligarAntigos não pegam lembrete de equipamento ---------- */
+  const carro4 = await p.evaluate(async (a) => {
+    const mg = await DB.put('maint', { title: 'Revisão', cat: 'eletro', interval: 365, last: a.d100, next: a.d265, nextManual: false, history: [], coisa: a.ge, vis: 'restrito' }, true);
+    const antes = JSON.parse(JSON.stringify(DB.col('maint').get(mg.id)));
+    let c = null, erro = '';
+    try { c = await Cars.gravar({ veiculo: { nome: 'Carro Exemplo EQ4' }, manutencao: [{ titulo: 'Revisão', ultima: a.d10, intervaloDias: 365 }] }); } catch (e) { erro = String(e.message || e); }
+    const depois = JSON.parse(JSON.stringify(DB.col('maint').get(mg.id))), doCarro = c ? DB.raw('maint').filter((m) => m.veiculo === c.id).map((m) => ({ title: m.title, last: m.last })) : [];
+    return { erro, car: c && c.id, mg: mg.id, igual: JSON.stringify(antes) === JSON.stringify(depois), veiculo: depois.veiculo || '', last: depois.last, next: depois.next, doCarro };
+  }, { ge: I4q.ge, d100: D4q.m100, d265: D4q[265], d10: D4q.m10 });
+  conferir(!carro4.erro && carro4.car && carro4.igual && !carro4.veiculo && carro4.last === D4q.m100 && carro4.next === D4q[265] && carro4.doCarro.length === 1 && carro4.doCarro[0].title === 'Revisão' && carro4.doCarro[0].last === D4q.m10,
+    'EQ4. um lembrete "Revisão" ligado ao "Gerador Exemplo" e um arquivo de carro com "Revisão": o do gerador continua sem veículo e com as datas dele; o carro ganha o seu (' + JSON.stringify(carro4) + ')');
+  const pet4 = await p.evaluate(async (ge) => {
+    const pt = await DB.put('people', { name: 'Picolé Exemplo', role: 'pet', emoji: '🐱', pet: { especie: 'gato' } }, true);
+    const mc = await DB.put('maint', { title: 'Vermífugo — Gerador Exemplo', cat: 'pet', interval: 90, last: today(), next: addDays(today(), 90), nextManual: false, history: [], coisa: ge, vis: 'restrito' }, true);
+    const ms = await DB.put('maint', { title: 'Vermífugo do pet', cat: 'pet', interval: 90, last: today(), next: addDays(today(), 90), nextManual: false, history: [], vis: 'familia' }, true);
+    await Pets.ligarAntigos();
+    const c = DB.col('maint').get(mc.id), s = DB.col('maint').get(ms.id), r = { comCoisa: c.pet || '', semCoisa: s.pet || '', pt: pt.id };
+    await DB.del('maint', mc.id); await DB.del('maint', ms.id); await DB.del('people', pt.id);
+    return r;
+  }, I4q.ge);
+  conferir(!pet4.comCoisa && pet4.semCoisa === pet4.pt, 'EQ4. Pets.ligarAntigos não pega um lembrete de "pet" ligado a um equipamento (o sem equipamento vai para o único pet, como antes) (' + JSON.stringify(pet4) + ')');
+
+  /* ---------- Maint.edit (Casa → Manutenção) com coisa: sem "🚗 De qual veículo" e com "🔌 Ligado a" ---------- */
+  const ed4 = async (id) => { await p.evaluate((id) => { ACT['mt.edit']({ id }); }, id); await p.waitForSelector('dialog[open] [name="title"]', { timeout: 4000 }).catch(() => {}); return p.evaluate(() => { const m = document.querySelector('dialog[open]'); return m ? { veiculo: !!m.querySelector('[name="veiculo"]'), txt: m.innerText } : null; }); };
+  const eGe = await ed4(mGeId);
+  if (eGe) { await p.click('dialog[open] [data-ok]'); await p.waitForTimeout(500); }
+  const mGe2 = (await mtId(mGeId)) || {};
+  const eM2 = await ed4(m2); await fecharJanelas(p);
+  conferir(eGe && !eGe.veiculo && /🔌 Ligado a: Gerador Exemplo/.test(eGe.txt) && eM2 && eM2.veiculo && mGe2.coisa === I4q.ge && mGe2.vis === 'restrito', 'EQ4. Casa → Manutenção, ✏️ de um lembrete de equipamento: sem "🚗 De qual veículo" (com um carro na família) e com "🔌 Ligado a: Gerador Exemplo"; salvar mantém o coisa e o "Quem vê" (' + JSON.stringify([eGe && eGe.veiculo, eM2 && eM2.veiculo]) + ')');
+  await p.evaluate(async (car) => { for (const m of DB.raw('maint').filter((x) => x.veiculo === car)) await DB.del('maint', m.id); await DB.del('places', car); }, carro4.car);
+
+  /* ---------- apagar pelo ✏️ do Onde está? leva os lembretes ---------- */
+  const nGe0 = (await mtDe(I4q.ge)).length;
+  await p.evaluate((id) => { ACT['th.edit']({ id }); }, I4q.ge);
+  await p.waitForSelector('dialog[open] [data-del]', { timeout: 4000 }).catch(() => {});
+  await p.click('dialog[open] [data-del]').catch(() => {});
+  await confirmaQ4(true); await p.waitForTimeout(400);
+  conferir(nGe0 === 2 && !(await p.evaluate((id) => !!DB.col('things').get(id), I4q.ge)) && !(await mtDe(I4q.ge)).length, 'EQ4. apagar o gerador pelo ✏️ do Onde está? leva junto os lembretes ligados a ele (' + nGe0 + ')');
+
+  /* ---------- Manutenção desligada no RootifyONE: sem o cartão (e o ＋ recusa) ---------- */
+  await p.evaluate(() => { const o = SolverRecursos.ligado; window.__lig4q = o; SolverRecursos.ligado = function (id, d) { return id === 'casa.manutencao' ? false : o.call(this, id, d); }; });
+  const cOff = await mtQ4(I4q.be);
+  const offM = await p.evaluate(async (id) => { const n0 = DB.raw('maint').length; try { ACT['gar.manut']({ id }); } catch (e) {} await new Promise((r) => setTimeout(r, 500)); return { janela: !!document.querySelector('dialog[open] [name="oque"]'), igual: DB.raw('maint').length === n0 }; }, I4q.be);
+  await fecharJanelas(p);
+  await p.evaluate(() => { SolverRecursos.ligado = window.__lig4q; });
+  conferir(!cOff.tem && !offM.janela && offM.igual, 'EQ4. "casa.manutencao" desligada: a ficha sem o 🛠 e o ＋ não abre (' + JSON.stringify(offM) + ')');
+
+  /* ---------- criança: vê os lembretes, sem ＋, ✓, 📅 e 🚫 (e as ações recusam) ---------- */
+  await p.evaluate(() => { S.role = 'crianca'; });
+  const cK = await mtQ4(I4q.ba);
+  const kR = await p.evaluate(async (a) => {
+    const n0 = JSON.stringify(DB.raw('maint')), out = [];
+    for (const [act, d] of [['gar.manut', { id: a.ba }], ['gar.manut', { id: a.ba, sug: '1' }], ['gar.manut', { id: a.ba, m: a.m }], ['gar.mtdata', { m: a.m }], ['gar.mtparar', { m: a.m }]]) {
+      document.querySelectorAll('#toasts .toast').forEach((x) => x.remove());
+      try { ACT[act](d); } catch (e) { out.push('erro ' + act); }
+      await new Promise((r) => setTimeout(r, 350));
+      out.push(!!document.querySelector('dialog[open]') ? 'janela ' + act : ([...document.querySelectorAll('#toasts .toast')].map((t) => t.textContent).pop() || ''));
+      document.querySelectorAll('dialog[open]').forEach((x) => { try { x.close(); } catch (e) {} });
+    }
+    return { out, igual: JSON.stringify(DB.raw('maint')) === n0 };
+  }, { ba: I4q.ba, m: mBa });
+  await p.evaluate((papel) => { S.role = papel; }, papel0);
+  conferir(cK.tem && cK.linhas.length === 1 && /^Limpeza das pás/.test(cK.linhas[0]) && !cK.acts.length, 'EQ4. criança: vê o 🛠 com o lembrete, sem ＋, ✓, 📅 e 🚫 (' + JSON.stringify(cK.acts) + ')');
+  conferir(kR.igual && kR.out.length === 5 && kR.out.every((x) => /Peça para um responsável/.test(x)), 'EQ4. criança: ＋, editar, 📅 e 🚫 recusam ("Peça para um responsável…") sem abrir janela nem gravar (' + JSON.stringify(kR.out) + ')');
+
+  /* ---------- lixo no coisa não derruba o 🔔; id estranho vai para Casa → Manutenção ---------- */
+  const lx4q = await p.evaluate(async (a) => {
+    const d = addDays(today(), -2), mt = async (title, coisa) => (await DB.put('maint', { title, cat: 'eletro', interval: 183, last: addDays(d, -183), next: d, nextManual: false, history: [], coisa, vis: 'familia' }, true)).id;
+    const ids = { obj: await mt('EQ4 Lixo objeto ' + a.XSS, {}), num: await mt('EQ4 Lixo número', 5), xss: await mt('EQ4 Lixo xss', a.XSS), id: await mt('EQ4 Lixo id estranho', 'a<b') };
+    let r = null, erro = '';
+    try { r = Alerts.list().filter((x) => /^EQ4 Lixo/.test(x.t)).map((x) => [x.t.split(' — ')[0], (x.go || []).join('/')]); Agenda.occurrences(addDays(today(), -10), today(), { extras: true }); Notify.tick(); } catch (e) { erro = String(e.message || e); }
+    /* com o Garantias.foraDeCasa quebrado, a Manutenção continua (o try do Maint.list) */
+    const f0 = Garantias.foraDeCasa; Garantias.foraDeCasa = () => { throw new Error('foraDeCasa quebrou'); };
+    let r2 = -1, e2 = '';
+    try { r2 = Alerts.list().filter((x) => /^EQ4 Lixo/.test(x.t)).length; Agenda.occurrences(addDays(today(), -10), today(), { extras: true }); } catch (e) { e2 = String(e.message || e); }
+    Garantias.foraDeCasa = f0;
+    return { ids, r, erro, r2, e2 };
+  }, { XSS });
+  conferir(!lx4q.erro && lx4q.r && lx4q.r.length === 3 && lx4q.r.every((x) => x[1] === 'house/maint') && !lx4q.r.some((x) => x[0] === 'EQ4 Lixo xss'), 'EQ4. lixo no coisa ({}, número, <img onerror>, id "a<b" de um objeto que existe): o 🔔, a Agenda e o celular não caem; o id estranho vai para Casa → Manutenção (' + JSON.stringify(lx4q.r || lx4q.erro) + ')');
+  conferir(!lx4q.e2 && lx4q.r2 === 4, 'EQ4. com o Garantias.foraDeCasa quebrado, o 🔔 e a Agenda continuam com a Manutenção da casa (' + JSON.stringify([lx4q.r2, lx4q.e2]) + ')');
+  await p.evaluate(() => go('home')); await p.waitForTimeout(400); await limpo('EQ4. Início com lixo no coisa');
+  await p.evaluate(() => ACT.bell()); await p.waitForTimeout(400); await limpo('EQ4. 🔔 com lixo no coisa'); await fecharJanelas(p);
+  await p.evaluate(() => go('house', 'maint')); await p.waitForTimeout(400); await limpo('EQ4. Casa → Manutenção com lixo no coisa');
+  await p.evaluate(async (ids) => { for (const id of Object.values(ids)) await DB.del('maint', id); }, lx4q.ids);
+
+  /* ---------- 390 px, EN e o idioma ---------- */
+  await p.evaluate(async (id) => { await DB.put('maint', { title: 'Troca do refil do filtro de água — Purificador Exemplo', cat: 'eletro', interval: 183, last: addDays(today(), -190), next: addDays(today(), -7), nextManual: false, history: [], coisa: id, vis: 'familia' }, true); }, I4q.pu);
+  for (const lang of ['pt', 'en']) {
+    await p.evaluate((a) => { if (S.lang !== a.lang) setLang(a.lang); go('garantias', 'ficha', a.id); }, { lang, id: I4q.pu }); await p.waitForTimeout(500);
+    await p.evaluate(() => document.querySelectorAll('#screen .gar details').forEach((d) => (d.open = true))); await p.waitForTimeout(100);
+    const a = await alvos();
+    conferir(a.w === 390 && a.larg && a.n >= 10 && !a.peq.length, 'EQ4. 390 px (' + lang.toUpperCase() + ', ficha com o 🛠 e um lembrete vencido): nada passa da largura e os ' + a.n + ' alvos de toque têm 44 px' + (a.peq.length ? ': ' + a.peq.join(' · ') : ''));
+  }
+  const cEn = await mtQ4(I4q.pu);
+  await p.evaluate(() => setLang('pt')); await p.waitForTimeout(300);
+  conferir(cEn.h3 === '🛠 Maintenance' && /every 6 months/.test(cEn.linhas[0] || '') && /last: /.test(cEn.linhas[0] || '') && /7 days overdue/.test(cEn.linhas[0] || '') && cEn.botoes.includes('✓ Done today') && cEn.botoes.includes('📅 Reschedule') && cEn.botoes.includes('🚫 Stop reminding') && cEn.botoes.includes('＋ Another reminder') &&
+    !/Manutenção|a cada|última|atrasada|Feito hoje|Remarcar|Parar de avisar/.test(cEn.txt), 'EQ4. EN: o 🛠 em inglês (Maintenance, every 6 months, last:, 7 days overdue, ✓ Done today, 📅 Reschedule, 🚫 Stop reminding) (' + JSON.stringify(cEn.botoes) + ')');
+  const src4 = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  /* procura no bloco do módulo e, as linhas de fora, a partir do Maint (o "Ligado a") e da tela de Casa → Manutenção */
+  const de4 = { bl: src4.indexOf('/* ===== 🧾 GARANTIAS (2.28.0) ====='), mt: src4.indexOf('const Maint = {'), hv: src4.indexOf('const HouseViews = {') };
+  const tt4 = (txt) => { const de = txt === 'Ligado a: ' ? de4.mt : /^(saiu de casa|o equipamento foi apagado)$/.test(txt) ? de4.hv : de4.bl, i = de < 0 ? -1 : src4.indexOf('tt("' + txt + '"', de); return i < 0 ? null : ttChamadas(src4.slice(i, i + 3000))[0]; };
+  const novos4 = ['Manutenção', 'Lembrete: ', 'Outro lembrete', 'Lembrete de manutenção', 'Feito hoje', 'Remarcar', 'Parar de avisar', 'Lembrete', 'O que fazer', 'A cada quanto tempo?', 'Quando foi a última vez?', 'Se não lembra, deixe hoje: o primeiro aviso sai depois desse tempo.',
+    'Avisar de novo em', 'Sem a última vez, o app não sabe quando avisar.', 'Toque em ✓ Feito hoje quando fizer.', 'Nenhum lembrete. Ex.: trocar o refil a cada 6 meses, limpar o filtro do ar-condicionado.', 'Saiu de casa: os lembretes pararam (o histórico continua aqui).',
+    'saiu de casa', 'o equipamento foi apagado', 'Ligado a: ', 'Ligar', '1 mês', '1 ano', '2 anos'].map((t) => [t, tt4(t)]);
+  const ruins4 = novos4.filter(([, c]) => !c || c.args.length !== 3 || !c.args[2].txt || (c.args[2].txt === c.args[0].txt && (c.args[0].txt.match(/\p{L}{2,}/gu) || []).length >= 3) || /\b(celular|loja|nota fiscal|protocolo|billete|cadastr\w*)\b/i.test(c.args[2].txt));
+  conferir(!ruins4.length, 'EQ4. idioma: os textos novos da manutenção em PT, EN e ES (o ES sem palavra do Brasil)' + (ruins4.length ? ' — ' + ruins4.map(([t]) => t).join(' | ') : ''));
+  conferir(!lixo.erros.length && !lixo.nativos.length, 'EQ4: nenhum erro de página e nenhum alert/confirm nativo' + (lixo.erros.length ? ': ' + lixo.erros.slice(0, 2).join(' | ') : ''));
+  await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); for (const m of DB.raw('maint')) await DB.del('maint', m.id); S.garF = undefined; go('home'); });
+
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */
   console.log('\n— fusos');
   const fusos = [['America/New_York', ['somaDias', ['2025-11-02', 1], '2025-11-03', 'Nova York, fim do horário de verão: 02/nov + 1 = 03/nov']],
@@ -3129,5 +3510,5 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
     } catch (e) { conferir(false, 'Giro: o teste parou no meio — ' + String((e && e.message) || e).split('\n')[0]); }
     await A.ctx.close().catch(() => {});
   }
-  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos; EQ3b: a ficha dos equipamentos)');
+  await terminar(falhas, browser, 'garantias (G1: contas, leitura, arquivo, lixo, B0 e fusos; G2: a aba e a lista; G3: a ficha, o formulário, as Senhas da casa, os papéis, o Onde está?, o apagar e o Giro; G4: os avisos no 🔔, no Início, na Agenda e no celular; G5: "Estragou? E agora?", os atendimentos, os contadores e a assistência técnica; G6: ler a nota ou o bilhete no Fundo, o filtro de dados pessoais e a conferência; G7: trazer garantias prontas de um arquivo, tudo ou nada; G8: a ajuda, o AssistONE, o 💬 em cada tela e o idioma; EQ1: os dados e as contas dos equipamentos; EQ2: o nome, a lista e os filtros dos equipamentos; EQ3a: o cadastro dos equipamentos; EQ3b: a ficha dos equipamentos; EQ4: a manutenção dos equipamentos)');
 })().catch((e) => { console.error(e); process.exit(1); });

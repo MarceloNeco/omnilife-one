@@ -8249,7 +8249,7 @@ const Alerts = {
     if (isGuardian()) Shop.pendingRequests().forEach((r) => out.push({ level: "warn", ic: "🙋", t: tt("Pedido de ", "Request from ") + People.name(r.by) + ": " + r.name, go: ["shop", "requests"] }));
     if (isGuardian() && S.joinRequests) S.joinRequests.forEach((r) => out.push({ level: "warn", ic: "🚪", t: tt("Quer entrar na família: ", "Wants to join: ") + (r.name || r.email), go: ["family"] }));
     Pantry.soon(3).slice(0, 8).forEach((i) => out.push({ level: "warn", ic: "🥫", t: i.name + " — " + (i._days <= 0 ? tt("provavelmente acabou", "probably out") : tt("acaba em ~" + i._days + " dia(s)", "runs out in ~" + i._days + " day(s)")), go: ["shop", "pantry"] }));
-    Maint.list().filter((m) => m._days != null && m._days <= 7).forEach((m) => out.push({ level: m._days < 0 ? "bad" : "warn", ic: m.pet ? "🐾" : "🛠", t: m.title + " — " + (m._days < 0 ? tt("atrasada", "overdue") : relDay(m.next)), go: m.pet && Rec.ok("pets") && Pets.get(m.pet) ? ["pets", "ficha", m.pet] : ["house", "maint"] }));
+    Maint.list().filter((m) => m._days != null && m._days <= 7).forEach((m) => out.push({ level: m._days < 0 ? "bad" : "warn", ic: m.pet ? "🐾" : "🛠", t: m.title + " — " + (m._days < 0 ? tt("atrasada", "overdue") : relDay(m.next)), go: m.pet && Rec.ok("pets") && Pets.get(m.pet) ? ["pets", "ficha", m.pet] : Garantias.fichaDe(m) || ["house", "maint"] }));
     DB.all("docs").filter((d) => d.expires && diffDays(td, d.expires) <= 60).forEach((d) => { const n = diffDays(td, d.expires); out.push({ level: n < 0 ? "bad" : "warn", ic: "📄", t: d.title + " (" + People.name(d.owner) + ") — " + (n < 0 ? tt("vencido", "expired") : tt("vence ", "expires ") + fmtDate(d.expires)), go: ["docs"] }); });
     /* 🧾 garantias: 30 e 7 dias antes do fim e o começo da estendida (try: a parte das garantias nunca derruba o 🔔) */
     try { Garantias.marcos(td).forEach((a) => out.push({ level: a.nivel, ic: "🧾", t: a.nome + ": " + a.txt, go: ["garantias", "ficha", a.id] })); } catch (e) {}
@@ -10511,7 +10511,7 @@ ACT["school.new"] = () => School.edit(null);
 ACT["school.photo"] = (d) => School.photo(!!d.cap, d.id || null);
 ACT["school.edit"] = (d) => School.edit(d.id || (School.cur() || {}).id || null);
 ACT["ev.new"] = () => editEvent();
-ACT["ev.edit"] = (d) => { if (!d.id) { const v = d.v || ""; if (v.startsWith("mt-")) go("house", "maint"); else if (v.startsWith("dc-")) go("docs"); else if (v.startsWith("bday-")) go("family"); else if (v.startsWith("gar-")) go("garantias", "ficha", v.slice(4, v.lastIndexOf("-"))); return; } const e = DB.get("events", d.id); if (e) editEvent(Object.assign({}, e)); };
+ACT["ev.edit"] = (d) => { if (!d.id) { const v = d.v || ""; if (v.startsWith("mt-")) { const m = DB.get("maint", v.slice(3)), f = m && Garantias.fichaDe(m); if (f) go(f[0], f[1], f[2]); else go("house", "maint"); } else if (v.startsWith("dc-")) go("docs"); else if (v.startsWith("bday-")) go("family"); else if (v.startsWith("gar-")) go("garantias", "ficha", v.slice(4, v.lastIndexOf("-"))); return; } const e = DB.get("events", d.id); if (e) editEvent(Object.assign({}, e)); };
 ACT["task.f"] = (d) => { S.taskF = d.v; render(); };
 ACT["task.new"] = async (d) => { const r = await formModal({ title: "＋ " + tt("Tarefa", "Task"), fields: taskFields(), values: { cat: "organizacao", repeat: "none", prio: "fyi", assignee: isChild() ? S.meId : ((d && d.to) || "") } }); if (r) await DB.put("tasks", Object.assign({ done: false, status: "aberta" }, r)); };
 ACT["task.edit"] = async (d) => {
@@ -11092,14 +11092,25 @@ const mtSubCarro = (title) => (/revis|oleo|filtro/.test(norm(title || "")) ? "Re
 const MT_CATS = () => [["casa", "🏠", tt("Casa", "House")], ["carro", "🚗", tt("Carro", "Car")], ["eletro", "🔌", tt("Eletros", "Appliances")], ["jardim", "🌿", tt("Jardim / piscina", "Garden / pool")], ["pet", "🐾", "Pet"], ["outro", "🛠", tt("Outro", "Other")]];
 const Maint = {
   /* os serviços da Vida do carro (tipo "servico") moram na mesma coleção, mas não são manutenção que se repete */
-  list() { return DB.all("maint").filter((m) => m.tipo !== "servico").map((m) => { const next = m.next || (m.last && m.interval ? addDays(m.last, +m.interval) : null); return Object.assign({}, m, { next, _days: next ? diffDays(today(), next) : null }); }).sort((a, b) => (a._days == null ? 9999 : a._days) - (b._days == null ? 9999 : b._days)); },
+  /* 🧾 lembrete de um equipamento (coisa, EQ4): o que saiu de casa ("saiu"), foi apagado ou esta pessoa não vê ("sem") não avisa
+     (sem próxima; o histórico fica). Quem não é responsável nem vê o "sem". O try cobre até o Garantias ainda não existir */
+  list() {
+    const L = DB.all("maint").filter((m) => m.tipo !== "servico").map((m) => {
+      let fora = ""; if (m.coisa) { try { fora = Garantias.foraDeCasa(m.coisa); } catch (e) {} }
+      const next = fora ? null : m.next || (m.last && m.interval ? addDays(m.last, +m.interval) : null);
+      return Object.assign({}, m, { next, _days: next ? diffDays(today(), next) : null }, fora ? { fora } : {});
+    });
+    return (isGuardian() ? L : L.filter((m) => m.fora !== "sem")).sort((a, b) => (a._days == null ? 9999 : a._days) - (b._days == null ? 9999 : b._days));
+  },
   fields() { return [{ k: "title", label: tt("O quê", "What"), req: true, full: true }, { k: "cat", label: tt("Categoria", "Category"), type: "select", opts: MT_CATS().map((c) => [c[0], c[1] + " " + c[2]]) }, { k: "interval", label: tt("Repetir a cada (dias)", "Every (days)"), type: "number" }, { k: "last", label: tt("Última vez", "Last time"), type: "date" }, { k: "next", label: tt("Próxima (vazio = calcular)", "Next (blank = compute)"), type: "date" }, { k: "provider", label: tt("Quem faz (empresa/profissional)", "Provider") }, { k: "cost", label: tt("Custo médio (R$)", "Average cost (R$)"), type: "number", step: "any" }, { k: "notes", label: tt("Observações (modelo do filtro, km…)", "Notes (filter model, mileage…)"), type: "textarea", rows: 2 }].concat(Cars.list().length ? [{ k: "veiculo", label: "🚗 " + tt("De qual veículo (se for do carro)", "Which vehicle (if it's for the car)"), type: "select", opts: [["", "—"]].concat(Cars.list().map((c) => [c.id, c.name])) }] : []); },
   async edit(m) {
     m = m || { cat: "casa", interval: 180 };
     const hist = (m.history || []).slice().reverse().map((h) => fmtDate(h.d) + (h.cost ? " · " + money(h.cost) : "") + (h.by ? " · " + People.name(h.by) : "") + (h.note ? " · " + h.note : "")).join("<br>");
     /* carro: revisão "a cada X km ou Y dias, o que vier primeiro" (#53) */
     const kmf = m.cat === "carro" || m.veiculo ? [{ k: "cadaKm", label: "🚗 " + tt("Ou a cada (km)", "Or every (km)"), im: "numeric", hint: tt("Ex.: 10000. Vale o que vier primeiro: os dias ou os km.", "e.g. 10000. Whichever comes first: the days or the km.") }, { k: "ultKm", label: "🚗 " + tt("Km na última vez", "Km last time"), im: "numeric" }] : [];
-    const f = this.fields().concat(kmf, m.id ? [{ type: "html", html: '<div class="grouph">' + tt("Histórico", "History") + '</div><div class="small muted">' + (hist ? esc(hist).replace(/&lt;br&gt;/g, "<br>") : "—") + "</div>" }] : []);
+    /* 🧾 lembrete de um equipamento: sem "De qual veículo" e com o nome dele (só para quem vê o objeto) */
+    const obj = typeof m.coisa === "string" && m.coisa ? DB.get("things", m.coisa) : null;
+    const f = (obj ? [{ type: "note", html: "🔌 " + esc(tt("Ligado a: ", "Linked to: ", "Vinculado a: ") + String(obj.name || "")) }] : []).concat(this.fields().filter((x) => !(m.coisa && x.k === "veiculo")), kmf, m.id ? [{ type: "html", html: '<div class="grouph">' + tt("Histórico", "History") + '</div><div class="small muted">' + (hist ? esc(hist).replace(/&lt;br&gt;/g, "<br>") : "—") + "</div>" }] : []);
     /* cuidado de um pet (vacina, banho…): os ✓ Feito passam para o Histórico do pet antes de apagar, como no 🚫 Não se aplica */
     const apagar = async () => { const moveu = await Pets.guardarHistorico(DB.get("maint", m.id) || m); await DB.del("maint", m.id); if (moveu) toast(tt("O que já foi feito continua no Histórico do pet.", "What was already done stays in the pet's History."), 4000); };
     const r = await formModal({ title: "🛠 " + tt("Manutenção", "Maintenance"), fields: f, values: Object.assign({}, m, { next: m.nextManual ? m.next : "" }), onDelete: m.id ? apagar : null });
@@ -11112,10 +11123,10 @@ const Maint = {
     const m = DB.get("maint", id); if (!m) return;
     /* 🐾 compra da ração: o ✓ abre a ração para anotar a compra nova (o próximo aviso sai dela) */
     if (m.petTipo === "racao" && Pets.get(m.pet)) return Pets.racaoForm(m.pet, true);
-    /* vacina do pet: a marca e quem aplicou ficam na linha do histórico. Cuidado ligado a um pet não manda gasto ao
-       MoneyTRIO por enquanto (esperando o formato de lá, PENDENCIAS #62) */
+    /* vacina do pet: a marca e quem aplicou ficam na linha do histórico. Cuidado ligado a um pet ou a um equipamento (coisa,
+       EQ4) não manda gasto ao MoneyTRIO por enquanto (esperando o formato de lá, PENDENCIAS #62; D-G2) */
     const vac = m.petTipo === "vacina" && !!m.pet;
-    const r = await formModal({ title: "✓ " + esc(m.title), fields: [{ k: "d", label: tt("Quando foi feito", "Done on"), type: "date", def: today() }, { k: "cost", label: tt("Quanto custou (R$)", "Cost (R$)"), type: "number", step: "any" }, { k: "note", label: tt("Observação", "Note") }].concat(m.pet ? [] : [{ k: "mt", label: "💰 " + tt("Enviar o custo para o MoneyTrio", "Send cost to MoneyTrio"), type: "check", def: Bridge.cfg().enabled }]).concat(vac ? [{ k: "produto", label: "💉 " + tt("Vacina aplicada (nome ou marca)", "Vaccine given (name or brand)") }, { k: "vet", label: "🩺 " + tt("Quem aplicou (veterinário ou clínica)", "Given by (vet or clinic)") }] : []).concat(m.cat === "carro" || m.veiculo ? [{ k: "km", label: tt("Quilometragem no painel (km)", "Mileage on the dashboard (km)"), im: "numeric" }] : []).concat(m.cat === "carro" ? [{ k: "mtsub", label: tt("Categoria no MoneyTRIO (Veículo)", "MoneyTRIO category (Vehicle)"), type: "select", opts: MT_SUB_CARRO().map((o) => [o[0], o[0] + " — " + o[1]]), def: mtSubCarro(m.title), hint: tt("Só vale se marcar \"Enviar o custo\". Já vem sugerida pelo nome; troque se precisar.", "Only used if \"Send cost\" is checked. Suggested from the name; change it if needed.") }] : []), okText: tt("Registrar", "Log it") });
+    const r = await formModal({ title: "✓ " + esc(m.title), fields: [{ k: "d", label: tt("Quando foi feito", "Done on"), type: "date", def: today() }, { k: "cost", label: tt("Quanto custou (R$)", "Cost (R$)"), type: "number", step: "any" }, { k: "note", label: tt("Observação", "Note") }].concat(m.pet || m.coisa ? [] : [{ k: "mt", label: "💰 " + tt("Enviar o custo para o MoneyTrio", "Send cost to MoneyTrio"), type: "check", def: Bridge.cfg().enabled }]).concat(vac ? [{ k: "produto", label: "💉 " + tt("Vacina aplicada (nome ou marca)", "Vaccine given (name or brand)") }, { k: "vet", label: "🩺 " + tt("Quem aplicou (veterinário ou clínica)", "Given by (vet or clinic)") }] : []).concat(m.cat === "carro" || m.veiculo ? [{ k: "km", label: tt("Quilometragem no painel (km)", "Mileage on the dashboard (km)"), im: "numeric" }] : []).concat(m.cat === "carro" ? [{ k: "mtsub", label: tt("Categoria no MoneyTRIO (Veículo)", "MoneyTRIO category (Vehicle)"), type: "select", opts: MT_SUB_CARRO().map((o) => [o[0], o[0] + " — " + o[1]]), def: mtSubCarro(m.title), hint: tt("Só vale se marcar \"Enviar o custo\". Já vem sugerida pelo nome; troque se precisar.", "Only used if \"Send cost\" is checked. Suggested from the name; change it if needed.") }] : []), okText: tt("Registrar", "Log it") });
     if (!r) return;
     const d = r.d || today();
     const km = kmDe(r.km), car = m.veiculo ? DB.get("places", m.veiculo) : null;
@@ -11429,7 +11440,7 @@ const Cars = {
       for (const m of j.manutencao || []) {
         const t = txt(m && m.titulo, 120); if (!t) continue;
         const last = dt(m.ultima), iv = num(m.intervaloDias) || 365, hist = last ? [{ d: last, cost: 0, note: txt(m.nota, 300), by: S.meId }] : [];
-        const ex = DB.all("maint").find((x) => x.tipo !== "servico" && norm(x.title) === norm(t) && (!x.veiculo || x.veiculo === c.id));
+        const ex = DB.all("maint").find((x) => x.tipo !== "servico" && !x.coisa && norm(x.title) === norm(t) && (!x.veiculo || x.veiculo === c.id));   /* o de um equipamento (coisa) fica com ele */
         if (ex) {
           const nv = Object.assign({}, ex, { veiculo: c.id });
           if (last && (!ex.last || last > ex.last)) Object.assign(nv, { last, next: addDays(last, +(ex.interval || iv)), nextManual: false, history: (ex.history || []).concat(hist).slice(-30) });
@@ -12210,7 +12221,7 @@ const Pets = {
     const ps = this.list(); if (!ps.length || !this.podeEditar()) return;
     /* o nome como palavra inteira, e só com 3 letras ou mais: "Mi" estava dentro de "vermífugo" e o cuidado ia para o pet errado */
     const palavra = (t, n) => { n = norm(n); return n.length >= 3 && new RegExp("(^|[^a-z0-9])" + n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "([^a-z0-9]|$)").test(t); };
-    for (const m of DB.raw("maint").filter((x) => x.cat === "pet" && !x.pet)) {
+    for (const m of DB.raw("maint").filter((x) => x.cat === "pet" && !x.pet && !x.coisa)) {   /* o de um equipamento (coisa) fica com ele */
       const t = norm(m.title), donos = ps.filter((p) => [p.name, p.nick].some((n) => palavra(t, n)));
       const p = donos.length === 1 ? donos[0] : !donos.length && ps.length === 1 ? ps[0] : null; if (!p) continue;
       let tipo = /vacin|vaccin/.test(t) ? "vacina" : /verm|worm/.test(t) ? "vermifugo" : /pulga|carrapat|\bflea|\btick/.test(t) ? "antipulgas" : /banho|tosa|\bbath|groom/.test(t) ? "banho" : "outro";
@@ -13733,6 +13744,89 @@ const Garantias = {
     await DB.put("things", Object.assign({}, t, { garantia: Object.assign({}, raw, { manualUrl: url }) }));
     toast("✓ " + (url ? tt("Link do manual guardado.", "Manual link saved.", "Enlace del manual guardado.") : tt("Link do manual tirado.", "Manual link removed.", "Enlace del manual quitado.")), 3000);
   },
+  /* ---------- EQ4: os lembretes de manutenção do equipamento = registros da Manutenção da casa (maint) com coisa = o id do
+     objeto e o "Quem vê" dele. Os avisos, o ✓ Feito e o histórico são os do Maint ---------- */
+  /* os lembretes deste aparelho, na ordem do Maint.list (o mais urgente primeiro); Manutenção desligada: nenhum */
+  manut(t) { return (t && this._mtMapa().get(t.id)) || []; },
+  /* o título sem o " — nome" do fim (dentro da ficha já se sabe de qual aparelho é) */
+  _mtCurto(m, t) { const fim = " — " + String((t && t.name) || ""), tit = String((m && m.title) || ""); return tit.length > fim.length && tit.endsWith(fim) ? tit.slice(0, -fim.length) : tit; },
+  _mtCada(n) { n = +n; return !(n > 0) ? "" : n >= 60 ? tt("a cada " + Math.round(n / 30.44) + " meses", "every " + Math.round(n / 30.44) + " months", "cada " + Math.round(n / 30.44) + " meses") : tt("a cada " + n + " dias", "every " + n + " days", "cada " + n + " días"); },
+  /* quando: atrasada, hoje, amanhã, em N dias (até 30) ou a data; sem a última vez, o app não sabe quando avisar */
+  _mtQuando(m, ed) {
+    const n = m._days;
+    if (n == null) return m.last ? "" : tt("Sem a última vez, o app não sabe quando avisar.", "Without the last time, the app can't tell when to remind you.", "Sin la última vez, la app no sabe cuándo avisar.") + (ed ? " " + tt("Toque em ✓ Feito hoje quando fizer.", "Tap ✓ Done today when you do it.", "Toca ✓ Hecho hoy cuando lo hagas.") : "");
+    return n < 0 ? (n === -1 ? tt("atrasada há 1 dia", "1 day overdue", "con 1 día de retraso") : tt("atrasada há " + -n + " dias", -n + " days overdue", "con " + -n + " días de retraso"))
+      : n === 0 ? tt("hoje", "today", "hoy") : n === 1 ? tt("amanhã", "tomorrow", "mañana") : n <= 30 ? tt("em " + n + " dias", "in " + n + " days", "dentro de " + n + " días") : tt("próxima: ", "next: ", "próxima: ") + fmtDate(m.next);
+  },
+  /* quem pode mexer nos lembretes deste aparelho: quem pode mudar a garantia, com a coisa em casa e a Manutenção ligada */
+  _mtRecusa(t) {
+    const no = this.recusa(t); if (no) return no;
+    const g = t ? this.ler(t) : null; if (!g) return tt("Equipamento não encontrado.", "Item not found.", "No se ha encontrado el aparato.");
+    if (g.saiu) return tt("Esta coisa saiu de casa: a ficha fica só como histórico.", "This item is no longer at home: its record stays as history only.", "Esta cosa ya no está en casa: la ficha queda solo como historial.");
+    return Rec.ok("house", "maint") ? "" : tt("A Manutenção da casa está desligada.", "Home maintenance is turned off.", "El mantenimiento de casa está desactivado.");
+  },
+  /* o lembrete pelo id (só o deste aparelho que a pessoa vê) e o aparelho dele */
+  _mtDe(mid) { const m = mid ? DB.get("maint", mid) : null, t = m && typeof m.coisa === "string" && m.coisa ? DB.get("things", m.coisa) : null; return t ? { m, t } : null; },
+  _mtPergunta(m, t) {
+    return confirmBox(esc(tt("Apagar o lembrete “" + this._mtCurto(m, t) + "”? Ele para de avisar, e o histórico das vezes feitas some junto.", "Delete the reminder “" + this._mtCurto(m, t) + "”? It stops reminding you, and the history of times it was done goes with it.", "¿Borrar el recordatorio «" + this._mtCurto(m, t) + "»? Deja de avisar y el historial de las veces hechas se borra con él.")), esc(tt("Parar de avisar", "Stop reminding", "Dejar de avisar")), true);
+  },
+  /* ＋ (com a sugestão pelo nome, ou outro) ou editar (tocar no título): a janela de 3 campos. Antes da sugestão, se ela já existe em
+     Casa → Manutenção sem equipamento, "Ligar" grava só o coisa e o "Quem vê" nela (fica um só) */
+  async lembrete(id, mid, comSug) {
+    const t = DB.get("things", id); if (!t) return toast(tt("Equipamento não encontrado.", "Item not found.", "No se ha encontrado el aparato."));
+    const no = this._mtRecusa(t); if (no) return toast(no);
+    const m0 = mid ? DB.get("maint", mid) : null; if (mid && !(m0 && m0.coisa === t.id)) return;
+    const nome = String(t.name || ""), sug = !m0 && comSug ? this.sugManut(nome) : null;
+    if (sug) {
+      const ex = DB.all("maint").find((x) => x.tipo !== "servico" && !x.coisa && !x.veiculo && !x.pet && norm(x.title).startsWith(norm(sug.oque)));
+      if (ex && (await confirmBox(esc(tt("Já existe “" + ex.title + "” em Casa → Manutenção. Ligar a este equipamento? (fica um só)", "“" + ex.title + "” already exists in House → Maintenance. Link it to this item? (you'll keep just one)", "Ya existe «" + ex.title + "» en Casa → Mantenimiento. ¿Vincularlo a este aparato? (queda uno solo)")), esc(tt("Ligar", "Link", "Vincular"))))) {
+        const t2 = DB.get("things", id), atual = DB.col("maint").get(ex.id); if (!t2 || !atual || atual.coisa) return;
+        await DB.put("maint", Object.assign({}, atual, { coisa: t2.id, vis: t2.vis === "restrito" ? "restrito" : "familia" }));
+        return toast("✓ " + tt("Lembrete ligado a este equipamento.", "Reminder linked to this item.", "Recordatorio vinculado a este aparato."), 3000);
+      }
+    }
+    /* em meses (6 meses = 183 dias); um intervalo de antes fora da lista aparece "como está" */
+    const M = [[1, tt("1 mês", "1 month", "1 mes")], [2, tt("2 meses", "2 months", "2 meses")], [3, tt("3 meses", "3 months", "3 meses")], [6, tt("6 meses", "6 months", "6 meses")], [12, tt("1 ano", "1 year", "1 año")], [24, tt("2 anos", "2 years", "2 años")]], dias = (n) => Math.round(n * 30.44);
+    const iv0 = m0 ? +m0.interval || 0 : 0, mes0 = m0 ? (M.find((x) => dias(x[0]) === iv0) || [])[0] : sug ? sug.meses : 6;
+    const opts = M.map((x) => [String(x[0]), x[1]]).concat(m0 && !mes0 && iv0 > 0 ? [["d" + iv0, tt("a cada " + iv0 + " dias (como está)", "every " + iv0 + " days (as it is)", "cada " + iv0 + " días (como está)")]] : []);
+    let parar = false;
+    const r = await formModal({ title: "🛠 " + tt("Lembrete", "Reminder", "Recordatorio") + " — " + esc(nome),
+      values: { oque: m0 ? this._mtCurto(m0, t) : sug ? sug.oque : "", cada: mes0 ? String(mes0) : iv0 > 0 ? "d" + iv0 : "6", last: m0 ? m0.last || "" : today() },
+      fields: [{ k: "oque", label: tt("O que fazer", "What to do", "Qué hacer"), req: true, full: true },
+        { k: "cada", label: tt("A cada quanto tempo?", "How often?", "¿Cada cuánto?"), type: "select", opts },
+        { k: "last", label: tt("Quando foi a última vez?", "When was the last time?", "¿Cuándo fue la última vez?"), type: "date", hint: esc(tt("Se não lembra, deixe hoje: o primeiro aviso sai depois desse tempo.", "If you don't remember, leave today: the first reminder comes after that time.", "Si no te acuerdas, deja hoy: el primer aviso llegará pasado ese tiempo.")) }],
+      /* parar de avisar tem botão próprio: o 🗑 Excluir do formModal perguntaria "Excluir este registro?" antes da pergunta daqui */
+      extraFoot: m0 ? '<button type="button" class="btn danger sm" data-parar style="margin-right:auto">🚫 ' + tt("Parar de avisar", "Stop reminding", "Dejar de avisar") + "</button>" : "",
+      after: (el, md) => { const b = el.querySelector("[data-parar]"); if (b) b.onclick = async () => { if (await this._mtPergunta(m0, t)) { parar = true; md.close(); } }; },
+      onOk: (o) => { if (o.last && o.last > today()) { toast("⚠️ " + tt("A última vez não pode ser depois de hoje.", "The last time can't be after today.", "La última vez no puede ser después de hoy."), 5000); return false; } } });
+    if (!r && !parar) return;
+    const t2 = DB.get("things", id); if (!t2) return;
+    const no2 = this._mtRecusa(t2); if (no2) return toast(no2);
+    if (parar) { if (DB.col("maint").get(m0.id)) await DB.del("maint", m0.id); return; }
+    const cada = String(r.cada || ""), iv = cada[0] === "d" ? +cada.slice(1) : dias(+cada); if (!(iv > 0)) return;
+    const base = m0 ? DB.col("maint").get(m0.id) : null; if (m0 && !base) return;
+    const last = r.last || "", manter = base && base.nextManual && last === (base.last || "") && iv === +base.interval;   /* o 📅 Remarcar fica, se a data e o tempo não mudaram */
+    await DB.put("maint", Object.assign(base ? Object.assign({}, base) : { cat: "eletro", history: [] }, { title: String(r.oque || "").trim() + " — " + String(t2.name || ""), interval: iv, last, coisa: t2.id, vis: t2.vis === "restrito" ? "restrito" : "familia" },
+      manter ? {} : { next: last ? addDays(last, iv) : "", nextManual: false }));
+  },
+  /* 📅 Remarcar: a próxima vez numa data escolhida (o ✓ Feito volta a contar pelo intervalo) */
+  async mtRemarcar(mid) {
+    const x = this._mtDe(mid); if (!x) return;
+    const no = this._mtRecusa(x.t); if (no) return toast(no);
+    const r = await formModal({ title: "📅 " + tt("Remarcar", "Reschedule", "Cambiar fecha") + " · " + esc(this._mtCurto(x.m, x.t)), values: { next: x.m.next || today() },
+      fields: [{ k: "next", label: tt("Avisar de novo em", "Remind me again on", "Volver a avisar el"), type: "date", req: true }] });
+    if (!r || !/^\d{4}-\d{2}-\d{2}$/.test(r.next || "")) return;
+    const y = this._mtDe(mid); if (!y || this._mtRecusa(y.t)) return;
+    await DB.patch("maint", mid, { next: r.next, nextManual: true });
+    toast("📅 " + tt("Remarcado para ", "Rescheduled to ", "Cambiado al ") + fmtDate(r.next), 3000);
+  },
+  /* 🚫 Parar de avisar: apaga o lembrete (e o histórico dele), com a pergunta */
+  async mtParar(mid) {
+    const x = this._mtDe(mid); if (!x) return;
+    const no = this._mtRecusa(x.t); if (no) return toast(no);
+    if (!(await this._mtPergunta(x.m, x.t))) return;
+    if (DB.col("maint").get(mid)) await DB.del("maint", mid);
+  },
   /* apagar o objeto (✏️ do Onde está?): os papéis com a marca dele, o item das Senhas (só no modo aberto) e, por último, o objeto */
   async apagar(t0) {
     const t = DB.col("things").get(t0.id) || t0, vid = "gv_" + t.id;
@@ -13741,33 +13835,38 @@ const Garantias = {
     const v = DB.col("vault").get(vid);
     if (v && this.modo() === "aberto") { for (const id of v.files || []) await Files.remove(id); await DB.del("vault", vid); }
     else if (v || (t.garantia && t.garantia.vaultId)) toast(tt("Os números da garantia continuam nas Senhas da casa: abra-as para apagar.", "The warranty numbers stay in the vault: open it to delete them.", "Los números de la garantía siguen en las Contraseñas de casa: ábrelas para borrarlos."), 6000);
+    for (const m of DB.raw("maint").filter((x) => x.coisa === t.id)) await DB.del("maint", m.id);   /* os lembretes de manutenção dele (EQ4) */
     await DB.del("things", t.id);
   },
-  /* sobras de coisa apagada (num app de antes, ou por quem não abre as Senhas): papéis com a marca gar e itens das Senhas com
-     garantiaDe de um objeto que não existe mais. Só o responsável, com as Senhas abertas, vê; só sai com confirmação e os nomes,
+  /* sobras de coisa apagada (num app de antes, ou por quem não abre as Senhas): papéis com a marca gar, itens das Senhas com
+     garantiaDe e lembretes de manutenção com coisa (EQ4) de um objeto que não existe mais. Só o responsável, com as Senhas abertas, vê; só sai com confirmação e os nomes,
      para não apagar o que ainda está chegando pela nuvem */
   async sobras() {
     if (!isGuardian() || !S.vaultKey) return null;
     const vivos = new Set(DB.raw("things").map((t) => t.id)), papeis = DB.raw("files").filter((f) => typeof f.gar === "string" && f.gar && !vivos.has(f.gar)), numeros = [];
     for (const v of DB.raw("vault")) { if (v.id === "_meta" || v.id === "_em" || !v.enc) continue; try { const o = await Vault.decObj(v.enc); if (o && typeof o.garantiaDe === "string" && o.garantiaDe && !vivos.has(o.garantiaDe)) numeros.push({ v, o }); } catch (e) {} }
-    return { papeis, numeros };
+    const lembretes = DB.raw("maint").filter((m) => typeof m.coisa === "string" && m.coisa && !vivos.has(m.coisa));
+    return { papeis, numeros, lembretes };
   },
   contagem(s) {
-    const p = s.papeis.length, n = s.numeros.length;
-    return [p ? p + " " + (p > 1 ? tt("papéis", "documents", "documentos") : tt("papel", "document", "documento")) : "", n ? n + " " + (n > 1 ? tt("números", "numbers", "números") : tt("número", "number", "número")) : ""].filter(Boolean).join(tt(" e ", " and ", " y "));
+    const p = s.papeis.length, n = s.numeros.length, l = s.lembretes.length;
+    const L = [p ? p + " " + (p > 1 ? tt("papéis", "documents", "documentos") : tt("papel", "document", "documento")) : "", n ? n + " " + (n > 1 ? tt("números", "numbers", "números") : tt("número", "number", "número")) : "",
+      l ? l + " " + (l > 1 ? tt("lembretes", "reminders", "recordatorios") : tt("lembrete", "reminder", "recordatorio")) : ""].filter(Boolean);
+    return L.length > 1 ? L.slice(0, -1).join(", ") + tt(" e ", " and ", " y ") + L[L.length - 1] : L.join("");
   },
   async sobrasCartao(root) {
     const box = $("#garsobras", root); if (!box) return;
-    const s = await this.sobras(); if (!box.isConnected || !s || (!s.papeis.length && !s.numeros.length)) return;
-    box.innerHTML = '<div class="card warnc"><h3>🧹 ' + tt("Sobrou de coisa apagada: ", "Left over from deleted items: ", "Ha sobrado de cosas borradas: ") + esc(this.contagem(s)) + '</h3><p class="small muted">' + tt("Papéis e números de garantias de coisas que já foram apagadas. Confira os nomes antes de apagar.", "Documents and numbers from warranties of items that were already deleted. Check the names before deleting.", "Documentos y números de garantías de cosas que ya se borraron. Revisa los nombres antes de borrar.") + '</p><button class="btn ghost" data-act="gar.sobras">🧹 ' + tt("Ver e apagar", "See and delete", "Ver y borrar") + "</button></div>";
+    const s = await this.sobras(); if (!box.isConnected || !s || (!s.papeis.length && !s.numeros.length && !s.lembretes.length)) return;
+    box.innerHTML = '<div class="card warnc"><h3>🧹 ' + tt("Sobrou de coisa apagada: ", "Left over from deleted items: ", "Ha sobrado de cosas borradas: ") + esc(this.contagem(s)) + '</h3><p class="small muted">' + tt("Papéis, números e lembretes de manutenção de coisas que já foram apagadas. Confira os nomes antes de apagar.", "Documents, numbers and maintenance reminders from items that were already deleted. Check the names before deleting.", "Documentos, números y recordatorios de mantenimiento de cosas que ya se borraron. Revisa los nombres antes de borrar.") + '</p><button class="btn ghost" data-act="gar.sobras">🧹 ' + tt("Ver e apagar", "See and delete", "Ver y borrar") + "</button></div>";
   },
   async tirarSobras() {
-    const s = await this.sobras(); if (!s || (!s.papeis.length && !s.numeros.length)) return;
-    const nomes = s.papeis.map((f) => "📎 " + esc(f.name || "") + (f.createdAt ? " (" + esc(fmtDate(String(f.createdAt).slice(0, 10))) + ")" : "")).concat(s.numeros.map((x) => "🔐 " + esc(x.o.title || "")));
+    const s = await this.sobras(); if (!s || (!s.papeis.length && !s.numeros.length && !s.lembretes.length)) return;
+    const nomes = s.papeis.map((f) => "📎 " + esc(f.name || "") + (f.createdAt ? " (" + esc(fmtDate(String(f.createdAt).slice(0, 10))) + ")" : "")).concat(s.numeros.map((x) => "🔐 " + esc(x.o.title || "")), s.lembretes.map((m) => "🔧 " + esc(m.title || "")));
     if (!(await confirmBox(esc(tt("Apagar de vez estas sobras?", "Delete these leftovers for good?", "¿Borrar del todo estos restos?")) + "<br>" + nomes.join("<br>"), tt("Apagar", "Delete", "Borrar"), true))) return;
     const pm = Cofre.podeMudar(); if (s.numeros.length && !pm.ok) return toast(pm.texto, 6000);
     for (const f of s.papeis) await Files.remove(f.id);
     for (const x of s.numeros) { for (const id of x.v.files || []) await Files.remove(id); await DB.del("vault", x.v.id); }
+    for (const m of s.lembretes) await DB.del("maint", m.id);
     toast("✓ " + tt("Sobras apagadas.", "Leftovers deleted.", "Restos borrados."), 3000); render();
   },
   /* o selo do Onde está?: "🧾 garantia até ≈{d}" (a cobertura que vai mais longe e ainda vale) ou "📦 saiu de casa"; vazio se
@@ -13891,8 +13990,24 @@ const Garantias = {
     if (pode) man += '<div class="row" style="margin-top:8px"><button class="btn ghost" data-act="gar.manual" data-id="' + tid + '">' + (href ? "✏️ " + tt("Trocar ou tirar o link", "Change or remove the link", "Cambiar o quitar el enlace") : "🔗 " + tt("Colar o link do manual", "Paste the manual link", "Pegar el enlace del manual")) + "</button>" +
       '<button class="btn ghost" data-act="gar.papel" data-id="' + tid + '" data-tipo="manual">＋ ' + tt("Guardar o manual (PDF ou foto)", "Save the manual (PDF or photo)", "Guardar el manual (PDF o foto)") + "</button></div>";
     const manual = man ? '<div class="card" id="garmanual"><h3>📘 ' + tt("Manual", "Manual", "Manual") + "</h3>" + man + "</div>" : "";
+    /* 🛠 a manutenção: os lembretes da Manutenção da casa ligados a este aparelho (EQ4), com ✓ Feito hoje, 📅 Remarcar e 🚫 Parar de
+       avisar em botões grandes. Saiu de casa: só o histórico (os lembretes pararam). Manutenção desligada: o cartão some */
+    let mtc = "";
+    if (Rec.ok("house", "maint")) {
+      const ms = this.manut(t), sug = pode ? this.sugManut(t.name) : null, jaSug = !!sug && ms.some((m) => norm(m.title).startsWith(norm(sug.oque)));
+      const L = ms.map((m) => { const tit = esc(this._mtCurto(m, t)), mid = esc(m.id);
+        return '<div class="li gar-mtl" style="display:block" data-m="' + mid + '"><div class="t">' + (pode ? '<button class="linkbtn" data-act="gar.manut" data-id="' + tid + '" data-m="' + mid + '">' + tit + "</button>" : "<b>" + tit + "</b>") + "</div>" +
+          '<div class="s">' + esc([this._mtCada(m.interval), m.last ? tt("última: ", "last: ", "última: ") + fmtDate(m.last) : "", saiu ? "" : this._mtQuando(m, pode)].filter(Boolean).join(" · ")) + "</div>" +
+          (pode ? '<div class="row" style="margin-top:6px"><button class="btn ok" data-act="mt.done" data-id="' + mid + '">✓ ' + tt("Feito hoje", "Done today", "Hecho hoy") + '</button><button class="btn ghost" data-act="gar.mtdata" data-m="' + mid + '">📅 ' + tt("Remarcar", "Reschedule", "Cambiar fecha") + '</button><button class="btn ghost" data-act="gar.mtparar" data-m="' + mid + '">🚫 ' + tt("Parar de avisar", "Stop reminding", "Dejar de avisar") + "</button></div>" : "") + "</div>"; }).join("");
+      /* nunca "＋ Lembrete" sozinho (confunde com o Lembrete rápido do ☰); a sugestão não se oferece de novo quando já está ligada */
+      const novos = !pode ? "" : '<div class="row" style="margin-top:8px">' + (sug && !jaSug ? '<button class="btn ghost" data-act="gar.manut" data-id="' + tid + '" data-sug="1">＋ ' + esc(tt("Lembrete: ", "Reminder: ", "Recordatorio: ") + sug.oque + " (" + tt("a cada " + sug.meses + " meses", "every " + sug.meses + " months", "cada " + sug.meses + " meses") + ")") + "</button>" : "") +
+        '<button class="btn ghost" data-act="gar.manut" data-id="' + tid + '">＋ ' + (sug ? tt("Outro lembrete", "Another reminder", "Otro recordatorio") : tt("Lembrete de manutenção", "Maintenance reminder", "Recordatorio de mantenimiento")) + "</button></div>";
+      if (ms.length || !saiu) mtc = '<div class="card" id="garmt"><h3>🛠 ' + tt("Manutenção", "Maintenance", "Mantenimiento") + "</h3>" +
+        (saiu ? '<p class="small muted">📦 ' + tt("Saiu de casa: os lembretes pararam (o histórico continua aqui).", "No longer at home: the reminders stopped (the history stays here).", "Ya no está en casa: los recordatorios se han parado (el historial sigue aquí).") + "</p>" : "") +
+        (L ? '<div class="list">' + L + "</div>" : '<p class="small muted">' + tt("Nenhum lembrete. Ex.: trocar o refil a cada 6 meses, limpar o filtro do ar-condicionado.", "No reminders. E.g. change the refill every 6 months, clean the air conditioner filter.", "Ningún recordatorio. Ej.: cambiar el filtro cada 6 meses, limpiar el filtro del aire acondicionado.") + "</p>") + novos + "</div>";
+    }
     /* vencida ou saiu de casa: o aparelho primeiro; as datas, fechadas (ficam como arquivo) */
-    h += arquivo ? ficha + manual + (datas ? '<div class="card gar-datas">' + moreBox("🗓️ " + tt("Ver as datas das garantias", "See the warranty dates", "Ver las fechas de las garantías"), datas) + "</div>" : "") : tres + ficha + manual;
+    h += arquivo ? ficha + manual + mtc + (datas ? '<div class="card gar-datas">' + moreBox("🗓️ " + tt("Ver as datas das garantias", "See the warranty dates", "Ver las fechas de las garantías"), datas) + "</div>" : "") : tres + ficha + manual + mtc;
     /* a compra; a referência de dinheiro vem trancada (o after() preenche no modo aberto). Sem nada trancado, o 🔐 vira uma linha aqui */
     const fins = [["pedido", tt("Nº do pedido", "Order number", "Nº de pedido")], ["bilhete", tt("Nº do bilhete do seguro", "Insurance certificate number", "Nº del certificado del seguro")], ["imei", "IMEI"]].filter((x) => g.finais[x[0]]);
     const numeros = fins.length > 0 || (modo === "aberto" && (!!GarCalc._o(t.garantia).vaultId || !!DB.col("vault").get("gv_" + t.id)));
@@ -14709,6 +14824,9 @@ ACT["gar.assistnovo"] = (d) => { const t = DB.get("things", d.id); if (t) Garant
 ACT["gar.edit"] = (d) => { const t = DB.get("things", d.id); if (t) Garantias.edit(t); else toast(tt("Equipamento não encontrado.", "Item not found.", "No se ha encontrado el aparato.")); };
 ACT["gar.papel"] = (d) => Garantias.addPapel(d.id, d.tipo);
 ACT["gar.manual"] = (d) => Garantias.colarManual(d.id);
+ACT["gar.manut"] = (d) => Garantias.lembrete(d.id, d.m || "", d.sug === "1");
+ACT["gar.mtdata"] = (d) => Garantias.mtRemarcar(d.m);
+ACT["gar.mtparar"] = (d) => Garantias.mtParar(d.m);
 ACT["gar.foto"] = (d) => Garantias.lerArquivos(d && d.id);
 ACT["gar.papeldel"] = (d) => Garantias.tirarPapel(d.id, d.ref);
 ACT["gar.sobras"] = () => Garantias.tirarSobras();
@@ -14768,12 +14886,15 @@ const HouseViews = {
   maint() {
     const ms = Maint.list();
     let h = '<div class="card"><div class="between"><div><h3>🛠 ' + tt("Manutenções da casa, carro e pets", "Home, car and pet maintenance") + '</h3><div class="small muted">' + tt("O app avisa quando está chegando a hora e guarda o histórico.", "The app warns when it's due and keeps the history.") + '</div></div><button class="btn sm" data-act="mt.new">＋</button></div>' +
-      (ms.length ? '<div class="list" style="margin-top:8px">' + ms.map((m) => { const c = MT_CATS().find((x) => x[0] === m.cat) || MT_CATS()[5]; const st = m._days == null ? "" : m._days < 0 ? '<span class="badge bad">' + tt("atrasada ", "overdue ") + -m._days + "d</span>" : m._days <= 15 ? '<span class="badge warn">' + relDay(m.next) + "</span>" : '<span class="badge ok">' + fmtDate(m.next, "short") + "</span>"; return '<div class="li"><div class="ico">' + c[1] + '</div><div class="main click" data-act="mt.edit" data-id="' + m.id + '"><div class="t">' + esc(m.title) + " " + st + '</div><div class="s">' + [m.last ? tt("última: ", "last: ") + fmtDate(m.last) : tt("sem registro", "no record"), m.interval ? tt("a cada ", "every ") + m.interval + tt(" dias", " days") : "", m.provider].filter(Boolean).map(esc).join(" · ") + '</div></div><button class="btn xs ok" data-act="mt.done" data-id="' + m.id + '">✓ ' + tt("Feito", "Done") + "</button></div>"; }).join("") + "</div>" : "") + "</div>";
-    const have = new Set(ms.map((m) => norm(m.title)));
+      (ms.length ? '<div class="list" style="margin-top:8px">' + ms.map((m) => { const c = MT_CATS().find((x) => x[0] === m.cat) || MT_CATS()[5]; const st = m._days == null ? "" : m._days < 0 ? '<span class="badge bad">' + tt("atrasada ", "overdue ") + -m._days + "d</span>" : m._days <= 15 ? '<span class="badge warn">' + relDay(m.next) + "</span>" : '<span class="badge ok">' + fmtDate(m.next, "short") + "</span>"; return '<div class="li"><div class="ico">' + c[1] + '</div><div class="main click" data-act="mt.edit" data-id="' + m.id + '"><div class="t">' + esc(m.title) + " " + st + '</div><div class="s">' + [m.last ? tt("última: ", "last: ") + fmtDate(m.last) : tt("sem registro", "no record"), m.interval ? tt("a cada ", "every ") + m.interval + tt(" dias", " days") : "", m.provider,
+        /* 🧾 lembrete de um equipamento que saiu de casa ou foi apagado: não avisa mais (o "sem" só o responsável vê) */
+        m.fora === "saiu" ? "📦 " + tt("saiu de casa", "no longer at home", "ya no está en casa") : m.fora === "sem" ? "🗑 " + tt("o equipamento foi apagado", "the item was deleted", "el aparato se ha borrado") : ""].filter(Boolean).map(esc).join(" · ") + '</div></div><button class="btn xs ok" data-act="mt.done" data-id="' + m.id + '">✓ ' + tt("Feito", "Done") + "</button></div>"; }).join("") + "</div>" : "") + "</div>";
+    /* pelo começo do título: o refil ligado ao purificador ("… — Purificador Exemplo") também esconde a sugestão do refil */
+    const have = (t) => ms.some((m) => norm(m.title).startsWith(norm(t)));
     /* com 🐾 Pets ligado, os cuidados do pet nascem na ficha dele (com o tipo do bicho): o atalho daqui criava um "Antipulgas do
        pet" sem pet, que ia para o único pet da família, mesmo um jabuti, e aparecia mesmo com o cuidado já posto em Pets */
     const semPet = Rec.ok("pets") && canTab("pets");
-    const tpl = MT_TEMPLATES().filter((t) => !have.has(norm(t[0])) && !(semPet && t[1] === "pet"));
+    const tpl = MT_TEMPLATES().filter((t) => !have(t[0]) && !(semPet && t[1] === "pet"));
     if (tpl.length) h += '<div class="card tight"><h4>⚡ ' + tt("Sugestões rápidas", "Quick suggestions") + '</h4><div class="chips">' + tpl.map((t, i) => '<span class="chip" data-act="mt.tpl" data-i="' + MT_TEMPLATES().findIndex((x) => x[0] === t[0]) + '">＋ ' + esc(t[0]) + "</span>").join("") + "</div></div>";
     return h;
   },
@@ -17075,7 +17196,7 @@ const Search = {
     if (Rec.ok("inbox")) DB.all("msgs").filter((m) => Msgs.forMe(m) || m.from === S.meId).forEach((m) => add(G("ms"), "📨", m.title || tt("Recado", "Message"), People.name(m.from), () => Msgs.open(m.id), m.body));
     if (canTab("docs") && Rec.ok("docs")) DB.all("docs").filter((d) => canSee(d)).forEach((d) => add(G("dc"), "📄", d.title, People.name(d.owner), () => go("docs", null, d.id), d.number));
     if (Rec.ok("house", "where")) DB.all("things").forEach((t) => add(G("hs"), "🔹", t.name, tt("Onde está?", "Where is it?"), () => ACT["where.open"]({ type: "thing", id: t.id }), (t.tags || []).join(" ")));
-    if (Rec.ok("house", "maint")) Maint.list().forEach((m) => add(G("hs"), m.pet ? "🐾" : "🛠", m.title, tt("manutenção", "maintenance"), () => (m.pet && Rec.ok("pets") && Pets.get(m.pet) ? go("pets", "ficha", m.pet) : go("house", "maint"))));
+    if (Rec.ok("house", "maint")) Maint.list().forEach((m) => add(G("hs"), m.pet ? "🐾" : "🛠", m.title, tt("manutenção", "maintenance"), () => { const f = m.pet && Rec.ok("pets") && Pets.get(m.pet) ? ["pets", "ficha", m.pet] : Garantias.fichaDe(m) || ["house", "maint"]; go(f[0], f[1], f[2]); }));
     if (Rec.ok("cars")) Cars.list().forEach((c) => add(G("hs"), "🚗", c.name, [Cars.desc(c), (c.seguro || {}).seguradora].filter(Boolean).join(" · "), () => go("cars", "ficha", c.id), tt("carro veiculo seguro apolice franquia assistencia guincho revisao", "car vehicle insurance policy deductible assistance towing service")));
     if (Rec.ok("garantias") && canTab("garantias")) Garantias.busca().forEach((b) => add(G("gr"), "🧾", b.t, b.s, () => go("garantias", "ficha", b.id), b.q));
     const H = HELP(); Object.keys(H).filter((k) => (Rec.AJUDA[k] || []).every((id) => Rec.on(id))).forEach((k) => add(G("hp"), "❓", H[k].t.replace(/<[^>]+>/g, ""), "", () => Help.open(k), H[k].steps.join(" ").replace(/<[^>]+>/g, "")));
