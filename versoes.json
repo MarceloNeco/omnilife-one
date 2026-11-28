@@ -1,5 +1,28 @@
 [
  {
+  "v": "2.28.0",
+  "d": "2026-11-28",
+  "hora": "09:47:00",
+  "pt": [
+   "🧾 Novo: \"Equipamentos e garantias\" (no ☰, em Casa, carro e papéis). A ficha de cada aparelho da casa, com ou sem garantia: marca, modelo, número de série, voltagem, cor, código, data e loja da compra e o link do manual (ou \"🔎 Procurar o manual na internet\").",
+   "🛡 As três garantias explicadas para leigo — a de fábrica, o prazo da lei para reclamar e a estendida — com até quando vale cada uma, os filtros \"📋 Todos os equipamentos\", \"✅ Valendo\", \"⏰ Em 30 dias\" e \"🗄️ Vencidas\", e os avisos 30 e 7 dias antes de acabar.",
+   "🆘 \"Estragou? E agora?\": de quem cobrar em cada caso (loja, fabricante ou seguradora), com os botões para ligar, o que levar, o protocolo de cada atendimento e o contador dos 30 dias para consertar.",
+   "📷 Ler nota ou bilhete: uma ou várias fotos ou PDFs, lidos no próprio aparelho e em segundo plano. A IA é opcional e só recebe o texto, sem nome, CPF, endereço nem números. Você confere tudo antes de salvar.",
+   "🛠 Lembretes de manutenção na ficha (ex.: trocar o refil do purificador, limpar o ar-condicionado), com \"✓ Feito hoje\", \"📅 Remarcar\" e \"🚫 Parar de avisar\".",
+   "🔐 Os números e valores (pedido, bilhete, IMEI, valor pago) ficam trancados nas Senhas da casa, num quadro \"🧾 Números das garantias\" no fim da lista. 📥 \"Trazer equipamentos prontos\" traz um arquivo de uma vez, só pelo responsável.",
+   "🔒 Segurança: no app todo, um anexo que não é foto nem PDF agora é baixado para o aparelho, em vez de abrir dentro do app."
+  ],
+  "en": [
+   "🧾 New: \"Equipment & warranties\" (in ☰, under House, car and papers). A page for each appliance at home, with or without a warranty: brand, model, serial number, voltage, color, product code, purchase date and store, and the manual link (or \"🔎 Search for the manual online\").",
+   "🛡 The three warranties explained in plain words — the manufacturer's, the legal period to complain and the extended one — with how long each lasts, the filters \"📋 All equipment\", \"✅ Active\", \"⏰ Within 30 days\" and \"🗄️ Expired\", and reminders 30 and 7 days before they end.",
+   "🆘 \"Broken? What now?\": who to claim from in each case (store, manufacturer or insurer), with call buttons, what to bring, the protocol of each service request and the 30-day repair counter.",
+   "📷 Read invoice or certificate: one or several photos or PDFs, read on the device itself and in the background. AI is optional and only gets the text, without name, ID number, address or numbers. You check everything before saving.",
+   "🛠 Maintenance reminders on each item (e.g. change the water filter, clean the air conditioner), with \"✓ Done today\", \"📅 Reschedule\" and \"🚫 Stop reminding\".",
+   "🔐 Numbers and amounts (order, certificate, IMEI, price paid) stay locked in the Home passwords, in a \"🧾 Warranty numbers\" box at the end of the list. 📥 \"Bring in ready-made items\" brings a whole file at once, guardians only.",
+   "🔒 Security: across the app, an attachment that isn't a photo or PDF is now downloaded to the device instead of opening inside the app."
+  ]
+ },
+ {
   "v": "2.27.0",
   "d": "2026-11-12",
   "hora": "22:20:00",
