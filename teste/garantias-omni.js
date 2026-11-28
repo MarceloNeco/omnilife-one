@@ -171,6 +171,9 @@
        fixo (contador, ajuda e nota da janela, em PT, EN e ES); TL-04: o ⏰ da lista diz "prazo da lei:" quando não é o da frase curta
      - TL-06: o aviso legal com o nome novo; TL-08: o EN dos EUA; TL-11: o ≈ só no começo ajustado, não no fim copiado do bilhete
      - TL-12: "Falta a data" sem a lei que "vale sempre"; TL-14: o título curto da ajuda (1 linha a 390 px)
+     Revisão final (2.28.0)
+     - RF1: fechar a janela de escolher o arquivo do 📥 sem escolher nada não deixa o 📥 parado em "Espere"
+     - RF2: o app ou site para acionar com uma quebra de linha depois do "?" também fica sem o que vem depois dele
    Só valores de mentira ("Purificador Exemplo", "Loja Exemplo", CPF 123.456.789-00, que tem dígito inválido). Uso: node teste/rodar.js */
 const { criarConferir, abrirApp, iniciar, terminar, VP } = require('./_base');
 const fs = require('fs'), path = require('path');
@@ -4325,6 +4328,45 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(tl14TL.s0.startsWith('Aqui ficam os aparelhos da casa, até quando vale cada garantia e o que fazer quando estraga. Abra 🧾 Equipamentos e garantias') && tl14TL.s0en.startsWith("Here are your home's devices, how long each warranty lasts and what to do when something breaks. Open 🧾 Equipment & warranties") && tl14TL.achou,
     'Revisão telas-lei TL-14. ... a frase longa abre o 1º passo, e a 🔍 continua achando a ajuda (' + JSON.stringify([tl14TL.s0.slice(0, 100), tl14TL.s0en.slice(0, 100), tl14TL.achou]) + ')');
   await p.evaluate(async () => { for (const t of DB.raw('things')) await DB.del('things', t.id); setLang('pt'); go('home'); });
+  await p.waitForTimeout(300);
+
+  /* =====================================================================
+     Revisão final (2.28.0): o 📥 depois de fechar a janela de escolher o arquivo sem escolher nada (RF1) e o app ou site para
+     acionar com uma quebra de linha depois do "?" (RF2). Tudo de mentira
+     ===================================================================== */
+  console.log('\n— Revisão final: o 📥 depois de fechar a janela de escolher o arquivo, e o link para acionar com uma quebra de linha');
+  await fecharJanelas(p);
+
+  /* ---------- RF1: tocar 📥 e fechar a janela de escolher sem escolher nada (o Files.pick não responde nunca) ---------- */
+  const rf1RF = await p.evaluate(async (papel) => {
+    S.role = papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123');
+    const vistos = [], ob = new MutationObserver(() => document.querySelectorAll('#toasts .toast').forEach((x) => { if (!vistos.includes(x.textContent)) vistos.push(x.textContent); }));
+    ob.observe(document.querySelector('#toasts') || document.body, { childList: true, subtree: true, characterData: true });
+    const pk = Files.pick; let abriu = 0;
+    try {
+      Files.pick = () => { abriu++; return new Promise(() => {}); };   /* fechou a janela sem escolher: o onchange nunca vem */
+      Garantias.importar(); await new Promise((ok) => setTimeout(ok, 200));
+      Garantias.importar(); await new Promise((ok) => setTimeout(ok, 200));
+    } finally { Files.pick = pk; ob.disconnect(); }
+    return { abriu, toasts: vistos.join(' · ') };
+  }, papel0);
+  conferir(rf1RF.abriu === 2 && !/ainda estou trazendo/.test(rf1RF.toasts),
+    'Revisão final RF1. depois de fechar a janela de escolher o arquivo sem escolher nada, tocar 📥 de novo abre a janela outra vez (e não diz "Espere: ainda estou trazendo", que deixaria o 📥 parado até recarregar o app) (' + JSON.stringify(rf1RF) + ')');
+
+  /* ---------- RF2: o app ou site para acionar com uma quebra de linha depois do "?" (um arquivo do 📥 ou a resposta da IA) ---------- */
+  const LINK_RF = 'https://www.exemplo.com.br/sinistro?cpf=12345678900\n&cert=119800000&token=abcDEF123';
+  const rf2RF = await p.evaluate((a) => {
+    try {
+      const ex = JSON.parse(JSON.stringify(a.ex)); ex.itens[0].estendida.acionar.app = a.l;
+      const v = Garantias.validar(ex);
+      return { app: Garantias.app(a.l), ia: Garantias.daIA({ acionar: { app: a.l } }).acionar.app,
+        ler: Garantias.ler({ id: 'rf2', name: 'x', garantia: { v: 1, estendida: { tem: 'sim', acionar: { app: a.l } } } }).estendida.acionar.app,
+        arq: v && v.ok ? v.itens[0].garantia.estendida.acionar.app : 'recusado: ' + (v && v.erro) };
+    } catch (e) { return { erro: e.message }; }
+  }, { l: LINK_RF, ex: EX });
+  conferir(['app', 'ia', 'ler', 'arq'].every((k) => rf2RF[k] === 'https://www.exemplo.com.br/sinistro'),
+    'Revisão final RF2. o "App ou site para acionar" com uma quebra de linha depois do "?" também fica sem o CPF, o nº do bilhete e o token (direto, da IA, ao ler o que está gravado e do 📥) (' + JSON.stringify(rf2RF) + ')');
+  await p.evaluate(() => go('home'));
   await p.waitForTimeout(300);
 
   /* ---------- fusos: as mesmas contas em outros relógios ---------- */

@@ -639,7 +639,7 @@ sem framework: HTML, CSS e JavaScript puros.
   `alt`; a que acaba junto com a de fábrica ou antes, sem o `alt`, é `null`: não cobre nada a mais, e a ficha diz por quê; dois sinais de ≈: `est`, o do fim — sem o fim do bilhete é conta do app —, e `estIni`, o do começo ajustado ou calculado, para o bilhete que começa antes do fim da de fábrica não pôr ≈ no fim copiado dele), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
   `curta`, `proximoFim`, `avisos`, `art18` (o contador dos 30 dias para consertar, por defeito, só loja/fabricante/assistência) e
   `seguro` (o da seguradora: 30 dias pela Circ. SUSEP 659/2022, art. 21, e pela Lei 15.040/2024, art. 86, só no bilhete feito desde 11/Dez/2025; o "1 ano para ir à Justiça" é "não demore: pode já estar correndo desde o defeito", que vale nos dois tempos). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
-  limites de texto e de lista, link só https (o app ou site para acionar sem o que vem depois do "?" ou do "#", `Garantias.app`,
+  limites de texto e de lista, link só https (o app ou site para acionar sem o que vem depois do "?" ou do "#", mesmo com uma quebra de linha, `Garantias.app`,
   também no que vem do papel, da IA, do 📥 e do formulário), e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
   derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
   ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, IMEI — D-G17 —, chave da nota, valor, preço da estendida,
@@ -669,7 +669,7 @@ sem framework: HTML, CSS e JavaScript puros.
   antes de qualquer IA; pelos rótulos e formatos que conhece, por isso a ajuda diz "tenta tirar") → `local` (duas passadas) e, opcional, a IA só com
   o texto filtrado (`prompt`, `daIA`; nunca a imagem; o telefone dela só entra com "Usar") → `conferir` (uma janela por arquivo,
   🤖/📱) → `_salvarLido`. **📥 Trazer equipamentos prontos** (`importar` → `_trazer` → `validar` → `resumo` → `gravar`, no `DGO.fundo`,
-  um por vez — `_trazendo`: o 2º toque diz "Espere" —, tudo ou nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
+  um por vez — `_trazendo`, ligado só com o arquivo já escolhido (fechar a janela de escolher sem escolher nada não responde): o 2º toque diz "Espere" —, tudo ou nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
   recusado sem ler, um item ruim recusa o arquivo todo, o que já está no app (pelo ref) fica de fora; no fim, o pedido de apagar o
   arquivo.
   **MoneyTRIO (D-G2):** nada vai (nem `Bridge.post`, nem `sol_ponte`); o valor é só referência. **Ajuda e AssistONE:**

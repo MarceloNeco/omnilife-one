@@ -13103,7 +13103,7 @@ const Garantias = {
   https(x) { try { return typeof x === "string" && new URL(x).protocol === "https:"; } catch (e) { return false; } },
   /* o app ou site para acionar como fica gravado: só https e sem o que vem depois do "?" ou do "#" (num link do papel, ali podem vir
      o CPF, o nº do bilhete ou um token). Lido do papel, sugerido pela IA, do 📥, do formulário e ao ler o que está gravado */
-  app(x) { const s = typeof x === "string" ? x.trim().replace(/[?#].*$/, "") : ""; return this.https(s) ? s.slice(0, 300) : ""; },
+  app(x) { const s = typeof x === "string" ? x.trim().replace(/[?#][\s\S]*$/, "") : ""; return this.https(s) ? s.slice(0, 300) : ""; },
   /* link do manual: só http/https de um site de verdade (nada de javascript:, IP, localhost, rede de casa, porta nem
      usuário:senha). Conferido no formulário, no arquivo, na leitura e de novo ao desenhar */
   link(x) {
@@ -14908,13 +14908,14 @@ const Garantias = {
     if (!Rec.ok("garantias")) return Rec.avisar();
     const pm = Cofre.podeMudar(); if (!pm.ok) return toast(pm.texto, 6000);   /* no meio da troca da chave da família: espere terminar */
     if (!S.vaultKey && (await Cars.abrirCasaPossivel()) === false) return this.irParaCasa();
-    /* um 📥 por vez: o 2º toque, com o 1º ainda gravando, traria de novo o que ainda não foi gravado (o "já está no app" é conferido antes) */
-    this._trazendo = true;
-    try { return await this._trazer(); } finally { this._trazendo = false; }
-  },
-  /* o resto do 📥: escolher o arquivo, conferir, o resumo e gravar no Fundo */
-  async _trazer() {
     const [f] = (await Files.pick(".json,application/json", false)) || []; if (!f) return;
+    /* um 📥 por vez: o 2º toque, com o 1º ainda gravando, traria de novo o que ainda não foi gravado (o "já está no app" é conferido antes).
+       A trava liga só com o arquivo escolhido: fechar a janela de escolher sem escolher nada não responde, e a trava ficaria presa */
+    this._trazendo = true;
+    try { return await this._trazer(f); } finally { this._trazendo = false; }
+  },
+  /* o resto do 📥: conferir o arquivo, o resumo e gravar no Fundo */
+  async _trazer(f) {
     /* grande demais: recusa antes de ler (o arquivo inteiro iria para a memória) */
     if (f.size > 56 * 1048576) return toast(tt("O arquivo passa de 56 MB: é grande demais para trazer.", "The file is over 56 MB: it's too big to bring in.", "El archivo supera los 56 MB: es demasiado grande para traerlo."), 6000);
     let texto = ""; try { texto = await f.text(); } catch (e) { return toast(tt("Não deu para ler o arquivo.", "Couldn't read the file.", "No se ha podido leer el archivo."), 6000); }
