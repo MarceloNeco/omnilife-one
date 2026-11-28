@@ -63,7 +63,8 @@ const buracos = (p) => p.evaluate(() => {
 /* revisão 3 (telas): os alvos de toque da página menores que o pedido (todos ≥ 24 px; "Avançado" e os links soltos ≥ 44 px) */
 const alvosPequenos = (p) => p.evaluate(() => [...document.querySelectorAll('#segPedidos button, .segap button, .segap summary, .segap a, .segap select')].map((b) => {
   const r = b.getBoundingClientRect(), min = b.tagName === 'SUMMARY' || b.classList.contains('linkbtn') ? 44 : 24;
-  return r.width && (r.height < min || r.width < 24) ? (b.innerText || b.tagName).replace(/\s+/g, ' ').trim().slice(0, 30) + ' (' + Math.round(r.height) + ' px)' : '';
+  /* 0,01 px de folga: o navegador às vezes mede 43,99994 px um botão com min-height 44px (arredondamento de subpixel); isso não é alvo menor */
+  return r.width && (r.height < min - 0.01 || r.width < 24 - 0.01) ? (b.innerText || b.tagName).replace(/\s+/g, ' ').trim().slice(0, 30) + ' (' + Math.round(r.height) + ' px)' : '';
 }).filter(Boolean));
 /* revisão 3 (telas): o menor espaço entre dois botões seguidos de um item do Avançado (0 = colados, um encostado no outro) */
 const colados = (p, sel) => p.evaluate((sel) => {

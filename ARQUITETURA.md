@@ -58,7 +58,8 @@ sem framework: HTML, CSS e JavaScript puros.
 ## Mapa do `index.html` (procure pelos nomes)
 
 - `S` — estado global. `LS` — nomes das chaves do localStorage. `APP_VERSION` — versão.
-- `tt(pt, en)` — todo texto nasce nas duas línguas. `fmtDate` — datas `24/Set/2026` / `Sep/24/2026`.
+- `tt(pt, en)` — todo texto nasce nas duas línguas. `fmtDate` — datas `24/Set/2026` / `Sep/24/2026`. O módulo 🧾 Garantias (2.28.0)
+  já escreve também o espanhol, `tt(pt, en, es)`: o `tt` ignora o 3º argumento até o app inteiro ir para o ES.
 - `DB` — dados (drivers: `MemoryDriver` visitante, `LocalDriver` IndexedDB "docs" deste aparelho, `CloudDriver` nuvem). `DB.patch` para campos.
 - `CloudDriver` (v2.14.0, Etapa 2b) — registros da família no Supabase (`omni_docs`, um registro = uma linha, `dados` = o registro
   sem o `id`; `vis` `familia` ↔ `publico`). A tela lê sempre a **cópia do aparelho** (IndexedDB v2, store `nuvem`, chave
@@ -622,6 +623,93 @@ sem framework: HTML, CSS e JavaScript puros.
   "Apagar o que está só neste aparelho" (`PetFoto.naNuvem`); apagar (só responsável, pelas regras do bucket) tira daqui e faz `DELETE`; sem internet, o
   caminho fica em `LS.petFotoApagar` e é apagado no próximo `reenviar`. Adicionar roda no `DGO.fundo` (tipo `foto`). "Só neste
   aparelho": sem envio. Sem cifra (foto de bicho).
+- `Garantias` (2.28.0) — **🧾 Equipamentos e garantias, aba própria** (o inventário dos aparelhos da casa, com ou sem garantia, D-G13;
+  na barra de baixo e no topo, o nome curto "Equipamentos"; `SCREENS.garantias`, rotas `garantias`, `garantias/lista`,
+  `garantias/ficha/<id>` e `garantias/estragou[/<id>]`; id `casa.garantias` em `Rec` — `TAB`, `ACT.gar` e `AJUDA` — e no
+  `recursos-do-app.json`, todos os planos; ☰ › Casa, carro e papéis, depois de 🚗 Veículos; `canTab` como Casa: criança vê e não
+  muda). Tudo mora num bloco só, `/* ===== 🧾 GARANTIAS (2.28.0) ===== */ … /* ===== fim de GARANTIAS ===== */` (antes das telas
+  da Casa), e todo texto do bloco é `tt(pt, en, es)`: o `tt` ignora o ES, que fica escrito para quando o app inteiro for para o
+  espanhol (D-G7; o teste confere). **Dados, sem SQL:** a garantia mora no objeto do Onde está? (`things.garantia`, formato `v: 1`;
+  `v > 1` = de um app mais novo, só leitura e toda ação `gar.*` que grava recusa). O formulário antigo junta o que já estava
+  (`deepMerge`) e o `merge3` mantém o campo que só um lado tem: a versão de antes, ao editar o objeto, não apaga a garantia.
+  `ref = "gar_" + id` (fixo nos 2 celulares; o importado guarda o ref do arquivo); listas internas (`arquivos`, `defeitos`,
+  `atendimentos`) com `id`. **`GarCalc`** — as contas, puras e só com `Date.UTC` (o fuso não muda data): `somaMeses` (dia que não
+  existe = o último do mês, a data mais cedo), a de fábrica (conta da nota; ≈12 meses sem informação), o prazo da lei (conta da
+  entrega, 90/30 dias, CDC art. 26), a estendida (só cobre depois da de fábrica; "não sei" de quando contam os meses dá duas datas,
+  `alt`; a que acaba junto com a de fábrica ou antes, sem o `alt`, é `null`: não cobre nada a mais, e a ficha diz por quê; dois sinais de ≈: `est`, o do fim — sem o fim do bilhete é conta do app —, e `estIni`, o do começo ajustado ou calculado, para o bilhete que começa antes do fim da de fábrica não pôr ≈ no fim copiado dele), `situacao` (saiu, faltam, fabrica, estendida, faltaFim, talvezEst, lei, reclamado, defeito, espera, encerrados),
+  `curta`, `proximoFim`, `avisos`, `art18` (o contador dos 30 dias para consertar, por defeito, só loja/fabricante/assistência) e
+  `seguro` (o da seguradora: 30 dias pela Circ. SUSEP 659/2022, art. 21, e pela Lei 15.040/2024, art. 86, só no bilhete feito desde 11/Dez/2025; o "1 ano para ir à Justiça" é "não demore: pode já estar correndo desde o defeito", que vale nos dois tempos). Entrada ruim → `null`, nunca erro. **`Garantias.ler(t)`** é a única porta de leitura: lista branca,
+  limites de texto e de lista, link só https (o app ou site para acionar sem o que vem depois do "?" ou do "#", mesmo com uma quebra de linha, `Garantias.app`,
+  também no que vem do papel, da IA, do 📥 e do formulário), e nunca lança (um registro estragado vindo da nuvem, da cópia ou do banco não
+  derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
+  ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, IMEI — D-G17 —, chave da nota, valor, preço da estendida,
+  pagamento, final do cartão; o número de série NÃO: fica à vista no objeto, D-G16 d) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
+  `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. Na lista das Senhas da casa (`HouseViews.vaultLista`) esses itens ficam no fim, num quadro fechado `details.vgar` "🧾 Números das garantias (N)" (D-G21, 2.28.0). Apagar o item `gv_` nas
+  Senhas da casa (`editVault`) solta o objeto (`soltarSegredo`: sem o `vaultId` e os finais); apagado por um app de antes ou noutro
+  aparelho, a ficha mostra "Foram apagados: começar de novo" (`secNovo`, como o `car.secnovo`). `Garantias.modo()` =
+  aberto só para responsável com as Senhas abertas e sem troca da chave andando, conferido em cada janela (o relógio do
+  formulário tira os `_sec.*` se as Senhas fecharem). No app todo, `Files.open` mostra a foto, abre o PDF e BAIXA o resto (um .html nunca roda no endereço do app; D-G22, 2.28.0, PENDENCIAS #114). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
+  com `encrypt`, `restrito`); folheto e manual com o "Quem vê" do objeto; nome neutro (`nota-fiscal.pdf`), a marca `gar: <id>` no
+  registro do arquivo e só no aparelho; o "＋ papel" à mão só aceita foto ou PDF pelos primeiros bytes (`tipoReal`). `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
+  `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou e o papel que saiu da ficha em outro aparelho (o "saiu de casa" +
+  Apagar num aparelho sem o arquivo; lá, o `tirarPapeis` avisa) (com confirmação; depois do Apagar, só sai o que continua sobrando; na
+  nuvem, nada é sobra enquanto `CloudDriver.sincronizou` é falso — a 1ª sincronia e o `refazer`, que agora o zera). Até 30 papéis por
+  equipamento (`papeisCheio`: o "＋ papel" e o 📷 recusam o 31º); o ✏️ não devolve as listas (papéis, atendimentos, defeitos) da
+  leitura, que corta. **Telas:** `listView` (filtros "📋 Todos os
+  equipamentos" — o padrão, por nome —, Valendo, Em 30 dias, Vai começar e "🗄️ Vencidas" — D-G14, como arquivo —; "Faltam dados" no topo, fechado em
+  Todos; "📦 Saíram de casa" no fim de Todos; `S.garF`; na `linha`, o "⏰ em N dias" que não é o da frase curta diz o que acaba: "⏰ prazo da lei: em N dias"), `edit`/`salvar` (cadastro mínimo: nome + data da compra; o resto
+  em "＋ Mais detalhes"), `view`/`after` (a ficha), `estragou` (de quem cobrar por situação e por quem cobre, o que levar,
+  `atendimento`, os contadores, a assistência técnica — contato `cat: "assistencia"` 🔧 em `CT_CATS`, ligado pelo id) e `rodape`
+  (fontes no `moreBox`). CSS só com o prefixo `.gar` (alvos de 44 px). **Avisos (D-G4), nada gravado:** `marcos(hoje)` (30 e 7 dias
+  antes do fim da de fábrica e da estendida, e o começo da estendida; nada para o que saiu de casa; durante um desenho, `render()` liga
+  `Garantias._mc` e as contas saem uma vez só, porque o 🔔, o 📥 e o Início pedem até 5 vezes; fora do desenho, sempre na hora) alimenta o `Alerts.list`, o
+  `Notify.tick` (`once("gar-…")`, depois das 9h) e `agenda(de, ate)` o `Agenda.occurrences` (linhas `gar-<id>-…`; o `ev.edit` abre
+  a ficha). **📷 Ler nota ou bilhete** (`lerArquivos`, no `DGO.fundo`): OCR/`ShopImport.pdf` no aparelho → `mascarar` (nome, CPF,
+  RG, endereço, CEP, telefone, nascimento, a saudação do e-mail, o IMEI em grupos, os números longos e todo link com "?" ou "#",
+  antes de qualquer IA; pelos rótulos e formatos que conhece, por isso a ajuda diz "tenta tirar") → `local` (duas passadas) e, opcional, a IA só com
+  o texto filtrado (`prompt`, `daIA`; nunca a imagem; o telefone dela só entra com "Usar") → `conferir` (uma janela por arquivo,
+  🤖/📱) → `_salvarLido`. **📥 Trazer equipamentos prontos** (`importar` → `_trazer` → `validar` → `resumo` → `gravar`, no `DGO.fundo`,
+  um por vez — `_trazendo`, ligado só com o arquivo já escolhido (fechar a janela de escolher sem escolher nada não responde): o 2º toque diz "Espere" —, tudo ou nada, também os lembretes de manutenção do arquivo; o `resumo` conta os lembretes, os já atrasados e os sem a última vez): arquivo `{ formato: "omnilife.garantias", versao: 1, itens[] }`, só responsável com as Senhas abertas, acima de 56 MB
+  recusado sem ler, um item ruim recusa o arquivo todo, o que já está no app (pelo ref) fica de fora; no fim, o pedido de apagar o
+  arquivo.
+  **MoneyTRIO (D-G2):** nada vai (nem `Bridge.post`, nem `sol_ponte`); o valor é só referência. **Ajuda e AssistONE:**
+  `Garantias.AJUDA()` (o tópico `HELP().garantias`), `AQUI()` (`AOne.HERE().garantias`), `DICA()` (`AOne.TIPS().garantias`),
+  `busca()` (🔍; as palavras "garantia", "estendida seguro" e "nota fiscal" só entram no índice de quem tem a data, a estendida e a
+  nota ou o pedido) e `selo(t)` (Onde está?). **Linhas fora do bloco** (procure por "garantia"): `canTab`, `Rec` (`TAB`, `ACT`,
+  `AJUDA`), `TABS`, `ICONS.garantias`, `DRAWER_GROUPS`/`DRAWER_SUBS`, `Search.sources` (o grupo e a linha), `Alerts.list`, `render()` (liga e desliga o `Garantias._mc`; o resto foi para `renderTela()`),
+  `Notify.tick`, `Agenda.occurrences`, `ACT["ev.edit"]`, `legal()` (o parágrafo 🧾), `CT_CATS`, "Passar o bastão" (o item `gv_`
+  fica fora do painel), `Where.search` e `HouseViews.place` (o selo), `editThing` (nota e `onDelete`), `editVault` (a nota do item
+  da garantia), `HELP()` (`"garantias"`), `AOne.helpHere`, `AOne.HERE`/`TIPS` e o CSS `.gar`. Também da 2.28.0, para o app todo
+  (D-G10): `ShopImport.pdf` abre o PDF com `isEvalSupported: false` (CVE-2024-4367) e `LIBS.tesseract` tem a versão exata.
+  **Equipamentos (EQ1–EQ5, D-G13 a D-G19).** Campos novos em `t.garantia` (mesma chave, `v: 1`, todos opcionais na leitura; uma
+  versão antiga que edita o objeto mantém): `voltagem` (`GAR_ENUM.voltagem`: "", "127", "220", "bivolt"), `cor`, `codigo`, `serie` (à
+  vista para quem vê o objeto, em claro na nuvem e na cópia, como o nome; nunca vai à IA), `manualUrl` (só `Garantias.link`: http/https
+  de um site, sem IP, `localhost`, rede de casa, porta nem usuário:senha; conferido no formulário, no arquivo, na leitura e de novo ao
+  desenhar; nunca vem do OCR nem da IA) e `compra.naoSei` (situação `semData`: inventário, sem conta nem aviso, fora de "Faltam
+  dados"); os `finais` são `{ pedido, bilhete, imei }`. `GarCalc.semBase` é a conferência única da situação e dos avisos (o bilhete
+  com início e fim conta sem a data da compra; vale o sinal do fim, `est`, e o começo ajustado pelo folheto não tira a conta). Funções do bloco: `link`, `href` (o endereço conferido vai no `href`), `dominio`,
+  `buscaManual` (DuckDuckGo, `kl=br-pt`, só "manual" + marca + modelo, sem "!" nem meias letras, nunca lança), `pareceImei` (15
+  algarismos + dígito verificador), `sugManut` (com as `formas` PT, EN e ES; `ehSug` confere o "já existe" em qualquer uma),
+  `foraDeCasa`, `fichaDe`, `visJunto`, `voltTxt`, `_mtMapa`/`_mtLinha` (um
+  `Maint.list()` por desenho da lista), `manut`, `lembrete` (a janela de 3 campos), `mtRemarcar`, `mtParar`, `colarManual`; e
+  `ACT["gar.manual" | "gar.manut" | "gar.mtdata" | "gar.mtparar"]`. A ficha: situação → próximo passo → 🗓️ (só com alguma data;
+  fechado em vencida ou saiu de casa) → 🔌 Ficha técnica → 📘 Manual → 🛠 Manutenção → 🛒 Compra → 🔐 (só com algo guardado) → 📎 →
+  🔧/🗂️ → 📝. **Lembrete de manutenção = registro `maint` com `coisa: <id do objeto>`** (como o `veiculo` do carro e o `pet`):
+  `cat: "eletro"`, título "o que fazer — nome", o `vis` do objeto (na criação, no `salvar`, no ✏️ do Onde está? e no 📥); nada em
+  `t.garantia`. **Ligação interna nova, nos dois sentidos, Equipamentos ↔ Manutenção da casa:** a ficha cria, liga ("Já existe…
+  Ligar"), mostra, conta e apaga os lembretes; o 🔔/Início/Inbox, a Agenda e a 🔍 da manutenção abrem a ficha (`fichaDe`); o que saiu
+  de casa, foi apagado ou a pessoa não vê não avisa (`Maint.list` com `foraDeCasa`, em try); apagar o objeto leva os lembretes, e os
+  que sobram de objeto apagado entram nas 🧹 Sobras. O custo do "✓ Feito" de um equipamento não vai ao MoneyTRIO (a caixinha some, como
+  nos pets; D-G2). **Links para fora, só no toque e sem `fetch`:** o do manual (o site da marca) e a busca do manual no DuckDuckGo, os
+  dois com `target="_blank"` e `rel="noopener noreferrer"`. **📷 (EQ5):** o `local` separa a série (à vista) do IMEI (pelo rótulo); na
+  conferência, a série vai para o campo à vista e o que tem cara de IMEI vai para o `_sec.imei`, só no modo aberto. **Linhas de fora do
+  bloco (EQ):** `TABS` (`curto`, `kw`), `renderNav` (topo e barra de baixo com o `curto`), `BarEd.lbl`, o laço das abas do
+  `Search.sources` (o `kw`) e o grupo da 🔍, `Maint.list` (`fora`), `Maint.edit` ("🔌 Ligado a", sem o veículo), `Maint.done` (sem a
+  caixinha do MoneyTRIO com `coisa`), `Alerts.list`, `ACT["ev.edit"]`, a 🔍 da manutenção, `HouseViews.maint` (a 2ª linha "📦 saiu de
+  casa"/"🗑 o equipamento foi apagado" e o `have` pelo começo do título), `Cars.gravar` e `Pets.ligarAntigos` (`!x.coisa`),
+  `editThing` (a nota nova e o 🗑 escondido de criança num equipamento), a nota do item das Senhas, `legal()` (a frase da série e do
+  manual) e o CSS `.gar` (filtros e caixinha). O `recursos-do-app.json` (`casa.garantias`) tem o nome e o "onde" novos.
+  Teste: `teste/garantias-omni.js` (G1 a G8 e EQ1 a EQ5).
 - `SaudeMT` (2.23.0) — **Saúde → MoneyTRIO**, híbrida e opcional (`DB.setting().mt.saude`, ⚙ → Integrações; só responsável, nuvem e
   Senhas da casa prontas — `SaudeMT.pode()`). `resumo()` = `{v:1, enviado_em, pessoas:[{perfil_id, apelido, operadora, validade, medico, especie?}]}`
   de quem tem plano, validade ou médico (pet com `especie: "pet"`); cifrado com a CF (`Cofre.vf`, formato `{c:1, kv, fk, iv, ct}`)
