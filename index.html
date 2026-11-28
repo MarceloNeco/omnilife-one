@@ -606,6 +606,7 @@ body:not(.booted) .apfaixa{display:none}
 /* alvos de toque de 44 px: o "Avançado" (era 17 px) e os links soltos ("Esqueci o PIN", o da família) */
 .segap>details>summary{margin:0;padding:13px 6px;min-height:44px;cursor:pointer}
 .segap .linkbtn{min-height:44px}
+.vgar{margin-top:10px;border-top:1px solid var(--border);padding-top:4px}.vgar>summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:600}.vgar>.small{margin:2px 0 6px}
 .segap .segav{padding:10px 0;border-top:1px solid var(--border)}
 .segap .segav:first-child{border-top:0}
 .segap .segav .tiny{margin:4px 0 6px}
@@ -1675,7 +1676,9 @@ const Files = {
       const b = await this.blob(id); if (!b) { toast(tt("Arquivo não encontrado neste aparelho.", "File not found on this device.")); return; }
       const u = URL.createObjectURL(b);
       if (/^image\//.test(b.type)) { const mm = modal({ title: esc(m ? m.name : ""), wide: true, body: '<img src="' + u + '" alt="' + esc(m ? m.name : "") + '" style="width:100%;border-radius:12px">', foot: '<button class="btn ghost" data-dl>⬇ ' + tt("Baixar", "Download") + '</button><button class="btn ghost" data-sh>↗ ' + tt("Compartilhar", "Share") + "</button>" }); mm.el.querySelector("[data-dl]").onclick = () => download(m ? m.name : "foto.jpg", b); mm.el.querySelector("[data-sh]").onclick = () => shareFile(new File([b], m ? m.name : "foto.jpg", { type: b.type })); }
-      else window.open(u, "_blank");
+      else if (b.type === "application/pdf") window.open(u, "_blank");
+      /* D-G22 (2.28.0, #114): o que não é foto nem PDF (uma página .html, por exemplo) é BAIXADO, nunca aberto no endereço do app, onde rodaria com acesso aos dados deste aparelho */
+      else { URL.revokeObjectURL(u); download(m && m.name ? m.name : "arquivo", b); toast(tt("O arquivo foi baixado para o aparelho: abra-o pela pasta de downloads.", "The file was downloaded to your device: open it from your downloads folder.", "El archivo se ha descargado en el dispositivo: ábrelo desde la carpeta de descargas."), 5000); }
     } catch (e) { if (e.message === "vault-locked") { toast(tt("Abra as Senhas da casa primeiro.", "Unlock the vault first.")); } else toast(String(e.message || e)); }
   },
   async thumbs(ids, opts) {
@@ -13087,7 +13090,7 @@ const GarCalc = {
   final4(s) { return typeof s === "string" ? s.replace(/[^0-9A-Za-z]/g, "").slice(-4) : ""; }
 };
 /* quando as regras (CDC, Lei 15.040/2024, SUSEP e CNSP) foram conferidas na fonte: aparece no rodapé da aba */
-const GAR_REGRAS_EM = "2026-11-23";
+const GAR_REGRAS_EM = "2026-11-28";
 /* em que filtro da lista cada situação entra; "📋 Todos os equipamentos" (o padrão) tem todos, menos os que saíram de casa e os de um
    app mais novo; "Em 30 dias" sai do próximo fim, não da situação; "Faltam dados" fica no topo (D-G13; "Vencidas", D-G14) */
 const GAR_FILTROS = { valendo: ["fabrica", "estendida", "talvezEst", "lei", "reclamado", "defeito"], vai: ["espera"], vencidas: ["encerrados"] };
@@ -15068,7 +15071,11 @@ const HouseViews = {
     const rows = [];
     for (const v of DB.raw("vault").filter((x) => x.id !== "_meta" && x.id !== "_em" && (isGuardian() || Cofre.aberto()))) { try { const o = await Vault.decObj(v.enc); rows.push({ v, o }); } catch (e) {} }
     rows.sort((a, b) => String(a.o.title).localeCompare(b.o.title));
-    box.innerHTML = rows.length ? rows.map(({ v, o }) => { const k = vtKind(v.kind); return '<div class="li click" data-act="' + (isGuardian() ? "vault.edit" : "vault.ver") + '" data-id="' + v.id + '"><div class="ico">' + k[1] + '</div><div class="main"><div class="t">' + esc(o.title) + '</div><div class="s">' + esc([k[2], o.company, o.login, o.valid ? tt("validade ", "valid ") + fmtDate(o.valid) : ""].filter(Boolean).join(" · ")) + "</div></div>" + ((v.files || []).length ? "📎" : "") + "</div>"; }).join("") : '<div class="empty tiny">' + (Cofre.usa() && Cofre.aberto() && Cofre.desatualizado ? Cofre.T().vazia(Cofre.desatualizado) : tt("Ainda não tem nada guardado. Toque em ＋ Guardar — por exemplo, para a senha do Wi-Fi.", "Nothing saved yet. Tap ＋ Add — for example, for the Wi-Fi password.")) + "</div>";   /* revisão T2 */
+    const linha = ({ v, o }) => { const k = vtKind(v.kind); return '<div class="li click" data-act="' + (isGuardian() ? "vault.edit" : "vault.ver") + '" data-id="' + v.id + '"><div class="ico">' + k[1] + '</div><div class="main"><div class="t">' + esc(o.title) + '</div><div class="s">' + esc([k[2], o.company, o.login, o.valid ? tt("validade ", "valid ") + fmtDate(o.valid) : ""].filter(Boolean).join(" · ")) + "</div></div>" + ((v.files || []).length ? "📎" : "") + "</div>"; };
+    /* D-G21 (2.28.0): os "… — números da garantia" vão para o fim, num quadro fechado, para o Wi-Fi e as senhas de verdade não se perderem no meio */
+    const gar = rows.filter((r) => typeof r.o.garantiaDe === "string" && r.o.garantiaDe), resto = rows.filter((r) => !gar.includes(r));
+    const quadro = gar.length ? '<details class="vgar"><summary>🧾 ' + tt("Números das garantias", "Warranty numbers", "Números de las garantías") + " (" + gar.length + ')</summary><div class="small muted">' + tt("Pedido, bilhete, IMEI e valores dos equipamentos. Também se abrem pela ficha de cada equipamento.", "Order, certificate, IMEI and amounts of the appliances. They also open from each item's page.", "Pedido, certificado, IMEI e importes de los aparatos. También se abren desde la ficha de cada aparato.") + "</div>" + gar.map(linha).join("") + "</details>" : "";
+    box.innerHTML = resto.length ? resto.map(linha).join("") + quadro : (gar.length ? quadro : '<div class="empty tiny">' + (Cofre.usa() && Cofre.aberto() && Cofre.desatualizado ? Cofre.T().vazia(Cofre.desatualizado) : tt("Ainda não tem nada guardado. Toque em ＋ Guardar — por exemplo, para a senha do Wi-Fi.", "Nothing saved yet. Tap ＋ Add — for example, for the Wi-Fi password.")) + "</div>");   /* revisão T2 */
   },
   guides() {
     const gs = DB.all("guides");

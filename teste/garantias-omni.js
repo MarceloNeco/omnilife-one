@@ -642,7 +642,7 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   conferir(/⚠️ Faltam dados \(1\)/.test(L.txt) && !L.lista.includes('G2 Objeto sem garantia') && !/G2 Objeto sem garantia/.test(L.txt), 'objeto do Onde está? sem garantia fica fora da lista');
   conferir(/^Marca Exemplo PX-100 · comprado em [A-Z][a-z]{2}\/\d{4} \| ✅ Fábrica até \d{2}\/[A-Z][a-z]{2}\/\d{4} · ⏰ em 30 dias$/.test(L.linhas[0]) && !/⏰/.test(L.linhas[1]), 'a linha: marca e modelo, "comprado em Mês/Ano", a frase curta e "em 30 dias" (só até 30) — ' + L.linhas[0]);
   conferir((L.txt.match(/≈ = conta do app; confira no folheto ou no bilhete/g) || []).length === 1, '"≈ = conta do app; confira no folheto ou no bilhete" uma vez, no topo da lista');
-  conferir(/📌 Datas ≈ com o que você informou; vale o folheto e o bilhete\. Não é assessoria jurídica\./.test(L.txt) && /Pela lei brasileira \(CDC arts\. 18, 24, 26 e 50; Lei 15\.040\/2024; Circ\. SUSEP 659\/2022; Res\. CNSP 496\/2026\), conferido em 23\/Nov\/2026/.test(L.txt), 'rodapé de uma linha ("Não é assessoria jurídica") e as fontes, "pela lei brasileira", conferido em 23/Nov/2026');
+  conferir(/📌 Datas ≈ com o que você informou; vale o folheto e o bilhete\. Não é assessoria jurídica\./.test(L.txt) && /Pela lei brasileira \(CDC arts\. 18, 24, 26 e 50; Lei 15\.040\/2024; Circ\. SUSEP 659\/2022; Res\. CNSP 496\/2026\), conferido em 28\/Nov\/2026/.test(L.txt), 'rodapé de uma linha ("Não é assessoria jurídica") e as fontes, "pela lei brasileira", conferido em 28/Nov/2026 (G10: fontes conferidas de novo)');
   conferir(await p.evaluate((id) => !!document.querySelector('#screen .gar-lista .li[data-act="go"][data-tab="garantias"][data-sub="ficha"][data-arg="' + id + '"]'), fx.a), 'tocar na linha leva à ficha (garantias/ficha/<id>)');
   await p.click('#screen .garf [data-f="em30"]', { timeout: 3000 }).catch(() => {}); await p.waitForTimeout(400);
   L = await tela();
@@ -4366,6 +4366,52 @@ const conferirCasos = (casos, res, prefixo) => casos.forEach((c, i) => {
   }, { l: LINK_RF, ex: EX });
   conferir(['app', 'ia', 'ler', 'arq'].every((k) => rf2RF[k] === 'https://www.exemplo.com.br/sinistro'),
     'Revisão final RF2. o "App ou site para acionar" com uma quebra de linha depois do "?" também fica sem o CPF, o nº do bilhete e o token (direto, da IA, ao ler o que está gravado e do 📥) (' + JSON.stringify(rf2RF) + ')');
+  await p.evaluate(() => go('home'));
+  await p.waitForTimeout(300);
+
+  /* =====================================================================
+     G10 (publicação da 2.28.0, decisões do dono de 28/Nov/2026): D-G21 — os "… — números da garantia" das Senhas da casa num quadro
+     fechado no fim da lista; D-G22 — o anexo que não é foto nem PDF é baixado, nunca aberto no endereço do app. Tudo de mentira
+     ===================================================================== */
+  console.log('\n— G10: o quadro dos números das garantias e o anexo que não é foto nem PDF');
+  await fecharJanelas(p);
+  const g10q = await p.evaluate(async (papel) => {
+    S.role = papel; if (S.lang !== 'pt') setLang('pt'); if (!S.vaultKey) await Vault.unlock('senha-de-mentira-123');
+    const ids = [];
+    for (const [id, o] of [['g10a', { title: 'G10 Alarme Exemplo', pass: 'x' }], ['g10z', { title: 'G10 Zz Wi-Fi Exemplo', pass: 'y' }],
+      ['gv_g10-1', { title: 'G10 Aa Purificador Exemplo — números da garantia', pedido: 'PED-G10-1', garantiaDe: 'g10-1' }],
+      ['gv_g10-2', { title: 'G10 Bb TV Exemplo — números da garantia', pedido: 'PED-G10-2', garantiaDe: 'g10-2' }],
+      ['gv_g10-3', { title: 'G10 Cc Geladeira Exemplo — números da garantia', pedido: 'PED-G10-3', garantiaDe: 'g10-3' }]]) {
+      await DB.put('vault', { id, kind: o.garantiaDe ? 'seguro' : 'senha', enc: await Vault.encObj(o), files: [], vis: 'restrito' }, true); ids.push(id);
+    }
+    const box = document.createElement('div'); document.body.appendChild(box); await HouseViews.vaultLista(box);
+    const d = box.querySelector('details.vgar'), fora = [...box.children].filter((x) => x !== d).map((x) => x.textContent);
+    const dentro = d ? [...d.querySelectorAll('.li .t')].map((x) => x.textContent) : [];
+    const sum = d ? d.querySelector('summary') : null, alt = sum ? sum.getBoundingClientRect().height : 0;
+    const r = { temQuadro: !!d, fechado: d ? !d.open : null, resumo: sum ? sum.textContent : '', dentro, ultimoEhQuadro: box.lastElementChild === d,
+      foraTemGarantia: fora.some((t) => /números da garantia/.test(t)), foraTemSenhas: fora.some((t) => /G10 Alarme/.test(t)) && fora.some((t) => /G10 Zz Wi-Fi/.test(t)), alt };
+    box.remove(); for (const id of ids) await DB.del('vault', id);
+    return r;
+  }, papel0);
+  const g10n = (g10q.resumo.match(/\((\d+)\)/) || [])[1];
+  conferir(g10q.temQuadro && g10q.fechado && g10q.ultimoEhQuadro && +g10n === g10q.dentro.length && ['G10 Aa', 'G10 Bb', 'G10 Cc'].every((n) => g10q.dentro.some((t) => t.startsWith(n))) && !g10q.foraTemGarantia && g10q.foraTemSenhas,
+    'G10 D-G21. Senhas da casa: os "… — números da garantia" (os 3 daqui e os que outras seções deixaram) ficam num quadro fechado "🧾 Números das garantias (N)" no fim da lista, e as senhas de verdade (mesmo as que vêm depois na ordem alfabética) ficam à vista (' + JSON.stringify(g10q) + ')');
+  conferir(g10q.alt >= 44 - 0.01, 'G10 D-G21. o quadro se abre com um toque de 44 px (' + g10q.alt + ' px)');
+
+  const g10a = await p.evaluate(async () => {
+    const abertos = [], baixados = [], wo = window.open;
+    const fid = await Files.save(new File([new TextEncoder().encode('<script>alert(1)</script>')], 'pagina.html', { type: 'text/html' }), { vis: 'restrito', raw: true });
+    const fpdf = await Files.save(new File([new TextEncoder().encode('%PDF-1.4 g10')], 'nota.pdf', { type: 'application/pdf' }), { vis: 'restrito', raw: true });
+    const aClick = HTMLAnchorElement.prototype.click;
+    try {
+      window.open = (u) => { abertos.push(String(u).slice(0, 5)); return null; };
+      HTMLAnchorElement.prototype.click = function () { baixados.push(this.download); };
+      await Files.open(fid); await Files.open(fpdf);
+    } finally { window.open = wo; HTMLAnchorElement.prototype.click = aClick; await Files.remove(fid); await Files.remove(fpdf); }
+    return { abertos, baixados };
+  });
+  conferir(g10a.baixados.includes('pagina.html') && g10a.abertos.length === 1,
+    'G10 D-G22. um anexo .html é BAIXADO (nunca aberto no endereço do app), e o PDF continua abrindo (' + JSON.stringify(g10a) + ')');
   await p.evaluate(() => go('home'));
   await p.waitForTimeout(300);
 

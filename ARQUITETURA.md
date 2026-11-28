@@ -644,11 +644,11 @@ sem framework: HTML, CSS e JavaScript puros.
   derruba o 🔔); fora do bloco há um try por objeto. `GAR_REGRAS_EM` = o dia em que as regras foram conferidas na fonte (rodapé e
   ajuda). **Números e dinheiro (D-G11):** `GAR_SEC` (bilhete, pedido, IMEI — D-G17 —, chave da nota, valor, preço da estendida,
   pagamento, final do cartão; o número de série NÃO: fica à vista no objeto, D-G16 d) num item das Senhas da casa `gv_` + id (`kind: "seguro"`, `garantiaDe`, `restrito`), como o
-  `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. Apagar o item `gv_` nas
+  `CAR_SEC` do carro: `guardarSegredo`/`segredo`; no objeto só os finais (`finais`), "final 0001" e o 👁. Na lista das Senhas da casa (`HouseViews.vaultLista`) esses itens ficam no fim, num quadro fechado `details.vgar` "🧾 Números das garantias (N)" (D-G21, 2.28.0). Apagar o item `gv_` nas
   Senhas da casa (`editVault`) solta o objeto (`soltarSegredo`: sem o `vaultId` e os finais); apagado por um app de antes ou noutro
   aparelho, a ficha mostra "Foram apagados: começar de novo" (`secNovo`, como o `car.secnovo`). `Garantias.modo()` =
   aberto só para responsável com as Senhas abertas e sem troca da chave andando, conferido em cada janela (o relógio do
-  formulário tira os `_sec.*` se as Senhas fecharem). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
+  formulário tira os `_sec.*` se as Senhas fecharem). No app todo, `Files.open` mostra a foto, abre o PDF e BAIXA o resto (um .html nunca roda no endereço do app; D-G22, 2.28.0, PENDENCIAS #114). Os papéis (`GAR_PAPEIS`): nota, bilhete e foto do defeito trancados (`Files.save`
   com `encrypt`, `restrito`); folheto e manual com o "Quem vê" do objeto; nome neutro (`nota-fiscal.pdf`), a marca `gar: <id>` no
   registro do arquivo e só no aparelho; o "＋ papel" à mão só aceita foto ou PDF pelos primeiros bytes (`tipoReal`). `apagar` (também pelo `onDelete` do ✏️ do Onde está?) leva os papéis com a marca e o item
   `gv_`; `sobras`/`tirarSobras` acham o que uma versão antiga deixou e o papel que saiu da ficha em outro aparelho (o "saiu de casa" +
